@@ -2,6 +2,7 @@ import {
   app,
   BrowserWindow,
   clipboard,
+  dialog,
   ipcMain,
   net,
   nativeImage,
@@ -19,6 +20,11 @@ import { homedir } from "node:os";
 import { Worker } from "node:worker_threads";
 import { basename, dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { registerCanvasRuntimeIpc } from "./canvas/runtime-ipc";
+import { canvasCli } from "./canvas/runtime-cli";
+import { registerVideoWorkspaceIpc, videoPreviewResponse } from "./video-workspace/ipc";
+import { createGenerationCredentials, registerGenerationCredentialIpc, validateGenerationProviderKey } from "./canvas/generation-credentials";
+import { loadCanvases, saveCanvas } from "./canvas/store";
 import {
   ClaudeCredentialStore,
   EncryptedCredentialStore,
@@ -180,6 +186,22 @@ const INSTRUMENT_SHELL_AUDIT = process.argv.includes("--instrument-shell-audit")
 let cachedFileDragIcon: Electron.NativeImage | null = null;
 let claudeCredentialStore: ClaudeCredentialStore | null = null;
 let openRouterCredentialStore: EncryptedCredentialStore | null = null;
+const generationCredentialStores = new Map<"elevenlabs" | "fal", EncryptedCredentialStore>();
+const generationCredentials = createGenerationCredentials({
+  environment: () => process.env,
+  store: (provider) => {
+    if (provider === "openrouter") return openRouterStore();
+    let store = generationCredentialStores.get(provider);
+    if (!store) {
+      store = new EncryptedCredentialStore({
+        path: join(app.getPath("userData"), provider === "elevenlabs" ? "elevenlabs-api-key.bin" : "fal-api-key.bin"),
+        cipher: safeStorage, validate: (key) => validateGenerationProviderKey(provider, key),
+      });
+      generationCredentialStores.set(provider, store);
+    }
+    return store;
+  },
+});
 let activeAgentSession: { stop(): void } | null = null;
 /* The title turn's own slot, so `stop` still means "stop the turn the operator is watching". */
 let activeTitleSession: { stop(): void } | null = null;
@@ -1377,6 +1399,82 @@ function parseProjectMediaRef(value: unknown): { type: "artifact" | "run-object"
 }
 
 function registerProjectDomainIpc(): void {
+  registerVideoWorkspaceIpc({
+    handle: (channel, handler) => securedHandle(channel, (_event, ...args) => handler(...args)),
+    chooseFile: async () => (await dialog.showOpenDialog({ title: "Add media to video", properties: ["openFile"], filters: [{ name: "Media", extensions: ["mp4", "mov", "webm", "png", "jpg", "jpeg", "webp", "gif", "mp3", "wav", "m4a", "ogg", "woff2", "ttf"] }] })).filePaths[0] ?? null,
+    capture: async (workspaceId) => {
+      const operation = captureBridgeRoot(), client = ralphySession.client;
+      await client.request("workspace.show", { context: { workspaceId }, workspaceId });
+      assertBridgeRoot(operation);
+      return {
+        root: operation.rootPath, assertCurrent: () => assertBridgeRoot(operation),
+        request: async (method, params) => { assertBridgeRoot(operation); const result = await client.request(method, params); assertBridgeRoot(operation); return result; },
+        cli: canvasCli(resolveRalphyExecutable({ isPackaged: app.isPackaged, resourcesPath: process.resourcesPath, env: process.env }) ?? "ralphy", operation.rootPath, workspaceId),
+        mint: async (path, mime, bytes) => {
+          const minted = await mediaState.fileAccess.mintTrustedLocator(operation.rootPath, path, mime, bytes, () => assertBridgeRoot(operation));
+          return { url: `ralphy-media://asset/${minted.token}` };
+        },
+      };
+    },
+  });
+  registerGenerationCredentialIpc({
+    handle: (channel, handler) => securedHandle(channel, (_event, ...args) => handler(...args)),
+    credentials: generationCredentials,
+  });
+  registerCanvasRuntimeIpc({
+    handle: (channel, handler) => securedHandle(channel, (_event, ...args) => handler(...args)),
+    fetcher: (input, init) => net.fetch(input instanceof URL ? input.href : input, init),
+    chooseExport: async (name) => (await dialog.showSaveDialog({ title: "Export generated media", defaultPath: name })).filePath ?? null,
+    chooseFile: async () => (await dialog.showOpenDialog({ properties: ["openFile"], title: "Import canvas asset", filters: [{ name: "Media and text", extensions: ["png", "jpg", "jpeg", "webp", "gif", "mp4", "mov", "webm", "mp3", "wav", "m4a", "ogg", "txt", "md", "json"] }] })).filePaths[0] ?? null,
+    capture: async (workspaceId) => {
+      const operation = captureBridgeRoot();
+      const client = ralphySession.client;
+      await client.request("workspace.show", { context: { workspaceId }, workspaceId });
+      const credentials = await generationCredentials.capture();
+      const openRouterApiKey = credentials.OPENROUTER_API_KEY;
+      assertBridgeRoot(operation);
+      return {
+        root: operation.rootPath, workspaceId,
+        request: client.request.bind(client),
+        assertCurrent: () => assertBridgeRoot(operation),
+        cli: canvasCli(resolveRalphyExecutable({ isPackaged: app.isPackaged, resourcesPath: process.resourcesPath, env: process.env }) ?? "ralphy", operation.rootPath, workspaceId, credentials),
+        mint: async (path, mime, bytes) => {
+          const minted = await mediaState.fileAccess.mintTrustedLocator(operation.rootPath, path, mime, bytes, () => assertBridgeRoot(operation));
+          return { url: `ralphy-media://asset/${minted.token}` };
+        },
+        text: async (model, prompt, signal) => {
+          const binary = await resolveCodexBinary();
+          if (!binary || !openRouterApiKey) throw new Error("Connect OpenRouter in agent settings to run a text model");
+          assertBridgeRoot(operation);
+          let text = "", error: string | null = null;
+          const session = new CodexSession({ binary, emit: (event) => { if (event.type === "text-delta") text += event.text; if (event.type === "error") error = event.message; } });
+          const stop = () => session.stop();
+          signal.addEventListener("abort", stop, { once: true });
+          try {
+            signal.throwIfAborted();
+            await session.run({ rootPath: operation.rootPath, provider: "openrouter", model, openRouterApiKey, permissionMode: "plan", prompt: `Respond with the requested text only. Do not use tools or execute commands.\n\n${prompt}` });
+            signal.throwIfAborted();
+            if (error) throw new Error(error);
+            return text;
+          } finally { signal.removeEventListener("abort", stop); }
+        },
+      };
+    },
+  });
+  securedHandle(MEDIA_CHANNELS.loadCanvases, async (_event, workspaceId: unknown) => {
+    const operation = captureBridgeRoot();
+    const id = parseString(workspaceId, "Workspace identifier", 128);
+    await ralphySession.client.request("workspace.show", { context: { workspaceId: id }, workspaceId: id });
+    assertBridgeRoot(operation);
+    return loadCanvases(operation.rootPath, id, () => assertBridgeRoot(operation));
+  });
+  securedHandle(MEDIA_CHANNELS.saveCanvas, async (_event, workspaceId: unknown, canvas: unknown, revision: string | null) => {
+    const operation = captureBridgeRoot();
+    const id = parseString(workspaceId, "Workspace identifier", 128);
+    await ralphySession.client.request("workspace.show", { context: { workspaceId: id }, workspaceId: id });
+    assertBridgeRoot(operation);
+    return saveCanvas(operation.rootPath, id, canvas, revision, () => assertBridgeRoot(operation));
+  });
   /* The bundled shelf needs no library root and no network: it is this build's
      own resources, so it registers beside the CDN catalog rather than inside it. */
   registerMarketplacePackIpc({
@@ -1807,7 +1905,7 @@ function startNormalDesktop(): void {
     () => app.quit(),
   );
   watcher = new ActiveRootResource<LibraryWatcher>();
-  protocol.registerSchemesAsPrivileged([{
+  protocol.registerSchemesAsPrivileged([{ scheme: "ralphy-video", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }, {
     scheme: "ralphy-media",
     privileges: {
       standard: true,
@@ -1839,6 +1937,7 @@ function startNormalDesktop(): void {
   });
 
   void app.whenReady().then(() => {
+    protocol.handle("ralphy-video", (request) => videoPreviewResponse(request.url));
     electronSession.defaultSession.setPermissionRequestHandler(denyPermissionRequest);
     /* The browser partition is a separate session, so the default session's refusal does not
        reach it: a page in a view tab asks nobody for the camera either. */

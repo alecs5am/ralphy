@@ -11,11 +11,13 @@
    breakpoint of its own. */
 :root {
   /* The momentum band: six totals that re-wrap rather than squeeze. */
-  --workspace-metric-columns: repeat(auto-fit, minmax(124px, 1fr));
+  --workspace-metric-columns: repeat(auto-fit, minmax(100px, 1fr));
+  --workspace-performance-columns: minmax(0, 2fr) minmax(180px, 1fr);
   /* The production-efficiency band: six bounded metrics, each with a reason under it. */
   --workspace-efficiency-columns: repeat(auto-fit, minmax(148px, 1fr));
   /* Fourteen days of publishing density. */
-  --workspace-day-columns: repeat(auto-fit, minmax(52px, 1fr));
+  --workspace-day-columns: repeat(7, minmax(0, 1fr));
+  --workspace-day-wide-columns: repeat(14, minmax(0, 1fr));
   /* Three outcome groups, and the insight cards. */
   --workspace-outcome-columns: repeat(auto-fit, minmax(190px, 1fr));
   --workspace-insight-columns: repeat(auto-fit, minmax(232px, 1fr));
@@ -23,6 +25,7 @@
   /* A Unit's row on the workspace's Units page: the glyph, the slug, its format, its lifecycle,
      the project that owns it, and when it last moved. */
   --workspace-unit-columns: 15px minmax(0, 1fr) auto auto minmax(0, 0.6fr) auto;
+  --workspace-unit-narrow-columns: auto minmax(0, 1fr) auto;
 
   /* The two row shapes this route repeats. A row is copy plus one action, or a glyph plus
      copy; the three-column rows fall back to the glyph form on a narrow content row. */
@@ -38,6 +41,85 @@
   --workspace-skeleton-short: 48%;
 }
 
+.workspace-overview-section { grid-column: 1 / -1; }
+.workspace-metric-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.workspace-metric { position: relative; border-right: 1px solid var(--instrument-divider); }
+.workspace-metric:last-child { border-right: 0; }
+.workspace-metric-index { position: absolute; top: 8px; right: 10px; opacity: .45; }
+.workspace-metric dt { padding-top: 6px; }
+.workspace-performance-charts { display: grid; grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr); gap: 8px; }
+.workspace-performance-charts > :only-child { grid-column: 1 / -1; }
+.workspace-performance-charts > .workspace-engagement:only-child .workspace-engagement-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.workspace-performance-charts > .workspace-engagement:only-child .workspace-engagement-body > :last-child { grid-column: 1 / -1; }
+.workspace-signal-field { position: relative; min-width: 0; padding-bottom: 24px; }
+.workspace-signal-svg { display: block; overflow: visible; }
+.workspace-signal-grid { opacity: .08; }
+.workspace-signal-column { color: var(--instrument-text-secondary-readable); }
+.workspace-signal-column[data-active="true"] { color: var(--instrument-tag-file); }
+.workspace-pattern-normal { color: var(--instrument-text-secondary-readable); }
+.workspace-pattern-active { color: var(--instrument-tag-file); }
+.workspace-signal-targets { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(var(--signal-count), minmax(0, 1fr)); }
+.workspace-signal-target { min-width: 0; display: flex; align-items: flex-end; justify-content: center; padding: 0; color: var(--instrument-text-secondary-readable); background: transparent; border: 0; font: var(--text-mono-2xs) var(--font-mono); cursor: pointer; }
+.workspace-signal-target span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px; }
+.workspace-signal-target[aria-pressed="true"] { color: var(--instrument-text-primary); }
+.workspace-signal-target:focus-visible { outline: 1px solid var(--instrument-text-primary); outline-offset: -1px; border-radius: var(--radius-keycap); }
+.workspace-segment-meter { width: 100%; height: 12px; color: var(--instrument-tag-file); }
+.workspace-engagement-body { display: flex; flex-direction: column; }
+.workspace-meter-track { color: var(--instrument-text-primary); opacity: .1; }
+.workspace-meter-row[data-channel="1"] .workspace-segment-meter { color: var(--instrument-tag-unit); }
+.workspace-meter-row[data-channel="2"] .workspace-segment-meter { color: var(--instrument-tag-project); }
+.workspace-account-leds { display: flex; flex-wrap: wrap; gap: 4px; max-width: 96px; }
+.workspace-account-leds span { width: 10px; height: 22px; border-radius: var(--radius-dot); background: repeating-linear-gradient(to bottom, var(--instrument-alert) 0 2px, transparent 2px 4px); }
+.workspace-account-leds span[data-connected="true"] { background: repeating-linear-gradient(to bottom, var(--instrument-tag-project) 0 2px, transparent 2px 4px); }
+.account-portfolio { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.workspace-plan-days { display: grid; grid-template-columns: var(--workspace-day-columns); list-style: none; margin: 8px 0; padding: 8px; gap: 4px; border-radius: var(--radius-frame); background: var(--instrument-card); }
+.workspace-plan-step { min-width: 0; text-align: center; padding: 4px 0; border-radius: var(--radius-keycap); }
+.workspace-plan-step time { display: flex; flex-direction: column; gap: 4px; }
+.workspace-plan-step time span { font-size: var(--text-mono-2xs); text-transform: uppercase; }
+.workspace-plan-step time strong { font-size: var(--text-sm); font-weight: 400; color: var(--instrument-text-primary); }
+.workspace-step-meter { display: block; width: 24px; height: 28px; margin: 4px auto; color: var(--instrument-tag-project); }
+.workspace-step-count { display: block; font-size: var(--text-mono-2xs); }
+.workspace-plan-event-main { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: baseline; }
+.workspace-plan-event-main > details { grid-column: 1 / -1; }
+.workspace-plan-step[data-active="true"] .workspace-step-count { color: var(--instrument-text-primary); }
+.workspace-active-project-list { grid-template-columns: minmax(0, 1fr); }
+.workspace-unit-result-grid { grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr)); }
+.workspace-unit-result[data-direction="up"], .workspace-channel-results tr[data-direction="up"] { --workspace-result-tone: var(--instrument-tag-project); }
+.workspace-unit-result[data-direction="down"], .workspace-channel-results tr[data-direction="down"] { --workspace-result-tone: var(--instrument-text-secondary-readable); }
+.workspace-result-change { color: var(--instrument-text-primary); }
+.workspace-result-change svg { color: var(--workspace-result-tone); }
+.workspace-channel-results tbody tr { border-top: 1px solid var(--instrument-divider); }
+.workspace-channel-name { width: 34%; }
+.workspace-change-meter { display: block; width: 100%; height: 10px; margin-top: 6px; color: var(--workspace-result-tone); }
+@container main-region (min-width: 900px) {
+  .workspace-overview-scroll { grid-template-rows: auto max-content minmax(0, 1fr); }
+  .workspace-accounts { grid-column: 1 / span 6; grid-row: 2; }
+  .workspace-content-plan { grid-column: 7 / -1; grid-row: 2 / span 2; }
+  .workspace-active-projects { grid-column: 1 / span 6; grid-row: 3; }
+  .workspace-unit-outcomes { grid-row: 4; }
+}
+@container workspace-plan (min-width: 760px) {
+  .workspace-plan-days { grid-template-columns: var(--workspace-day-wide-columns); }
+}
+@container account-portfolio (max-width: 900px) {
+  .account-portfolio { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container account-portfolio (max-width: 440px) {
+  .account-portfolio { grid-template-columns: minmax(0, 1fr); }
+}
+@container main-region (max-width: 680px) {
+  .workspace-metric-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .workspace-metric:nth-child(3) { border-right: 0; }
+  .workspace-metric:nth-child(-n+3) { border-bottom: 1px solid var(--instrument-divider); }
+  .workspace-performance-charts { grid-template-columns: minmax(0, 1fr); }
+  .workspace-engagement-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .workspace-engagement-body > :last-child { grid-column: 1 / -1; }
+}
+@container main-region (max-width: 360px) {
+  .workspace-metric-index { display: none; }
+  .workspace-signal-target:nth-child(even) span { visibility: hidden; }
+}
+
 @theme inline {
   /* The ring for a control standing on the black overview header: the theme ink would be
      black on black in the light theme. */
@@ -45,6 +127,7 @@
 
   /* The detail drawer covers the right edge of the desk and never exceeds the window. */
   --spacing-workspace-drawer: min(480px, calc(100vw - 48px));
+  --spacing-workspace-outcome-detail: min(640px, calc(100vw - 48px));
   /* The detail is centred rather than pinned to the right edge, so it needs a height of its own:
      tall enough for the evidence lists, short enough to stay off the window edge. */
   --spacing-workspace-detail-height: min(760px, calc(100vh - 64px));
@@ -65,5 +148,6 @@
   --container-workspace-section: 860px;   /* a section takes half the desk row, and Operations splits */
   --container-workspace-row: 760px;       /* a row drops to its glyph form and stacks its actions */
   --container-workspace-portfolio: 900px; /* the account portfolio goes from four columns to two */
-  --container-workspace-portfolio-narrow: 520px; /* ...and then to one */
+  --container-workspace-portfolio-narrow: 380px; /* ...and then to one */
+  --container-workspace-plan-wide: 820px; /* fourteen readable day cells; otherwise two full weeks */
 }

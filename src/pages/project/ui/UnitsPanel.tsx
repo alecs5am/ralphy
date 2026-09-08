@@ -133,13 +133,14 @@ function UnitCard({ unit, baseLifecycle, publications, controller, disabled, onO
   </article>;
 }
 
-export function UnitsPanel({ page, controller, snapshot, targetUnitId, scrollMemory, resetToken }: {
+export function UnitsPanel({ page, controller, snapshot, targetUnitId, scrollMemory, resetToken, onEditVideo }: {
   page: DomainPage;
   controller: ProjectScreenController;
   snapshot: ProjectScreenSnapshot;
   targetUnitId?: string | null;
   scrollMemory: Map<string, number>;
   resetToken: string;
+  onEditVideo?(unitId: string, title: string): void;
 }) {
   const units = page.items as UnitDto[];
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -199,6 +200,6 @@ export function UnitsPanel({ page, controller, snapshot, targetUnitId, scrollMem
       </div>}
       <AutoCursorTail root={scrollRoot} hasMore={page.nextCursor !== null} loading={page.status === "loading" && units.length > 0} error={page.status === "error" && units.length > 0 ? page.error : null} onLoadMore={() => { void controller.loadMore("units"); }} onRetry={() => { void controller.retryPage("units"); }} />
     </div>
-    <UnitViewer open={viewerOpen} onOpenChange={setViewerOpen} controller={controller} snapshot={snapshot} returnFocus={returnFocus} />
+    <UnitViewer open={viewerOpen} onOpenChange={setViewerOpen} controller={controller} snapshot={snapshot} returnFocus={returnFocus} onEditVideo={onEditVideo} />
   </div></InstrumentScreenRoot>;
 }

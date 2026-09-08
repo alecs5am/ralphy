@@ -110,7 +110,7 @@ describe("workspace overview presentation", () => {
         .toEqual({ status: "ready", value: 1 });
       for (const kind of ["account-relink", "account-configuration"] as const) {
         expect(value.attention.value.items.find((item) => item.kind === kind)?.affectedCount)
-          .toMatchObject({ status: "unavailable", reason: expect.stringContaining("normalized affected publication references") });
+          .toMatchObject({ status: "unavailable", reason: "Affected publication count is unavailable." });
       }
     }
   });

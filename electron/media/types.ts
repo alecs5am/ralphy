@@ -1,3 +1,7 @@
+import type { CanvasRuntimeBridge } from "../../shared/canvas-runtime";
+import type { VideoWorkspaceBridge } from "../../shared/video-workspace";
+import type { GenerationBridge } from "../../shared/generation-studio";
+import type { CanvasBridge } from "../../shared/workflow-canvas";
 import type {
   MediaFilter,
   MediaKind as CoreMediaKind,
@@ -507,7 +511,7 @@ export interface LocalModelReference {
   id: string;
 }
 
-export interface MediaWorkbenchBridge extends MarketplaceBridge {
+export interface MediaWorkbenchBridge extends MarketplaceBridge, CanvasBridge, CanvasRuntimeBridge, GenerationBridge, VideoWorkspaceBridge {
   /** A dropped file's absolute path, or null when the host cannot name one. */
   pathForFile(file: unknown): string | null;
   restoreLibrary(): Promise<LibraryOpenResult | null>;
@@ -647,6 +651,25 @@ export const APP_CHANNELS = {
 } as const;
 
 export const MEDIA_CHANNELS = {
+  loadGenerationProviders: "generation:providers:load",
+  setGenerationProviderKey: "generation:providers:set-key",
+  clearGenerationProviderKey: "generation:providers:clear-key",
+  loadGenerationCatalog: "workspace:generation:catalog",
+  loadGenerationVoices: "workspace:generation:voices",
+  loadGenerationDraft: "workspace:generation:draft:load",
+  saveGenerationDraft: "workspace:generation:draft:save",
+  startGeneration: "workspace:generation:start",
+  loadGenerationRuns: "workspace:generation:runs",
+  cancelGenerationRun: "workspace:generation:cancel",
+  exportGenerationAsset: "workspace:generation:export",
+  loadCanvasModels: "workspace:canvas:models",
+  importCanvasAsset: "workspace:canvas:import",
+  loadCanvasAssetPreview: "workspace:canvas:preview",
+  startCanvasRun: "workspace:canvas:run",
+  loadCanvasRuns: "workspace:canvas:runs",
+  cancelCanvasRun: "workspace:canvas:cancel",
+  loadCanvases: "workspace:canvas:list",
+  saveCanvas: "workspace:canvas:save",
   restoreLibrary: "media:library:restore",
   loadMarketplacePublicLibrary: "marketplace:public-library:load",
   loadMarketplacePackCatalog: "marketplace:pack-catalog:load",

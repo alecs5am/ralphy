@@ -1,11 +1,11 @@
-import { useCallback, useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { LayoutGroup, MotionConfig, motion } from "motion/react";
 import { AgentChatPanel } from "@/widgets/utility-panels";
 import { WelcomeScreen } from "@/widgets/welcome";
 import { useAgentChat } from "@/features/agent-chat";
+import type { CanvasAgentRequest } from "@/features/workflow-canvas";
 import { bridge } from "@/shared/api/ipc";
 import { MigrationRecoveryScreen } from "@/pages/migration-recovery";
-import type { SettingsPageId as SettingsCategory } from "@/pages/settings";
 import { browserLabel, retargetViewTab, ViewBrowser, ViewPanel, ViewPanelHub } from "@/widgets/view-panel";
 import { InstrumentShell } from "./layout/InstrumentShell";
 import { useTheme } from "@/shared/lib/ThemeProvider";
@@ -15,17 +15,18 @@ import { historyEdges, routeScrollKey } from "./model/route-identity";
 import { useAppCommands } from "./model/use-app-commands";
 import { useAppSession } from "./model/use-app-session";
 import { useShellPreferences } from "./model/use-shell-preferences";
+import { useSettingsDialog } from "./model/use-settings-dialog";
 import { useWorkspaceNavigation } from "./model/use-workspace-navigation";
 import { useMarketplaceNavigation } from "./model/use-marketplace-navigation";
 import { useIslandFeed } from "./model/use-island-feed";
 import { useViewTabs } from "./model/use-view-tabs";
 import { AppErrorBanner, WorkspaceDestinationFrame } from "./ui/app-frames";
 import { AppDesk } from "./ui/AppDesk";
+import { AppCanvas } from "./ui/AppCanvas";
 import { AppIsland } from "./ui/AppIsland";
 import { AppSettings } from "./ui/AppSettings";
 import { AppSidebar } from "./ui/AppSidebar";
 import { WorkRoute } from "./ui/WorkRoute";
-
 export function App() {
   const { preference: theme, resolved: resolvedTheme, setPreference: setTheme } = useTheme();
   const {
@@ -70,13 +71,10 @@ export function App() {
     viewPanel,
     setViewPanel,
   } = useShellPreferences(initialPreferences.current, { restoring, rootIdentity, state });
-  const [settingsVisible, setSettingsVisible] = useState(false);
-  const [settingsEntry, setSettingsEntry] = useState<SettingsCategory | undefined>(undefined);
-  const openSettings = useCallback((page?: SettingsCategory) => {
-    setSettingsEntry(page);
-    setSettingsVisible(true);
-  }, []);
+  const { settingsVisible, setSettingsVisible, settingsEntry, openSettings } = useSettingsDialog();
+  const [canvasRequest, setCanvasRequest] = useState<(CanvasAgentRequest & { id: string; chatId: string | null }) | null>(null);
   const [sidebarSearchRequest, setSidebarSearchRequest] = useState(0);
+  const [pageHeaderHost, setPageHeaderHost] = useState<HTMLDivElement | null>(null);
 
   const catalog = state.catalog;
   const workspaces = catalog?.workspaces ?? [];
@@ -130,13 +128,7 @@ export function App() {
     workspacePage,
   });
   const marketplaceSidebarVisible = marketplace.sidebarVisible && viewport.width > 1_280;
-  const activeSidebarVisible = marketplace.mode === "work" ? sidebarVisible : marketplaceSidebarVisible;
   const activeSidebarWidth = sidebarWidth;
-  const workspacePickerVisible = isWorkspacePickerVisible({
-    mode: marketplace.mode,
-    sidebarVisible: activeSidebarVisible,
-    workspaceId: selectedWorkspace?.id ?? null,
-  });
   useAppCommands({
     settingsVisible,
     setSettingsVisible,
@@ -156,17 +148,15 @@ export function App() {
     switchAppMode,
   });
 
-  /* ---- Handoff 14's view panel ----------------------------------------------------------- */
-
-  /* The tab set and the width belong to the chat, so both swap when the chat does -- and because a
-     chat belongs to one workspace, switching workspace swaps them too. `open` does not: that is one
-     window-level decision. */
   const viewChatId = agentChat.activeChat?.id ?? null;
   const {
     viewFrameActive,
     tabSet,
     viewTab,
     viewWidth,
+    viewExpanded,
+    toggleViewExpanded,
+    revealCanvasChat,
     viewChords,
     toggleViewPanel,
     updateChatPanel,
@@ -188,6 +178,11 @@ export function App() {
     onOpenWorkspacePage: openWorkspacePage,
     onOpenProject: openProject,
   });
+
+  const canvasView = !!selectedWorkspace && marketplace.mode === "work" && (viewFrameActive ? viewTab.type === "canvas" : state.route.kind === "workspace" && workspacePage === "canvas");
+  const fillDesk = canvasView || (!!selectedWorkspace && marketplace.mode === "work" && (viewFrameActive ? viewTab.type === "generation" : state.route.kind === "workspace" && workspacePage === "generation"));
+  const activeSidebarVisible = marketplace.mode === "work" ? sidebarVisible && !(canvasView && viewExpanded && (!viewFrameActive || viewPanel.open)) : marketplaceSidebarVisible;
+  const workspacePickerVisible = isWorkspacePickerVisible({ mode: marketplace.mode, sidebarVisible: activeSidebarVisible, workspaceId: selectedWorkspace?.id ?? null });
 
   if (migrationRecovery) {
     return (
@@ -231,14 +226,14 @@ export function App() {
     onOpenWorkspacePage={openWorkspacePage}
     onNavigateFromOverview={navigateFromOverview}
     onToggleProjectPin={(projectId) => dispatch({ type: "toggle-project-pin", projectId })}
+    onOpenProviders={() => openSettings("providers")}
+    onRequestVideoAgent={(request) => { revealCanvasChat(); setCanvasRequest({ ...request, id: crypto.randomUUID(), chatId: viewChatId }); }}
   />;
 
   if (workspaceDestination && overviewReturnState?.originWorkspaceId === selectedWorkspace?.id && state.route.kind === "workspace" && workspacePage === workspaceDestination.page) {
     workContent = <WorkspaceDestinationFrame destination={workspaceDestination} onBack={backToOverview}>{workContent}</WorkspaceDestinationFrame>;
   }
 
-  /* The home tab is the one tab that is not a route, so it is the one place the panel puts its own
-     page in front of the work content. Under the desk lens there is no panel and no home tab. */
   if (viewFrameActive && viewTab.type === "home") {
     workContent = <ViewPanelHub
       workspace={selectedWorkspace}
@@ -251,6 +246,12 @@ export function App() {
     />;
   }
 
+  if (canvasView && selectedWorkspace) {
+    workContent = <AppCanvas embedded={viewFrameActive} expanded={viewExpanded} onToggleExpanded={toggleViewExpanded} key={`${rootIdentity?.storeId}:${selectedWorkspace.id}`} workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name} storageScope={rootIdentity?.storeId ?? "local"} agentBusy={!!agentChat.state.runningChatId}
+      onOpenProviders={() => openSettings("providers")}
+      onRequestAgent={(request) => { revealCanvasChat(); setCanvasRequest({ ...request, id: crypto.randomUUID(), chatId: viewChatId }); }} />;
+  }
+
   /* The guest is mounted while the tab exists rather than while it is active: the panel hides it
      behind the card, so switching to Units and back keeps the page the operator opened. */
   const browserTab = viewFrameActive ? tabSet.tabs.find(({ type }) => type === "browser") ?? null : null;
@@ -261,8 +262,7 @@ export function App() {
   />;
 
   const { canGoBack, canGoForward } = historyEdges(marketplace, state);
-  const scrollKey = routeScrollKey(marketplace, state, workspacePage);
-
+  const scrollKey = canvasView ? `canvas:${selectedWorkspace!.id}` : routeScrollKey(marketplace, state, workspacePage);
   return (
     <MotionConfig reducedMotion="user">
       <LayoutGroup id="asset-workbench">
@@ -305,7 +305,7 @@ export function App() {
             />}
             desk={<AppDesk
               mode={marketplace.mode}
-              viewFrameActive={viewFrameActive}
+              viewFrameActive={viewFrameActive} fillHeight={fillDesk} pageHeaderHost={pageHeaderHost}
               catalog={catalog}
               workRoute={state.route}
               location={marketplace.location}
@@ -314,9 +314,11 @@ export function App() {
               onNavigate={navigateMarketplace}
               onRememberLocation={rememberMarketplace}
             >{workContent}</AppDesk>}
-            /* Closing the chat is a lens decision now, not a dock one: the panel's close control
-               puts the desk lens back rather than leaving a chat lens with an empty main column. */
             chat={<AgentChatPanel
+              onToggleView={toggleViewPanel}
+              onOpenCanvas={() => openView({ type: "canvas", label: "Working canvases" })}
+              draftRequest={canvasRequest}
+              onDraftRequestHandled={() => setCanvasRequest(null)}
               onClose={() => setLens("desk")}
               onOpenSettings={openSettings}
               /* The chat lens' Context is a view beside the chat, not a route change: the operator
@@ -337,16 +339,17 @@ export function App() {
               onNavigateMarketplace={navigateMarketplace}
               dispatch={dispatch}
             />}
-            viewOpen={viewPanel.open}
+            viewOpen={viewPanel.open} deskFill={fillDesk}
+            pageHeaderRef={marketplace.mode === "work" && !viewFrameActive ? setPageHeaderHost : undefined}
+            viewExpanded={viewExpanded}
             viewWidth={viewWidth}
             onViewWidthChange={(width) => updateChatPanel((panel) => ({ ...panel, width }))}
-            /* The frame is a wrapper, not a sibling: the tab strip and the page card belong to the
-               panel, and the desk's own scroller has to stay inside the card so scroll restoration
-               and the desk container query keep working there. */
             viewPanelFrame={viewFrameActive
               ? (page) => <ViewPanel
                 set={tabSet}
                 width={viewWidth}
+                expanded={viewExpanded}
+                onToggleExpanded={toggleViewExpanded}
                 chords={viewChords}
                 onSelect={selectView}
                 onClose={closeView}
@@ -360,8 +363,6 @@ export function App() {
             onLeftWidthChange={setSidebarWidth}
             rightWidth={rightPanelWidth}
             onRightWidthChange={setRightPanelWidth}
-            /* The lens is a My Work question: Marketplace has no chat of its own, so it keeps
-               the desk lens and shows no pair. */
             lens={marketplace.mode === "work" ? lens : "desk"}
             onLensChange={marketplace.mode === "work" ? setLens : undefined}
             rightPreference={rightPanelVisible}
@@ -374,6 +375,7 @@ export function App() {
             }}
             onToggleLeft={() => {
               if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
+              else if (canvasView && viewExpanded) toggleViewExpanded();
               else setSidebarVisible((visible) => !visible);
             }}
             onToggleRightPreference={() => setRightPanelVisible((visible) => !visible)}

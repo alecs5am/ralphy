@@ -110,7 +110,7 @@ export function MarketplaceHeader({
     query.filters.format !== "all" ? { label: query.filters.format.toLocaleUpperCase(), clear: () => onQueryChange(queryWithFilter(query, "format", "all")) } : null,
   ].filter((item): item is { label: string; clear(): void } => item !== null);
 
-  return <header className="marketplace-header mx-2 mt-2 grid shrink-0 grid-cols-(--marketplace-header-columns) items-center gap-x-4 gap-y-2 rounded-panel bg-surface px-5 py-3.5 text-ink @max-marketplace-split/main-region:grid-cols-1">
+  return <header className="marketplace-header grid shrink-0 grid-cols-(--marketplace-header-columns) items-center gap-x-4 gap-y-2 rounded-panel bg-surface px-5 py-3.5 text-ink @max-marketplace-split/main-region:grid-cols-1">
     <div className="marketplace-header-title grid min-w-0 gap-0.5">
       <span className="font-mono type-mono-xs uppercase tracking-mono text-muted">Marketplace</span>
       <h1 className="m-0 truncate text-xl leading-none outline-none" id="marketplace-heading" tabIndex={-1}>{title}</h1>

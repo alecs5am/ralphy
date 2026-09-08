@@ -119,6 +119,8 @@ describe("view panel tabs", () => {
       expect(workspacePageForTab(tab) === null).toBe(pageless.includes(descriptor.type));
     }
     expect(workspacePageForTab({ id: HOME_TAB_ID, type: "home", targetId: null, label: "Workspace" })).toBeNull();
+    expect(workspacePageForTab({ id: "canvas-tab", type: "canvas", targetId: null, label: "Canvases" })).toBe("canvas");
+    expect(workspacePageForTab({ id: "generation-tab", type: "generation", targetId: null, label: "Create" })).toBe("generation");
     // The hub's tiles are the workspace's own pages, so neither pageless type is among them.
     expect(WORKSPACE_VIEW_TYPES.map(({ type }) => type)).toEqual(
       VIEW_TYPES.map(({ type }) => type).filter((type) => !pageless.includes(type)),

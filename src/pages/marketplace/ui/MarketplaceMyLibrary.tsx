@@ -5,6 +5,7 @@ import { LIBRARY_COPY, LIBRARY_MONO, LIBRARY_PLATE, LIBRARY_ROUTE, LIBRARY_TITLE
 import type { MarketplacePackItemPresentation } from "../lib/presentation";
 import { MarketplaceInstalledModels } from "./MarketplaceModelViews";
 import { MarketplaceDownloads, MarketplaceUpdateConflictReview } from "./MarketplaceWorkflows";
+import { categoryIdentity, MarketplaceCategoryArtwork } from "./MarketplaceCategoryIdentity";
 
 /* Every paragraph in this plate is a glyph beside a reason, so the row is the paragraph. */
 const REASON_ROW = "m-0 flex items-center gap-2 type-sm leading-copy text-muted";
@@ -44,7 +45,8 @@ function MarketplaceInstalledPackItems({ items, workspaceName, onOpenItem }: {
           type="button"
           onClick={() => onOpenItem(item.key)}
         >
-          <span className="flex min-w-0 flex-col gap-0.75">
+          <span className={`w-22 shrink-0 overflow-hidden rounded-control ${categoryIdentity[item.category].tone}`}><MarketplaceCategoryArtwork category={item.category} className="h-12 w-full" /></span>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.75">
             <strong className="truncate font-normal">{item.name}</strong>
             <small className={LIBRARY_MONO}>{CATEGORY_LABEL[item.category]} · {item.pack.slug}</small>
           </span>

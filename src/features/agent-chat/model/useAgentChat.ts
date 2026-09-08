@@ -46,7 +46,7 @@ export interface AgentChatController {
   authAction: AgentProvider | null;
   connectionError: string | null;
   connected: boolean;
-  send(text: string): void;
+  send(text: string, additionalContext?: string): void;
   stop(): void;
   newChat(): void;
   selectChat(chatId: string): void;
@@ -212,7 +212,7 @@ export function useAgentChat({
     }).catch(() => undefined);
   }, [enabled, state.activeChatId, state.chats, state.runningChatId]);
 
-  const send = useCallback((text: string): void => {
+  const send = useCallback((text: string, additionalContext?: string): void => {
     const prompt = text.trim();
     if (!rootPath || !connected || !prompt || state.runningChatId !== null) return;
     const chat = state.chats.find(({ id }) => id === state.activeChatId);
@@ -223,7 +223,7 @@ export function useAgentChat({
       chatId: chat.id,
       provider: chat.provider,
       model: chat.model,
-      prompt,
+      prompt: additionalContext?.trim() ? `${prompt}\n\n${additionalContext.trim()}` : prompt,
       workspaceId: scope?.workspaceId ?? project?.workspaceId ?? null,
       project: project
         ? { workspaceId: project.workspaceId, projectId: project.projectId }

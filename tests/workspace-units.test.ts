@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { OverviewPublicationDto, UnitDto } from "../electron/ralphy/types";
-import { publicationOf } from "@/pages/workspace-units";
+import { matchesWorkspaceUnit, publicationOf } from "@/pages/workspace-units";
 
 const unit = { id: "unit-1" } as UnitDto;
 const publication = (unitId: string, state: string): OverviewPublicationDto => (
@@ -9,6 +9,13 @@ const publication = (unitId: string, state: string): OverviewPublicationDto => (
 );
 
 describe("what the workspace's Units page can state about a Unit", () => {
+  test("combines text and format without excluding matches in a project name", () => {
+    const item = { slug: "launch-film", format: "video" };
+    expect(matchesWorkspaceUnit(item, "Summer campaign", " SUMMER ", "video")).toBe(true);
+    expect(matchesWorkspaceUnit(item, "Summer campaign", "launch", "carousel")).toBe(false);
+    expect(matchesWorkspaceUnit(item, "Summer campaign", "missing", "")).toBe(false);
+    expect(matchesWorkspaceUnit(item, "Summer campaign", "", "")).toBe(true);
+  });
   test("reports a publication, and prefers published over scheduled", () => {
     expect(publicationOf(unit, [publication("unit-1", "scheduled")])).toBe("scheduled");
     expect(publicationOf(unit, [

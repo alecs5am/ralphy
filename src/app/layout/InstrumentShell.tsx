@@ -33,6 +33,8 @@ import { ShellTopRow } from "./ShellTopRow";
 export interface InstrumentShellProps {
   sidebar: ReactNode;
   desk: ReactNode;
+  deskFill?: boolean;
+  pageHeaderRef?(element: HTMLDivElement | null): void;
   /**
    * The chat lens' panel chrome, as a wrapper around the desk's own scroller: the tab strip and
    * the page card belong to the panel, and the scroller has to stay the shell's so scroll
@@ -42,6 +44,7 @@ export interface InstrumentShellProps {
   viewPanelFrame?(page: ReactNode): ReactNode;
   /** Whether the panel is showing at all. `⌘\` collapses it and the chat takes the width. */
   viewOpen: boolean;
+  viewExpanded?: boolean;
   viewWidth: number;
   onViewWidthChange(width: number): void;
   chat: ReactNode;
@@ -133,7 +136,8 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
      the two columns squeezing each other. Inverting the overlay machinery so the *desk* could
      portal over the chat is the handoff's own next iteration, not this one. */
   const chatLens = props.lens === "chat";
-  const viewPanelVisible = chatLens && props.viewOpen && viewPanelFits;
+  const expanded = chatLens && props.viewOpen && props.viewExpanded;
+  const viewPanelVisible = chatLens && props.viewOpen && (viewPanelFits || expanded);
   /* Under the desk lens the chat is not reachable at all -- the lens exists so the desk can have
      the whole content area, and a chat column standing beside it would be the state the lens was
      introduced to replace. The media-review console shares this dock and is not chat, so it keeps
@@ -282,6 +286,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
               handoff's 2px optical inset put the island 10 from the right while the sidebar
               stood at 8. */}
           <ShellTopRow
+            pageHeaderRef={props.pageHeaderRef}
             leftVisible={props.leftVisible}
             lens={props.lens}
             topChrome={props.topChrome}
@@ -296,7 +301,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
                 overflow, so a handle at -left-2 inside it was laid out in the gap and then clipped
                 away -- present in the DOM, measurable, and never painted. Under the desk lens the
                 route is the elastic column and has no width to set. */}
-            {chatLens && viewPanelVisible && <ResizeHandle
+            {chatLens && viewPanelVisible && !expanded && <ResizeHandle
               ariaLabel="Resize view panel"
               orientation="vertical"
               value={viewPanelWidth}
@@ -312,8 +317,8 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
               /* Desk lens: the route takes the elastic column. Chat lens: it becomes the fixed
                  view panel beside the chat, and disappears entirely once the window is too
                  narrow to hold both. */
-              className={`instrument-desk-column relative flex min-h-0 min-w-0 flex-col overflow-hidden ${chatLens ? "order-last flex-none" : "flex-1 bg-desk"} ${chatLens && !viewPanelVisible ? "hidden" : ""}`}
-              style={chatLens ? { width: viewPanelWidth } : undefined}
+              className={`instrument-desk-column relative flex min-h-0 min-w-0 flex-col overflow-hidden ${chatLens && !expanded ? "order-last flex-none" : "flex-1 bg-desk"} ${chatLens && !viewPanelVisible ? "hidden" : ""}`}
+              style={chatLens && !expanded ? { width: viewPanelWidth } : undefined}
               data-instrument-view-panel={chatLens || undefined}
               hidden={chatLens && !viewPanelVisible}
               ref={setDeskColumn}
@@ -321,7 +326,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
               {(props.viewPanelFrame ?? ((page: ReactNode) => page))(<div
                 /* The desk is the app's one scroll surface and the container eight other areas' width
                    variants read, so both the name and the type are stated here. */
-                className="instrument-desk-scroll @container/instrument-desk min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+                className={`instrument-desk-scroll @container/instrument-desk min-h-0 min-w-0 flex-1 overflow-x-hidden overscroll-contain ${props.deskFill ? "flex flex-col overflow-hidden [scrollbar-gutter:auto]" : "overflow-y-auto"}`}
                 ref={setDeskElement}
                 data-instrument-scroll-owner="instrument-desk-scroll"
                 inert={mode === "overlay" || undefined}
@@ -333,7 +338,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
             {/* The rail stands beside the desk, inside the content column, so the window's own zone
                 gap is the only inset it needs. The "right" in the class name and the props is
                 historical -- the rail is a dock, not a side. */}
-            <aside className={`instrument-right-rail relative min-h-0 min-w-0 overflow-hidden bg-desk ${mode === "docked" ? "flex" : "hidden"} ${chatLens ? "flex-1" : ""}`} style={chatLens ? undefined : { width: railWidth }} aria-label={activeRail.label} hidden={mode !== "docked"}>
+            <aside className={`instrument-right-rail relative min-h-0 min-w-0 overflow-hidden bg-desk ${mode === "docked" && !expanded ? "flex" : "hidden"} ${chatLens ? "flex-1" : ""}`} style={chatLens ? undefined : { width: railWidth }} aria-label={activeRail.label} hidden={mode !== "docked" || expanded} inert={expanded || undefined}>
               {/* The grabber sizes the rail only while the rail is the narrow column. Under the
                   chat lens the rail is elastic and the view panel is what has a width. */}
               {!chatLens && <ResizeHandle

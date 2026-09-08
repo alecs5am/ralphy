@@ -109,14 +109,14 @@ describe("Memory screen", () => {
         await Promise.resolve();
         await Promise.resolve();
       });
-      expect(host.container.textContent).toContain("Durable context agents reuse across future work");
+      expect(host.container.textContent).toContain("Saved preferences and rules for future chats.");
       expect(host.container.textContent).toContain("Use plain language.");
 
       expect(host.container.textContent).toContain("Readers should understand it once.");
       expect(button(host.container, "Use plain language").getAttribute("aria-expanded")).toBe("true");
 
       await act(async () => {
-        click(button(host.container, "Preview agent context"));
+        click(button(host.container, "Preview recall"));
         await Promise.resolve();
       });
       expect(recallMemory).toHaveBeenCalledWith("ws_ux");
@@ -126,6 +126,27 @@ describe("Memory screen", () => {
       await act(async () => click(button(host.container, "Review now")));
       expect(host.container.textContent).toContain("Proposed voice rule.");
       expect(load).toHaveBeenCalledWith("ws_ux", expect.objectContaining({ status: "proposed" }));
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+      vi.restoreAllMocks();
+    }
+  });
+
+  test("shows a failed recall inside the preview and lets the reader retry", async () => {
+    vi.spyOn(bridge, "loadMemory").mockResolvedValue({ items: [] });
+    const recall = vi.spyOn(bridge, "recallMemory").mockRejectedValue(new Error("Recall unavailable"));
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MemoryScreen workspaceId="ws_ux" workspaceName="UX Testing Lab" />); });
+      await act(async () => { click(button(host.container, "Preview recall")); });
+      const modal = document.body.querySelector<HTMLElement>(".memory-recall")!;
+      expect(modal.textContent).toContain("Recall unavailable");
+      expect(modal.textContent).not.toContain("Loading saved rules");
+      await act(async () => { click(button(modal, "Try again")); });
+      expect(recall).toHaveBeenCalledTimes(2);
     } finally {
       await act(async () => root.unmount());
       host.restore();

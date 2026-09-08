@@ -1,4 +1,5 @@
-import { Activity, FileText, Image, Layers3 } from "lucide-react";
+import { PageHeader, usePageHeaderHost } from "@/shared/ui/PageHeader";
+import { Activity, FileText, FolderOpen, Image, Layers3 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useOptionalInstrumentScroll } from "@/shared/lib/instrument-scroll";
 import { ProjectDock } from "./ProjectDock";
@@ -8,6 +9,7 @@ import type { ProjectView } from "@/shared/model/routes";
 export type { ProjectView };
 
 interface ProjectControlsProps {
+  title?: string;
   activeTab: ProjectView;
   onSelect(tab: ProjectView): void;
 }
@@ -32,13 +34,14 @@ export function moveProjectTab(tab: ProjectView, key: string): ProjectView {
   return moveGooeyTab(tabs, tab, key);
 }
 
-export function ProjectControls({ activeTab, onSelect }: ProjectControlsProps) {
+export function ProjectControls({ title = "Project", activeTab, onSelect }: ProjectControlsProps) {
   // The dock floats above the project, so it has to escape the panel it labels. It used to
   // escape all the way to the body and centred itself on the window, which put it off-centre
   // over the project as soon as the sidebar or the chat rail took width. The desk column is
   // the float host: outside the scroller, so the dock holds still, and the dock's containing
   // block, so it centres on the project.
   const host = useOptionalInstrumentScroll()?.floatHost ?? null;
+  const headerHost = usePageHeaderHost();
   // The dock floats over the desk, so it opts out of the window drag region: a pointer on the
   // dock has to reach the control, not move the window. Its geometry is in instrument.css, which
   // also gives it `container-type: normal` -- so the `container-name` the sheet carried could
@@ -46,5 +49,6 @@ export function ProjectControls({ activeTab, onSelect }: ProjectControlsProps) {
   const dock = (
     <div className="project-controls [-webkit-app-region:no-drag]"><ProjectDock active={activeTab} items={dockItems} onSelect={onSelect} /></div>
   );
+  if (headerHost) return <PageHeader title={title} icon={FolderOpen}><ProjectDock active={activeTab} items={dockItems} onSelect={onSelect} /></PageHeader>;
   return host ? createPortal(dock, host) : dock;
 }

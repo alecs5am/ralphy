@@ -65,7 +65,7 @@ function presentHeader(overview: WorkspaceOverviewDto, description: string): Wor
 
 function presentMomentum(metrics: MetricTotals | undefined): WorkspaceMomentumPresentation {
   return {
-    periodLabel: "Current Core totals",
+    periodLabel: "Latest available totals",
     totals: {
       publications: metrics?.publicationCount ?? null,
       views: metrics?.views ?? null,
@@ -221,14 +221,14 @@ function presentAttention(
       kind: "account-relink" as const,
       severity: "warning" as const,
       accountId: account.id,
-      affectedCount: unavailable<number>("Core does not provide normalized affected publication references for account actions."),
+      affectedCount: unavailable<number>("Affected publication count is unavailable."),
       title: `${accountDisplayLabel(account)} needs relinking`,
     })),
     ...accountItems.filter((account) => !account.credentialConfigured).map((account) => ({
       kind: "account-configuration" as const,
       severity: "warning" as const,
       accountId: account.id,
-      affectedCount: unavailable<number>("Core does not provide normalized affected publication references for account actions."),
+      affectedCount: unavailable<number>("Affected publication count is unavailable."),
       title: `${accountDisplayLabel(account)} is not configured`,
     })),
   ];

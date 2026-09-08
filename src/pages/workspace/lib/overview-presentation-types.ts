@@ -44,7 +44,7 @@ export interface WorkspaceMomentumPresentation {
     shares: number | null;
     watchTimeMs: number | null;
   };
-  trend: Availability<never[]>;
+  trend: Availability<Array<{ label: string; value: number }>>;
 }
 
 export interface AccountPresentation {
@@ -96,6 +96,23 @@ export interface UnitOutcomePresentation {
   title: string;
   projectTitle: string;
   revisionLabel: string;
+  performance?: UnitPerformancePresentation;
+}
+
+export interface UnitChannelPerformance {
+  platform: string;
+  views: number;
+  previousViews: number;
+  engagementRate: number;
+  completionRate: number;
+}
+
+export interface UnitPerformancePresentation {
+  sample: boolean;
+  windowLabel: string;
+  baseline: string;
+  observation: string;
+  channels: UnitChannelPerformance[];
 }
 
 export interface UnitOutcomeGroups {

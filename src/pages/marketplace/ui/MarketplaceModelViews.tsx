@@ -15,6 +15,8 @@ import type {
 import { MarkdownView } from "@/shared/ui/MarkdownView";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
 import { bridge } from "@/shared/api/ipc";
+import { MarketplaceCategorySignature } from "./MarketplaceCategoryIdentity";
+import { declaredModelText, marketplaceModelDescription } from "../lib/model-copy";
 import {
   ASIDE_SECTION,
   DETAIL_ACTIONS,
@@ -198,15 +200,16 @@ export function MarketplaceModelDetail({ reference, onBack, onReviewDownload }: 
       </div>
       {!onReviewDownload && <p id="marketplace-model-review-unavailable" className={`marketplace-model-action-state ${HERO_STATE}`}>Download and installation are unavailable in the current Desktop contract.</p>}
       {providerError?.key === referenceKey && <p className={HERO_STATE} role="alert">{providerError.message}</p>}
+      <MarketplaceCategorySignature category="models" />
     </header>
 
     <div className={`marketplace-model-detail-layout ${DETAIL_LAYOUT}`}>
       <div className={`marketplace-model-detail-main ${DETAIL_COLUMN}`}>
-        <section className={DETAIL_SECTION}><h3 className={DETAIL_HEADING}>What it gives you</h3><p className={DETAIL_COPY}>The provider describes this model as {detail.task} · {detail.modality} · {detail.modelType}.</p></section>
+        <section className={DETAIL_SECTION}><h3 className={DETAIL_HEADING}>What it gives you</h3><p className={DETAIL_COPY}>{marketplaceModelDescription(detail)}</p></section>
         {previews.length > 0
           ? <section className={DETAIL_SECTION} aria-labelledby="marketplace-model-preview-heading"><h3 className={DETAIL_HEADING} id="marketplace-model-preview-heading">Provider preview</h3><div className="marketplace-model-previews grid grid-cols-(--marketplace-preview-columns) gap-2">{previews.map((url) => <span className="marketplace-model-preview grid min-h-37.5 place-items-center overflow-hidden rounded-cell bg-frame text-on-instrument" key={url}><ModelPreview url={url} name={detail.name} /></span>)}</div></section>
           : <section className={DETAIL_SECTION}><h3 className={DETAIL_HEADING}>Provider preview</h3><p className={DETAIL_COPY}>Provider preview media is unavailable.</p></section>}
-        <section className={DETAIL_SECTION}><h3 className={DETAIL_HEADING}>Use when</h3><p className={DETAIL_COPY}>Use when a Ralphy workflow explicitly supports {detail.task} through {detail.comfort.runtime}, after reviewing the compatibility evidence.</p></section>
+        <section className={DETAIL_SECTION}><h3 className={DETAIL_HEADING}>Use when</h3><p className={DETAIL_COPY}>Use when a Ralphy workflow explicitly supports {declaredModelText(detail.task) || "this model"} through {detail.comfort.runtime}, after reviewing the compatibility evidence.</p></section>
         <section className={DETAIL_SECTION}><h3 className={DETAIL_HEADING}>Do not use when</h3><p className={DETAIL_COPY}>Do not use when the required runtime or package format is unsupported, or before license and access terms are reviewed.</p></section>
         <section className={DETAIL_SECTION} aria-labelledby="marketplace-model-files"><h3 className={DETAIL_HEADING} id="marketplace-model-files">Versions and files</h3>
           <dl className="marketplace-model-facts m-0 mb-3 grid grid-cols-2 gap-2">

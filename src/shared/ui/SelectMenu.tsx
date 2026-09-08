@@ -1,6 +1,6 @@
 import * as Select from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 
 import { InstrumentOverlay, type InstrumentSharedSelectOwnerId } from "../instrument/overlay-registry";
 
@@ -44,6 +44,7 @@ export interface SelectMenuProps<Value extends string> {
   options: Array<SelectMenuOption<Value>>;
   ariaLabel: string;
   className?: string;
+  contentClassName?: string;
   prefix?: string;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
@@ -59,6 +60,7 @@ export function SelectMenu<Value extends string>({
   options,
   ariaLabel,
   className = "",
+  contentClassName = "",
   prefix,
   side = "bottom",
   align = "start",
@@ -67,6 +69,7 @@ export function SelectMenu<Value extends string>({
   onValueChange,
 }: SelectMenuProps<Value>) {
   const [open, setOpen] = useState(false);
+  const emptyValue = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const selected = options.find((option) => option.value === value);
 
@@ -74,20 +77,20 @@ export function SelectMenu<Value extends string>({
     <Select.Root
       open={open}
       onOpenChange={setOpen}
-      value={value}
-      onValueChange={(next) => onValueChange(next as Value)}
+      value={value === "" && selected ? emptyValue : value}
+      onValueChange={(next) => { if (!next) return; const actual = next === emptyValue ? "" : next; if (options.some((option) => option.value === actual)) onValueChange(actual as Value); }}
     >
       <Select.Trigger
         ref={triggerRef}
         className={`${TRIGGER} ${tone === "instrument" ? TRIGGER_INSTRUMENT : ""} ${className}`.replace(/\s+/g, " ").trim()}
         aria-label={ariaLabel}
       >
-        {selected?.icon}
+        {selected?.icon && <span className="select-menu-glyph inline-grid place-items-center">{selected.icon}</span>}
         <span className="select-menu-value flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap">
           {prefix && <span className="select-menu-prefix type-sm whitespace-nowrap">{prefix}</span>}
           <Select.Value className="truncate">{selected?.label}</Select.Value>
         </span>
-        {selected?.meta && <small className="type-sm whitespace-nowrap">{selected.meta}</small>}
+        {selected?.meta && <small className="select-menu-meta type-sm whitespace-nowrap">{selected.meta}</small>}
         <Select.Icon className="select-menu-chevron inline-grid flex-none place-items-center transition-transform duration-normal ease-instrument group-data-[state=open]:rotate-180 motion-reduce:transition-none motion-reduce:duration-0">
           <ChevronDown size={14} strokeWidth={1.6} />
         </Select.Icon>
@@ -95,7 +98,7 @@ export function SelectMenu<Value extends string>({
       <Select.Portal>
         <InstrumentOverlay id="shared-select-menu" host="primitive-host" overlayOwner={overlayOwner} open={open} label={ariaLabel} description={`Choose ${ariaLabel}`} opener={triggerRef.current} onOpenChange={setOpen}>
           <Select.Content
-            className={CONTENT}
+            className={`${CONTENT} ${contentClassName}`.trim()}
             position="popper"
             side={side}
             align={align}
@@ -106,7 +109,8 @@ export function SelectMenu<Value extends string>({
               {options.map((option) => (
                 <Select.Item
                   className={ITEM}
-                  value={option.value}
+                  value={option.value || emptyValue}
+                  data-value={option.value}
                   key={option.value}
                 >
                   <Select.ItemText>

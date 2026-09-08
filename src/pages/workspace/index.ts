@@ -8,3 +8,4 @@ export * from "./ui/WorkspacePlanAndOutcomes";
 export * from "./ui/WorkspaceScreen";
 export * from "./model/screen-controller";
 export * from "./lib/overview-presentation";
+export { previewWorkspaceOverview } from "./lib/overview-preview";

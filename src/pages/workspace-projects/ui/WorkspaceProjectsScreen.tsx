@@ -1,3 +1,4 @@
+import { PageHeader } from "@/shared/ui/PageHeader";
 import { FolderOpen, Pin, Search } from "lucide-react";
 
 import { Keycap } from "@/shared/ui/Keycap";
@@ -184,21 +185,10 @@ export function WorkspaceProjectsScreen({
 
   return (
     <InstrumentScreenRoot descriptor={workspaceProjectsInstrumentStates} state={projects.length === 0 ? "empty" : "ready"}>
-    <main className="main-region workspace-projects-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink">
-      <div className="screen-header workspace-header m-0 flex min-h-0 w-full max-w-none flex-wrap items-center justify-between gap-4 rounded-panel bg-instrument px-5 py-4 text-on-instrument @max-workspace-projects-header/main-region:flex-col">
-        <div>
-          <div className="screen-kicker mb-1 type-xs uppercase tracking-wide text-on-instrument-muted">{workspaceName}</div>
-          <h2 className="mt-1 mb-1.25 type-hero font-semibold leading-none tracking-tight text-on-instrument">Projects</h2>
-          <p className="mt-1 max-w-screen-copy type-base text-on-instrument-muted">{workspaceDescription || "Projects in this workspace"}</p>
-        </div>
-        <div className="workspace-header-actions flex min-w-workspace-search flex-1 items-center gap-3.5 @min-workspace-header/instrument-desk:max-w-workspace-search-max @max-workspace-projects-header/main-region:w-full">
-          <label className="workspace-search flex h-9 w-full items-center gap-2 rounded-control bg-instrument-raised px-3 text-on-instrument-muted focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-focus-on-instrument">
-            <Search size={14} aria-hidden="true" />
-            <input className="min-w-0 flex-1 bg-transparent type-base text-on-instrument outline-none placeholder:text-on-instrument-muted" ref={searchRef} type="search" value={query} placeholder="Filter projects" aria-label="Filter projects" onChange={(event) => setQuery(event.target.value)} />
-            <Keycap tokens={["⌘", "F"]} tone="on-dark" />
-          </label>
-        </div>
-      </div>
+    <main className="main-region workspace-projects-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 type-base text-ink">
+      <PageHeader title="Projects" icon={FolderOpen} meta={`${projects.length} · ${workspaceName}`} description={workspaceDescription || "Projects in this workspace"}>
+        <label className="page-header-search flex h-8 min-w-0 items-center gap-2 rounded-full bg-card px-3 text-muted focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-ink"><Search size={14} className="shrink-0" aria-hidden="true" /><input className="min-w-0 flex-1 bg-transparent type-xs text-ink outline-none" ref={searchRef} type="search" value={query} placeholder="Filter projects" aria-label="Filter projects" onChange={(event) => setQuery(event.target.value)} /><Keycap tokens={["⌘", "F"]} /></label>
+      </PageHeader>
 
       <section className="metrics-band m-0 grid w-full max-w-none grid-cols-(--metrics-band-columns) gap-px overflow-hidden rounded-panel bg-divider p-0" aria-label="Workspace project summary">
         <div className={METRIC}><span className="metric-icon grid size-6 shrink-0 place-items-center self-center rounded-field bg-surface-sunken text-muted"><FolderOpen size={15} aria-hidden="true" /></span><span className="metric-value truncate font-code type-metric font-semibold leading-none text-ink">{projects.length}</span><span className="metric-label type-sm text-muted">Projects</span></div>

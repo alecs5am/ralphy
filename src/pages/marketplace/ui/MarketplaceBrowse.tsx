@@ -20,6 +20,7 @@ import type {
 } from "../lib/presentation";
 import { formatDate, MarketplaceDiscover, sourceLabels } from "./browse-discover";
 import { MarketplaceResults } from "./browse-results";
+import { MarketplaceCategoryBanner } from "./MarketplaceCategoryIdentity";
 import {
   MarketplaceUnavailableCategory,
   MarketplaceUnavailableCollectionRoute,
@@ -82,14 +83,15 @@ export function MarketplaceBrowse({ route, snapshot, originKey, onOpenItem, onOp
     && !categoryUnavailable
     && snapshot.items.length === 0;
   return <>
+    {route.kind === "category" && <MarketplaceCategoryBanner category={route.category} />}
     {snapshot.refreshing && <div className="marketplace-refreshing mt-2 text-xs text-muted" role="status">Refreshing catalog…</div>}
     {snapshot.publicSource?.source === "cache" && <div className="marketplace-cache-state mt-2 flex min-h-14 items-center gap-3 rounded-panel bg-instrument px-4 py-3 text-on-instrument @max-marketplace-column/main-region:flex-wrap" role="status"><CircleAlert className="size-4 shrink-0 text-alert" aria-hidden="true" /><span className="flex min-w-0 flex-1 flex-col"><strong className="text-sm font-normal">Offline · cached catalog</strong><small className="text-xs text-on-instrument-muted">{snapshot.publicSource.warning ? `${snapshot.publicSource.warning} · ` : ""}Last refreshed {formatDate(snapshot.publicSource.refreshedAt)}</small></span><button className="flex h-8 shrink-0 items-center gap-1.5 rounded-control bg-instrument-raised px-3 text-xs text-on-instrument @max-marketplace-column/main-region:ml-7 hover:bg-ghost-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-on-instrument" type="button" onClick={onRetry}><RefreshCw className="size-3" aria-hidden="true" />Refresh</button></div>}
     <SourceState snapshot={snapshot} onRetry={onRetry} />
-    {noResults ? <div className="marketplace-no-results mt-5 flex min-h-64 flex-col items-center justify-center gap-2 rounded-panel bg-surface p-6 text-center" role="status"><FileText className="size-5 text-muted" aria-hidden="true" /><h2 className="m-0 text-base font-normal">No results</h2><p className="m-0 max-w-xl text-sm text-muted">The current query and filters returned no source-backed items.</p><span className="mt-2 flex flex-wrap justify-center gap-2"><button className="h-8 rounded-control bg-instrument px-3 text-xs text-on-instrument" type="button" onClick={onClearFilters}>Clear filters</button><button className="h-8 rounded-control bg-surface-sunken px-3 text-xs text-ink" type="button" onClick={onClearQuery}>Clear query</button></span></div>
+    {noResults ? <div className="marketplace-no-results mt-5 flex min-h-64 flex-col items-center justify-center gap-2 rounded-panel bg-surface p-6 text-center" role="status"><FileText className="size-5 text-muted" aria-hidden="true" /><h2 className="m-0 text-base font-normal">No results</h2><p className="m-0 max-w-xl text-sm text-muted">Try a different search or clear your filters.</p><span className="mt-2 flex flex-wrap justify-center gap-2"><button className="h-8 rounded-control bg-instrument px-3 text-xs text-on-instrument" type="button" onClick={onClearFilters}>Clear filters</button><button className="h-8 rounded-control bg-surface-sunken px-3 text-xs text-ink" type="button" onClick={onClearQuery}>Clear query</button></span></div>
       : route.kind === "discover" ? <MarketplaceDiscover snapshot={snapshot} onOpenCategory={onOpenCategory} onOpenLibrary={onOpenLibrary} onOpenCollection={onOpenCollection} />
         : route.kind === "results" ? <MarketplaceResults items={snapshot.items} query={snapshot.query} originKey={originKey} onOpenItem={onOpenItem} />
           : route.kind === "category" ? <MarketplaceCategoryView category={route.category} snapshot={snapshot} originKey={originKey} onOpenItem={onOpenItem} onOpenUnavailableDetail={onOpenUnavailableDetail} />
             : route.kind === "collection" ? <MarketplaceUnavailableCollectionRoute />
-              : <section className="marketplace-route-placeholder mt-5 flex min-h-64 flex-col items-center justify-center gap-2 rounded-panel bg-surface p-6 text-center" role="status"><Package className="size-5 text-muted" aria-hidden="true" /><h2 className="m-0 text-base font-normal">This Marketplace route is not available yet.</h2><p className="m-0 max-w-xl text-sm text-muted">The current Desktop contract does not expose data or a mutation for this route.</p></section>}
+              : <section className="marketplace-route-placeholder mt-5 flex min-h-64 flex-col items-center justify-center gap-2 rounded-panel bg-surface p-6 text-center" role="status"><Package className="size-5 text-muted" aria-hidden="true" /><h2 className="m-0 text-base font-normal">This Marketplace route is not available yet.</h2><p className="m-0 max-w-xl text-sm text-muted">This section is not available in this build.</p></section>}
   </>;
 }

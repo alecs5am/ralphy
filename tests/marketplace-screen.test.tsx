@@ -183,6 +183,9 @@ describe("Marketplace browse surfaces", () => {
 
     for (const label of ["Models", "Templates", "Recipes", "Prompts", "Components &amp; Effects", "Skills"]) expect(markup).toContain(label);
     expect(markup).toContain("1 item");
+    expect(markup).toContain("A little more possibility.");
+    expect(markup.match(/class="marketplace-category-artwork /g)).toHaveLength(6);
+    for (const purpose of ["Local inference", "Starting points", "Artifacts", "Variables", "Effects", "Workflows"]) expect(markup).toContain(purpose);
     expect(markup).toContain("Prompt catalog is unavailable in the current Desktop contract.");
     expect(markup).toContain("Continue where you left off");
     expect(markup).toContain("Llama 3.2");
@@ -193,7 +196,7 @@ describe("Marketplace browse surfaces", () => {
     expect(markup).not.toMatch(/rating|trending|recommended for you|downloads|likes/i);
     expect(markup).not.toContain("Useful for your current work");
     expect(markup).toContain("Community contributions");
-    expect(markup).toContain("Read-only unavailable-contract review");
+    expect(markup).toContain("Community collections and publishing aren&#x27;t available in this build.");
   });
 
   test("orders Recently updated by valid source timestamps before taking six", () => {
@@ -227,6 +230,18 @@ describe("Marketplace browse surfaces", () => {
     expect(markup).not.toContain("autoplay");
     expect(markup.match(/View details/g)).toHaveLength(3);
     expect(markup).not.toMatch(/98,?765|432|downloads|likes|rating|trending/i);
+  });
+
+  test("keeps provider sentinels and full revision hashes out of model browse copy", () => {
+    const revision = "abcdef1234567890abcdef1234567890abcdef1234";
+    const item: MarketplaceItemPresentation = { ...modelPresentation, version: { status: "ready", value: revision }, model: { ...modelPresentation.model, task: "unknown", modality: "unknown", modelType: "unknown", revision } };
+    const markup = renderToStaticMarkup(<MarketplaceResults items={[item]} query={defaultQuery} onOpenItem={() => undefined} />);
+    expect(markup).toContain("abcdef1");
+    expect(markup).not.toContain(revision);
+    expect(markup.replace(/<[^>]*>/g, " ")).not.toMatch(/\bunknown\b/i);
+    expect(markup).toContain("Review package and runtime requirements");
+    expect(markup).toContain("Comfortable here");
+    expect(item.model.revision).toBe(revision);
   });
 
   test("switches failed public previews to typed text and resets when their URL changes", async () => {

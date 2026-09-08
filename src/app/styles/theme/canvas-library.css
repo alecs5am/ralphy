@@ -1,0 +1,19 @@
+.canvas-starter {
+  --canvas-library-accent: var(--instrument-text-secondary-readable);
+}
+.canvas-starter[data-template="image"] { --canvas-library-accent: var(--instrument-tag-file); }
+.canvas-starter[data-template="video"] { --canvas-library-accent: var(--instrument-tag-project); }
+.canvas-starter[data-template="comparison"] { --canvas-library-accent: var(--instrument-tag-unit); }
+.canvas-graph-node { color: var(--instrument-text-secondary-readable); }
+.canvas-graph-node[data-node-kind="prompt"],
+.canvas-graph-node[data-node-kind="variation"] { color: var(--instrument-tag-unit); }
+.canvas-graph-node[data-node-kind="media"],
+.canvas-graph-node[data-node-kind="model"] { color: var(--instrument-tag-file); }
+.canvas-graph-node[data-node-kind="connector"],
+.canvas-graph-node[data-node-kind="step"] { color: var(--instrument-tag-project); }
+
+@theme inline {
+  --color-canvas-library-accent: var(--canvas-library-accent);
+  --color-canvas-library-tint: color-mix(in srgb, var(--canvas-library-accent) 6%, var(--instrument-card));
+  --container-canvas-library-wide: 1120px;
+}

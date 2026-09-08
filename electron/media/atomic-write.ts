@@ -13,6 +13,8 @@ export interface GuardedAtomicWriteOptions {
   maxBytes: number;
   assertCurrent?: () => void;
   renameFile?: RenameFile;
+  /** Optional optimistic-concurrency check after staging, immediately before replacing the file. */
+  beforeReplace?: () => Promise<void>;
 }
 
 const writes = new Map<string, Promise<unknown>>();
@@ -106,6 +108,10 @@ async function performGuardedAtomicWrite(
   try {
     await writeSynced(temporary, data);
     assertCurrent();
+    if (options.beforeReplace) {
+      await options.beforeReplace();
+      assertCurrent();
+    }
     await renameFile(temporary, path);
     replaced = true;
     assertCurrent();

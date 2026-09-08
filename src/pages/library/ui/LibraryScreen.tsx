@@ -1,5 +1,6 @@
+import { PageHeader, PAGE_HEADER_BUTTON } from "@/shared/ui/PageHeader";
 import {
-  ArrowRight,
+  ArrowRight, RefreshCw,
   CircleDollarSign,
   FolderOpen,
   GalleryHorizontalEnd,
@@ -93,8 +94,8 @@ export function LibraryScreen({
     const state = restoring ? "restoring" : error ? "error" : "unavailable";
     return (
       <InstrumentScreenRoot descriptor={libraryInstrumentStates} state={state}>
-      <main className="main-region empty-library @container/main-region grid min-w-0 flex-1 place-items-center overflow-x-hidden overflow-y-auto bg-desk px-8 pt-7.5 pb-12 min-h-full w-full">
-        <div className="empty-library-content">
+      <main className="main-region empty-library @container/main-region grid min-w-0 flex-1 place-items-center overflow-x-hidden overflow-y-auto bg-desk p-2 min-h-full w-full">
+        <PageHeader title="Production library" icon={Layers3} /><div className="empty-library-content">
           <div className="ralphy-wordmark mb-4.5 font-code type-sm text-ink">RALPHY</div>
           <h2>Home library unavailable</h2>
           <p>{error ?? "Ralphy could not open ~/.ralphy."}</p>
@@ -121,14 +122,8 @@ export function LibraryScreen({
 
   return (
     <InstrumentScreenRoot descriptor={libraryInstrumentStates} state={catalog.workspaces.length === 0 ? "empty" : "ready"}>
-    <main className="main-region @container/main-region min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-desk px-8 pt-7.5 pb-12">
-      <div className="screen-header mx-auto mb-6 flex min-h-18 max-w-screen-measure items-start justify-between gap-6">
-        <div>
-          <div className="screen-kicker mb-1">Production library</div>
-          <h2 className="mb-1.25 type-xl">Workspace overview</h2>
-          <p className="screen-path max-w-screen-copy truncate font-code type-xs text-muted" title={catalog.rootPath}>{catalog.rootPath}</p>
-        </div>
-      </div>
+    <main className="main-region @container/main-region min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-desk p-2">
+      <PageHeader title="Workspace overview" icon={Layers3} meta="Production library" description={catalog.rootPath}><button type="button" className={PAGE_HEADER_BUTTON} aria-label="Refresh library" title="Refresh library" onClick={onRetry}><RefreshCw size={14} /><span className="page-header-action-label">Refresh</span></button></PageHeader>
 
       <section className="metrics-band mb-5 grid grid-cols-(--metrics-band-columns)" aria-label="Library summary">
         <Metric

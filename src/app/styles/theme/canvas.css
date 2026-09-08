@@ -1,0 +1,90 @@
+@import "./canvas-nodes.css";
+@import "./canvas-hybrid.css";
+@import "./canvas-library.css";
+
+.canvas-screen {
+  background: var(--instrument-desk);
+  --canvas-port-color: var(--instrument-text-primary);
+  --xy-background-color: var(--instrument-desk);
+  --xy-background-pattern-color: color-mix(in srgb, var(--instrument-text-muted-decorative) 25%, transparent);
+  --xy-edge-stroke: color-mix(in srgb, var(--instrument-text-secondary-readable) 55%, var(--instrument-desk));
+  --xy-edge-stroke-selected: var(--instrument-text-primary);
+  --xy-edge-stroke-width: 1.75;
+  --xy-connectionline-stroke: var(--instrument-text-primary);
+  --xy-controls-button-background-color: var(--instrument-card);
+  --xy-controls-button-background-color-hover: var(--instrument-row-hover);
+  --xy-controls-button-color: var(--instrument-text-primary);
+  --xy-controls-button-color-hover: var(--instrument-text-primary);
+  --xy-controls-button-border-color: var(--instrument-divider);
+  --xy-minimap-background-color: var(--instrument-card);
+  --xy-selection-background-color: color-mix(in srgb, var(--instrument-text-primary) 7%, transparent);
+  --xy-selection-border: 1px solid var(--instrument-text-primary);
+}
+.canvas-screen [data-port-type="text"] { --canvas-port-color: var(--instrument-port-text); }
+.canvas-screen [data-port-type="image"] { --canvas-port-color: var(--instrument-port-image); }
+.canvas-screen [data-port-type="video"] { --canvas-port-color: var(--instrument-port-video); }
+.canvas-screen [data-port-type="audio"] { --canvas-port-color: var(--instrument-port-audio); }
+.canvas-screen [data-port-type="any"] { --canvas-port-color: var(--instrument-text-secondary-readable); }
+.canvas-screen .react-flow__edge-path { stroke: var(--canvas-port-color); stroke-width: 1.75; }
+.canvas-wire-waiting .react-flow__edge-path { stroke-dasharray: 5 5; }
+.canvas-wire-outside .react-flow__edge-path { opacity: .35; stroke-dasharray: 3 7; }
+.canvas-screen .canvas-wire-flowing .react-flow__edge-path { stroke-width: 2; stroke-dasharray: 6 6; animation: canvas-wire-travel .7s linear infinite; }
+.canvas-connection-line { stroke: var(--canvas-port-color); stroke-width: 2; stroke-dasharray: 5 5; animation: canvas-wire-travel .7s linear infinite; }
+.canvas-connection-hint { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 999px; background: var(--instrument-widget-dark); color: var(--instrument-text-on-dark-primary); font: 9px var(--font-mono); text-transform: uppercase; white-space: nowrap; }
+.canvas-screen .react-flow__controls {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--instrument-card);
+  box-shadow: none;
+}
+.canvas-screen .react-flow__controls-button { width: 32px; height: 32px; border-bottom: 0; }
+.canvas-screen .react-flow__controls-button { border-radius: 50%; }
+.canvas-screen .react-flow__controls-button:focus-visible { outline: 2px solid var(--instrument-text-primary); outline-offset: -2px; }
+.canvas-screen .react-flow__minimap { overflow: hidden; padding: 5px; border-radius: 14px; }
+.canvas-screen .react-flow__minimap-svg { width: 144px; height: 92px; }
+.canvas-screen .react-flow__edge.selected .react-flow__edge-path { stroke-width: 3; }
+.canvas-screen .react-flow__minimap-mask { stroke: var(--instrument-text-primary); stroke-width: 1.5; }
+.canvas-selection-bar { bottom: 16px; background: var(--instrument-widget-dark); color: var(--instrument-text-on-dark-primary); }
+.canvas-control { background: var(--instrument-field); color: var(--instrument-text-primary); }
+.canvas-control:hover { background: var(--instrument-row-hover); }
+.canvas-selection-bar button { background: transparent !important; color: inherit !important; }
+.canvas-selection-bar button:hover { background: var(--instrument-widget-dark-hover) !important; }
+.canvas-selection-bar button[aria-label="Delete selected nodes"] { color: var(--instrument-alert) !important; }
+.canvas-selection-bar button:focus-visible { outline-color: var(--instrument-text-on-dark-primary) !important; }
+.canvas-toolbox { top: 16px; }
+.canvas-mode-switch { display: flex; flex: none; gap: 2px; padding: 2px; border-radius: var(--radius-pill); background: var(--instrument-field); }
+.canvas-mode-switch > button { padding: 5px 9px; border-radius: var(--radius-pill); font-size: var(--text-mono-sm); color: var(--instrument-text-secondary-readable); }
+.canvas-mode-switch > button[aria-pressed="true"] { background: var(--instrument-desk-primary-surface); color: var(--instrument-desk-primary-ink); }
+.canvas-mode-switch > button:focus-visible { outline-offset: -2px; }
+@layer components { .canvas-actions { overflow: visible !important; } }
+.canvas-actions .canvas-control { background: transparent; }
+.canvas-actions .canvas-control:hover, .canvas-actions .canvas-control[aria-pressed="true"] { background: var(--instrument-field); }
+.canvas-more > summary::-webkit-details-marker, .canvas-shortcuts > summary::-webkit-details-marker { display: none; }
+@layer components {
+.canvas-stage > .canvas-catalog, .canvas-stage > .canvas-run-panel {
+  position: absolute; inset: 72px 16px auto auto !important; z-index: var(--z-surface-overlay);
+  width: min(var(--spacing-canvas-inspector), calc(100% - 32px)) !important; height: fit-content !important; max-height: calc(100% - 88px);
+  overflow: hidden; border: 2px solid var(--instrument-panel) !important; border-radius: var(--radius-window);
+  box-shadow: none;
+}
+.canvas-stage > .canvas-run-panel:has([aria-label="Restore results panel"]) { inset: 0 !important; width: 100% !important; height: 100% !important; max-height: none; border: 0 !important; }
+}
+.canvas-result-preview { aspect-ratio: 4 / 3; max-height: 280px; }
+@container canvas (max-width: 760px) {
+  .canvas-selection-bar { bottom: 64px; }
+  .canvas-screen .react-flow__minimap { display: none; }
+}
+@container canvas (max-width: 480px) {
+  .canvas-toolbox { top: 72px; }
+  .canvas-actions .canvas-control { padding-inline: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .canvas-rich-node { transition: none; } .canvas-connection-line, .canvas-screen .canvas-wire-flowing .react-flow__edge-path { animation: none; } }
+@theme inline {
+  --spacing-canvas-inspector: 360px;
+  --color-canvas-map-node: color-mix(in srgb, var(--instrument-text-secondary-readable) 32%, var(--instrument-card));
+  --color-canvas-map-mask: color-mix(in srgb, var(--instrument-desk) 65%, transparent);
+  --container-canvas-wide: 760px;
+}

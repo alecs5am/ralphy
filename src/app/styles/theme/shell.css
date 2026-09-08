@@ -29,7 +29,7 @@
      its bottom edge the row's, or the 8 gap under the chrome closes to 4 beneath it. */
   --island-rows: 32px 0fr;
   /* ...and open: a taller trigger row over a detail row that takes the rest. */
-  --island-rows-open: 44px 1fr;
+  --island-rows-open: 32px 1fr;
 }
 
 /* The two column widths the shell writes inline from the persisted layout. They are declared
@@ -84,7 +84,10 @@
 
   /* The island's plate: how wide it may grow closed, and the width it takes open. */
   --spacing-island-max: min(520px, calc(100vw - 32px));
-  --spacing-island-open: min(420px, calc(100vw - 32px));
+  --spacing-island-open: min(520px, calc(100vw - 32px));
+  --radius-notch: 16px;
+  --transition-duration-notch: 420ms;
+  --ease-notch: cubic-bezier(0.22, 0.8, 0.25, 1);
 
   /* Handoff 14's view panel. Every other measurement in it -- strip 34, tab 28, home 30x28,
      overflow 24, page card R16 -- already lands on the shared spacing and radius scales, so the
@@ -106,7 +109,6 @@
   /* ...and the indeterminate line under `App.tsx`'s project-indexing plate. */
   --animate-indexing: instrument-indexing 1s ease-in-out infinite alternate;
   --animate-island-in: instrument-island-in 320ms var(--ease);
-  --animate-island-tune: instrument-island-tune var(--dur-slow) var(--ease);
   --transition-duration-slow: var(--dur-slow);
   --transition-duration-fast: var(--dur-fast);
   --ease-instrument: var(--ease);
@@ -132,6 +134,10 @@
 .instrument-island-slot { z-index: var(--z-island); }
 body:has([data-instrument-overlay-backdrop]) .instrument-island-slot { z-index: var(--z-base); }
 
+/* The plate leads the reveal; on close, copy clears before the detail row contracts. */
+.dynamic-island-detail-inner { opacity: 0; transition: opacity 100ms var(--ease); }
+.dynamic-island[data-open] .dynamic-island-detail-inner { opacity: 1; transition-duration: 180ms; transition-delay: 70ms; }
+
 :root {
   /* A menu is R18 and an identity plate is R18: the shared radius scale names the roles, and
      this is the one the shell's own menus take. */
@@ -150,15 +156,11 @@ body:has([data-instrument-overlay-backdrop]) .instrument-island-slot { z-index: 
   from { opacity: 0; transform: translateX(-20px); }
 }
 
-/* The island's first appearance, and the tune-in its context label replays on every change
-   (the label re-mounts on a React key). */
+/* Notch enters without shifting its centered anchor. Context updates remain still. */
 @keyframes instrument-island-in {
-  from { opacity: 0; transform: translateX(-50%) scale(.94); }
+  from { opacity: 0; transform: scale(.98); }
 }
 
-@keyframes instrument-island-tune {
-  from { opacity: 0; transform: translateY(-4px); }
-}
 
 @keyframes instrument-spin {
   to { transform: rotate(360deg); }

@@ -21,17 +21,22 @@ export const INSTRUMENT_OVERLAYS = {
   "document-editor": { kind: "dialog" }, "document-viewer": { kind: "viewer" }, "document-conflict": { kind: "dialog" },
   "media-viewer": { kind: "viewer" }, "media-context-menu": { kind: "menu" }, "mock-needs-work": { kind: "dialog" },
   "unit-viewer": { kind: "viewer" }, "run-inspector": { kind: "rail" }, "marketplace-detail": { kind: "dialog" },
-  "target-chooser": { kind: "dialog" },
+  "target-chooser": { kind: "dialog" }, "canvas-node-preview": { kind: "viewer" },
   /* Handoff 14's view panel. Both are menus, so both are non-modal: the type menu draws the
      design's page-local scrim itself, because the app's backdrop rule only fires for the modal
      kinds and a window-wide dim would be heavier than either menu is. */
   "view-panel-types": { kind: "menu" }, "view-panel-overflow": { kind: "menu" },
   /* A place the Context page listed, read on the page. A viewer rather than a
      dialog: it holds a file's text and closes without deciding anything. */
-  "context-reader": { kind: "viewer" },
+  "context-reader": { kind: "viewer" }, "generation-models": { kind: "popover" }, "generation-voices": { kind: "popover" },
 } as const satisfies Record<string, { kind: InstrumentOverlayKind }>;
 
 export const SHARED_SELECT_OVERLAY_OWNERS = {
+  "generation.parameters": { module: "src/entities/generation/ui/GenerationControls.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.generation", "workspace.canvas"] } },
+  "canvas.parameters": { module: "src/features/workflow-canvas/ui/CanvasNodeChoices.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.canvas"] } },
+  "canvas.switcher": { module: "src/features/workflow-canvas/ui/CanvasScreen.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.canvas"] } },
+  "canvas.connector": { module: "src/features/workflow-canvas/ui/CanvasNodeBody.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.canvas"] } },
+  "workspace.units": { module: "src/pages/workspace-units/ui/WorkspaceUnitsScreen.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.units"] } },
   "settings.rows": { module: "src/pages/settings/ui/rows.tsx", routeScope: { kind: "production-prefix", prefix: "settings." } },
   "shared.toolbar": { module: "src/pages/shared-library/ui/SharedLibraryToolbar.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.shared"] } },
   "shared.workflow": { module: "src/pages/shared-library/ui/SharedLibraryWorkflows.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.shared"] } },
@@ -60,7 +65,7 @@ interface InstrumentOverlayBaseProps<Id extends InstrumentOverlayId> {
   scrimClassName?: string;
 }
 
-type PrimitiveHostId = "shared-select-menu" | "workspace-picker" | "agent-chat-recent-menu" | "agent-chat-provider-menu" | "agent-chat-model-menu" | "agent-chat-mode-menu" | "agent-chat-context";
+type PrimitiveHostId = "shared-select-menu" | "workspace-picker" | "agent-chat-recent-menu" | "agent-chat-provider-menu" | "agent-chat-model-menu" | "agent-chat-mode-menu" | "agent-chat-context" | "generation-models" | "generation-voices";
 type PrimitiveOverlayBaseProps<Id extends PrimitiveHostId> = Omit<InstrumentOverlayBaseProps<Id>, "children"> & { children: ReactElement };
 export type InstrumentOverlayProps<Id extends InstrumentOverlayId> =
   Id extends "shared-select-menu"
@@ -112,7 +117,7 @@ const overlayRoles: Record<InstrumentOverlayKind, "dialog" | "listbox" | "menu" 
 
 const primitiveHostIds = new Set<PrimitiveHostId>([
   "shared-select-menu", "workspace-picker", "agent-chat-recent-menu", "agent-chat-provider-menu", "agent-chat-model-menu", "agent-chat-mode-menu",
-  "agent-chat-context",
+  "agent-chat-context", "generation-models", "generation-voices",
 ]);
 const modalKinds = new Set<InstrumentOverlayKind>(["dialog", "viewer", "sheet"]);
 

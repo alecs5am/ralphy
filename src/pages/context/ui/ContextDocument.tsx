@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, FileText } from "lucide-react";
 import { Fragment, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import type { ContextBlockDto, ContextRail } from "../../../../electron/agent/context-document";
@@ -22,7 +22,6 @@ import { Window } from "@/shared/ui/Window";
 const MONO = "font-code tracking-caps";
 const META = `${MONO} type-mono-2xs text-muted`;
 const TITLE = `${MONO} type-mono-sm text-ink select-text`;
-const NUMBER = "font-display font-extrabold tracking-normal text-ink";
 const SEGMENT = "inline-flex h-6 items-center rounded-control px-2.5 type-label";
 const CONTROL = "inline-flex h-6.5 flex-none items-center gap-1.5 rounded-control bg-card px-2.75 type-label text-ink hover:bg-chip";
 
@@ -176,7 +175,7 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
     /* No radius. A rounded plate under a straight rule drew its own corners
        curling away from a block that has no visible edge -- the rule belongs to
        the gap between blocks, not to the block, so it is a row of its own below. */
-    className={`context-block grid grid-cols-(--context-block-columns) gap-4.5 pr-3 pl-6 py-3 transition-colors duration-slow ease-instrument ${flash ? "bg-field" : "bg-transparent"} ${dim ? "opacity-26" : ""}`}
+    className={`context-block grid grid-cols-(--context-block-columns) @max-context-reading/main-region:grid-cols-1 gap-3 px-3 py-2.5 transition-colors duration-slow ease-instrument ${flash ? "bg-field" : "bg-transparent"} ${dim ? "opacity-26" : ""}`}
     data-block={block.id}
   >
     {/* No indent for a child. Depth was drawn twice -- a dashed left border and a
@@ -199,11 +198,11 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
           className={`absolute top-2 -left-4 text-muted transition-transform duration-state ease-instrument ${open ? "" : "-rotate-90"}`}
           aria-hidden="true"
         />
-        <span className={`min-w-0 truncate ${child ? `${MONO} type-mono-sm text-secondary` : TITLE}`}>{block.title}</span>
+        <span title={block.title} className={`min-w-0 truncate ${child ? `${MONO} type-mono-sm text-secondary` : TITLE}`}>{block.title}</span>
         <span className={`${META} min-w-0 truncate`}>{block.tag}</span>
         <span className="min-w-0 flex-1" aria-hidden="true" />
         <span className={`${MONO} type-mono-sm flex-none text-secondary`}>
-          {block.onDemand && block.bytes !== null ? `≈${bytes(block.bytes)} IF PULLED` : bytes(block.bytes)}
+          {block.onDemand && block.bytes !== null ? `≈${bytes(block.bytes)} if loaded` : bytes(block.bytes)}
         </span>
       </button>
       {/* Title, then the prompt. The body used to sit in a card of its own inside
@@ -222,15 +221,15 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
         <span className="flex flex-wrap items-center gap-2.5">
           <span className={META}>
             {hidden > 0
-              ? `… ${hidden} MORE LINES · SENT IN FULL`
-              : block.more < 0 ? "… THE FILE CONTINUES PAST WHAT THIS PAGE READ · IT IS STILL SENT IN FULL"
-              : block.more > 0 ? `… ${block.more} MORE LINES · SENT IN FULL` : "SENT IN FULL"}
+              ? `… ${hidden} more lines · ${block.onDemand ? "Available when needed" : "Included in full"}`
+              : block.more < 0 ? "Preview ends here; the source file continues."
+              : block.more > 0 ? `… ${block.more} more lines in the source` : block.onDemand ? "Available when needed" : "Included in full"}
           </span>
           {(hidden > 0 || whole) && <button
             className={`${MONO} type-mono-2xs rounded-chip px-1.5 py-0.5 text-secondary hover:bg-field hover:text-ink`}
             type="button"
             onClick={() => setWhole((value) => !value)}
-          >{whole ? "SHOW LESS" : "SHOW ALL"}</button>}
+          >{whole ? "Show less" : "Show full text"}</button>}
         </span>
       </div>}
       {open && block.note && <p className="m-0 type-sm text-muted">{block.note}</p>}
@@ -246,12 +245,10 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
   </div>;
 }
 
-export function ContextDocument({ blocks, provider, total, window: modelWindow, onOpenInventory, onRead }: {
+export function ContextDocument({ blocks, provider, onOpenInventory, onRead }: {
   onRead(path: string): void;
   blocks: readonly ContextBlockDto[];
   provider: string;
-  total: number | null;
-  window: number | null;
   onOpenInventory(): void;
 }) {
   const [filter, setFilter] = useState<ContextFilter>("all");
@@ -274,10 +271,10 @@ export function ContextDocument({ blocks, provider, total, window: modelWindow, 
 
   /* The same frame as the sidebar, the chat and the chat's utility panel: a panel plate at the
      window radius, one 2px gutter, and the content on a card at the frame radius. */
-  return <Window className="context-document mx-auto w-full max-w-context-column">
+  return <Window className="context-document mx-auto w-full max-w-context-column shrink-0">
     <div className="flex min-h-10 flex-wrap items-center gap-2.5 px-3 py-1.5">
-      <span className={`${MONO} type-mono-sm text-muted`}>WHAT THE AGENT SEES</span>
-      <span className={META}>{`${provider.toLocaleUpperCase()} · NEXT TURN`}</span>
+      <FileText className="size-4 text-secondary" aria-hidden="true" /><h2 className="m-0 type-ui font-medium text-ink">Instruction chain</h2>
+      <span className={META}>{`${blocks.length} sources`}</span>
       <span className="min-w-0 flex-1" aria-hidden="true" />
       <span className="flex flex-none gap-0.75 rounded-control bg-card p-0.75">
         {([["all", "Everything"], ["always", "Every turn"], ["demand", "On demand"]] as const).map(([value, label]) => <button
@@ -298,17 +295,17 @@ export function ContextDocument({ blocks, provider, total, window: modelWindow, 
         type="button"
         onClick={() => setOpened(allOpen ? {} : Object.fromEntries(blocks.map((block) => [block.id, true])))}
       >{allOpen ? "Collapse all" : "Expand all"}</button>
-      <button className={CONTROL} type="button" onClick={onOpenInventory}>Inventory</button>
-      <span className={`${NUMBER} type-lg flex-none`}>{total === null ? "—" : total < 1000 ? total : `${(total / 1000).toFixed(1)}K`}</span>
-      {modelWindow !== null && <span className={`${MONO} type-mono-sm flex-none text-muted`}>{`/ ${Math.round(modelWindow / 1000)}K`}</span>}
+      <button className={CONTROL} type="button" onClick={onOpenInventory}>Browse all sources</button>
+
     </div>
-    <div className="flex flex-col rounded-frame bg-card px-2.5 pt-3 pb-4">
+    <div className="flex flex-col rounded-frame bg-card px-1 pt-2 pb-2">
       {/* One line, not two. The provider's own prompt is named here -- it rides
           above everything below and nobody outside the provider can read it --
           and the reading rule follows it in the same breath. */}
-      <span className={`${META} px-3 pb-2.5`}>
-        {`BEFORE ALL OF THIS · ${provider.toLocaleUpperCase()}'S OWN SYSTEM PROMPT, NOT EXPOSED · THEN, IN ORDER: A DIMMED OR COLLAPSED BLOCK STILL RIDES`}
+      <span className="px-3 pb-3 type-sm leading-prose text-secondary">
+        {`${provider === "claude" ? "Claude" : "Codex"} also uses private system instructions that are not exposed here. Expand a source to read it. The filters highlight sources; they do not change what the agent receives.`}
       </span>
+      {blocks.length === 0 && <p className="m-0 px-3 py-5 type-sm text-muted">No readable instruction sources were found. Browse all sources to see availability.</p>}
       {blocks.map((block, index) => <Fragment key={block.id}>
         {index > 0 && <span className="mr-3 ml-6 h-px flex-none bg-divider" aria-hidden="true" />}
         <Block
@@ -322,7 +319,7 @@ export function ContextDocument({ blocks, provider, total, window: modelWindow, 
           onRead={onRead}
         />
       </Fragment>)}
-      <span className={`${META} pt-3 text-center`}>END OF CONTEXT · WHAT IS NOT HERE, THE AGENT DOES NOT KNOW</span>
+      <span className={`${META} pt-3 text-center`}>Instructions and available references · conversation history and tool results are separate</span>
     </div>
   </Window>;
 }

@@ -64,7 +64,11 @@ describe("instrument primitives", () => {
       expect(section?.getAttribute("aria-label")).toBe("Workspace summary");
       expect(mounted.host.container.textContent).toContain("UX Testing Lab");
       expect(mounted.host.container.textContent).toContain("Projects");
-      expect(mounted.host.container.querySelector("img")?.getAttribute("src")).toBe("./assets/dither/g4.png");
+      const identity = mounted.host.container.querySelector(".instrument-dither-identity");
+      expect(identity?.getAttribute("role")).toBe("img");
+      expect(identity?.getAttribute("aria-label")).toBe("UX Testing Lab");
+      expect(identity?.style.maskImage).toBe('url("./assets/dither/g4.png")');
+      expect(identity?.style["--glyph-color"]).toContain("var(--p4)");
       expect(mounted.host.container.querySelector("section")?.getAttribute("data-instrument-root")).toBe("instrument-widget");
       expect(mounted.host.container.querySelector("header")?.getAttribute("data-instrument-root")).toBe("instrument-screen-header");
     } finally {

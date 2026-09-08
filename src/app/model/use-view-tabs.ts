@@ -8,7 +8,7 @@
  * guest -- so raising either leaves the work route where it is. That is the rule the panel exists
  * to keep, and the reason opening a tab and navigating are the same call for everything else.
  */
-import { useCallback, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 
 import {
   chordTokens,
@@ -70,6 +70,10 @@ export function useViewTabs({
   onOpenWorkspacePage,
   onOpenProject,
 }: ViewTabsInput) {
+  const [viewExpanded, setViewExpanded] = useState(false);
+  const [canvasSplitRequested, setCanvasSplitRequested] = useState(false);
+  useEffect(() => { if (lens === "desk") setCanvasSplitRequested(false); }, [lens]);
+  useEffect(() => { setViewExpanded(false); }, [viewChatId, lens, mode, viewPanel.open]);
   /* One definition of "open or close the panel beside the chat", for the chord and the command
      alike. It is a chat-lens decision: under the desk lens there is no panel to toggle, and a
      preference that flipped invisibly would surprise the operator on their way back. */
@@ -79,6 +83,12 @@ export function useViewTabs({
   const viewFrameActive = lens === "chat" && mode === "work";
   const tabSet = tabSetFor(viewPanel, viewChatId);
   const viewTab = activeViewTab(tabSet);
+  const previousViewType = useRef(viewTab.type);
+  useEffect(() => {
+    if (viewTab.type === "canvas") setViewExpanded(viewFrameActive && viewPanel.open && !canvasSplitRequested);
+    else if (previousViewType.current === "canvas") setViewExpanded(false);
+    previousViewType.current = viewTab.type;
+  }, [viewTab.type, viewChatId, lens, mode, viewPanel.open, viewFrameActive, canvasSplitRequested]);
   const viewWidth = panelWidthFor(viewPanel, viewChatId);
   const updateChatPanel = (update: (panel: ViewChatPanel) => ViewChatPanel) => setViewPanel((record) => {
     if (!viewChatId) return record;
@@ -124,7 +134,10 @@ export function useViewTabs({
   };
 
   const openView = (request: OpenViewRequest) => {
+    setCanvasSplitRequested(false);
+    if (request.type === "canvas") setViewExpanded(true);
     setLens("chat");
+    setViewPanel((record) => ({ ...record, open: true }));
     updateTabs((set) => openViewTab(set, request));
     routeToView(request);
   };
@@ -132,6 +145,7 @@ export function useViewTabs({
   const selectView = (id: string) => {
     const tab = tabSet.tabs.find((candidate) => candidate.id === id);
     if (!tab) return;
+    if (tab.type === "canvas") setCanvasSplitRequested(false);
     updateTabs((set) => selectViewTab(set, id));
     /* Home is the panel's own page, not a route: selecting it leaves the work route where it is,
        which is what makes it a point of return rather than a seventh place. */
@@ -194,6 +208,9 @@ export function useViewTabs({
     tabSet,
     viewTab,
     viewWidth,
+    viewExpanded,
+    toggleViewExpanded: () => setViewExpanded((expanded) => !expanded),
+    revealCanvasChat: () => { setCanvasSplitRequested(true); setViewExpanded(false); setLens("chat"); setViewPanel((record) => ({ ...record, open: true })); },
     viewChords,
     toggleViewPanel,
     updateChatPanel,

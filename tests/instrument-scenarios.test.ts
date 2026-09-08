@@ -141,7 +141,16 @@ describe("instrument scenario contract", () => {
       fixtureId: "instrument-test-fixture:project.media:ready:media.ready:-:-",
     });
     expect(ids).toEqual(canonicalScenarioIds);
-    expect(ids).toHaveLength(384);
+    expect(ids).toHaveLength(417);
+    expect(INSTRUMENT_SCENARIOS.find(({ id }) => id === "overlay.shared-select-menu.generation.parameters.workspace.generation")).toMatchObject({
+      routeKey: "workspace.generation", overlay: "shared-select-menu", overlayOwner: "generation.parameters", landmarks: ["Create studio"],
+    });
+    expect(INSTRUMENT_SCENARIOS.find(({ id }) => id === "overlay.shared-select-menu.canvas.switcher.workspace.canvas")).toMatchObject({
+      routeKey: "workspace.canvas", overlay: "shared-select-menu", overlayOwner: "canvas.switcher", landmarks: ["Working canvases"],
+    });
+    expect(INSTRUMENT_SCENARIOS.find(({ id }) => id === "overlay.shared-select-menu.workspace.units.workspace.units")).toMatchObject({
+      routeKey: "workspace.units", overlay: "shared-select-menu", overlayOwner: "workspace.units",
+    });
   });
 
   test("locks literal themes, viewports, and the immutable reviewed exception allowlist", () => {
@@ -159,14 +168,13 @@ describe("instrument scenario contract", () => {
   test("expands the exact production-derived scenario/theme/viewport case set", () => {
     expect(expandInstrumentScenarioCases(INSTRUMENT_SCENARIOS).map(({ key: caseKey }) => caseKey))
       .toEqual(canonicalCaseKeys);
-    expect(canonicalCaseKeys).toHaveLength(2_300);
+    expect(canonicalCaseKeys).toHaveLength(2_498);
   });
 
   test("binds every stable scenario ID to one frozen semantic record", () => {
-    /* Re-frozen when the right-edge panels became modals: media review moved to the asset's context
-       menu, and the calendar and run inspectors stopped docking into the rail, so three routes lost
-       a rail owner and the calendar inspector became an overlay that owns its own scroll. */
-    expect(semanticDigest(INSTRUMENT_SCENARIOS)).toBe("b3a845a916056b2bfe0f98728ca7399f6091d6eb4d631b8a189a3827a59d3f79");
+    // Canvas result preview and parameter menus are scoped alongside Create popovers,
+    // each covered across all six theme/viewport pairs.
+    expect(semanticDigest(INSTRUMENT_SCENARIOS)).toBe("b3cd300fa1457b4f8e7c8263ca00b6105580b6d496caea3fdb151e3b8d83fc27");
   });
 
   test("rejects set-preserving route, state, overlay, and owner swaps across stable IDs", () => {
@@ -187,7 +195,7 @@ describe("instrument scenario contract", () => {
 
     for (const mutated of mutations) {
       expect(() => assertInstrumentScenarioCompleteness(mutated)).toThrow(/semantic/i);
-      expect(semanticDigest(mutated)).not.toBe("b0f06dc4225d6197ec3af91450a3114c54e06810e3cd7b9c78e4ee1beb109e44");
+      expect(semanticDigest(mutated)).not.toBe(semanticDigest(INSTRUMENT_SCENARIOS));
     }
   });
 

@@ -7,7 +7,7 @@
  */
 import {
   Boxes, Brain, CalendarDays, ChartNoAxesCombined, CircleAlert, Download, FolderOpen, Layers,
-  Layers3, PackageCheck, Plus, Save, Sparkles, Store, UsersRound, WandSparkles,
+  Layers3, PackageCheck, Plus, Save, Sparkles, Store, UsersRound, WandSparkles, Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,7 +26,9 @@ export interface SidebarChat {
 
 export const PAGE_ICONS: Record<WorkspacePage, LucideIcon> = {
   overview: ChartNoAxesCombined,
+  generation: WandSparkles,
   projects: FolderOpen,
+  canvas: Workflow,
   units: UsersRound,
   shared: Boxes,
   memory: Brain,

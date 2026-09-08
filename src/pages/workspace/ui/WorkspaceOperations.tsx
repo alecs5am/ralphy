@@ -1,25 +1,18 @@
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, FolderOpen, ListTodo, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import type { ProjectSummary } from "@/shared/api/ipc";
-import { projectGlyphVars } from "@/shared/lib/project-glyph";
+import { DitherIdentity } from "@/shared/instrument/primitives";
 import type { WorkspacePage } from "@/shared/model/workbench";
+import { OverviewHeading } from "./OverviewHeading";
 import {
   ACTION_ON_SUNKEN,
   ACTION_ON_SURFACE,
-  PLATE,
-  PLATE_COPY,
-  PLATE_ON_SUNKEN,
-  PLATE_TITLE,
   ROW_ACTION_STACKED,
   ROW_THREE,
   ROW_COPY,
   ROW_NOTE,
   ROW_TITLE,
   SECTION,
-  SECTION_HALF,
-  SECTION_HEADING,
-  SECTION_META,
-  SECTION_TITLE,
 } from "../lib/overview-chrome";
 import type {
   ActiveProjectPresentation,
@@ -39,9 +32,7 @@ interface Props {
   onRetry(): void;
 }
 
-/* One of the two Operations panels: a widget standing inside the Operations widget. */
-/* Handoff 13: these two are sections too, so they take the same block-in-block chrome. */
-const PANEL = "workspace-operations-panel grid min-w-0 content-start gap-1.5 rounded-panel bg-panel p-1.5";
+const PANEL = `${SECTION} workspace-operations-panel`;
 const BANNER = "workspace-operation-banner flex items-center justify-between gap-3 rounded-inner bg-card p-3 text-muted";
 const BANNER_TITLE = "type-xs font-normal";
 const BANNER_NOTE = "type-xs font-normal text-muted";
@@ -92,12 +83,9 @@ function AttentionQueue({ value, onOpenPage, onRetry, expanded: controlledExpand
   const total = available ? value.value.items.length : 0;
   const items = available ? value.value.items.slice(0, expanded ? total : 5) : [];
   return <section className={`${PANEL} workspace-attention`} aria-labelledby="workspace-attention-heading">
-    <div className={SECTION_HEADING}>
-      <h2 className={SECTION_TITLE} id="workspace-attention-heading">Attention</h2>
-      {available && <span className={SECTION_META}>{total > 5
+    <OverviewHeading id="workspace-attention-heading" title="Attention" icon={AlertTriangle} meta={available && (total > 5
         ? expanded ? `Showing all ${total} actionable items` : `Showing 5 of ${total} actionable items`
-        : `${total} actionable`}</span>}
-    </div>
+        : `${total} actionable`)} />
     {value.status === "partial" && <InfoBanner title="Bounded attention data" reason={value.reason} />}
     {value.status === "unavailable" && <RetryBanner title="Attention unavailable" reason={value.reason} label="Retry attention" onRetry={onRetry} />}
     {available && items.length === 0 && <p className={EMPTY_NOTE}>
@@ -122,35 +110,8 @@ function AttentionQueue({ value, onOpenPage, onRetry, expanded: controlledExpand
   </section>;
 }
 
-const pulseStages = ["In production", "Needs review", "Ready", "Scheduled", "Published in selected period", "Blocked or failed"];
 
-function ProductionState({ value }: { value: OperationsValue["pulse"] }) {
-  const available = value.status === "ready" || value.status === "partial";
-  return <section className={`${PANEL} workspace-production-state`} aria-labelledby="workspace-pulse-heading">
-    <div className={SECTION_HEADING}><h2 className={SECTION_TITLE} id="workspace-pulse-heading">Production pulse</h2><span className={SECTION_META}>Lifecycle</span></div>
-    <ul className="workspace-pulse-list m-0 grid list-none grid-cols-3 gap-2 bg-transparent p-0" aria-label="Production lifecycle summary">
-      {pulseStages.map((stage) => <li className="grid gap-1 rounded-cell bg-card p-3" key={stage}><span className="font-code type-lg text-muted" aria-hidden="true">—</span><small className="type-xs text-muted">{stage}</small></li>)}
-    </ul>
-    {value.status !== "ready" && <div className={PLATE_ON_SUNKEN}>
-      <strong className={PLATE_TITLE}>{value.status === "partial" ? "Partial production data" : "Production pulse unavailable"}</strong>
-      <p className={PLATE_COPY}>{value.reason}</p>
-    </div>}
-    <div className="workspace-in-progress pt-4">
-      <h3 className={`${ROW_TITLE} m-0 mb-2`}>In progress</h3>
-      {value.status === "ready" && value.value.stages.length === 0
-        ? <p className={NOTE}>No Units are currently in production.</p>
-        : value.status === "partial"
-          ? <p className={NOTE}>Active production work is partial; Core did not return normalized work items.</p>
-          : !available
-            ? <p className={NOTE}>Active production work is unavailable from the current Core contract.</p>
-            : <p className={NOTE}>Active work details are not available from the current Core contract.</p>}
-    </div>
-  </section>;
-}
 
-function initials(value: string): string {
-  return value.split(/[\s_-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toLocaleUpperCase();
-}
 
 function updatedLabel(value: number): string {
   const timestamp = value < 1_000_000_000_000 ? value * 1000 : value;
@@ -167,14 +128,10 @@ function ActiveProjectRow({ value, onOpenProject, onOpenPage }: {
   const action = value.catalog ? () => onOpenProject(value.catalog!) : () => onOpenPage("projects", focusId);
   const label = value.catalog ? "Open project" : "Find in Projects";
   return <li className={`${ROW_THREE} rounded-inner bg-card p-3`}>
-    {/* The identity tone is per-project and arrives as an inline custom property, so the tint
-        it is mixed into is an arbitrary property: no scale names a mix of a runtime colour. */}
-    <span className="workspace-active-project-glyph grid size-12 place-items-center rounded-field font-code type-sm text-(--glyph-color) [background:color-mix(in_srgb,var(--glyph-color)_18%,var(--instrument-widget-light-sunken))]" style={projectGlyphVars(value.name)} aria-hidden="true">
-      {initials(value.name)}
-    </span>
+    <DitherIdentity name={value.catalog?.name ?? value.name} label="" className="workspace-active-project-glyph shrink-0" />
     <span className={`workspace-active-project-copy ${ROW_COPY}`}>
-      <strong className={`${ROW_TITLE} truncate`}>{value.name}</strong>
-      <small className={`${ROW_NOTE} truncate`}>{value.catalog?.brief || "Purpose not available from the project catalog."}</small>
+      <strong className="truncate type-sm font-medium text-ink">{value.name}</strong>
+      {value.catalog?.brief && <small className={`${ROW_NOTE} truncate`}>{value.catalog.brief}</small>}
       <span className={ROW_NOTE}>{value.catalog ? `${value.catalog.unitCount} Unit${value.catalog.unitCount === 1 ? "" : "s"} · ` : ""}{updatedLabel(value.updatedAt)}</span>
     </span>
     <button className={`${ACTION_ON_SURFACE} ${ROW_ACTION_STACKED}`} id={focusId} type="button" aria-label={`${label} ${value.name}`} onClick={action}>{label}</button>
@@ -189,34 +146,20 @@ function ActiveProjects({ value, onOpenProject, onOpenPage, onRetry }: {
 }) {
   const available = value.status === "ready" || value.status === "partial";
   const projects = available ? value.value.slice(0, 4) : [];
-  return <section className={`${SECTION_HALF} workspace-active-projects`} aria-labelledby="workspace-active-projects-heading">
-    <div className={SECTION_HEADING}>
-      <h2 className={SECTION_TITLE} id="workspace-active-projects-heading">Active projects</h2>
+  return <section className={`${SECTION} workspace-active-projects`} aria-labelledby="workspace-active-projects-heading">
+    <OverviewHeading id="workspace-active-projects-heading" title="Active projects" icon={FolderOpen}>
       {available && <button className={ACTION_ON_SUNKEN} id="workspace-view-all-projects" type="button" onClick={() => onOpenPage("projects", "workspace-view-all-projects")}>View all projects</button>}
-    </div>
+    </OverviewHeading>
     {value.status === "partial" && <InfoBanner title="Bounded project data" reason={value.reason} />}
     {value.status === "unavailable" && <RetryBanner title="Active projects unavailable" reason={value.reason} label="Retry projects" onRetry={onRetry} />}
     {available && projects.length === 0 && <p className={EMPTY_NOTE}>No active projects were returned by Core.</p>}
-    {projects.length > 0 && <ul className="workspace-active-project-list m-0 grid list-none gap-2 p-0">
+    {projects.length > 0 && <ul className="workspace-active-project-list m-0 grid list-none gap-1 p-0">
       {projects.map((project) => <ActiveProjectRow key={project.id} value={project} onOpenProject={onOpenProject} onOpenPage={onOpenPage} />)}
     </ul>}
   </section>;
 }
 
-function RecentChanges({ value }: { value: OperationsValue["recentChanges"] }) {
-  const available = value.status === "ready" || value.status === "partial";
-  return <section className={`${SECTION_HALF} workspace-recent-changes`} aria-labelledby="workspace-recent-changes-heading">
-    <div className={SECTION_HEADING}><h2 className={SECTION_TITLE} id="workspace-recent-changes-heading">Recent changes</h2><span className={SECTION_META}>Meaningful activity</span></div>
-    <div className={PLATE}>
-      <strong className={PLATE_TITLE}>{available && value.value.length === 0 ? "No recent changes" : "Human-readable changes unavailable"}</strong>
-      <p className={PLATE_COPY}>{available
-        ? value.value.length === 0
-          ? "No recent meaningful changes were returned by Core."
-          : "Core supplied activity without the normalized, human-readable labels this feed requires."
-        : value.reason}</p>
-    </div>
-  </section>;
-}
+
 
 function WorkspaceOnboarding({ onOpenPage }: { onOpenPage(page: WorkspacePage, returnFocusId: string): void }) {
   const steps: Array<{ title: string; detail: string; label: string; page: WorkspacePage }> = [
@@ -225,7 +168,7 @@ function WorkspaceOnboarding({ onOpenPage }: { onOpenPage(page: WorkspacePage, r
     { title: "Plan publishing", detail: "Use Calendar when the first Unit is ready for a publishing date.", label: "Open Calendar", page: "calendar" },
   ];
   return <section className={`${SECTION} workspace-onboarding`} aria-labelledby="workspace-onboarding-heading">
-    <div className={SECTION_HEADING}><h2 className={SECTION_TITLE} id="workspace-onboarding-heading">Start producing in this workspace</h2><span className={SECTION_META}>Getting started</span></div>
+    <OverviewHeading id="workspace-onboarding-heading" title="Start producing in this workspace" icon={ListTodo} meta="Getting started" />
     <ol className="m-0 grid list-none gap-2 p-0">
       {/* The step number is content, so it is rendered rather than drawn by a CSS counter. */}
       {steps.map((step, index) => <li className="grid items-center gap-4 grid-cols-(--workspace-row-columns) rounded-inner bg-card p-4 @max-workspace-row/main-region:grid-cols-(--workspace-glyph-columns)" key={step.page}>
@@ -247,14 +190,8 @@ export function WorkspaceOperations({ value, onOpenProject, onOpenPage, onRetry,
     {value.onboarding.status !== "ready" && <div className={SECTION}>
       <RetryBanner title="Workspace setup state unavailable" reason={value.onboarding.reason} label="Retry workspace state" onRetry={onRetry} />
     </div>}
-    {/* The two Operations panels sit side by side once the desk is wide enough for the
-        sections themselves to split, and stack below that. */}
-    <section className="workspace-overview-section workspace-operations-grid col-span-12 grid min-w-0 grid-cols-1 gap-2 bg-transparent p-0 @min-workspace-section/instrument-desk:grid-cols-2" aria-label="Workspace operations">
-      <AttentionQueue value={value.attention} onOpenPage={onOpenPage} onRetry={onRetry} expanded={attentionExpanded} onExpandedChange={onAttentionExpandedChange} />
-      <ProductionState value={value.pulse} />
-    </section>
-    {onboarding && <WorkspaceOnboarding onOpenPage={onOpenPage} />}
     <ActiveProjects value={value.projects} onOpenProject={onOpenProject} onOpenPage={onOpenPage} onRetry={onRetry} />
-    <RecentChanges value={value.recentChanges} />
+    {!attentionCompleteEmpty && <AttentionQueue value={value.attention} onOpenPage={onOpenPage} onRetry={onRetry} expanded={attentionExpanded} onExpandedChange={onAttentionExpandedChange} />}
+    {onboarding && <WorkspaceOnboarding onOpenPage={onOpenPage} />}
   </>;
 }

@@ -21,6 +21,8 @@ export interface Attachment {
   /** What the agent resolves: a slug, a path, a `workspace/project` pair. */
   ref: string;
   label: string;
+  /** Trusted app-generated context; never accepted from drag payloads. */
+  instructions?: string;
 }
 
 /* The glyph and the word each kind is printed with. There is no colour here on purpose: colour is
@@ -100,13 +102,12 @@ export function readFileDrop(files: readonly { name: string }[], pathFor: (file:
 
 /** An attachment already on the strip is not added twice: the strip is a set of places. */
 export function addAttachments(current: readonly Attachment[], added: readonly Attachment[]): Attachment[] {
-  const seen = new Set(current.map(({ kind, ref }) => `${kind}:${ref}`));
-  return [...current, ...added.filter(({ kind, ref }) => {
-    const key = `${kind}:${ref}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  })];
+  const places = new Map(current.map((item) => [`${item.kind}:${item.ref}`, item]));
+  for (const item of added) {
+    const key = `${item.kind}:${item.ref}`;
+    if (!places.has(key) || item.instructions) places.set(key, item);
+  }
+  return [...places.values()];
 }
 
 /**
@@ -118,4 +119,9 @@ export function withAttachments(prompt: string, attachments: readonly Attachment
   if (attachments.length === 0) return prompt;
   const lines = attachments.map(({ kind, ref }) => `- @${kind}:${ref}`).join("\n");
   return `${prompt ? `${prompt}\n\n` : ""}Attached:\n${lines}`;
+}
+
+/** Detaching a reference removes its app-generated context with it. */
+export function attachmentInstructions(attachments: readonly Attachment[]): string {
+  return attachments.map((item) => item.instructions).filter(Boolean).join("\n\n");
 }

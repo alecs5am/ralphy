@@ -8,6 +8,7 @@ export const projectMockDynamicIslandFeed: DynamicIslandMockProvider = ({ rootEp
   if (workspace?.name !== "UX Testing Lab") return null;
   const destination = project ? { kind: "project" as const, workspaceId: project.workspaceId, projectId: project.projectId } : { kind: "workspace" as const, workspaceId: workspace.id };
   return {
+    rootEpoch,
     projectStatus: { status: "ready", value: { approved: 18, needsWork: 3, rejected: 1, unreviewed: 7 } },
     activeTask: { id: `ux-task-${rootEpoch}`, label: project ? `Reviewing ${project.name}` : "Preparing UX review", status: "running", progress: 0.68, destination },
     notifications: { status: "ready", value: [

@@ -27,6 +27,7 @@ import { projectMarketplacePublicItem, type MarketplaceItemPresentation, type Ma
 import { MarketplaceInstalledModels } from "@/pages/marketplace";
 import type { MarketplaceLocation, MarketplaceQueryState, MarketplaceRoute } from "@/pages/marketplace";
 import { WORKSPACE_PAGES } from "@/shared/model/workbench";
+import { CanvasScreen, canvasInstrumentStates } from "@/features/workflow-canvas";
 import { createReactHost } from "./react-host";
 
 const actualRouteKeys: readonly InstrumentRouteKey[] = [
@@ -452,6 +453,32 @@ describe("production instrument screen states", () => {
     } finally {
       await act(async () => root.unmount());
       host.restore();
+    }
+  });
+
+  test("marks the real canvas library loading, empty and error states", async () => {
+    let finish!: (items: []) => void;
+    const pending = new Promise<[]>((resolve) => { finish = resolve; });
+    vi.spyOn(bridge, "loadCanvases").mockImplementation((workspaceId) => workspaceId.endsWith("error") ? Promise.reject(new Error("Canvas storage unavailable")) : pending);
+    vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => undefined, removeItem: () => undefined });
+    vi.spyOn(bridge, "loadCanvasModels").mockResolvedValue({ models: [], providers: [], errors: [] });
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    const screen = () => host.container.querySelector("[data-instrument-route='workspace.canvas']");
+    try {
+      await act(async () => root.render(<CanvasScreen workspaceId="canvas-instrument-empty" workspaceName="UX Testing Lab" />));
+      expect(screen()?.getAttribute("data-instrument-state")).toBe("loading");
+      await act(async () => finish([]));
+      expect(screen()?.getAttribute("data-instrument-state")).toBe("empty");
+      expect(screen()?.getAttribute("data-instrument-root")).toBe(canvasInstrumentStates.rootMarker);
+      expect(screen()?.getAttribute("aria-label")).toBe("Working canvases");
+      await act(async () => root.render(<CanvasScreen key="error" workspaceId="canvas-instrument-error" workspaceName="UX Testing Lab" />));
+      expect(screen()?.getAttribute("data-instrument-state")).toBe("error");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+      vi.unstubAllGlobals();
     }
   });
 });

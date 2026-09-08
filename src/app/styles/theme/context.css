@@ -42,6 +42,7 @@
 }
 
 @theme inline {
+  --container-context-reading: 800px;
   /* The band body's indent: a row starts under the band name, not under its chevron. */
   --spacing-context-indent: 27px;
   /* The page is a document about one turn, so it reads at a column rather than at whatever the

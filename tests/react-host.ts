@@ -183,7 +183,8 @@ export function createReactHost() {
     head: undefined as unknown as HostNode,
     defaultView: undefined as unknown as object,
     activeElement: null as HostNode | null,
-    createElement: (name: string) => new HostNode(1, name.toUpperCase(), document),
+    // Canvas painting is covered in the browser; this DOM-only host reports no context.
+    createElement: (name: string) => Object.assign(new HostNode(1, name.toUpperCase(), document), name === "canvas" ? { getContext: () => null } : {}),
     createElementNS: (_namespace: string, name: string) => new HostNode(1, name.toUpperCase(), document),
     createTextNode: (value: string) => {
       const node = new HostNode(3, "#text", document);

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
+import { VIDEO_CHANNELS } from "../shared/video-workspace";
 import { type IpcResult, unwrapIpcResult } from "./ipc-security";
 import {
   AGENT_CHANNELS,
@@ -48,6 +49,39 @@ function loadProjectCompositionPage(
 }
 
 const mediaBridge: MediaWorkbenchBridge = {
+  loadVideoWorkspace: (ref) => invoke(VIDEO_CHANNELS.loadVideoWorkspace, ref),
+  saveVideoWorkspace: (ref, html, fps, expected) => invoke(VIDEO_CHANNELS.saveVideoWorkspace, ref, html, fps, expected),
+  previewVideoWorkspace: (ref, html) => invoke(VIDEO_CHANNELS.previewVideoWorkspace, ref, html),
+  renderVideoWorkspace: (ref, expected) => invoke(VIDEO_CHANNELS.renderVideoWorkspace, ref, expected),
+  importVideoWorkspaceAsset: (ref, file) => {
+    const path = file ? webUtils.getPathForFile(file) : undefined;
+    if (file && !path) return Promise.reject(new Error("Drop a file from Finder to import it"));
+    return invoke(VIDEO_CHANNELS.importVideoWorkspaceAsset, ref, path);
+  },
+  loadGenerationProviders: () => invoke(MEDIA_CHANNELS.loadGenerationProviders),
+  setGenerationProviderKey: (provider, apiKey) => invoke(MEDIA_CHANNELS.setGenerationProviderKey, provider, apiKey),
+  clearGenerationProviderKey: (provider) => invoke(MEDIA_CHANNELS.clearGenerationProviderKey, provider),
+  loadGenerationCatalog: (workspaceId) => invoke(MEDIA_CHANNELS.loadGenerationCatalog, workspaceId),
+  loadGenerationVoices: (workspaceId) => invoke(MEDIA_CHANNELS.loadGenerationVoices, workspaceId),
+  loadGenerationDraft: (workspaceId) => invoke(MEDIA_CHANNELS.loadGenerationDraft, workspaceId),
+  saveGenerationDraft: (workspaceId, draft) => invoke(MEDIA_CHANNELS.saveGenerationDraft, workspaceId, draft),
+  startGeneration: (workspaceId, draft, mode) => invoke(MEDIA_CHANNELS.startGeneration, workspaceId, draft, mode),
+  loadGenerationRuns: (workspaceId) => invoke(MEDIA_CHANNELS.loadGenerationRuns, workspaceId),
+  cancelGenerationRun: (workspaceId, id) => invoke(MEDIA_CHANNELS.cancelGenerationRun, workspaceId, id),
+  exportGenerationAsset: (workspaceId, asset) => invoke(MEDIA_CHANNELS.exportGenerationAsset, workspaceId, asset),
+  loadCanvasModels: (workspaceId) => invoke(MEDIA_CHANNELS.loadCanvasModels, workspaceId),
+  importCanvasAsset: (workspaceId, file) => {
+    if (!file) return invoke(MEDIA_CHANNELS.importCanvasAsset, workspaceId);
+    const path = webUtils.getPathForFile(file);
+    if (!path) return Promise.reject(new Error("Drop a file from Finder to import it"));
+    return invoke(MEDIA_CHANNELS.importCanvasAsset, workspaceId, path);
+  },
+  loadCanvasAssetPreview: (workspaceId, asset) => invoke(MEDIA_CHANNELS.loadCanvasAssetPreview, workspaceId, asset),
+  startCanvasRun: (workspaceId, canvas, options) => invoke(MEDIA_CHANNELS.startCanvasRun, workspaceId, canvas, options),
+  loadCanvasRuns: (workspaceId, canvas) => invoke(MEDIA_CHANNELS.loadCanvasRuns, workspaceId, canvas),
+  cancelCanvasRun: (workspaceId, run) => invoke(MEDIA_CHANNELS.cancelCanvasRun, workspaceId, run),
+  loadCanvases: (workspaceId) => invoke(MEDIA_CHANNELS.loadCanvases, workspaceId),
+  saveCanvas: (workspaceId, canvas, expectedRevision) => invoke(MEDIA_CHANNELS.saveCanvas, workspaceId, canvas, expectedRevision),
   summariseAgentTitle: (request) => invoke(AGENT_CHANNELS.title, request),
   loadAgentContext: (input) => invoke(AGENT_CHANNELS.context, input),
   readContextPath: (path) => invoke(AGENT_CHANNELS.contextRead, path),

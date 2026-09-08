@@ -23,6 +23,7 @@ export function ShellTopRow({
   island,
   onToggleLeft,
   onLensChange,
+  pageHeaderRef,
 }: {
   leftVisible: boolean;
   lens: WorkbenchLens;
@@ -30,8 +31,9 @@ export function ShellTopRow({
   island?: ReactNode;
   onToggleLeft(): void;
   onLensChange?(lens: WorkbenchLens): void;
+  pageHeaderRef?(element: HTMLDivElement | null): void;
 }) {
-  return <header className="instrument-top-row relative flex h-8 min-w-0 flex-none items-center gap-3 [-webkit-app-region:drag]">
+  return <header data-page-controls={!!pageHeaderRef || undefined} className={`instrument-top-row relative flex h-8 min-w-0 flex-none items-center ${pageHeaderRef ? "gap-2" : "gap-3"} [-webkit-app-region:drag]`}>
         {/* The sidebar owns its own collapse control now; the topbar carries it only while the
             sidebar is gone, which is the one state where the sidebar's own button is not on
             screen. History stays here in both states -- it is about the content column. */}
@@ -67,9 +69,10 @@ export function ShellTopRow({
             ><Icon size={15} strokeWidth={1.8} aria-hidden="true" /></button>;
           })}
         </div>}
+        {pageHeaderRef && <div ref={pageHeaderRef} className="page-header-host flex min-w-0 flex-1 items-center [-webkit-app-region:no-drag]" />}
         {/* The island is taken out of flow: open, its plate is far taller than the topbar, and
             in flow inside a centred row it grew upward past the window edge as well as down.
             Anchored to the top of the row it grows downward only, over the content. */}
-        <div className="instrument-island-slot absolute top-0 right-0 flex items-start [-webkit-app-region:no-drag]">{island}</div>
+        <div className={pageHeaderRef ? "page-island-reserve relative h-8 shrink-0" : "contents"}><div className="instrument-island-slot absolute top-0 right-0 flex items-start [-webkit-app-region:no-drag]">{island}</div></div>
       </header>
 }

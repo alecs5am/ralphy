@@ -1,4 +1,5 @@
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { PageHeader } from "@/shared/ui/PageHeader";
+import { ChartNoAxesCombined, AlertCircle, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ProjectSummary } from "@/shared/api/ipc";
 import { bridge } from "@/shared/api/ipc";
@@ -26,6 +27,7 @@ import { WorkspaceOperations } from "./WorkspaceOperations";
 import { WorkspacePerformance } from "./WorkspacePerformance";
 import { WorkspacePlanAndOutcomes } from "./WorkspacePlanAndOutcomes";
 import { COMMAND_BUTTON, PROJECT_LOCAL_ERROR } from "@/shared/ui/route-chrome";
+import { previewWorkspaceOverview } from "../lib/overview-preview";
 
 export { createWorkspaceScreenController } from "../model/screen-controller";
 
@@ -61,34 +63,24 @@ function WorkspaceOverviewShell({ value, onOpenPage, onOpenCalendar, onOpenUnit,
   return <>
     <WorkspacePerformance value={value} onOpenCalendar={onOpenCalendar} />
     <WorkspacePlanAndOutcomes value={value} onOpenPage={onOpenPage} onOpenCalendar={onOpenCalendar} onOpenUnit={onOpenUnit} />
-    <WorkspaceInsights value={value} onOpenPage={onOpenPage} />
     <WorkspaceOperations value={value} onOpenProject={onOpenProject} onOpenPage={onOpenPage} onRetry={onRetry} attentionExpanded={attentionExpanded} onAttentionExpandedChange={onAttentionExpandedChange} />
+    <WorkspaceInsights value={value} onOpenPage={onOpenPage} />
   </>;
 }
 
 /* The route surface. `main-region` and `workspace-overview` stay as the hooks instrument.css
    names and the geometry harness selects; the route declares its own content row so the row
    collapses below read a container this component owns. */
-const ROUTE = "main-region workspace-overview @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink";
+const ROUTE = "main-region workspace-overview @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 type-base text-ink";
 /* The desk grid the sections stand on. The desk is the only scroll owner here, so this row
    keeps its own overflow visible and only guards its flex geometry. */
-const OVERVIEW_GRID = "workspace-overview-scroll grid min-h-0 w-full flex-1 grid-cols-12 items-start gap-2 overflow-visible p-0";
-/* The black header the three states share. `screen-header` and `workspace-overview-header`
-   are hooks; the layout, surface and on-instrument ink are stated here. */
-const STATE_HEADER = "screen-header workspace-overview-header workspace-overview-loading-header m-0 flex min-h-28 w-full max-w-none flex-col justify-center gap-1 rounded-panel bg-instrument px-5 py-4 text-on-instrument";
-const STATE_KICKER = "screen-kicker mb-1 type-xs uppercase tracking-wide text-on-instrument-muted";
-const STATE_TITLE = "m-0 type-xl font-normal text-on-instrument";
-const STATE_COPY = "m-0 type-base leading-5 text-on-instrument-muted";
+const OVERVIEW_GRID = "workspace-overview-scroll grid min-h-0 w-full grid-cols-12 items-start gap-2 overflow-visible p-0";
 const SKELETON_SECTION = "workspace-overview-skeleton-section col-span-12 min-h-44 rounded-panel bg-surface p-4 @min-workspace-section/instrument-desk:col-span-6";
 const SKELETON_BAR = "mt-3 block h-4.5 rounded-chip bg-surface-sunken";
 
 function WorkspaceOverviewLoading({ workspaceName, workspaceDescription }: { workspaceName: string; workspaceDescription: string }) {
   return <InstrumentScreenRoot descriptor={workspaceOverviewInstrumentStates} state="loading"><main className={`${ROUTE} workspace-overview-loading`} aria-busy="true">
-    <header className={STATE_HEADER}>
-      <div className={STATE_KICKER}>Workspace overview</div>
-      <h1 className={STATE_TITLE}>{workspaceName || "Loading workspace overview…"}</h1>
-      {workspaceDescription && <p className={STATE_COPY}>{workspaceDescription}</p>}
-    </header>
+    <PageHeader title={workspaceName || "Loading workspace overview…"} icon={ChartNoAxesCombined} meta="Overview" description={`Workspace overview · ${workspaceDescription}`} />
     <div className={OVERVIEW_GRID} role="status" aria-label="Loading workspace overview">
       {["Performance", "Planning", "Insights", "Operations"].map((label) => <section key={label} className={SKELETON_SECTION} aria-hidden="true">
         <span className="type-xs text-muted">{label}</span>
@@ -102,15 +94,10 @@ function WorkspaceOverviewLoading({ workspaceName, workspaceDescription }: { wor
 
 function WorkspaceOverviewError({ error, workspaceName, workspaceDescription, onRetry }: { error: string | null; workspaceName: string; workspaceDescription: string; onRetry(): void }) {
   return <InstrumentScreenRoot descriptor={workspaceOverviewInstrumentStates} state="error"><main className={`${ROUTE} workspace-overview-error`}>
-    <header className={STATE_HEADER}>
-      <div className={STATE_KICKER}>Workspace overview</div>
-      <h1 className={STATE_TITLE}>{workspaceName || "Workspace overview"}</h1>
-      {workspaceDescription && <p className={STATE_COPY}>{workspaceDescription}</p>}
-      <strong className="type-sm font-normal text-on-instrument">Workspace overview could not be loaded</strong>
-    </header>
+    <PageHeader title={workspaceName || "Workspace overview"} icon={ChartNoAxesCombined} meta="Overview" description={`Workspace overview · ${workspaceDescription}`} />
     <div className={PROJECT_LOCAL_ERROR} role="alert">
       <AlertCircle size={17} aria-hidden="true" />
-      <span>{error ?? "Core did not return workspace data."}</span>
+      <span><strong className="block type-sm font-medium">Workspace overview could not be loaded</strong>{error ?? "Core did not return workspace data."}</span>
       <button className={COMMAND_BUTTON} type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button>
     </div>
   </main></InstrumentScreenRoot>;
@@ -135,6 +122,7 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
   const restoredState = useRef<WorkspaceOverviewReturnState | null>(null);
   const restoredFocus = useRef<WorkspaceOverviewReturnState | null>(null);
   const [attentionExpanded, setAttentionExpanded] = useState(false);
+  const [previewWorkspace, setPreviewWorkspace] = useState<string | null>(null);
   useEffect(() => {
     const state = props.overviewReturnState;
     if (snapshot.status !== "ready" || !snapshot.value || !state || state.originWorkspaceId !== snapshot.value.workspace.id || restoredState.current === state) return;
@@ -158,11 +146,12 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
     return <WorkspaceOverviewError error={snapshot.error} workspaceName={props.workspaceName ?? ""} workspaceDescription={workspaceDescription} onRetry={() => { void controller.retry(); }} />;
   }
   if (!snapshot.value) return null;
-  const presentation = presentWorkspaceOverview({
+  const preview = previewWorkspace === snapshot.value.workspace.id && snapshot.value.workspace.name === "UX Testing Lab";
+  const presentation = previewWorkspaceOverview(presentWorkspaceOverview({
     overview: snapshot.value,
     catalogProjects,
     description: workspaceDescription,
-  });
+  }), preview);
   const criticalCount = presentation.attention.status === "ready" || presentation.attention.status === "partial"
     ? presentation.attention.value.criticalCount
     : presentation.attention;
@@ -183,6 +172,7 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
       lastSuccessfulRefreshAt={snapshot.lastSuccessfulRefreshAt ?? null}
       error={snapshot.error}
       onRefresh={() => { void controller.retry(); }}
+      previewControl={snapshot.value.workspace.name === "UX Testing Lab" && <button className="rounded-control bg-card px-2 py-1 type-xs text-muted focus-visible:outline-2 focus-visible:outline-ink" type="button" aria-pressed={preview} title={preview ? "Demo analytics · Sample workspace and Unit performance; live accounts and planning" : "Preview sample analytics for UX Testing Lab"} onClick={() => setPreviewWorkspace(preview ? null : snapshot.value!.workspace.id)}>{preview ? "Use workspace data" : "Preview demo analytics"}</button>}
     />
     {snapshot.error && <div className={PROJECT_LOCAL_ERROR} role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.error}</span><button className={COMMAND_BUTTON} type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
     <div className={OVERVIEW_GRID} ref={scrollRef}>

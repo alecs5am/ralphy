@@ -16,8 +16,8 @@
   --marketplace-hero-columns: minmax(0, 1fr) auto;
   /* A result row: preview, copy, evidence, action. The narrow form keeps only the first two,
      and the two it drops are hidden rather than squeezed. */
-  --marketplace-result-columns: 104px minmax(180px, 1fr) minmax(140px, .45fr) auto;
-  --marketplace-result-columns-narrow: 88px minmax(0, 1fr);
+  --marketplace-result-columns: 72px minmax(180px, 1fr) minmax(140px, .45fr) auto;
+  --marketplace-result-columns-narrow: 72px minmax(0, 1fr);
   /* A detail route is a reading column plus a bounded evidence rail. */
   --marketplace-detail-columns: minmax(0, 1fr) minmax(250px, 320px);
   /* A download job row: state glyph, label, progress. An installed row ends in a state note

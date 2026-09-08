@@ -45,6 +45,7 @@ export interface ViewTypeDescriptor {
 
 export const VIEW_TYPES: readonly ViewTypeDescriptor[] = [
   { type: "overview", label: WORKSPACE_PAGE_LABELS.overview, singleton: true, command: null },
+  { type: "generation", label: WORKSPACE_PAGE_LABELS.generation, singleton: true, command: null },
   { type: "projects", label: WORKSPACE_PAGE_LABELS.projects, singleton: true, command: null },
   { type: "units", label: WORKSPACE_PAGE_LABELS.units, singleton: true, command: "view.units" },
   { type: "calendar", label: WORKSPACE_PAGE_LABELS.calendar, singleton: true, command: "view.calendar" },
@@ -55,6 +56,7 @@ export const VIEW_TYPES: readonly ViewTypeDescriptor[] = [
   /* One browser per chat, not one per page: a second blank tab is a tab you have to name before
      it is worth anything, and the strip already has the chat's places on it. */
   { type: "browser", label: "Browser", singleton: true, command: null },
+  { type: "canvas", label: "Working canvases", singleton: true, command: null },
 ];
 
 /**
@@ -70,7 +72,9 @@ export const VIEW_TYPES_UNAVAILABLE = ["Renders", "Compare", "Side chat"] as con
    now a compile error rather than an undefined component that unmounts the whole app at runtime. */
 const WORKSPACE_PAGE_BY_TYPE = {
   overview: "overview",
+  generation: "generation",
   projects: "projects",
+  canvas: "canvas",
   units: "units",
   shared: "shared",
   memory: "memory",

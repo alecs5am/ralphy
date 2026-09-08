@@ -1,7 +1,9 @@
 import { isChatRailVisible, isWorkspacePickerVisible } from "../model/app-visibility";
 import { welcomeInstrumentStates } from "@/widgets/welcome";
+import { canvasInstrumentStates } from "@/features/workflow-canvas";
 import { calendarInstrumentStates } from "@/pages/calendar";
 import { contextInstrumentStates } from "@/pages/context";
+import { GENERATION_SCREEN_STATES } from "@/pages/generation";
 import { libraryInstrumentStates } from "@/pages/library";
 import { marketplaceInstrumentStates } from "@/pages/marketplace";
 import { memoryInstrumentStates } from "@/pages/memory";
@@ -32,7 +34,9 @@ export const PRODUCTION_SCREEN_STATES: readonly InstrumentScreenStateDescriptor<
   libraryInstrumentStates,
   migrationInstrumentStates,
   workspaceOverviewInstrumentStates,
+  GENERATION_SCREEN_STATES,
   workspaceProjectsInstrumentStates,
+  canvasInstrumentStates,
   workspaceUnitsInstrumentStates,
   sharedLibraryInstrumentStates,
   memoryInstrumentStates,
@@ -122,6 +126,7 @@ export const PRODUCTION_LOCAL_OVERLAY_TARGETS = {
   "run-inspector": { routeKey: "project.activity", state: "selected" },
   "marketplace-detail": { routeKey: "marketplace.detail", state: "ready" },
   "target-chooser": { routeKey: "marketplace.detail", state: "ready" },
+  "canvas-node-preview": { routeKey: "workspace.canvas", state: "editing" },
   /* The view panel's own menus. They are reachable from every workspace route under the chat lens,
      so the overview -- the route the home tab returns to -- is where they are exercised. */
   "view-panel-types": { routeKey: "workspace.overview", state: "ready" },
@@ -129,4 +134,6 @@ export const PRODUCTION_LOCAL_OVERLAY_TARGETS = {
   /* The Context page's reader. It opens from a name inside the prompt document, which is the page's
      ready state -- the inventory reaches it too, but through the same loader. */
   "context-reader": { routeKey: "workspace.context", state: "ready" },
+  "generation-models": { routeKey: "workspace.generation", state: "ready" },
+  "generation-voices": { routeKey: "workspace.generation", state: "ready" },
 } as const satisfies Record<ProductionLocalOverlayId, { routeKey: InstrumentRouteKey; state: InstrumentScenarioState }>;

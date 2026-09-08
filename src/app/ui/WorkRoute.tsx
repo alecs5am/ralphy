@@ -11,6 +11,7 @@
 import { Suspense, lazy } from "react";
 
 import type { AgentChatUsage } from "@/features/agent-chat";
+import type { VideoAgentRequest } from "@/features/video-workspace";
 import { CalendarScreen } from "@/pages/calendar";
 import { ContextScreen } from "@/pages/context";
 import { LibraryScreen } from "@/pages/library";
@@ -29,6 +30,7 @@ import { ProjectScreenLoadingFallback } from "./app-frames";
 const loadProjectScreen = () =>
   import("@/pages/project").then((module) => ({ default: module.ProjectScreen }));
 const ProjectScreen = lazy(loadProjectScreen);
+const GenerationScreen = lazy(() => import("@/pages/generation").then((module) => ({ default: module.GenerationScreen })));
 
 export interface WorkRouteProps {
   catalog: CatalogResult | null;
@@ -58,6 +60,8 @@ export interface WorkRouteProps {
   onOpenWorkspacePage(page: WorkspacePage): void;
   onNavigateFromOverview(destination: WorkspaceDestination, returnState: WorkspaceOverviewReturnState): void;
   onToggleProjectPin(projectId: string): void;
+  onOpenProviders?(): void;
+  onRequestVideoAgent?(request: VideoAgentRequest): void;
 }
 
 export function WorkRoute({
@@ -85,6 +89,8 @@ export function WorkRoute({
   onOpenWorkspacePage,
   onNavigateFromOverview,
   onToggleProjectPin,
+  onOpenProviders,
+  onRequestVideoAgent,
 }: WorkRouteProps) {
   const library = (
     <LibraryScreen
@@ -97,6 +103,17 @@ export function WorkRoute({
       onOpenProject={onOpenProject}
     />
   );
+  if (route.kind === "workspace" && selectedWorkspace && workspacePage === "generation") {
+    return <Suspense fallback={<p className="m-auto type-sm text-muted" role="status">Opening Create…</p>}>
+      <GenerationScreen
+        key={`generation:${rootEpoch}:${selectedWorkspace.id}`}
+        workspaceId={selectedWorkspace.id}
+        workspaceName={selectedWorkspace.name}
+        rootEpoch={rootEpoch}
+        onOpenProviders={onOpenProviders}
+      />
+    </Suspense>;
+  }
   if (catalog && route.kind === "workspace" && selectedWorkspace && workspacePage === "overview") {
     return (
       <WorkspaceScreen
@@ -185,6 +202,7 @@ export function WorkRoute({
         fallback={<ProjectScreenLoadingFallback />}
       >
         <ProjectScreen
+          onRequestAgent={onRequestVideoAgent}
           key={`project:${rootEpoch}:${selectedProject.workspaceId}:${selectedProject.projectId}`}
           project={selectedProject}
           workspaceName={workspaces.find(({ id }) => id === selectedProject.workspaceId)?.name ?? null}

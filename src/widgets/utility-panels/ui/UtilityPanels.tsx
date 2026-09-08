@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, PanelRightClose, Plus } from "lucide-react";
+import { ArrowUp, MessageSquare, PanelRightClose, PanelsTopLeft, Plus, Workflow } from "lucide-react";
 import { motion } from "motion/react";
 import type { ProjectSummary, WorkspaceSummary } from "@/shared/api/ipc";
 import type { AgentChatController } from "@/features/agent-chat";
 import { AgentComposer, type AgentComposerHandle } from "@/features/agent-chat";
-import { addAttachments, withAttachments, type Attachment } from "@/features/agent-chat";
+import { addAttachments, attachmentInstructions, withAttachments, type Attachment } from "@/features/agent-chat";
 import { AgentThread } from "@/features/agent-chat";
 import { AgentMark } from "@/shared/ui/AgentMark";
 import { WINDOW, WINDOW_BODY } from "@/shared/ui/Window";
@@ -12,7 +12,6 @@ import { WINDOW, WINDOW_BODY } from "@/shared/ui/Window";
 import { AgentConnection } from "./agent-connection";
 import {
   AgentAuthSource,
-  AgentChatMenu,
   AgentContextLink,
   AgentModeMenu,
   AgentModelMenu,
@@ -37,6 +36,10 @@ export function AgentChatPanel({
   onClose,
   onOpenSettings,
   onOpenContext,
+  onOpenCanvas,
+  onToggleView,
+  draftRequest,
+  onDraftRequestHandled,
 }: {
   chat: AgentChatController;
   workspace: WorkspaceSummary | null;
@@ -44,6 +47,10 @@ export function AgentChatPanel({
   onClose(): void;
   onOpenSettings(page?: "agents"): void;
   onOpenContext(): void;
+  onOpenCanvas?(): void;
+  onToggleView?(): void;
+  draftRequest?: { id: string; prompt: string; chatId: string | null; attachment?: Attachment } | null;
+  onDraftRequestHandled?(): void;
 }) {
   const [draft, setDraft] = useState("");
   /* Attachments are the drag channel, so they live beside the draft rather than in the field: they
@@ -56,6 +63,15 @@ export function AgentChatPanel({
   const followOutput = useRef(true);
   const active = chat.activeChat;
   const running = chat.state.chats.find(({ id }) => id === chat.state.runningChatId) ?? null;
+  const handledRequest = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!draftRequest || !chat.connected || draftRequest.chatId !== active.id || handledRequest.current === draftRequest.id || !composer.current) return;
+    composer.current.fill(draft.trim() ? `${draft}\n\n${draftRequest.prompt}` : draftRequest.prompt);
+    if (draftRequest.attachment) setAttachments((current) => addAttachments(current, [draftRequest.attachment!]));
+    handledRequest.current = draftRequest.id;
+    onDraftRequestHandled?.();
+  }, [draftRequest, chat.connected, active.id]);
 
   useEffect(() => {
     if (!followOutput.current) return;
@@ -69,7 +85,7 @@ export function AgentChatPanel({
   const submit = (): void => {
     const prompt = withAttachments(draft.trim(), attachments);
     if (!prompt || chat.state.runningChatId !== null || !chat.connected) return;
-    chat.send(prompt);
+    chat.send(prompt, attachmentInstructions(attachments));
     composer.current?.clear();
     setAttachments([]);
     followOutput.current = true;
@@ -107,8 +123,10 @@ export function AgentChatPanel({
           same 34. It reads provenance and holds instruments; it never switches content, which is
           why the chat has no tabs. Its ink follows the panel it stands on, not the card below. */}
       <header className="utility-panel-header agent-chat-header relative z-sticky flex h-8.5 flex-none items-center justify-between pr-2 pl-2.5 text-ink [-webkit-app-region:drag] [&_button]:[-webkit-app-region:no-drag]">
-        <AgentChatMenu chat={chat} />
+        <span className="flex min-w-0 items-center gap-2 type-sm text-muted"><MessageSquare size={14} aria-hidden="true" /><span className="truncate text-ink">{active.title || "New chat"}</span></span>
         <span className="agent-header-actions flex items-center gap-0.5">
+          {onOpenCanvas && <button className={HEADER_GLYPH} type="button" title="Open canvases" aria-label="Open canvases" onClick={onOpenCanvas}><Workflow size={15} strokeWidth={1.5} aria-hidden="true" /></button>}
+          {onToggleView && <button className={HEADER_GLYPH} type="button" title="Toggle workspace panel" aria-label="Toggle workspace panel" onClick={onToggleView}><PanelsTopLeft size={15} strokeWidth={1.5} aria-hidden="true" /></button>}
           <button
             className={HEADER_GLYPH}
             type="button"

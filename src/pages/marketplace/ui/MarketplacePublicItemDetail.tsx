@@ -23,6 +23,7 @@ import {
   HERO_STATE,
 } from "../lib/detail-chrome";
 import { marketplacePublicMediaKind, type Availability, type MarketplaceItemPresentation } from "../lib/presentation";
+import { MarketplaceCategorySignature } from "./MarketplaceCategoryIdentity";
 
 /* Public-detail vocabulary: the provenance rail reads as a label/value table, and the recipe
    artifact is a source block rather than prose. */
@@ -156,6 +157,7 @@ export function MarketplacePublicItemDetail({
       {item.category === "recipes" && !artifact && <p id={copyUnavailableId} className={`marketplace-public-action-state ${HERO_STATE}`}>Artifact copy is unavailable because public-library schema 1 did not provide an artifact.</p>}
       {!review && <p id={reviewUnavailableId} className={`marketplace-public-action-state ${HERO_STATE}`}>Target review is unavailable until the current Desktop workflow contract is connected.</p>}
       {status && <p className={`marketplace-public-copy-state ${HERO_STATE} [&[role=alert]]:text-alert-bright`} role={status.kind === "error" ? "alert" : "status"} aria-live="polite">{status.message}</p>}
+      <MarketplaceCategorySignature category={item.category} />
     </header>
 
     <div className={`marketplace-public-detail-layout ${DETAIL_LAYOUT}`}>

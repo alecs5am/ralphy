@@ -1,6 +1,7 @@
+import { PageHeader, PAGE_HEADER_BUTTON } from "@/shared/ui/PageHeader";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
-  ChevronDown, FileText, Layers, Package, ScrollText, Settings2, Sparkles,
+  Brain, ChevronDown, FileText, Layers, Package, ScrollText, Settings2, Sparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -16,15 +17,16 @@ import type { AgentChatUsage } from "@/features/agent-chat";
 import { bridge, type AgentProvider, type ProjectSummary } from "@/shared/api/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
 import { EMPTY_SECTION, PROJECT_LOCAL_ERROR, PROJECT_SKELETON } from "@/shared/ui/route-chrome";
+import { ContextUsage } from "./ContextUsage";
 import { ContextDocument, followPath, linkPaths, markPaths } from "./ContextDocument";
 import { MarkdownView } from "@/shared/ui/MarkdownView";
-import { Window, WINDOW } from "@/shared/ui/Window";
+import { Window, WindowBody, WINDOW } from "@/shared/ui/Window";
 
 export const contextInstrumentStates = defineInstrumentScreenStates({
   routeKey: "workspace.context",
   states: ["loading", "ready", "partial", "unavailable", "selected"],
   rootMarker: "workspace-context",
-  landmarks: ["Context", "What the agent carries before it reads your message"],
+  landmarks: ["Context", "What this chat can draw on"],
 } as const);
 
 /**
@@ -80,47 +82,6 @@ function bytes(value: number | null): string {
   if (value < 1024) return `${value} B`;
   const kb = value / 1024;
   return kb < 100 ? `${kb.toFixed(1)} KB` : `${Math.round(kb)} KB`;
-}
-
-/** A token figure the provider reported. Never derived from anything else. */
-function tokens(value: number | null): string {
-  if (value === null) return "—";
-  return value < 1000 ? `${value}` : `${(value / 1000).toFixed(1)}K`;
-}
-
-/**
- * The budget block. With a measured turn it states the total and, when the provider named a window,
- * what fraction of it the turn used at true scale -- the emptiness is the point. Without one it says
- * so; a bar drawn from an estimate would be the only lie on the page.
- */
-function Budget({ usage, provider }: { usage: AgentChatUsage | null; provider: AgentProvider }) {
-  const share = usage?.contextWindow ? Math.min(1, usage.inputTokens / usage.contextWindow) : null;
-  return <div className="context-budget flex flex-col gap-2.25 px-5 pt-4.5 pb-4">
-    <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-      {/* A dash at display size reads as a stray minus, so the unmeasured state leads with the
-          sentence instead. The figure is only ever drawn when there is one. */}
-      {usage
-        ? <strong className={`${NUMBER} type-display leading-headline`}>{tokens(usage.inputTokens)}</strong>
-        : <strong className="type-title font-normal text-muted">No turn measured yet</strong>}
-      <span className="type-sm text-muted">
-        {usage?.contextWindow
-          ? `of ${tokens(usage.contextWindow)} before your first word`
-          : usage
-            ? `carried into the last turn · ${provider === "claude" ? "Claude" : "this provider"} does not report a window`
-            : "the figures on this page come from a real turn, so they appear after the first one"}
-      </span>
-      <span className="min-w-0 flex-1" aria-hidden="true" />
-      {usage && <span className={`${META} text-right`}>MEASURED ON THE LAST TURN · NOTHING ESTIMATED</span>}
-    </div>
-    {share !== null && <div className="h-context-scale-bar w-full overflow-hidden rounded-control bg-unreviewed" role="presentation">
-      {/* One segment, not five: the provider reports what the turn carried and never says which
-          layer carried it, so the bar is honest about the total and silent about the split. */}
-      <div className="h-full rounded-control bg-ink" style={{ width: `${Math.max(0.35, share * 100)}%` }} />
-    </div>}
-    <p className={`m-0 ${META}`}>
-      PER-LAYER ATTRIBUTION IS NOT REPORTED BY EITHER HARNESS · A ROW BELOW STATES THE BYTES IT MEASURED ON DISK
-    </p>
-  </div>;
 }
 
 function Row({ row, onAction }: { row: ContextRowDto; onAction(row: ContextRowDto): void }) {
@@ -254,6 +215,7 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
   onOpenMemory(): void;
 }) {
   const [page, setPage] = useState<ContextPageDto | null>(null);
+  const [refresh, setRefresh] = useState(0);
   const [failure, setFailure] = useState<string | null>(null);
   /* The document is what the page opens on. The inventory answers a different question -- which
      files, what can I do about them -- and the operator asks that one second. */
@@ -285,7 +247,7 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
       });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a project is its two ids
-  }, [provider, workspaceId, projectId]);
+  }, [provider, workspaceId, projectId, refresh]);
 
   /* One loader for both surfaces: a row's action and a name inside the prompt open the same
      reader, so a place that cannot be read says so in one voice. */
@@ -314,18 +276,26 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
   return <InstrumentScreenRoot descriptor={contextInstrumentStates} state={state}>
     <main className="main-region context-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto bg-transparent p-2 type-base text-ink">
       {file && <Reader file={file} onRead={read} onClose={() => setFile(null)} />}
-      {failure && <p className={PROJECT_LOCAL_ERROR}>{failure}</p>}
+      <PageHeader title="Context" icon={Layers} meta={`${provider === "claude" ? "Claude" : "Codex"} · ${project?.name ?? "Current workspace"}`}>
+        <div className="page-header-segments flex items-center gap-0.5 rounded-full bg-panel p-0.5" role="group" aria-label="Context view"><button className={PAGE_HEADER_BUTTON} type="button" aria-label="Instruction chain" title="Instruction chain" aria-pressed={!inventory} onClick={() => setInventory(false)}><ScrollText size={14} /><span className="page-header-action-label">Instructions</span></button><button className={PAGE_HEADER_BUTTON} type="button" aria-label="Source inventory" title="Source inventory" aria-pressed={inventory} onClick={() => setInventory(true)}><FileText size={14} /><span className="page-header-action-label">Sources</span></button></div>
+        <button className={PAGE_HEADER_BUTTON} type="button" aria-label="Memory" title="Open Memory" onClick={onOpenMemory}><Brain size={14} /><span className="page-header-action-label">Memory</span></button>
+      </PageHeader>
+      <Window className="mx-auto w-full max-w-context-column shrink-0">
+        <WindowBody>
+          <p className="m-0 px-3 pt-3 type-sm leading-prose text-secondary">What this chat can draw on: instructions, source documents and available tools.</p>
+          <ContextUsage usage={usage} provider={provider} />
+        </WindowBody>
+      </Window>
+      {failure && <div role="alert" className={PROJECT_LOCAL_ERROR}>Could not load context. {failure} <button type="button" className="underline" onClick={() => setRefresh((value) => value + 1)}>Try again</button></div>}
       {!page && !failure && <p className={PROJECT_SKELETON}>Reading what this chat carries…</p>}
       {page && !inventory && <ContextDocument
         blocks={page.blocks ?? []}
         provider={provider}
-        total={usage?.inputTokens ?? null}
-        window={usage?.contextWindow ?? null}
         onOpenInventory={() => setInventory(true)}
         onRead={read}
       />}
       {page && inventory
-        && <Window className="mx-auto w-full max-w-context-column">
+        && <Window className="mx-auto w-full max-w-context-column shrink-0">
           <div className="flex h-9 flex-none items-center gap-2.5 px-3">
             <span className={`${MONO} type-mono-sm text-muted`}>CONTEXT</span>
             <span className="truncate type-sm text-ink">{project ? project.name : "this workspace"}</span>
@@ -333,11 +303,11 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
             <span className={`${MONO} type-mono-2xs text-muted`}>
               {`${provider.toLocaleUpperCase()} · ${total} ROWS IN EVERY TURN`}
             </span>
-            <button className={PILL} type="button" onClick={() => setInventory(false)}>The prompt</button>
+            <button className={PILL} type="button" onClick={() => setInventory(false)}>Instruction chain</button>
           </div>
           <div className="flex w-full flex-col rounded-frame bg-card">
             {page && <>
-              <Budget usage={usage} provider={provider} />
+              <p className="m-0 px-3 py-3 type-sm text-secondary">Browse sources by where they live. File sizes are measured on disk; they are not token counts.</p>
               <div className="flex flex-col gap-0.5 px-2 pb-2">
                 {(page.layers ?? []).map((band) => <Band
                   layer={band}
@@ -348,7 +318,7 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
                 />)}
               </div>
               <div className="flex flex-wrap items-center gap-2.5 px-5 pt-1 pb-4">
-                <span className={META}>ABSENT IS NORMAL, NEVER AN ERROR · ONLY A DEFECT AND A MACHINE-WIDE EDIT DRAW RED</span>
+                <span className={META}>Missing sources are optional unless marked as a problem.</span>
                 <span className="min-w-0 flex-1" aria-hidden="true" />
                 <button className={PILL_GHOST} type="button" onClick={onOpenMemory}>Open Memory page</button>
                 <button className={PILL_PRIMARY} type="button" onClick={() => setInventory(false)}>

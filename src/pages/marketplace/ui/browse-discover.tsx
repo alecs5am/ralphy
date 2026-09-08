@@ -6,6 +6,7 @@
  * one of those.
  */
 import {
+  ArrowUpRight,
   Blocks,
   Bot,
   Code2,
@@ -16,6 +17,7 @@ import {
   Package,
 } from "lucide-react";
 import { type ComponentType, type SVGProps } from "react";
+import { WINDOW, WINDOW_PLATE, WINDOW_TITLEBAR } from "@/shared/ui/Window";
 import type {
   MarketplaceCategory,
   MarketplaceLibrarySection,
@@ -26,6 +28,7 @@ import type {
   MarketplaceSnapshot,
   MarketplaceSourceIssue,
 } from "../lib/presentation";
+import { categoryIdentity, MarketplaceCategoryArtwork } from "./MarketplaceCategoryIdentity";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 export const categoryIcons: Record<MarketplaceCategory, Icon> = {
@@ -61,11 +64,14 @@ export function countLabel(count: Availability<number>): string {
 
 function CategoryCard({ value, onOpen }: { value: MarketplaceCategoryPresentation; onOpen(category: MarketplaceCategory): void }) {
   const Icon = categoryIcons[value.category];
+  const identity = categoryIdentity[value.category];
   return <li className="min-w-0">
-    <button className="marketplace-category-card grid min-h-24 w-full grid-cols-(--marketplace-card-columns) content-between gap-x-3 gap-y-2 rounded-cell bg-surface p-4 text-left text-ink hover:bg-surface-hover" type="button" onClick={() => onOpen(value.category)}>
-      <span className="flex min-w-0 items-center gap-2"><Icon className="size-4 shrink-0" aria-hidden="true" /><strong className="truncate text-sm font-normal">{value.label}</strong></span>
-      <small className={`font-mono type-meta text-muted ${value.count.status === "unavailable" ? "max-w-36 text-right leading-tight" : ""}`}>{countLabel(value.count)}</small>
-      <p className="col-span-full m-0 line-clamp-2 text-xs leading-snug text-muted">{value.purpose}</p>
+    <button className={`${WINDOW} marketplace-category-card group h-full w-full text-left text-ink hover:bg-surface-hover`} type="button" title={identity.note} onClick={() => onOpen(value.category)}>
+      <span className={`${WINDOW_TITLEBAR} w-full`}><Icon className="size-4 shrink-0" aria-hidden="true" /><strong className="min-w-0 flex-1 truncate text-sm font-normal">{value.label}</strong><ArrowUpRight className="size-3.5 shrink-0 text-muted" aria-hidden="true" /></span>
+      <span className={`${WINDOW_PLATE} flex w-full flex-1 items-center gap-3 p-3`}>
+        <span className={`flex w-20 shrink-0 flex-col items-center overflow-hidden rounded-control ${identity.tone}`}><MarketplaceCategoryArtwork category={value.category} className="h-16 w-full" /><span className="pb-1 font-mono type-mono-xs opacity-60">{identity.mark}</span></span>
+        <span className="flex min-w-0 flex-1 flex-col gap-2"><span className="text-xs leading-copy text-muted">{identity.description}</span><small className="font-mono type-mono-xs text-muted" title={countLabel(value.count)}>{value.count.status === "ready" ? countLabel(value.count) : "Catalog unavailable"}</small></span>
+      </span>
     </button>
   </li>;
 }
@@ -92,15 +98,20 @@ export function MarketplaceDiscover({ snapshot, onOpenCategory, onOpenLibrary, o
     .slice(0, 6)
     .map(({ item }) => item);
   const hasAnyCount = snapshot.categories.some(({ count }) => count.status === "ready" && count.value > 0);
-  return <div className="marketplace-discover flex flex-col gap-6 pt-5">
+  return <div className="marketplace-discover flex flex-col gap-4 pt-3">
+    <header className="marketplace-discover-intro flex flex-col gap-2 px-1 pt-2 pb-1">
+      <span className="font-mono type-mono-xs uppercase tracking-mono text-muted">The creative toolkit</span>
+      <h2 className="m-0 text-2xl font-normal leading-tight">A little more possibility.</h2>
+      <p className="m-0 max-w-xl text-sm leading-copy text-muted">Find the tools, starting points and know-how for what you want to make next.</p>
+    </header>
     <section aria-labelledby="marketplace-categories-heading">
       <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono type-mono-xs uppercase tracking-mono text-muted">Browse</span><h2 className="m-0 text-base font-normal" id="marketplace-categories-heading">Categories</h2></div>
       <ul className="marketplace-category-grid grid list-none grid-cols-3 gap-2 p-0 @max-marketplace-grid/main-region:grid-cols-2 @max-marketplace-column/main-region:grid-cols-1" role="list">{snapshot.categories.map((category) => <CategoryCard value={category} onOpen={onOpenCategory} key={category.category} />)}</ul>
     </section>
     {!hasAnyCount && <div className="marketplace-empty-note flex min-h-20 items-center gap-3 rounded-cell bg-surface p-4" role="status"><Package className="size-5 shrink-0 text-muted" aria-hidden="true" /><span className="flex flex-col gap-0.5"><strong className="text-sm font-normal">No items have been returned by the current sources yet.</strong><small className="text-xs text-muted">Categories remain visible with their current source state.</small></span></div>}
     <section aria-labelledby="marketplace-community-heading">
-      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono type-mono-xs uppercase tracking-mono text-muted">Read-only route</span><h2 className="m-0 text-base font-normal" id="marketplace-community-heading">Community</h2></div>
-      <button className="flex min-h-20 w-full items-center gap-3 rounded-cell bg-surface p-4 text-left text-ink hover:bg-surface-hover" type="button" aria-disabled={onOpenCollection ? undefined : true} aria-describedby="marketplace-community-contract-note" onClick={onOpenCollection}><FolderHeart className="size-4 shrink-0" aria-hidden="true" /><span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="truncate text-sm font-normal">Community contributions</strong><small className="text-xs text-muted" id="marketplace-community-contract-note">Read-only unavailable-contract review</small></span><small className="font-mono type-meta text-muted">Read-only</small></button>
+      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono type-mono-xs uppercase tracking-mono text-muted">Made together</span><h2 className="m-0 text-base font-normal" id="marketplace-community-heading">Community</h2></div>
+      <button className="flex min-h-20 w-full items-center gap-3 rounded-cell bg-surface p-4 text-left text-ink hover:bg-surface-hover" type="button" aria-disabled={onOpenCollection ? undefined : true} aria-describedby="marketplace-community-contract-note" onClick={onOpenCollection}><FolderHeart className="size-4 shrink-0" aria-hidden="true" /><span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="truncate text-sm font-normal">Community contributions</strong><small className="text-xs text-muted" id="marketplace-community-contract-note">Community collections and publishing aren't available in this build.</small></span><small className="font-mono type-meta text-muted">Not available yet</small></button>
     </section>
     {installed.length > 0 && <section aria-labelledby="marketplace-continue-heading">
       <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono type-mono-xs uppercase tracking-mono text-muted">Local state</span><h2 className="m-0 text-base font-normal" id="marketplace-continue-heading">Continue where you left off</h2></div>

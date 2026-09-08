@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronRight, Search, X } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -13,6 +13,7 @@ import {
 } from "../lib/commands";
 import type { SettingsContext, SettingsDetail } from "../model/context";
 import { useHarnesses } from "../lib/harnesses";
+import { useGenerationProviders } from "../model/use-generation-providers";
 import { KeyboardPage } from "./pages-keyboard";
 import { AppearancePage, GeneralPage, ProfilePage } from "./pages-personal";
 import { AgentsPage, HarnessDetailPage } from "./pages-agents";
@@ -91,6 +92,7 @@ export function SettingsScreen({
   const heading = useRef<HTMLHeadingElement>(null);
   const preferences = useAppPreferences(settingsStorage);
   const harnesses = useHarnesses();
+  const generationProviders = useGenerationProviders(page === "providers");
 
   useEffect(() => { settingsStorage.setItem(LAST_PAGE_KEY, page); }, [page]);
   // Focus lands on the page heading after a category change, which is both the design's
@@ -142,7 +144,7 @@ export function SettingsScreen({
   const scopes = searching
     ? ["ROW-LEVEL INDEX"]
     : harness ? ["MANAGED BY PROVIDER"] : provider ? ["SECURE CREDENTIAL"] : SETTINGS_PAGES[page].scopes;
-  const rail = searching || page === "about" || detail ? null : railFor(page, ctx);
+  const rail = searching || page === "about" || detail ? null : railFor(page, ctx, generationProviders.providers);
   const descriptor = settingsInstrumentStates.find(({ routeKey }) => routeKey === `settings.${page}`)!;
 
   const openResult = (index: number) => {
@@ -181,13 +183,13 @@ export function SettingsScreen({
         <button className={action({ size: "lg", tone: "primary", surface: "instrument" })} type="button" onClick={() => setQuery("")}>Clear search</button>
       </div>;
     if (harness) return <HarnessDetailPage ctx={ctx} harness={harness} />;
-    if (provider) return <ProviderDetailPage provider={provider} />;
+    if (provider) return <ProviderDetailPage key={provider.id} provider={provider} controller={generationProviders} />;
     if (page === "general") return <GeneralPage ctx={ctx} />;
     if (page === "profile") return <ProfilePage ctx={ctx} />;
     if (page === "appearance") return <AppearancePage ctx={ctx} />;
     if (page === "keys") return <KeyboardPage ctx={ctx} />;
     if (page === "agents") return <AgentsPage ctx={ctx} />;
-    if (page === "providers") return <ProvidersPage ctx={ctx} />;
+    if (page === "providers") return <ProvidersPage ctx={ctx} controller={generationProviders} />;
     if (page === "storage") return <StoragePage ctx={ctx} />;
     if (page === "permissions") return <PermissionsPage ctx={ctx} />;
     if (page === "terminal") return <TerminalPage ctx={ctx} />;
@@ -213,22 +215,13 @@ export function SettingsScreen({
             header inside it. Like the app sidebar this zone's chrome is also the window's chrome
             line, so the frame opens at the top to meet it -- 32 on the 8 line, centre 24, where
             macOS draws the traffic lights it puts in this row. */}
-        <header className="settings-sidebar-header flex h-8 flex-none items-center gap-2.5 px-3 [-webkit-app-region:drag]">
-          <div className="w-traffic-sidebar h-px flex-none" aria-hidden="true" />
-          <button
-            /* 26 in a 32 header, the same clearance the app sidebar's collapse control takes: a hover
-               surface flush with the card's top edge is clipped by the card's own corner. */
-            className="inline-flex h-6.5 min-w-0 flex-1 items-center gap-2.25 rounded-control px-2.5 type-ui text-muted [-webkit-app-region:no-drag] hover:bg-field hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-            type="button"
-            onClick={onBack}
-          >
-            <ArrowLeft size={14} strokeWidth={1.9} aria-hidden="true" />
-            <span className="truncate">Back to app</span>
-          </button>
+        <header className="settings-sidebar-header flex h-8 flex-none items-center justify-end gap-2.5 px-3 [-webkit-app-region:drag]">
+          <span className="font-code type-mono-xs tracking-mono text-muted">PREFERENCES</span>
         </header>
 
         <div className="settings-sidebar-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-frame bg-card">
-        <div className="flex min-h-0 flex-1 flex-col gap-2 px-2 pb-2">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+          <button className="flex h-9 flex-none items-center gap-2.5 rounded-row px-3 type-ui text-muted hover:bg-field hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" type="button" onClick={onBack}><ArrowLeft size={15} aria-hidden="true" /><span>Back to app</span></button>
           <label className="flex h-control-lg flex-none items-center gap-2.25 rounded-control bg-field px-3 text-muted focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ink">
             <Search size={13} strokeWidth={1.9} aria-hidden="true" />
             <input
@@ -273,14 +266,13 @@ export function SettingsScreen({
             </div>)}
           </nav>
           <button
-            className="group flex h-settings-plate flex-none items-center gap-3 rounded-control bg-field px-3 text-left hover:bg-row-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            className="settings-version group flex min-h-14 flex-none items-center gap-3 rounded-inner bg-field px-3 py-2.5 text-left hover:bg-row-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
             type="button"
             onClick={() => goTo("updates")}
           >
-            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <small className={`${MONO_LABEL} text-muted`}>RALPHY DESKTOP</small>
-              <strong className="font-display type-base font-extrabold text-ink">{appVersion}</strong>
-            </span>
+            <span className="grid size-9 flex-none place-items-center rounded-inner bg-instrument"><RalphyMascot size={26} /></span>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="type-sm font-medium text-ink">Ralphy Desktop</strong><small className="type-xs text-muted">Version {appVersion}</small></span>
+            <ChevronRight size={14} className="text-muted" aria-hidden="true" />
           </button>
         </div>
         </div>
@@ -315,7 +307,7 @@ export function SettingsScreen({
             row, not the window: the sidebar and the chat rail change it without moving the
             viewport. */}
         <div className="@container/settings-main flex min-h-0 min-w-0 flex-1 justify-center gap-2">
-          <div className="flex w-settings-column min-h-0 flex-none flex-col gap-2 @max-settings-column/settings-main:mx-2 @max-settings-column/settings-main:w-auto @max-settings-column/settings-main:min-w-0 @max-settings-column/settings-main:flex-1">
+          <div className="flex w-settings-column min-h-0 flex-none flex-col gap-2 @max-settings-column/settings-main:w-auto @max-settings-column/settings-main:min-w-0 @max-settings-column/settings-main:flex-1">
             <header className="flex min-h-settings-plate flex-none items-center gap-3 px-2">
               {detail && <button
                 className="grid size-control-md flex-none place-items-center rounded-control text-muted hover:bg-desk-hover hover:text-ink focus-visible:outline-ink"

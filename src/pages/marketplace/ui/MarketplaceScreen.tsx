@@ -88,8 +88,8 @@ function routeTitle(location: MarketplaceLocation): string {
    harness mounts a supplied-presentation Downloads route of its own and has to measure the
    real screen, not a hand-written copy of it. The `main-region` class stays as a hook:
    instrument.css names it, and this screen's own layout is stated here. */
-export const MARKETPLACE_SCREEN = "marketplace-screen main-region @container/main-region flex h-full max-h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-desk px-8 pt-7.5 pb-12 text-ink";
-export const MARKETPLACE_SCROLL = "marketplace-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-2 pb-18";
+export const MARKETPLACE_SCREEN = "marketplace-screen main-region @container/main-region flex h-full max-h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-desk p-2 text-ink";
+export const MARKETPLACE_SCROLL = "marketplace-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain";
 const ROUTE_PLACEHOLDER = "marketplace-route-placeholder mt-4 grid min-h-64 place-items-center rounded-panel bg-surface p-6 text-center";
 
 export interface MarketplaceScreenViewProps extends MarketplaceScreenProps {
@@ -188,7 +188,7 @@ export function MarketplaceScreenView({
     ? "Project targets are unavailable until the home library reconnects."
     : catalog.projects.length === 0
       ? "No named project targets are available in the current home library."
-      : "Named project targets are available for supported review-only flows.";
+      : null;
   const changeQuery = (query: MarketplaceQueryState) => {
     if (location.route.kind === "category" && location.query.filters.category !== "all" && query.filters.category === "all") {
       onNavigate({ ...location, route: { kind: "results" }, query, selectedItemId: null, scrollTop: 0, focusId: "marketplace-heading" });
@@ -275,7 +275,7 @@ export function MarketplaceScreenView({
       ref={scrollRef}
       onScroll={(event) => onRememberLocation({ scrollTop: event.currentTarget.scrollTop })}
     >
-      <p className="marketplace-target-state mt-2 w-fit rounded-full bg-surface-sunken px-3 py-1.5 font-mono type-mono-xs tracking-label text-muted">{targetMessage}</p>
+      {targetMessage && <p className="marketplace-target-state mt-2 w-fit rounded-full bg-surface-sunken px-3 py-1.5 font-mono type-mono-xs tracking-label text-muted">{targetMessage}</p>}
       {detailReference
         ? <MarketplaceModelDetail reference={detailReference} onBack={onBack} onReviewDownload={(model) => setWorkflow({ kind: "model-download", itemLabel: model.name })} />
         : detailItem?.origin === "pack"

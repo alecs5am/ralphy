@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, ChevronRight, Clock3, Copy, ExternalLink, Frame, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { Check, ChevronRight, Clock3, Copy, ExternalLink, Frame, Pause, Play, SlidersHorizontal, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ProjectOverviewDto, UnitPreviewDto } from "../../../../electron/ralphy/types";
@@ -83,12 +83,14 @@ export function UnitViewer({
   controller,
   snapshot,
   returnFocus,
+  onEditVideo,
 }: {
   open: boolean;
   onOpenChange(open: boolean): void;
   controller: ProjectScreenController;
   snapshot: ProjectScreenSnapshot;
   returnFocus: HTMLElement | null;
+  onEditVideo?(unitId: string, title: string): void;
 }) {
   const unit = snapshot.unit.value;
   const revision = snapshot.inspectedUnitRevision.value;
@@ -192,6 +194,7 @@ export function UnitViewer({
           {lifecycle && <UnitStatus lifecycle={lifecycle} />}
           <small className="unit-viewer-state min-w-0 flex-1 truncate font-code type-meta text-muted">{revision ? `R${revision.revisionNo} \u00b7 ${formatTime(revision.createdAt)}` : "Loading revision"}</small>
           <div className="unit-viewer-actions flex flex-none items-center gap-2">
+            {unit && onEditVideo && (kind === "video" || kind === "longform") && <button type="button" className="inline-flex h-8 items-center gap-2 rounded-control bg-card px-3 type-sm text-ink" disabled={pending} onClick={() => onEditVideo(unit.id, unit.slug)}><SlidersHorizontal size={14} />Edit video</button>}
             {revision && lifecycle && primaryLabel ? <button className="unit-primary-action inline-flex h-8 items-center gap-1.75 rounded-control bg-brand px-3.5 type-ui text-brand-ink hover:opacity-88 disabled:opacity-45 [&_svg]:size-3.25" type="button" disabled={pending || revision.sealedAt === null || (lifecycle.action !== "select" && lifecycle.action !== "none" && !productionRevision)} onClick={runPrimaryAction}>{lifecycle.action === "select" ? <Check /> : lifecycle.action === "retry" ? <Clock3 /> : lifecycle.label === "Published" ? <ExternalLink /> : <Play />}{snapshot.unitMutation === "select" ? "Choosing\u2026" : snapshot.compositionMutation === "build" ? "Rendering\u2026" : primaryLabel}</button> : null}
             <Dialog.Close asChild><WindowClose className="unit-viewer-close" label="Close Unit preview" /></Dialog.Close>
           </div>

@@ -1,6 +1,7 @@
 import { SETTINGS_COMMANDS } from "./commands";
 import type { SettingsContext } from "../model/context";
 import type { SettingsPageId } from "./registry";
+import type { GenerationProviderStatus } from "../../../../shared/generation-studio";
 
 /**
  * The context rail: machine facts, counters and the rule that governs the page, plus the
@@ -20,7 +21,7 @@ export interface RailContent {
   note?: { label: string; text: string; danger?: RailAction };
 }
 
-export function railFor(page: SettingsPageId, ctx: SettingsContext): RailContent | null {
+export function railFor(page: SettingsPageId, ctx: SettingsContext, providers?: readonly GenerationProviderStatus[] | null): RailContent | null {
   const harnesses = ctx.harnesses.rows;
   const connected = harnesses.filter(({ tone }) => tone === "ok").length;
   const changed = Object.keys(ctx.bindings).length;
@@ -81,8 +82,8 @@ export function railFor(page: SettingsPageId, ctx: SettingsContext): RailContent
 
   if (page === "providers") return {
     label: "CREDENTIALS",
-    rows: [["Services", "5"], ["Configured here", "0"], ["Keychain", "0"]],
-    note: { label: "SECURITY", text: "Keys belong in the macOS keychain. The renderer never receives a stored secret in full, so none is entered until that channel exists." },
+    rows: [["Services", providers ? String(providers.length) : "NOT LOADED"], ["Keys present", providers ? String(providers.filter((provider) => provider.configured).length) : "—"], ["Saved on this Mac", providers ? String(providers.filter((provider) => provider.stored).length) : "—"]],
+    note: { label: "SECURITY", text: "Saved keys are encrypted on this Mac. Existing secrets are never displayed. A key being present does not confirm provider access or billing." },
   };
 
   if (page === "storage") return {

@@ -1,3 +1,4 @@
+import { PageHeader, PageHeaderMore, PAGE_HEADER_BUTTON, PAGE_HEADER_PRIMARY } from "@/shared/ui/PageHeader";
 /**
  * The Calendar route: one period of one workspace, and every panel that period can open.
  *
@@ -6,7 +7,7 @@
  * mutation has one writer.
  */
 import {
-  ChevronLeft, ChevronRight, CircleAlert, Globe2, PanelRight, Plus, SlidersHorizontal,
+  CalendarDays, Columns3, List, ChevronLeft, ChevronRight, CircleAlert, Globe2, PanelRight, Plus, SlidersHorizontal,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
@@ -16,7 +17,7 @@ import { bridge } from "@/shared/api/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
 import type { WorkspaceCalendarNavigationContext } from "@/shared/model/workbench";
 import {
-  ACTION, INSTRUMENT_ACTION, INSTRUMENT_ACTION_PRIMARY, INSTRUMENT_ICON, INSTRUMENT_TAB,
+  ACTION,
   QUIET_TEXT,
 } from "@/shared/ui/overlay-chrome";
 import {
@@ -132,26 +133,15 @@ export function CalendarScreen({
               ? "empty"
               : "ready";
 
-  return <CalendarWorkspaceContext.Provider value={workspaceId}><InstrumentScreenRoot descriptor={calendarInstrumentStates} state={instrumentState}><main className="main-region calendar-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col overflow-auto bg-transparent p-2 pb-6 type-base text-ink">
+  return <CalendarWorkspaceContext.Provider value={workspaceId}><InstrumentScreenRoot descriptor={calendarInstrumentStates} state={instrumentState}><main className="main-region calendar-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col overflow-auto bg-transparent p-2 type-base text-ink">
     <section className="calendar-shell relative m-0 flex min-h-0 w-full min-w-0 max-w-none flex-1 flex-col gap-2 overflow-visible bg-transparent p-0" aria-busy={loading} aria-label={`${workspaceName} calendar`}>
-      <header className="calendar-toolbar m-0 flex min-h-0 w-full min-w-0 max-w-none flex-none flex-wrap items-center gap-2 rounded-panel bg-instrument px-4 py-3 text-on-instrument">
-        <h1 className="mr-1 type-section font-semibold leading-none tracking-tight text-on-instrument">Calendar</h1>
-        <button type="button" className={INSTRUMENT_ACTION} onClick={() => setAnchor(new Date())}>Today</button>
-        <span className="calendar-arrows flex flex-none gap-0.75">
-          <button type="button" className={INSTRUMENT_ICON} aria-label={`Previous ${view}`} onClick={() => setAnchor(shiftAnchor(anchor, view, -1))}><ChevronLeft className={ICON} /></button>
-          <button type="button" className={INSTRUMENT_ICON} aria-label={`Next ${view}`} onClick={() => setAnchor(shiftAnchor(anchor, view, 1))}><ChevronRight className={ICON} /></button>
-        </span>
-        <strong className="min-w-32 whitespace-nowrap pl-0.5 font-code type-base font-medium text-on-instrument @max-calendar-toolbar/main-region:hidden">{title}</strong><i className="flex-1" />
-        <span className="calendar-view-tabs flex flex-none items-center rounded-control bg-instrument-raised p-1" aria-label="Calendar view">
-          {(["month", "week", "agenda"] as CalendarView[]).map((item) => <button type="button" key={item} className={`${INSTRUMENT_TAB} ${view === item ? "is-active bg-surface text-ink hover:bg-surface-hover" : "bg-transparent text-on-instrument-muted hover:bg-ghost hover:text-on-instrument"}`} onClick={() => setView(item)}>{capitalize(item)}</button>)}
-        </span>
-        <span className="calendar-filter-wrap relative flex flex-none">
-          <button type="button" className={INSTRUMENT_ACTION} onClick={() => setFiltersOpen((open) => !open)}><SlidersHorizontal className={`${ICON} @max-calendar-toolbar/main-region:hidden`} />Filters</button>
-          {filtersOpen && <FilterPopover data={data} filters={filters} onChange={setFilters} onClose={() => setFiltersOpen(false)} />}
-        </span>
-        <button type="button" className={rightPanel === "drawer" ? INSTRUMENT_ACTION_PRIMARY : INSTRUMENT_ACTION} onClick={() => setRightPanel((panel) => panel === "drawer" ? null : "drawer")}><PanelRight className={`${ICON} @max-calendar-toolbar/main-region:hidden`} />Ready to schedule <small className={`inline-flex h-4.25 items-center rounded-control px-1.5 font-code type-mono-md ${rightPanel === "drawer" ? "bg-surface-sunken text-ink" : "bg-instrument text-on-instrument-muted"}`}>{data?.readyUnits.length ?? 0}</small></button>
-        <button type="button" className={`calendar-primary ${INSTRUMENT_ACTION_PRIMARY}`} onClick={() => openSchedule()}><Plus className={`${ICON} @max-calendar-toolbar/main-region:hidden`} />Schedule content</button>
-      </header>
+      <PageHeader title="Calendar" icon={CalendarDays} meta={workspaceName}>
+        <div className="flex min-w-0 items-center gap-0.5"><button type="button" className={PAGE_HEADER_BUTTON} aria-label={`Previous ${view}`} title={`Previous ${view}`} onClick={() => setAnchor(shiftAnchor(anchor, view, -1))}><ChevronLeft size={14} /></button><strong className="page-header-period truncate font-code type-xs font-medium" title={title}>{title}</strong><button type="button" className={PAGE_HEADER_BUTTON} aria-label={`Next ${view}`} title={`Next ${view}`} onClick={() => setAnchor(shiftAnchor(anchor, view, 1))}><ChevronRight size={14} /></button></div>
+        <span className="page-header-segments flex shrink-0 items-center gap-0.5 rounded-full bg-panel p-0.5" aria-label="Calendar view">{([['month', CalendarDays], ['week', Columns3], ['agenda', List]] as const).map(([item, Icon]) => <button type="button" key={item} className={PAGE_HEADER_BUTTON} aria-pressed={view === item} aria-label={capitalize(item)} title={capitalize(item)} onClick={() => setView(item)}><Icon size={14} /><span className="page-header-action-label">{capitalize(item)}</span></button>)}</span>
+        <span className="relative flex shrink-0"><button type="button" className={PAGE_HEADER_BUTTON} aria-label="Filters" title="Calendar filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((open) => !open)}><SlidersHorizontal size={14} /><span className="sr-only">Filters</span></button>{filtersOpen && <FilterPopover data={data} filters={filters} onChange={setFilters} onClose={() => setFiltersOpen(false)} />}</span>
+        <PageHeaderMore label="Calendar actions"><button type="button" className={PAGE_HEADER_BUTTON} onClick={() => setAnchor(new Date())}>Today</button><button type="button" className={PAGE_HEADER_BUTTON} onClick={() => setRightPanel((panel) => panel === "drawer" ? null : "drawer")}><PanelRight size={14} />Ready to schedule <small>{data?.readyUnits.length ?? 0}</small></button></PageHeaderMore>
+        <button type="button" className={PAGE_HEADER_PRIMARY} aria-label="Schedule content" title="Schedule content" onClick={() => openSchedule()}><Plus size={14} /><span className="page-header-action-label">Schedule content</span></button>
+      </PageHeader>
 
       <div className="calendar-subbar m-0 flex min-h-10 w-full min-w-0 flex-none flex-wrap items-center gap-2 rounded-panel bg-surface px-3 py-2 type-xs text-muted">
         <span className={`calendar-timezone ${CHIP}`}><Globe2 className={`${ICON_MD} text-muted`} />{timezoneLabel(timezone)} · {timezone}</span>

@@ -79,8 +79,8 @@ describe("Marketplace unavailable surfaces", () => {
     const unsupported = browse("prompts");
     expect(unsupported).toContain("Prompt catalog is unavailable from the current contract");
     expect(unsupported).toContain("Review unavailable Prompt details");
-    expect(unsupported).toContain("No sample items are shown as production catalog records");
-    expect(unsupported).not.toContain("0 items");
+    expect(unsupported).toContain("Only items from your connected catalogs appear here");
+    expect(unsupported.replace(/<[^>]*>/g, " ")).not.toContain("0 items");
 
     const empty = browse("prompts", snapshot({
       categories: snapshot().categories.map((category) => category.category === "prompts"
@@ -121,7 +121,7 @@ describe("Marketplace unavailable surfaces", () => {
       "Prompt output-shape contract",
     ]) expect(markup).toContain(contract);
     expect(markup).not.toContain("from the current contract");
-    expect(markup).not.toMatch(/prompt name|v\d|MIT|Apache|CC-BY|downloads|rating/i);
+    expect(markup.replace(/<[^>]*>/g, " ")).not.toMatch(/prompt name|v\d|MIT|Apache|CC-BY|downloads|rating/i);
   });
 
   test("renders the complete Component inventory without a synthetic specimen", () => {
@@ -157,7 +157,7 @@ describe("Marketplace unavailable surfaces", () => {
       "Installation scope and mode",
       "Version and provenance",
     ]) expect(markup).toContain(text);
-    expect(markup).not.toMatch(/example run #|\.md\s+\d+\s*(?:KB|MB)|network:\s+https|Codex\s+supported|v\d/i);
+    expect(markup.replace(/<[^>]*>/g, " ")).not.toMatch(/example run #|\.md\s+\d+\s*(?:KB|MB)|network:\s+https|Codex\s+supported|v\d/i);
   });
 
   test("keeps each type review entry focusable, reason-linked, and inert until Task 8", async () => {

@@ -33,6 +33,10 @@
   --workspace-option-mask-size: 268px 54px;
 }
 
+.select-menu-trigger:has(> .select-menu-glyph) { --select-menu-trigger-columns: auto minmax(0, 1fr) auto; }
+.select-menu-trigger:has(> .select-menu-meta) { --select-menu-trigger-columns: minmax(0, 1fr) auto auto; }
+.select-menu-trigger:has(> .select-menu-glyph):has(> .select-menu-meta) { --select-menu-trigger-columns: auto minmax(0, 1fr) auto auto; }
+
 @theme inline {
   /* Handoff 15's socket keycap. Three families, because a cap's tones come from the surface it
      stands on and not from the theme: `keycap-*` follows the theme surface, `keycap-dark-*` is

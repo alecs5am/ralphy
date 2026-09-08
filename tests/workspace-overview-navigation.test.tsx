@@ -292,7 +292,8 @@ describe("workspace overview navigation lifecycle", () => {
 
       /* The Units page is a real screen now: it fans the workspace's projects out into one list,
          so what stands here is its own heading rather than the old "not wired yet" plate. */
-      expect(mounted.host.container.textContent).toContain("Every Unit in this workspace");
+      expect(mounted.host.container.querySelectorAll("section").some((node) => node.getAttribute("aria-label") === "All units")).toBe(true);
+      expect(mounted.host.container.querySelectorAll("input").some((node) => node.getAttribute("aria-label") === "Search units")).toBe(true);
       expect(mounted.host.container.textContent).toContain("Back to Overview");
       expect(mounted.host.container.textContent).toContain("Product reveal is not present in the current project catalog");
       expect(mounted.host.container.textContent).not.toContain("Unit unit-1");

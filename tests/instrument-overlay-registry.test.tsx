@@ -16,11 +16,16 @@ const overlayIds = [
   "memory-recall", "memory-editor", "memory-history", "memory-confirm", "calendar-filter", "calendar-drawer", "calendar-inspector", "calendar-schedule",
   "calendar-unit-picker", "calendar-date-popover", "calendar-time-popover", "calendar-platform-settings", "calendar-account-detail", "calendar-reconnect",
   "document-editor", "document-viewer", "document-conflict", "media-viewer", "media-context-menu", "mock-needs-work", "unit-viewer", "run-inspector",
-  "marketplace-detail", "target-chooser",
-  "view-panel-types", "view-panel-overflow", "context-reader",
+  "marketplace-detail", "target-chooser", "canvas-node-preview",
+  "view-panel-types", "view-panel-overflow", "context-reader", "generation-models", "generation-voices",
 ] as const;
 
 const sharedSelectOwners = [
+  "generation.parameters",
+  "canvas.parameters",
+  "canvas.switcher",
+  "canvas.connector",
+  "workspace.units",
   "settings.rows", "shared.toolbar", "shared.workflow", "memory.editor", "project.media", "project.activity", "marketplace.header",
 ] as const;
 
@@ -32,11 +37,16 @@ const overlayKinds = {
   "calendar-filter": "popover", "calendar-drawer": "dialog", "calendar-inspector": "dialog", "calendar-schedule": "dialog", "calendar-unit-picker": "popover", "calendar-date-popover": "popover",
   "calendar-time-popover": "popover", "calendar-platform-settings": "dialog", "calendar-account-detail": "dialog", "calendar-reconnect": "dialog", "document-editor": "dialog", "document-viewer": "viewer",
   "document-conflict": "dialog", "media-viewer": "viewer", "media-context-menu": "menu", "mock-needs-work": "dialog", "unit-viewer": "viewer", "run-inspector": "rail", "marketplace-detail": "dialog",
-  "target-chooser": "dialog", "view-panel-types": "menu", "view-panel-overflow": "menu",
-  "context-reader": "viewer",
+  "target-chooser": "dialog", "canvas-node-preview": "viewer", "view-panel-types": "menu", "view-panel-overflow": "menu",
+  "context-reader": "viewer", "generation-models": "popover", "generation-voices": "popover",
 } as const;
 
 const sharedSelectOwnerRecords = {
+  "generation.parameters": { module: "src/entities/generation/ui/GenerationControls.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.generation", "workspace.canvas"] } },
+  "canvas.parameters": { module: "src/features/workflow-canvas/ui/CanvasNodeChoices.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.canvas"] } },
+  "canvas.switcher": { module: "src/features/workflow-canvas/ui/CanvasScreen.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.canvas"] } },
+  "canvas.connector": { module: "src/features/workflow-canvas/ui/CanvasNodeBody.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.canvas"] } },
+  "workspace.units": { module: "src/pages/workspace-units/ui/WorkspaceUnitsScreen.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.units"] } },
   "settings.rows": { module: "src/pages/settings/ui/rows.tsx", routeScope: { kind: "production-prefix", prefix: "settings." } },
   "shared.toolbar": { module: "src/pages/shared-library/ui/SharedLibraryToolbar.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.shared"] } },
   "shared.workflow": { module: "src/pages/shared-library/ui/SharedLibraryWorkflows.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.shared"] } },

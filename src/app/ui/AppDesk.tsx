@@ -6,6 +6,7 @@
  * it is reachable, focusable or announced while it waits. That pairing is the whole point of this
  * component -- a mode surface that is only visually hidden is a keyboard trap.
  */
+import { PageHeaderHost } from "@/shared/ui/PageHeader";
 import type { CSSProperties, ReactNode } from "react";
 
 import { MARKETPLACE_SIDEBAR_WIDTH, MarketplaceScreen, type MarketplaceMemoryPatch } from "@/pages/marketplace";
@@ -18,6 +19,8 @@ import { InstrumentFloatHost } from "../layout/InstrumentShell";
 export function AppDesk({
   mode,
   viewFrameActive,
+  fillHeight = false,
+  pageHeaderHost,
   catalog,
   workRoute,
   location,
@@ -29,6 +32,8 @@ export function AppDesk({
 }: {
   mode: AppMode;
   viewFrameActive: boolean;
+  fillHeight?: boolean;
+  pageHeaderHost?: HTMLElement | null;
   catalog: CatalogResult | null;
   workRoute: WorkbenchRoute;
   location: MarketplaceLocation;
@@ -38,12 +43,12 @@ export function AppDesk({
   onRememberLocation(patch: MarketplaceMemoryPatch): void;
   children: ReactNode;
 }) {
-  return <div className="main-content-stage flex min-w-0 flex-1">
+  return <div className={`main-content-stage flex min-w-0 flex-1 ${fillHeight ? "h-full min-h-0 overflow-hidden" : ""}`}>
     {/* The work surface paints the desk, except inside the view panel: there the page card
         is the surface the route stands on, and a desk wash over it turned a white card
         grey -- visible in the light theme, and the same error in the dark one. */}
     <div className={`app-mode-surface app-mode-work min-h-0 min-w-0 flex-1 text-ink ${viewFrameActive ? "bg-transparent" : "bg-desk"} ${mode === "work" ? "flex" : "hidden"}`} hidden={mode !== "work"} inert={mode !== "work"}>
-      <InstrumentFloatHost escape={mode === "work"}>{children}</InstrumentFloatHost>
+      <PageHeaderHost.Provider value={mode === "work" && !viewFrameActive ? pageHeaderHost ?? null : null}><InstrumentFloatHost escape={mode === "work"}>{children}</InstrumentFloatHost></PageHeaderHost.Provider>
     </div>
     <div
       className={`app-mode-surface app-mode-marketplace min-h-0 min-w-0 flex-1 ${mode === "marketplace" ? "flex" : "hidden"}`}

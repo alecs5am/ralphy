@@ -17,6 +17,9 @@ import type { RalphyBridge } from "./ipc";
 import { mockCatalog, mockWorkspaces } from "./mock-fixtures";
 import { mockAgentSurfaces } from "./mock-agent-bridge";
 import { mockProjectSurfaces } from "./mock-project-bridge";
+import { mockCanvasSurfaces } from "./mock-canvas-bridge";
+import { mockVideoWorkspace } from "./mock-video-workspace";
+import { mockGenerationBridge } from "./mock-generation-bridge";
 
 /* The injected bridge arrives as an argument rather than being read from `window`: the mock is
    built by `ipc.ts`, which is the one place that decides which bridge wins, and nothing here may
@@ -46,6 +49,9 @@ export function createMockBridge(injectedBridge?: RalphyBridge): RalphyBridge {
   });
 
   return {
+    ...mockCanvasSurfaces(),
+    ...mockVideoWorkspace(),
+    ...mockGenerationBridge(),
     /* No host, no path: a dropped file falls back to its own name, which is still a reference the
        operator can see. */
     pathForFile: () => null,

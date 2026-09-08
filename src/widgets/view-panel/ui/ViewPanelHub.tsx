@@ -8,6 +8,8 @@ import {
   Library,
   ScrollText,
   Search,
+  WandSparkles,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -42,7 +44,9 @@ const TILE = "flex flex-col gap-2.25 rounded-cell bg-panel p-2.75 text-left hove
    and the whole tree unmounted, leaving the window grey the moment anyone opened the hub. */
 const TILE_ICONS: Record<WorkspaceViewType, LucideIcon> = {
   overview: LayoutDashboard,
+  generation: WandSparkles,
   projects: Folder,
+  canvas: Workflow,
   units: Layers,
   context: ScrollText,
   calendar: Calendar,

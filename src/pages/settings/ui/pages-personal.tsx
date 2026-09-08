@@ -89,7 +89,7 @@ export function GeneralPage({ ctx }: { ctx: SettingsContext }) {
         <Row title="Keep Ralphy in the menu bar" description="A status icon and quick access to active runs." id="general.menuBar">
           <Toggle label="Keep Ralphy in the menu bar" on={values["general.menuBar"]} onChange={(next) => set("general.menuBar", next)} />
         </Row>
-        <Row title="Send shortcut in agent chat" description="The same command registry as the shortcuts page." id="general.sendShortcut">
+        <Row title="Send shortcut in agent chat" description="Choose how to send a message. Shift + Enter always adds a new line." id="general.sendShortcut">
           <Segmented
             label="Send shortcut in agent chat"
             value={values["general.sendShortcut"]}
@@ -107,7 +107,7 @@ export function GeneralPage({ ctx }: { ctx: SettingsContext }) {
         </Row>
         <Row
           title="Restore last workspace and project"
-          description="Needs a persisted session contract. The build has no control for it, so no dead switch is drawn."
+          description="Restoring your last workspace automatically is not available in this version."
           target
         ><DesignTarget /></Row>
       </Plate>
@@ -120,7 +120,7 @@ export function GeneralPage({ ctx }: { ctx: SettingsContext }) {
           description={<>
             <span className={MONO}>{ctx.libraryPath ?? "~/Library/Application Support/Ralphy"}</span>
             <br />
-            The app picks this path. Moving it is a verified migration, not a text field.
+            Move your library together with its projects, media and settings.
           </>}
           tall
           flash={ctx.flashId === "general.library"}
@@ -161,9 +161,8 @@ export function ProfilePage({ ctx }: { ctx: SettingsContext }) {
   const { values, set } = ctx.preferences;
   return <Section title="LOCAL PROFILE">
     <Plate>
-      <Row title="Avatar" description="PNG or JPG, at least 128 px. Stored next to the profile on this Mac." flat>
+      <Row title="Avatar" description="Your generated identity, rendered on this Mac." flat>
         <span className="grid size-settings-avatar flex-none place-items-center overflow-hidden rounded-control bg-field font-code type-md text-muted"><ProfileAvatar rootPath={ctx.libraryPath ?? ""} size={56} round /></span>
-        <button className={action({ size: "sm" })} type="button" disabled>Choose file…</button>
       </Row>
       <Row title="Display name" description="Shown in chat, review and version history." id="profile.displayName">
         <input

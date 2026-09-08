@@ -1,12 +1,17 @@
-import { Layers3 } from "lucide-react";
+import { PageHeader, PAGE_HEADER_BUTTON } from "@/shared/ui/PageHeader";
+import { FileText, Film, Images, Layers3, LayoutGrid, List, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { OverviewPublicationDto, ProjectOverviewDto, UnitDto } from "../../../../electron/ralphy/types";
 import { entityDragProps } from "@/features/agent-chat";
+import { unitPreviewKind } from "@/entities/unit";
+import { projectGlyphVars } from "@/shared/lib/project-glyph";
 import { bridge, type ProjectSummary } from "@/shared/api/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
 import { WORKSPACE_PAGE_LABELS } from "@/shared/model/workbench";
 import { STATE_BOX, STATE_COLUMN, STATE_INK, STATE_PAD } from "@/shared/ui/route-chrome";
+import { SelectMenu } from "@/shared/ui/SelectMenu";
+import { Window, WindowBody, WindowTitlebar } from "@/shared/ui/Window";
 
 export const workspaceUnitsInstrumentStates = defineInstrumentScreenStates({
   routeKey: "workspace.units",
@@ -52,8 +57,14 @@ const CHIP: Record<"published" | "scheduled", { label: string; skin: string }> =
   scheduled: { label: "Scheduled", skin: "bg-surface-sunken text-muted" },
 };
 
-const ROW = "workspace-unit-row grid min-h-14 w-full grid-cols-(--workspace-unit-columns) items-center gap-4 rounded-cell bg-surface px-4 text-left hover:bg-surface-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
+const ROW = "workspace-unit-row grid min-h-14 w-full grid-cols-(--workspace-unit-columns) items-center gap-4 rounded-cell bg-surface px-4 py-3 text-left hover:bg-surface-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink @max-workspace-row/main-region:grid-cols-(--workspace-unit-narrow-columns)";
 const META = "font-code type-mono-xs tracking-mono text-muted";
+const FORMAT_ICON = { video: Film, longform: Film, carousel: Images, post: FileText, generic: Layers3 };
+
+export function matchesWorkspaceUnit(unit: Pick<UnitDto, "slug" | "format">, projectName: string, query: string, format: string): boolean {
+  return (!format || unit.format === format)
+    && `${unit.slug} ${projectName} ${unit.format}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
+}
 
 async function readProject(project: ProjectSummary): Promise<{ units: UnitDto[]; publications: OverviewPublicationDto[] } | null> {
   /* Two calls per project, and the overview is the one that knows a Unit's publication state --
@@ -74,6 +85,9 @@ export function WorkspaceUnitsScreen({ workspaceName, projects, rootEpoch, onOpe
   onOpenUnit(project: ProjectSummary, unitId: string): void;
 }) {
   const [load, setLoad] = useState<Load>({ state: "loading" });
+  const [query, setQuery] = useState("");
+  const [format, setFormat] = useState("");
+  const [view, setView] = useState<"gallery" | "list">("gallery");
   const key = `${rootEpoch}:${projects.map(({ projectId }) => projectId).join(",")}`;
 
   useEffect(() => {
@@ -106,36 +120,47 @@ export function WorkspaceUnitsScreen({ workspaceName, projects, rootEpoch, onOpe
   const state = load.state === "ready"
     ? load.units.length === 0 ? "empty" : load.missing > 0 ? "partial" : "ready"
     : load.state;
+  const units = load.state === "ready" ? load.units : [];
+  const formats = [...new Set(units.map(({ unit }) => unit.format))].sort();
+  const visible = units.filter(({ unit, project }) => matchesWorkspaceUnit(unit, project.name, query, format));
 
   return (
     <InstrumentScreenRoot descriptor={workspaceUnitsInstrumentStates} state={state}>
-      <main className="main-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink">
-        <div className="screen-header m-0 flex min-h-18 w-full max-w-none items-start justify-between gap-6 rounded-panel bg-instrument px-5 py-4 text-on-instrument">
-          <div>
-            <div className="screen-kicker mb-1 type-xs uppercase tracking-wide text-on-instrument-muted">{workspaceName}</div>
-            <h2 className="mt-1 mb-1.25 type-hero font-semibold leading-none tracking-tight text-on-instrument">{WORKSPACE_PAGE_LABELS.units}</h2>
-            <p className="mt-1 max-w-screen-copy type-base text-on-instrument-muted">
-              Every Unit in this workspace, newest first. A Unit opens in the project that owns it.
-            </p>
+      <main className="main-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 type-base text-ink">
+        <PageHeader title={WORKSPACE_PAGE_LABELS.units} icon={Layers3} meta={workspaceName}>
+          <label className="page-header-search flex h-8 min-w-0 items-center gap-2 rounded-full bg-card px-3 text-muted focus-within:outline-2 focus-within:outline-ink"><Search className="size-4 flex-none" aria-hidden="true" /><input className="min-w-0 flex-1 bg-transparent type-xs text-ink outline-none" type="search" aria-label="Search units" placeholder="Search units or projects…" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+          <div className="page-header-segments flex items-center gap-0.5 rounded-full bg-panel p-0.5" aria-label="Unit view">
+            <button type="button" className={PAGE_HEADER_BUTTON} aria-label="Gallery view" aria-pressed={view === "gallery"} onClick={() => setView("gallery")}><LayoutGrid className="size-4" aria-hidden="true" /></button>
+            <button type="button" className={PAGE_HEADER_BUTTON} aria-label="List view" aria-pressed={view === "list"} onClick={() => setView("list")}><List className="size-4" aria-hidden="true" /></button>
           </div>
-          {load.state === "ready" && <span className={`${META} pt-2 text-on-instrument-muted`}>
-            {load.units.length} {load.units.length === 1 ? "UNIT" : "UNITS"} · {projects.length} {projects.length === 1 ? "PROJECT" : "PROJECTS"}
-          </span>}
-        </div>
+        </PageHeader>
+        <div className="flex items-center justify-between gap-2 px-1 py-1"><SelectMenu overlayOwner="workspace.units" ariaLabel="Filter by format" value={format ? `format:${format}` : "all"} options={[{ value: "all", label: "All formats" }, ...formats.map((item) => ({ value: `format:${item}`, label: item }))]} onValueChange={(value) => setFormat(value === "all" ? "" : value.slice("format:".length))} />{load.state === "ready" && <span className={META} role="status">{visible.length}{query || format ? ` / ${units.length}` : ""} UNITS · {projects.length} PROJECTS · RECENTLY UPDATED</span>}</div>
 
-        <section className="content-section m-0 grid min-h-48 w-full min-w-0 max-w-none content-start gap-1 rounded-panel bg-surface p-2" aria-label="All units">
+        <section className="content-section m-0 grid min-h-48 w-full min-w-0 max-w-none content-start gap-3 rounded-panel bg-transparent p-0" aria-label="All units">
           {load.state === "loading" && <div className={`${STATE_BOX} ${STATE_PAD} ${STATE_INK}`}>Reading the workspace's projects</div>}
           {load.state === "error" && <div className={`${STATE_BOX} ${STATE_COLUMN} ${STATE_PAD} ${STATE_INK}`}>{load.message}</div>}
           {load.state === "ready" && load.units.length === 0 && <div className={`${STATE_BOX} ${STATE_PAD} ${STATE_INK}`}>
-            {projects.length === 0 ? "This workspace has no projects yet." : "No Units in this workspace yet."}
+            <div className="grid justify-items-center gap-3 py-6 text-center"><Layers3 className="size-8 text-muted" aria-hidden="true" /><strong className="type-lg font-medium">Your next idea starts here</strong><span>{projects.length === 0 ? "Create a project to start your content library." : "Open a project and create its first Unit."}</span></div>
           </div>}
           {load.state === "ready" && load.missing > 0 && <div className={`${STATE_BOX} ${STATE_PAD} ${STATE_INK}`}>
             {load.missing} {load.missing === 1 ? "project" : "projects"} did not answer, so their Units are not listed.
           </div>}
-          {load.state === "ready" && load.units.map(({ unit, project, published }) => {
+          {load.state === "ready" && units.length > 0 && visible.length === 0 && <div className={`${STATE_BOX} ${STATE_PAD} ${STATE_INK}`}>No units match. Try another search or format.</div>}
+          <div className={view === "gallery" ? "workspace-unit-gallery grid grid-cols-(--workspace-unit-gallery-columns) gap-2" : "grid gap-2"}>
+          {load.state === "ready" && visible.map(({ unit, project, published }) => {
             /* Hoisted, not inlined: a member access inside a className template reads to the style
                ratchet as a hardcoded arbitrary value. */
             const chip = published && CHIP[published];
+            const Icon = FORMAT_ICON[unitPreviewKind(unit.format)];
+            if (view === "gallery") return <button key={unit.id} {...entityDragProps({ kind: "unit", ref: unit.slug, label: unit.slug })} type="button" className="workspace-unit-card group min-w-0 rounded-window bg-transparent p-0 text-left text-ink focus-visible:outline-2 focus-visible:outline-ink" onClick={() => onOpenUnit(project, unit.id)}>
+              <Window className="h-full">
+                <WindowBody className="gap-2 p-3 group-hover:bg-row-hover">
+                  <div className="flex items-center gap-3"><span className="workspace-unit-art flex size-10 shrink-0 items-center justify-center rounded-field text-(--glyph-color) [background:color-mix(in_srgb,var(--glyph-color)_12%,var(--instrument-widget-light-sunken))]" style={projectGlyphVars(project.name)} aria-hidden="true"><Icon className="size-5" strokeWidth={1.4} /></span><span className="min-w-0 flex-1"><strong className="block truncate type-sm font-medium">{unit.slug}</strong><span className={`${META} uppercase`}>{unit.format}</span></span></div>
+                  {chip && <span className={`inline-flex self-start rounded-control px-2 py-0.5 type-xs ${chip.skin}`}>{chip.label}</span>}
+                </WindowBody>
+                <WindowTitlebar><span className="min-w-0 flex-1 truncate type-xs text-muted">{project.name}</span><time className={META} dateTime={new Date(unit.updatedAt).toISOString()}>{new Date(unit.updatedAt).toLocaleDateString([], { day: "2-digit", month: "short" })}</time></WindowTitlebar>
+              </Window>
+            </button>;
             return <button
               {...entityDragProps({ kind: "unit", ref: unit.slug, label: unit.slug })}
               className={ROW}
@@ -143,8 +168,8 @@ export function WorkspaceUnitsScreen({ workspaceName, projects, rootEpoch, onOpe
               key={unit.id}
               onClick={() => onOpenUnit(project, unit.id)}
             >
-              <Layers3 className="flex-none text-muted" size={15} strokeWidth={1.8} aria-hidden="true" />
-              <span className="min-w-0 truncate type-md text-ink">{unit.slug}</span>
+              <span className="flex-none text-muted" style={projectGlyphVars(project.name)} aria-hidden="true"><Icon className="size-4" strokeWidth={1.4} /></span>
+              <span className="min-w-0 max-w-full truncate type-md font-medium text-ink">{unit.slug}</span>
               <span className={`${META} uppercase`}>{unit.format}</span>
               {chip
                 ? <span className={`inline-flex h-6 flex-none items-center rounded-full px-2.5 type-label ${chip.skin}`}>{chip.label}</span>
@@ -155,6 +180,7 @@ export function WorkspaceUnitsScreen({ workspaceName, projects, rootEpoch, onOpe
               </time>
             </button>;
           })}
+          </div>
         </section>
       </main>
     </InstrumentScreenRoot>

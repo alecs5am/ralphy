@@ -75,6 +75,29 @@ async function renderWorkspace(
 }
 
 describe("workspace overview shell", () => {
+  test("clicking the lab preview toggles sample analytics and restores workspace values", async () => {
+    const overview = { ...populatedOverview, workspace: { ...populatedOverview.workspace, name: "UX Testing Lab" } };
+    const controller = createWorkspaceScreenController({ loadWorkspaceOverview: vi.fn(async () => overview) }, overview.workspace.id);
+    await controller.start();
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<WorkspaceScreenView controller={controller} snapshot={controller.getSnapshot()} catalogProjects={[]} workspaceDescription="Testing" onOpenPage={() => undefined} onOpenUnit={() => undefined} onOpenProject={() => undefined} />));
+      const toggle = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Preview demo analytics")!;
+      expect(toggle.getAttribute("aria-pressed")).toBe("false");
+      await act(async () => toggle.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(toggle.getAttribute("aria-pressed")).toBe("true");
+      expect(toggle.textContent).toBe("Use workspace data");
+      expect(host.container.textContent).toContain("128.4K");
+      expect(host.container.textContent).toContain("Demo · 7 sample days");
+      await act(async () => toggle.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(toggle.getAttribute("aria-pressed")).toBe("false");
+      expect(host.container.textContent).not.toContain("128.4K");
+      expect(host.container.textContent).toContain("Latest available totals");
+    } finally { await act(async () => root.unmount()); host.restore(); }
+  });
+
   test("gives a ready trend an accessible chart and exact table alternative", () => {
     const markup = renderToStaticMarkup(<AccessibleTrendChart value={[
       { label: "Aug 19", value: 80 },
@@ -83,7 +106,7 @@ describe("workspace overview shell", () => {
 
     expect(markup).toContain('role="img"');
     expect(markup).toContain("Workspace performance trend");
-    expect(markup).toContain("<polyline");
+    expect(markup).toContain("<pattern");
     expect(markup).toContain("Aug 19");
     expect(markup).toContain(">80<");
     expect(markup).toContain("Aug 20");
@@ -109,12 +132,8 @@ describe("workspace overview shell", () => {
       "Workspace momentum",
       "Accounts",
       "Content plan",
-      "Top and emerging Units",
-      "What works",
-      "What Ralphy learned",
-      "Production efficiency",
-      "Attention",
       "Active projects",
+      "Attention",
     ];
     const positions = headings.map((heading) => markup.indexOf(heading));
 
@@ -130,8 +149,9 @@ describe("workspace overview shell", () => {
     expect(markup).toContain("Launch Studio");
     expect(markup).toContain("Short-form launches");
     expect(markup).toContain("Refreshed");
-    expect(markup).toContain("Current Core totals");
-    expect(markup).toContain("1 connected account");
+    expect(markup).toContain("Latest available totals");
+    expect(markup).toContain("1 account");
+    expect(markup).not.toContain("1 connected account");
     expect(markup).toContain("1 critical");
     expect(markup).toContain("Refreshing");
     expect(markup).toContain('aria-busy="true"');
@@ -275,7 +295,7 @@ describe("workspace overview shell", () => {
     expect(markup).toContain("Account metrics are not available from the current Core contract");
     expect(markup).toContain('aria-label="Account portfolio"');
     expect(markup).toContain("Connected");
-    expect(markup).toContain("Last Core update");
+    expect(markup).toContain("Updated <time");
     expect(markup).not.toContain("0 views");
   });
 
@@ -385,11 +405,9 @@ describe("workspace overview shell", () => {
     expect(markup).toContain("Cadence targets are not configured in the current Core contract");
     expect(markup).toContain("Ready, not scheduled");
     expect(markup.match(/scheduled content events?"/g)).toHaveLength(14);
-    expect(markup).toContain("Top and emerging Units");
-    expect(markup).toContain("Top performers");
-    expect(markup).toContain("Emerging");
-    expect(markup).toContain("Learning opportunities");
-    expect(markup).toContain("Comparable performance data is not available yet");
+    expect(markup).not.toContain("workspace-unit-outcomes");
+    expect(markup).not.toContain("Top performers");
+    expect(markup).not.toContain("Learning opportunities");
     expect(markup).not.toContain("Content gap");
 
     const unavailableSchedule = renderToStaticMarkup(<WorkspacePlanAndOutcomes
@@ -452,6 +470,24 @@ describe("workspace overview shell", () => {
     }
     expect(partial).toContain("Coverage is limited");
     expect(partial).toContain("Ready Units are limited");
+  });
+
+  test("bounds upcoming rows to five while Calendar receives the first remaining date", async () => {
+    const start = Date.now() + 86400000;
+    const events = Array.from({ length: 8 }, (_, index) => ({ unitId: `event-${index}`, scheduledAt: start + index * 3600000, publications: [{ ...populatedOverview.publications.items[0], id: `publication-${index}`, state: "scheduled" as const }], accounts: [], unit: null, project: null }));
+    const openCalendar = vi.fn();
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<WorkspacePlanAndOutcomes value={{ plan: { days: [], upcoming: { status: "ready", value: events }, coverage: { status: "unavailable", reason: "No coverage" }, readyUnscheduled: { status: "unavailable", reason: "No readiness" } }, outcomes: { status: "unavailable", reason: "No outcomes" } }} onOpenCalendar={openCalendar} onOpenPage={vi.fn()} onOpenUnit={vi.fn()} />));
+      expect(host.container.querySelectorAll("[data-content-event]")).toHaveLength(5);
+      const more = host.container.querySelector("#workspace-more-calendar")!;
+      expect(more.textContent).toContain("3 more in Calendar");
+      await act(async () => more.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(openCalendar).toHaveBeenCalledWith({ label: "Upcoming releases", date: events[5]!.scheduledAt }, "workspace-more-calendar");
+      expect(host.container.textContent).toContain("8 upcoming releases");
+    } finally { await act(async () => root.unmount()); host.restore(); }
   });
 
   test("groups child publications into one event and keeps failed channels visible", async () => {
@@ -653,7 +689,7 @@ describe("workspace overview shell", () => {
         onOpenUnit={() => undefined}
       />));
       const card = [...host.container.querySelectorAll("button")]
-        .find((button) => button.textContent?.includes("Product reveal"));
+        .find((button) => button.getAttribute("aria-label") === "Review Product reveal performance");
       await act(async () => card!.dispatchEvent(new Event("click", { bubbles: true })));
 
       const dialog = document.body.querySelector("[role=dialog]");
@@ -674,15 +710,13 @@ describe("workspace overview shell", () => {
     }
   });
 
-  test("renders honest unavailable insight and efficiency states without unsupported claims", async () => {
+  test("omits unsupported analytics panels until comparable data is available", async () => {
     const markup = await renderWorkspace(populatedOverview);
 
-    expect(markup).toContain("What works");
-    expect(markup).toContain("What Ralphy learned");
-    expect(markup).toContain("More comparable publications are needed");
-    expect(markup).toContain("Production efficiency");
-    expect(markup).toContain("Production timing and reuse evidence are not available from Core yet");
-    expect(markup.match(/Production timing and reuse evidence are not available from Core yet/g)).toHaveLength(6);
+    expect(markup).not.toContain("What works");
+    expect(markup).not.toContain("What Ralphy learned");
+    expect(markup).not.toContain("Production efficiency");
+    expect(markup).not.toContain("workspace-efficiency-metric");
     expect(markup).not.toMatch(/caused|guaranteed|viral score/i);
   });
 
@@ -936,7 +970,7 @@ describe("workspace overview shell", () => {
       projects: { items: [project], nextCursor: null },
       publications: { items: [publication, { ...publication, id: "publication-2" }], nextCursor: null },
     }, {}, [catalogProject]);
-    const headings = ["Attention", "Production pulse", "In progress", "Active projects", "Recent changes"];
+    const headings = ["Active projects", "Attention"];
     const positions = headings.map((heading) => markup.indexOf(heading));
 
     expect(positions.every((position) => position >= 0)).toBe(true);
@@ -944,8 +978,11 @@ describe("workspace overview shell", () => {
     expect(markup).toContain('<ul class="workspace-attention-list');
     expect(markup).toContain("Affects 2 publications");
     expect(markup).toContain("Review publications");
-    expect(markup).toContain("Workspace run and build progress is not available from Core yet");
-    expect(markup).toContain("Core currently returns technical activity without display names");
+    expect(markup).not.toContain("Production pulse");
+    expect(markup).not.toContain("Recent changes");
+    expect(markup).not.toContain("Activity details");
+    expect(markup).toContain("instrument-dither-identity");
+    expect(markup).toContain("./assets/dither/g");
     expect(markup).toContain("Launch the new product line");
     expect(markup).toContain("Open project");
     expect(markup).toContain("View all projects");
@@ -978,7 +1015,7 @@ describe("workspace overview shell", () => {
     expect(markup).toContain('aria-label="Review publications for Publication failed · Studio"');
   });
 
-  test("distinguishes no attention and no active work from unavailable production data", () => {
+  test("omits empty attention and unavailable lifecycle panels without claiming production is idle", () => {
     const base = {
       attention: { status: "ready", value: { items: [], criticalCount: { status: "ready", value: 0 } } },
       projects: { status: "ready", value: [] },
@@ -998,10 +1035,10 @@ describe("workspace overview shell", () => {
       onRetry={() => undefined}
     />);
 
-    expect(empty).toContain("Nothing needs attention");
-    expect(empty).toContain("No Units are currently in production");
+    expect(empty).not.toContain("workspace-attention-heading");
+    expect(empty).not.toContain("No Units are currently in production");
     expect(empty).not.toContain("Active production work is unavailable");
-    expect(unavailable).toContain("Active production work is unavailable");
+    expect(unavailable).not.toContain("Production pulse");
     expect(unavailable).not.toContain("No Units are currently in production");
   });
 
@@ -1089,7 +1126,7 @@ describe("workspace overview shell", () => {
       expect(host.container.textContent).not.toContain("Retry attention");
       expect(host.container.textContent).not.toContain("Retry projects");
       expect(host.container.textContent).toContain("Launch campaign");
-      expect(host.container.textContent).toContain("Production pulse");
+      expect(host.container.textContent).not.toContain("Production pulse");
 
       const viewAll = [...host.container.querySelectorAll("button")]
         .find((button) => button.textContent === "View all projects");
@@ -1287,11 +1324,17 @@ describe("workspace overview shell", () => {
     const performance = readFileSync(join(process.cwd(), "src/pages/workspace/ui/WorkspacePerformance.tsx"), "utf8");
     const theme = readFileSync(join(process.cwd(), "src/app/styles/theme/workspace-overview.css"), "utf8");
 
-    expect(operations).toContain("grid-cols-1 gap-2 bg-transparent p-0 @min-workspace-section/instrument-desk:grid-cols-2");
+    expect(operations).toContain("<ActiveProjects");
+    expect(operations).toContain("!attentionCompleteEmpty && <AttentionQueue");
+    expect(operations).not.toContain("Activity details");
     expect(theme).toContain("--container-workspace-section: 860px");
     expect(performance).toContain("@container/account-portfolio");
-    expect(performance).toContain("grid-cols-4 gap-3 @max-workspace-portfolio/account-portfolio:grid-cols-2 @max-workspace-portfolio-narrow/account-portfolio:grid-cols-1");
+    expect(performance).toContain('className="account-portfolio"');
+    expect(theme).toContain("@container account-portfolio (max-width: 440px)");
     expect(theme).toContain("--container-workspace-portfolio: 900px");
-    expect(theme).toContain("--container-workspace-portfolio-narrow: 520px");
+    expect(theme).toContain("--container-workspace-portfolio-narrow: 380px");
+    expect(theme).toContain("--workspace-day-columns: repeat(7, minmax(0, 1fr))");
+    expect(theme).toContain("--workspace-day-wide-columns: repeat(14, minmax(0, 1fr))");
+    expect(theme).toContain("--container-workspace-plan-wide: 820px");
   });
 });

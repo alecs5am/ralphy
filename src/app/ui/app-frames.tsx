@@ -11,6 +11,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { bridge } from "@/shared/api/ipc";
 import { InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
 import { COMMAND_BUTTON } from "@/shared/ui/route-chrome";
+import { usePageHeaderHost } from "@/shared/ui/PageHeader";
 import type { WorkspaceDestination } from "@/shared/model/workbench";
 import { unitsInstrumentStates } from "@/pages/project";
 
@@ -48,12 +49,13 @@ export function WorkspaceDestinationFrame({ destination, onBack, children }: {
   children: ReactNode;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  const pageHeaderHost = usePageHeaderHost();
   useEffect(() => {
-    const heading = root.current?.querySelector<HTMLElement>("h1") ?? root.current?.querySelector<HTMLElement>("h2");
+    const heading = pageHeaderHost?.querySelector<HTMLElement>("h1") ?? root.current?.querySelector<HTMLElement>("h1") ?? root.current?.querySelector<HTMLElement>("h2");
     if (!heading) return;
     heading.tabIndex = -1;
     heading.focus({ preventScroll: true });
-  }, [destination]);
+  }, [destination, pageHeaderHost]);
   const context = destination.context;
   /* The destination frame is a column that hands its whole remaining height to the route it
      wraps, whichever route that is — so the child's own flex guard is stated here. */

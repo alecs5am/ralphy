@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
 
-import { projectGlyphAsset } from "../lib/project-glyph";
+import { projectGlyphAsset, projectGlyphVars } from "../lib/project-glyph";
 import type { InstrumentScreenHeaderProps } from "./types";
 
 function classNames(...values: Array<string | undefined>) {
@@ -65,7 +65,8 @@ export function StatusDot({ label, tone = "neutral" }: { label: string; tone?: S
 }
 
 export function DitherIdentity({ name, label = name, className }: { name: string; label?: string; className?: string }) {
-  return <img className={classNames("instrument-dither-identity", "size-8 rounded-chip object-cover", className)} src={projectGlyphAsset(name)} alt={label} />;
+  const maskImage = `url("${projectGlyphAsset(name)}")`;
+  return <span className={classNames("instrument-dither-identity", "inline-block size-8 shrink-0 bg-(--glyph-color) [mask-repeat:no-repeat] [mask-size:100%_100%]", className)} style={{ ...projectGlyphVars(name), maskImage, WebkitMaskImage: maskImage }} role={label ? "img" : undefined} aria-label={label || undefined} aria-hidden={!label || undefined} />;
 }
 
 export function InstrumentScreenHeader({ eyebrow, title, description, filters, counters, actions }: InstrumentScreenHeaderProps) {

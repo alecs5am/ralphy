@@ -13,7 +13,6 @@ import {
   KeyRound,
   Layers,
   LogIn,
-  Plus,
   Search,
   ShieldCheck,
   SlidersHorizontal,
@@ -21,7 +20,6 @@ import {
 
 import type { AgentPermissionMode } from "@/shared/api/ipc";
 import type { AgentChatController } from "@/features/agent-chat";
-import { AgentMark } from "@/shared/ui/AgentMark";
 import { AiBrandIcon } from "@/shared/ui/AiBrandIcon";
 import { InstrumentOverlay } from "@/shared/instrument/overlay-registry";
 
@@ -59,76 +57,7 @@ export function AgentAuthSource({ chat }: { chat: AgentChatController }) {
   </button>;
 }
 
-export function AgentChatMenu({ chat }: { chat: AgentChatController }) {
-  const menu = useDismissableMenu();
-  const active = chat.activeChat;
-  const chats = [...chat.state.chats].sort((left, right) => right.updatedAt - left.updatedAt);
-  return (
-    <div className="agent-chat-picker relative min-w-0 flex-1" ref={menu.ref}>
-      <button
-        ref={menu.trigger}
-        className="agent-chat-picker-trigger flex h-6.5 w-full min-w-0 items-center gap-2 rounded-control bg-transparent px-1.5 text-left hover:bg-chip aria-expanded:bg-chip"
-        type="button"
-        aria-haspopup="menu"
-        aria-label="Recent chats"
-        aria-expanded={menu.open}
-        onClick={() => menu.setOpen((open) => !open)}
-      >
-        <AgentProviderIcon provider={active.provider} size={17} />
-        {/* One line, not a stack: the chrome is 34 and the provenance reads across it -- the chat's
-            name, then the provider and model as mono meta, which is what a 34 row can carry. */}
-        <strong className="max-w-40 truncate type-ui font-normal text-ink">{active.title}</strong>
-        <small className={`min-w-0 truncate ${META}`}>
-          {PROVIDER_META[active.provider].label} · {modelLabel(chat, active.provider, active.model)}
-        </small>
-        <span className="min-w-0 flex-1" aria-hidden="true" />
-        <ChevronDown size={11} className="flex-none text-muted-decorative" />
-      </button>
-      {menu.open && (
-        <InstrumentOverlay id="agent-chat-recent-menu" host="primitive-host" open label="Recent chats" description="Choose a recent chat" opener={menu.trigger.current} onOpenChange={(open) => { if (!open) menu.close(); }}>
-        <div className={`${POPOVER} agent-chat-menu top-11 left-0 w-agent-chat-menu max-w-(--agent-chat-menu-fit)`} role="menu">
-          <button
-            className={`agent-menu-command ${MENU_ROW} h-control-md gap-2.25 px-2.25 type-sm`}
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              chat.newChat();
-              menu.setOpen(false);
-            }}
-          >
-            <Plus size={13} />
-            New chat
-          </button>
-          <div className="agent-chat-list max-h-agent-menu-list overflow-y-auto">
-            {chats.map((conversation) => (
-              <button
-                type="button"
-                role="menuitemradio"
-                aria-checked={conversation.id === active.id}
-                className={`${MENU_ROW} min-h-10.75 gap-2.25 px-2 py-1.25 ${conversation.id === active.id ? "is-selected" : ""}`}
-                key={conversation.id}
-                onClick={() => {
-                  chat.selectChat(conversation.id);
-                  menu.setOpen(false);
-                }}
-              >
-                <AgentProviderIcon provider={conversation.provider} size={16} />
-                <span className={ROW_COPY}>
-                  <strong className="truncate type-sm font-normal">{conversation.title}</strong>
-                  <small className={`truncate ${META}`}>{PROVIDER_META[conversation.provider].label} · {modelLabel(chat, conversation.provider, conversation.model)}</small>
-                </span>
-                {conversation.busy
-                  ? <AgentMark mode="working" size={13} className="text-ink" />
-                  : conversation.id === active.id ? <Check size={12} /> : null}
-              </button>
-            ))}
-          </div>
-        </div>
-        </InstrumentOverlay>
-      )}
-    </div>
-  );
-}
+
 
 /* One model control, not a provider pill beside a model pill: handoff 17 draws a single pill whose
    mark is the provider's, and a menu that lists every connected provider's models with that mark

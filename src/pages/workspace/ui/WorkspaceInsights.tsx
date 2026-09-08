@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { Brain, Gauge, Lightbulb } from "lucide-react";
 import type { WorkspacePage } from "@/shared/model/workbench";
 import { DetailDialog } from "./DetailDialog";
+import { OverviewHeading } from "./OverviewHeading";
 import {
   ACTION_QUIET,
   DRAWER_ACTION,
@@ -11,9 +13,6 @@ import {
   PLATE_COPY,
   PLATE_TITLE,
   SECTION_HALF,
-  SECTION_HEADING,
-  SECTION_META,
-  SECTION_TITLE,
 } from "../lib/overview-chrome";
 import type {
   Availability,
@@ -180,8 +179,9 @@ function ProductionEfficiency({ value, onOpenShared }: {
   onOpenShared(): void;
 }) {
   const presentation = value.status === "ready" || value.status === "partial" ? value.value : null;
+  if (!presentation) return null;
   return <section className={`${SECTION_HALF} workspace-production-efficiency`} aria-labelledby="workspace-production-efficiency-title">
-    <header className={SECTION_HEADING}><h2 className={SECTION_TITLE} id="workspace-production-efficiency-title">Production efficiency</h2><span className={SECTION_META}>Operational evidence</span></header>
+    <OverviewHeading id="workspace-production-efficiency-title" title="Production efficiency" icon={Gauge} meta="Operational evidence" />
     {value.status === "partial" && <UnavailablePanel title="Partial production evidence" reason={value.reason} />}
     {/* Six bounded metrics; the band re-wraps rather than fixing a column count. */}
     <dl className="workspace-efficiency-strip m-0 grid grid-cols-(--workspace-efficiency-columns) gap-2 bg-transparent">{efficiencySlots.map((slot) => {
@@ -200,15 +200,16 @@ export function WorkspaceInsights({ value, onOpenPage }: Props) {
   const [selected, setSelected] = useState<{ value: WorkspaceInsightPresentation; returnFocusId: string } | null>(null);
   const openMemory = (returnFocusId: string) => onOpenPage("memory", returnFocusId);
   const selectEvidence = (insight: WorkspaceInsightPresentation, returnFocusId: string) => setSelected({ value: insight, returnFocusId });
+  const insightsAvailable = value.insights.status === "ready" || value.insights.status === "partial";
   return <>
-    <section className={`${SECTION_HALF} workspace-insights`} aria-labelledby="workspace-insights-title">
-      <header className={SECTION_HEADING}><h2 className={SECTION_TITLE} id="workspace-insights-title">What works</h2><span className={SECTION_META}>Comparable evidence</span></header>
+    {insightsAvailable && <section className={`${SECTION_HALF} workspace-insights`} aria-labelledby="workspace-insights-title">
+      <OverviewHeading id="workspace-insights-title" title="What works" icon={Lightbulb} meta="Comparable evidence" />
       <EvidenceState value={value.insights} onReview={selectEvidence} />
-    </section>
-    <section className={`${SECTION_HALF} workspace-learnings`} aria-labelledby="workspace-learnings-title">
-      <header className={SECTION_HEADING}><h2 className={SECTION_TITLE} id="workspace-learnings-title">What Ralphy learned</h2><span className={SECTION_META}>Review before Memory</span></header>
+    </section>}
+    {insightsAvailable && <section className={`${SECTION_HALF} workspace-learnings`} aria-labelledby="workspace-learnings-title">
+      <OverviewHeading id="workspace-learnings-title" title="What Ralphy learned" icon={Brain} meta="Review before Memory" />
       <LearnedState value={value.insights} onReview={selectEvidence} onOpenMemory={openMemory} />
-    </section>
+    </section>}
     <ProductionEfficiency value={value.efficiency} onOpenShared={() => onOpenPage("shared", "workspace-open-shared")} />
     <EvidenceDetailDialog value={selected?.value ?? null} onOpenChange={(open) => { if (!open) setSelected(null); }} onOpenMemory={() => selected && openMemory(selected.returnFocusId)} />
   </>;

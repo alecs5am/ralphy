@@ -8,6 +8,7 @@ import {
   action,
   DesignTarget,
   Dot,
+  FIELD_WIDE,
   Plate,
   Row,
   ROW_COPY,
@@ -17,91 +18,83 @@ import {
   Status,
 } from "./rows";
 import { useState } from "react";
-import { Plus } from "lucide-react";
 
 import type { SettingsContext } from "../model/context";
+import type { useGenerationProviders } from "../model/use-generation-providers";
+import type { GenerationProviderStatus } from "../../../../shared/generation-studio";
 import {
-  FLAT_ROW,
-  FLAT_VALUE,
   options,
   SERVICE_META,
-  SERVICE_MODEL,
   SERVICE_NAME,
   SERVICE_ROW,
   SERVICE_STATE,
 } from "./system-rows";
 
 export const GENERATION_PROVIDERS = [
-  { id: "openai", name: "OpenAI", capabilities: "TEXT · IMAGE" },
-  { id: "fal", name: "Fal", capabilities: "IMAGE · VIDEO" },
-  { id: "replicate", name: "Replicate", capabilities: "IMAGE · VIDEO · UPSCALE" },
-  { id: "elevenlabs", name: "ElevenLabs", capabilities: "AUDIO · SPEECH" },
-  { id: "heygen", name: "HeyGen", capabilities: "AVATARS" },
-] as const;
+  { id: "openrouter", name: "OpenRouter", capabilities: ["Images", "Video", "Text"] },
+  { id: "elevenlabs", name: "ElevenLabs", capabilities: ["Voice", "Music", "Sound effects"] },
+  { id: "fal", name: "fal.ai", capabilities: ["Video"] },
+] as const satisfies readonly Pick<GenerationProviderStatus, "id" | "name" | "capabilities">[];
 
-export function ProvidersPage({ ctx }: { ctx: SettingsContext }) {
+type ProviderController = ReturnType<typeof useGenerationProviders>;
+const sourceLabel = (provider: GenerationProviderStatus) => provider.stored
+  ? `SAVED ON THIS MAC${provider.inherited ? " · ENVIRONMENT KEY AVAILABLE" : ""}`
+  : provider.inherited ? "FROM ENVIRONMENT" : "ADD AN API KEY";
+
+function ProviderFeedback({ controller }: { controller: ProviderController }) {
   return <>
-    <Section title="CONNECTED SERVICES · KEYS ARE ENTERED INSIDE A PROVIDER, NEVER IN THE LIST">
-      <Plate>
-        {GENERATION_PROVIDERS.map((provider) => <div className={SERVICE_ROW} key={provider.id}>
-          <Dot tone="off" />
-          <span className={`w-settings-service-narrow ${SERVICE_NAME}`}>
-            <strong className="type-ui font-normal text-ink">{provider.name}</strong>
-            <small className={SERVICE_META}>{provider.capabilities}</small>
-          </span>
-          <span className={SERVICE_STATE}>
-            <Status tone="off">NOT CONFIGURED HERE</Status>
-            <small className={SERVICE_META}>CONFIGURED THROUGH THE RALPHY CLI</small>
-          </span>
-          <span className={SERVICE_MODEL}>—</span>
-          <button className={action({ size: "sm" })} type="button" onClick={() => ctx.openDetail({ kind: "provider", id: provider.id })}>Manage</button>
-        </div>)}
-      </Plate>
-    </Section>
-
-    <Plate single>
-      <span className={ROW_COPY}>
-        <strong className={ROW_TITLE}>Add a provider</strong>
-        <small className="type-label leading-row text-muted">Community adapters install from the Marketplace; built-in services appear here once discovery lands.</small>
-      </span>
-      <button className={action({ size: "lg", tone: "primary" })} type="button" disabled>
-        <Plus size={13} strokeWidth={2} aria-hidden="true" />
-        Connect provider
-      </button>
-    </Plate>
+    {controller.error && <p className="m-0 rounded-inner bg-card p-3 type-sm leading-copy text-alert" role="alert">{controller.error}</p>}
+    {controller.notice && <p className="m-0 rounded-inner bg-card p-3 type-sm leading-copy text-muted" role="status">{controller.notice}</p>}
   </>;
 }
 
-export function ProviderDetailPage({ provider }: { provider: (typeof GENERATION_PROVIDERS)[number] }) {
+export function ProvidersPage({ ctx, controller }: { ctx: SettingsContext; controller: ProviderController }) {
   return <>
-    <Section title="CREDENTIAL · SECURE">
+    <ProviderFeedback controller={controller} />
+    <Section title="GENERATION SERVICES">
       <Plate>
-        <Row
-          title="API key"
-          description={`There is no secure credential channel for ${provider.name} yet. A key field that cannot reach a keychain would be a field that loses secrets.`}
-          target
-        ><DesignTarget /></Row>
+        {GENERATION_PROVIDERS.map((provider) => {
+          const status = controller.providers?.find((item) => item.id === provider.id);
+          return <div className={SERVICE_ROW} key={provider.id}>
+            <Dot tone={status?.configured ? "ok" : "off"} />
+            <span className={`w-settings-service-narrow ${SERVICE_NAME}`}><strong className="type-ui font-normal text-ink">{provider.name}</strong><small className={SERVICE_META}>{provider.capabilities.join(" · ")}</small></span>
+            <span className={SERVICE_STATE}><Status tone={status?.configured ? "ok" : "off"}>{status ? status.configured ? "KEY PRESENT" : "NO KEY" : controller.loading ? "LOADING…" : "STATUS UNAVAILABLE"}</Status><small className={SERVICE_META}>{status ? sourceLabel(status) : ""}</small></span>
+            <button className={action({ size: "sm" })} type="button" onClick={() => ctx.openDetail({ kind: "provider", id: provider.id })} aria-label={`Manage ${provider.name}`}>Manage</button>
+          </div>;
+        })}
       </Plate>
     </Section>
+    <Section title="GENERATION COST"><Plate><Row title="High cost warning" description="Highlight estimates above this amount before you generate. This is a warning, not a spending cap." id="generation.costWarningUsd"><label className="flex items-center gap-2 type-ui text-ink">$<input aria-label="High cost warning in USD" className={FIELD_WIDE} type="number" min={0.01} max={10000} step={0.01} required key={ctx.preferences.values["generation.costWarningUsd"]} defaultValue={ctx.preferences.values["generation.costWarningUsd"]} onBlur={(event) => { if (event.currentTarget.reportValidity()) ctx.preferences.set("generation.costWarningUsd", Number(event.currentTarget.value)); }} /></label></Row></Plate></Section>
+    <Plate single><span className={ROW_COPY}><strong className={ROW_TITLE}>Key presence, not a connection test</strong><small className="type-label leading-row text-muted">Provider access and billing are checked when you use the service. Choose models in Create.</small></span><button className={action()} type="button" disabled={controller.loading || controller.busy !== null} onClick={() => { void controller.refresh(); }}>Refresh status</button></Plate>
+  </>;
+}
 
-    <Section title="DEFAULT MODEL PER MEDIA TYPE">
+export function ProviderDetailPage({ provider, controller }: { provider: (typeof GENERATION_PROVIDERS)[number]; controller: ProviderController }) {
+  const [key, setKey] = useState("");
+  const status = controller.providers?.find((item) => item.id === provider.id);
+  const busy = controller.busy !== null;
+  const unavailable = !status || controller.loading;
+  return <>
+    <ProviderFeedback controller={controller} />
+    <Section title="API KEY · THIS MAC">
       <Plate>
-        {["TEXT", "IMAGE", "VIDEO", "UPSCALE"].map((kind) => <div className={FLAT_ROW} key={kind}>
-          <span className="w-settings-kind flex-none font-code type-mono-sm tracking-caps text-muted">{kind}</span>
-          <span className={FLAT_VALUE}>Model catalogue arrives with provider discovery</span>
-          <DesignTarget />
-        </div>)}
+        <Row title={status?.configured ? "Key present" : status ? "No key configured" : "Provider status unavailable"} description={status ? `${sourceLabel(status)}. Key presence does not confirm provider access.` : "Refresh provider status before changing a credential."}>
+          <button className={action()} type="button" disabled={controller.loading || busy} onClick={() => { void controller.refresh(); }}>Refresh status</button>
+        </Row>
       </Plate>
+      <form className="flex flex-col gap-3 rounded-inner bg-card p-4" onSubmit={(event) => {
+        event.preventDefault();
+        if (busy || unavailable || !key.trim()) return;
+        void controller.save(provider.id, key.trim()).then((saved) => { if (saved) setKey(""); });
+      }}>
+        <label className="type-ui text-ink" htmlFor={`provider-key-${provider.id}`}>{status?.stored ? "Replacement API key" : "New API key"}</label>
+        <input id={`provider-key-${provider.id}`} className={`${FIELD_WIDE} min-w-0 w-full flex-none`} type="password" autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={key} maxLength={8192} disabled={busy || unavailable} onChange={(event) => setKey(event.currentTarget.value)} aria-describedby="provider-key-help" />
+        <p id="provider-key-help" className="m-0 type-label leading-row text-muted">Keys entered here are encrypted on this Mac. Existing keys are never displayed. Saving does not submit a generation request or validate the key.</p>
+        <button className={`${action({ tone: "primary" })} self-start`} type="submit" disabled={busy || unavailable || !key.trim()}>{controller.busy === provider.id ? "Working…" : status?.stored ? "Replace key" : "Save key"}</button>
+      </form>
     </Section>
-
-    <Section title="MAINTENANCE">
-      <Plate single>
-        <span className={ROW_COPY}>
-          <strong className={ROW_TITLE}>Remove credential</strong>
-          <small className="type-label leading-row text-muted">Available once the credential is stored by the app rather than by the CLI.</small>
-        </span>
-        <button className={action({ tone: "danger" })} type="button" disabled>Disconnect…</button>
-      </Plate>
+    <Section title="DISCONNECT">
+      <Plate single><span className={ROW_COPY}><strong className={ROW_TITLE}>Remove the saved key</strong><small className="type-label leading-row text-muted">{status?.inherited ? "An environment key remains available after the saved key is removed. Change the app's environment to disconnect it." : "This removes only the credential saved by this app. Generated media stays in your library."}</small></span><button className={action({ tone: "danger" })} type="button" disabled={!status?.stored || busy || unavailable} onClick={() => { void controller.clear(provider.id).then((cleared) => { if (cleared) setKey(""); }); }}>Disconnect saved key</button></Plate>
     </Section>
   </>;
 }

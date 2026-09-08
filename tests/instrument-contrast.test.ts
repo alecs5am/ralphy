@@ -70,6 +70,16 @@ describe("instrument color contract", () => {
     expect(contrastRatio(INSTRUMENT_PALETTE.light.alertText, INSTRUMENT_PALETTE.light.alert)).toBeGreaterThanOrEqual(4.5);
   });
 
+  test("keeps node type labels readable on their Window chrome in both themes", () => {
+    for (const theme of ["light", "dark"] as const) {
+      const palette = INSTRUMENT_PALETTE[theme];
+      for (const kind of ["nodePrompt", "nodeLlm", "nodeImage", "nodeVideo", "nodeMedia", "nodeConnector"] as const) {
+        expect(contrastRatio(palette[kind], palette.panel), `${theme} ${kind}`).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(palette[kind], palette.card), `${theme} ${kind} icon`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
   test("keeps actual legacy control and required-copy aliases at WCAG AA", () => {
     const requiredPairs = [
       ["Settings input", "--field-text", "--field-surface"],
@@ -118,16 +128,20 @@ describe("instrument color contract", () => {
 
   test("keeps every palette value in the complete authored-color allowlist", () => {
     expect(INSTRUMENT_COLOR_ALLOWLIST).toEqual([
-    "#0071E3", "#050505", "#060606", "#111111", "#141414", "#181818", "#1A1A1A", "#1C1C1C", "#1D1D1D",
-    "#1E1E1E", "#207070", "#232323", "#242422", "#242424", "#262626", "#2A1615", "#2D2D2D",
-    "#2E2E2E", "#2F2F2F", "#343434", "#37808E", "#38698A", "#3A3A38", "#3A3A3A", "#3F3F3D",
-    "#426F4C", "#4A4A48", "#4A72AD", "#5C5C58", "#5CC45C", "#5F5D8C", "#625CC6", "#6A6630",
-    "#6A6A66", "#6E6E6A", "#7C5378", "#80AFAE", "#835935", "#895155", "#89A9C1", "#8A8A86",
-    "#8F8F8B", "#8FAE94", "#98CCD6", "#9A9A96", "#A1A1C3", "#A4A4A0", "#A6C2E8", "#A9A783",
-    "#B79AB4", "#B9B4EF", "#BD9E86", "#C22B22", "#C2989A", "#C8C8C4", "#CCCED6", "#D3D6DD",
-    "#D6D6D3", "#D8D8D6", "#DFE2E9", "#E0362C", "#E2E2E0", "#E4E4E2", "#E7E9ED", "#E8E8E6",
-    "#E9EBEF", "#EB4438", "#ED6A5E", "#EEEEEC", "#F0574B", "#F0B544", "#F1F2F4", "#F1F2F6",
-    "#F2F2F0", "#F4F5F8", "#F6DEDC", "#F6F7F9", "#FBEAE9", "#FFFFFF",
+    "#00637B", "#0071E3", "#050505", "#060606", "#111111", "#141414", "#181818", "#1A1A1A",
+    "#1C1C1C", "#1D1D1D", "#1D6746", "#1E1E1E", "#207070", "#232323", "#242422", "#242424",
+    "#262626", "#2A1615", "#2D2D2D", "#2E2E2E", "#2F2F2F", "#343434", "#37808E", "#38698A",
+    "#3A3A38", "#3A3A3A", "#3F3F3D", "#3F568A", "#426F4C", "#4A4A48", "#4A72AD", "#5C5C58",
+    "#5CC45C", "#5F5D8C", "#604B83", "#625CC6", "#6A6630", "#6A6A66", "#6CB0C5", "#6E6E6A",
+    "#6F530A", "#744470", "#7AB395", "#7C5378", "#80AFAE", "#835935", "#895155", "#89A9C1",
+    "#8A8A86", "#8EA4D4", "#8F8F8B", "#8FAE94", "#98CCD6", "#9A9A96", "#A1A1C3", "#A4A4A0",
+    "#A6C2E8", "#A9A783", "#AC9ACD", "#B79AB4", "#B9B4EF", "#BAA16E", "#BD9E86", "#C094BB",
+    "#C22B22", "#C2989A", "#C8C8C4", "#CCCED6", "#D3D6DD", "#D6D6D3", "#D8D8D6", "#DFE2E9",
+    "#E0362C", "#E2E2E0", "#E4E4E2", "#E7E9ED", "#E8E8E6", "#E9EBEF", "#EB4438", "#ED6A5E",
+    "#EEEEEC", "#F0574B", "#F0B544", "#F1F2F4", "#F1F2F6", "#F2F2F0", "#F4F5F8", "#F6DEDC",
+    "#F6F7F9", "#FBEAE9", "#FFFFFF",
+    "#0171E4", "#015BB8", "#E0796F", "#ECEEF1", "#CFD4DC", "#AEB5C2",
+    "#8B3DFF", "#009A50", "#CA6900", "#A970FF", "#19D77C", "#3995FF", "#FFA033",
     ]);
     const named = new Set(Object.values(INSTRUMENT_PALETTE).flatMap((palette) => Object.values(palette)));
     expect(INSTRUMENT_COLOR_ALLOWLIST.filter((color) => !named.has(color))).toEqual([]);

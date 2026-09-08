@@ -22,6 +22,7 @@ import {
   HERO_STATE,
 } from "../lib/detail-chrome";
 import type { Availability, MarketplacePackItemPresentation } from "../lib/presentation";
+import { MarketplaceCategorySignature } from "./MarketplaceCategoryIdentity";
 
 const FACT_ROW = "flex min-w-0 items-start gap-2.5 py-1.25";
 const FACT_LABEL = "flex-none type-xs text-muted";
@@ -132,6 +133,7 @@ export function MarketplacePackItemDetail({ item, workspaceName, onBack, onRevie
       </div>
       <p className={`marketplace-pack-install-state ${HERO_STATE}`}>{installLine(item, workspaceName)}</p>
       {body.state === "ready" && body.truncated && <p className={`marketplace-pack-truncated ${HERO_STATE}`}>This document is longer than the reader shows; the full text ships in the pack.</p>}
+      <MarketplaceCategorySignature category={item.category} />
     </header>
 
     <div className={`marketplace-pack-detail-layout ${DETAIL_LAYOUT}`}>

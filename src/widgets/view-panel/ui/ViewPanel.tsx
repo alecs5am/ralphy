@@ -9,8 +9,12 @@ import {
   LayoutDashboard,
   LayoutGrid,
   Library,
+  Maximize2,
+  Minimize2,
   Plus,
   UsersRound,
+  WandSparkles,
+  Workflow,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -19,7 +23,6 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   HOME_TAB_ID,
   VIEW_TYPES,
-  VIEW_TYPES_UNAVAILABLE,
   type OpenViewRequest,
   type ViewTab,
   type ViewTabSet,
@@ -43,6 +46,7 @@ import { InstrumentOverlay } from "@/shared/instrument/overlay-registry";
 const TAB_ICONS: Record<ViewTabType, LucideIcon> = {
   home: House,
   overview: LayoutDashboard,
+  generation: WandSparkles,
   projects: Folder,
   /* `UsersRound`, not `Layers`: the sidebar draws Units with it, and `Layers` is the mark the
      Context handoff names -- two tabs cannot share one glyph in a strip this narrow. */
@@ -54,12 +58,13 @@ const TAB_ICONS: Record<ViewTabType, LucideIcon> = {
   /* A project tab is the media grid the handoff names: the grid is what a project opens on. */
   project: LayoutGrid,
   browser: Globe,
+  canvas: Workflow,
 };
 
 /* The strip's fixed costs, so how many tabs fit is arithmetic on the panel's own width rather
    than a measurement pass. Every number here is the handoff's. */
 const HOME_WIDTH = 30;
-const PLUS_WIDTH = 24;
+const PLUS_WIDTH = 54;
 const OVERFLOW_WIDTH = 26;
 const STRIP_GAP = 3;
 const STRIP_PAD = 12;
@@ -88,6 +93,8 @@ export interface ViewPanelProps {
   /* The browser tab's page, rendered over the card rather than in place of it: a guest that
      unmounted on every tab switch would lose the page the operator opened it for. */
   browser?: ReactNode;
+  expanded?: boolean;
+  onToggleExpanded?(): void;
   children: ReactNode;
 }
 
@@ -134,7 +141,7 @@ function TabButton({ tab, active, onSelect, onClose }: {
   </span>;
 }
 
-export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, browser, children }: ViewPanelProps) {
+export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, browser, children, expanded, onToggleExpanded }: ViewPanelProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const plus = useRef<HTMLButtonElement>(null);
@@ -194,6 +201,7 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, brows
       >
         <Plus size={14} strokeWidth={2} aria-hidden="true" />
       </button>
+      {onToggleExpanded && <button className={`${CIRCLE} size-6 flex-none text-muted hover:bg-chip hover:text-ink`} type="button" aria-label={expanded ? "Restore split view" : "Expand workspace panel"} title={expanded ? "Restore split view" : "Expand workspace panel"} aria-pressed={expanded} onClick={onToggleExpanded}>{expanded ? <Minimize2 size={13} aria-hidden="true" /> : <Maximize2 size={13} aria-hidden="true" />}</button>}
     </div>
     <div className={`view-panel-page relative ${WINDOW_BODY}`}>
       {children}
@@ -237,9 +245,6 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, brows
         })}
         {/* Named rather than drawn. A menu row that cannot open anything is worse than a line
             saying which types are still waiting on a runtime. */}
-        <p className="m-0 px-2.25 pt-2 pb-1 font-code type-mono-xs tracking-mono leading-note text-muted">
-          {`${VIEW_TYPES_UNAVAILABLE.join(" · ")} need a runtime the Core contract does not serve yet.`}
-        </p>
       </Anchored>
     </InstrumentOverlay>
 

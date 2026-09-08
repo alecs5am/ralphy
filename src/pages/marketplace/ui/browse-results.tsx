@@ -6,24 +6,21 @@
  * difference between them. A preview that fails to load falls back to its category glyph rather
  * than leaving a hole the size of a video.
  */
-import {
-  Code2,
-  Cpu,
-  FileText,
-  LayoutTemplate,
-} from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { WINDOW, WINDOW_PLATE } from "@/shared/ui/Window";
 import type {
   MarketplaceQueryState,
 } from "../model/navigation";
 import type {
-  Availability,
   MarketplaceItemPresentation,
 } from "../lib/presentation";
 import { marketplacePublicMediaKind } from "../lib/presentation";
+import { declaredModelText, marketplaceModelDescription, marketplaceRevisionLabel } from "../lib/model-copy";
 import { categoryIcons, categoryLabels } from "./browse-discover";
 import { marketplaceItemDomId } from "./MarketplaceBrowse";
+import { categoryIdentity, MarketplaceCategoryArtwork } from "./MarketplaceCategoryIdentity";
 
 type MarketplacePreview = { url: string; kind: "image" | "video"; posterUrl?: string };
 
@@ -48,12 +45,14 @@ function preview(item: MarketplaceItemPresentation): MarketplacePreview | null {
 }
 
 function previewFallback(item: MarketplaceItemPresentation, failedKind?: "image" | "video") {
-  if (item.category === "models") return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><Cpu className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono type-mono-xs leading-tight">{item.model.recommendedPackage.format || "Format unavailable"}</small></span>;
-  if (item.origin === "public" && item.category === "recipes") return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><Code2 className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono type-mono-xs leading-tight">{failedKind ? `Recipe ${failedKind} preview unavailable` : item.recipe.recipe?.kind ?? "Recipe preview unavailable"}</small></span>;
-  /* A bundled row is a document, not a picture of one. Naming its slug beats
-     apologising for a preview the source was never going to carry. */
-  if (item.origin === "pack") return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><FileText className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono type-mono-xs leading-tight">{item.pack.slug}</small></span>;
-  return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><LayoutTemplate className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono type-mono-xs leading-tight">{failedKind ? `Template ${failedKind} preview unavailable` : "Preview unavailable from schema 1"}</small></span>;
+  const label = item.category === "models" ? declaredModelText(item.model.recommendedPackage.format) || "Format unavailable"
+    : item.origin === "pack" ? item.pack.slug
+      : failedKind ? `${item.category === "recipes" ? "Recipe" : "Template"} ${failedKind} preview unavailable`
+        : item.category === "recipes" ? item.recipe.recipe?.kind ?? "Recipe preview unavailable" : "No preview provided";
+  return <span className={`marketplace-preview-fallback flex size-full flex-col items-center justify-center ${categoryIdentity[item.category].tone}`}>
+    <MarketplaceCategoryArtwork category={item.category} className="h-14 w-full" />
+    <small className="max-w-24 truncate px-1 text-center font-mono type-mono-xs leading-tight" title={label}>{label}</small>
+  </span>;
 }
 
 function MarketplaceItemPreview({ item }: { item: MarketplaceItemPresentation }) {
@@ -64,10 +63,6 @@ function MarketplaceItemPreview({ item }: { item: MarketplaceItemPresentation })
   return media.kind === "video"
     ? <video src={media.url} poster={media.posterUrl} muted playsInline preload="metadata" controlsList="nodownload" aria-hidden="true" onError={() => setFailedUrl(media.url)} />
     : <img src={media.url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedUrl(media.url)} />;
-}
-
-function availabilityLabel(value: Availability<string>, fallback: string): string {
-  return value.status === "ready" ? value.value : fallback;
 }
 
 export interface MarketplaceResultsProps {
@@ -97,7 +92,7 @@ function MarketplaceResult({ item, index, tabStop, onFocus, onMove, onOpenItem }
     onOpenItem(item.key);
   };
   return <button
-    className={`marketplace-result marketplace-result-${item.category} grid min-h-26 w-full min-w-0 grid-cols-(--marketplace-result-columns) items-center gap-3 rounded-cell bg-surface p-2 text-left text-ink hover:bg-surface-hover @max-marketplace-result/main-region:grid-cols-(--marketplace-result-columns-narrow)`}
+    className={`${WINDOW} marketplace-result marketplace-result-${item.category} w-full text-left text-ink hover:bg-surface-hover`}
     id={marketplaceItemDomId(item.key)}
     data-marketplace-item-key={item.key}
     type="button"
@@ -106,19 +101,31 @@ function MarketplaceResult({ item, index, tabStop, onFocus, onMove, onOpenItem }
     onFocus={onFocus}
     onKeyDown={openFromKeyboard}
   >
-    <span className="marketplace-result-preview grid h-22 w-26 place-items-center overflow-hidden rounded-control bg-instrument text-on-instrument @max-marketplace-result/main-region:h-18 @max-marketplace-result/main-region:w-22 [&_img]:size-full [&_img]:object-cover [&_video]:size-full [&_video]:object-cover"><MarketplaceItemPreview item={item} /></span>
-    <span className="marketplace-result-copy flex min-w-0 flex-col gap-1">
+    <span className={`${WINDOW_PLATE} grid w-full min-w-0 grid-cols-(--marketplace-result-columns) items-center gap-3 p-2 @max-marketplace-result/main-region:grid-cols-(--marketplace-result-columns-narrow)`}>
+    <span className="marketplace-result-preview grid size-18 place-items-center overflow-hidden rounded-control bg-instrument text-on-instrument [&_img]:size-full [&_img]:object-cover [&_video]:size-full [&_video]:object-cover"><MarketplaceItemPreview item={item} /></span>
+    <span className="marketplace-result-copy flex min-w-0 flex-col gap-0.5">
       <span className="marketplace-result-category flex items-center gap-1.5 font-mono type-mono-xs uppercase tracking-caps text-muted"><Icon className="size-3" aria-hidden="true" />{categoryLabels[item.category]}<MarketplaceInstallBadge item={item} /></span>
-      <strong className="truncate text-base font-normal">{item.name}</strong>
-      <p className="m-0 line-clamp-2 text-xs leading-snug text-muted">{item.summary || "The current source did not provide a summary."}</p>
-      <small className="truncate font-mono type-mono-xs text-muted">{item.sourceLabel} · {availabilityLabel(item.version, "Version unavailable")}</small>
+      <strong className="truncate text-sm font-normal">{item.name}</strong>
+      <p className="m-0 truncate text-xs leading-snug text-muted">{item.category === "models" ? marketplaceModelDescription(item.model) : item.summary || "No description provided."}</p>
+      <small className="truncate font-mono type-mono-xs text-muted">{item.sourceLabel}{item.version.status === "ready" ? ` · ${item.category === "models" ? marketplaceRevisionLabel(item.version.value) : item.version.value}` : ""}</small>
     </span>
     <span className="marketplace-result-evidence flex min-w-0 flex-col gap-1.5 @max-marketplace-result/main-region:hidden">
-      <small className="truncate font-mono type-mono-xs text-muted">{availabilityLabel(item.license, "License unavailable")}</small>
-      <small className="truncate font-mono type-mono-xs text-muted">{availabilityLabel(item.compatibility, "Compatibility unavailable")}</small>
+      <MarketplaceItemMetadata item={item} />
     </span>
-    <span className="marketplace-result-action flex h-8 items-center rounded-control bg-instrument px-3 text-xs text-on-instrument @max-marketplace-result/main-region:hidden">View details</span>
+    <span className="marketplace-result-action flex h-8 items-center gap-2 rounded-control bg-surface-sunken px-3 text-xs text-ink @max-marketplace-result/main-region:hidden">View details<ArrowUpRight className="size-3" aria-hidden="true" /></span>
+    </span>
   </button>;
+}
+
+function MarketplaceItemMetadata({ item }: { item: MarketplaceItemPresentation }) {
+  const lines = item.origin === "pack"
+    ? [item.pack.tags.slice(0, 2).join(" · ") || categoryIdentity[item.category].note, item.pack.path ? "Bundled document" : "Catalog reference"]
+    : item.category === "models"
+      ? [declaredModelText(item.model.modality, item.model.recommendedPackage.format) || "Package format not declared", declaredModelText(item.model.comfort.label) || "Compatibility not assessed"]
+      : item.category === "recipes"
+        ? [item.recipe.recipe?.kind ?? "Media recipe", item.recipe.recipe?.artifact ? "Artifact included" : "Read the instructions"]
+        : ["Creative starting point", `${item.template.referenceUrls.length} references`];
+  return <>{lines.map((line, index) => <small className="truncate font-mono type-mono-xs text-muted" key={index}>{line}</small>)}</>;
 }
 
 /* An installed row says so on the shelf, and an installed-but-off row says that

@@ -5,7 +5,7 @@
  * location -- and following it has to put the app in the right mode first. Every other control in
  * the app is already in a mode; the island is not, which is why the mode switch is stated here.
  */
-import { DynamicIsland, type DynamicIslandFeed, type IslandContext } from "@/widgets/dynamic-island";
+import { Notch, type DynamicIslandFeed, type IslandContext } from "@/widgets/dynamic-island";
 import type { AppMode, MarketplaceLocation } from "@/shared/model/routes";
 import type { WorkbenchAction } from "@/shared/model/workbench";
 
@@ -32,7 +32,7 @@ export function AppIsland({
   onNavigateMarketplace(location: MarketplaceLocation): void;
   dispatch(action: WorkbenchAction): void;
 }) {
-  return <InstrumentRightRailShortcut onToggle={onToggleViewPanel}><DynamicIsland
+  return <InstrumentRightRailShortcut onToggle={onToggleViewPanel}><Notch
     feed={feed}
     context={context}
     projectName={projectName}

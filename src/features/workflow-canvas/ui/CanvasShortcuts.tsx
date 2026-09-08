@@ -1,0 +1,6 @@
+import { Keyboard } from "lucide-react";
+import { CANVAS_BUTTON } from "./canvas-chrome";
+
+export function CanvasShortcuts() {
+  return <details className="canvas-shortcuts relative shrink-0"><summary className={`${CANVAS_BUTTON} h-7 cursor-pointer list-none`} aria-label="Canvas shortcuts"><Keyboard size={14} /></summary><div className="absolute bottom-full right-0 z-surface-overlay mb-2 w-64 rounded-window border border-divider bg-card p-4" role="region" aria-label="Keyboard shortcuts"><strong className="type-sm">Canvas shortcuts</strong><dl className="mb-0 mt-3 flex flex-col gap-2 type-xs">{[["⇧ F10", "Context menu"], ["⌘ / Ctrl A", "Select all nodes"], ["Esc", "Close panel / deselect"], ["⌘ / Ctrl D", "Duplicate selection"], ["Delete / ⌫", "Delete selection"], ["⌘ / Ctrl Z", "Undo"], ["⌘ / Ctrl ⇧ Z", "Redo"], ["⌘ / Ctrl S", "Save canvas"], ["F / ⇧ F", "Fit selection / all"]].map(([keys, label]) => <div className="flex items-center justify-between gap-3" key={keys}><dt className="text-muted">{label}</dt><dd className="m-0 shrink-0 font-code type-mono-xs">{keys}</dd></div>)}</dl><p className="mb-0 mt-3 type-xs leading-relaxed text-muted">Right-click for canvas actions. Inside a text field, editing shortcuts work as usual.</p></div></details>;
+}

@@ -1,4 +1,5 @@
 @import "tailwindcss" important;
+@import "@xyflow/react/dist/style.css" layer(base);
 
 /* The bundled routing pack is agent documentation, not app source. Its skill files show Tailwind
    examples, and the scanner was compiling those into this stylesheet -- `translate-y-[calc(var(--i)
@@ -20,6 +21,10 @@
 @import "./theme/context.css";
 @import "./theme/workspace-media.css";
 @import "./theme/shell.css";
+@import "./theme/canvas.css";
+@import "./theme/page-header.css";
+@import "./theme/generation.css";
+@import "./theme/video-workspace.css";
 
 @theme inline {
   --font-app: var(--font-sans);

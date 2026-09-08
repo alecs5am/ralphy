@@ -6,6 +6,7 @@ import type { WorkbenchRoute } from "@/shared/model/workbench";
 import { LIBRARY_COPY, LIBRARY_MONO, LIBRARY_ROUTE, LIBRARY_TITLE, LIBRARY_UNAVAILABLE } from "../lib/detail-chrome";
 import { MODAL_ACTION_GHOST } from "@/shared/ui/Modal";
 import { WINDOW_BODY, WINDOW_TITLEBAR, WindowClose } from "@/shared/ui/Window";
+import { categoryIdentity } from "./MarketplaceCategoryIdentity";
 
 /* The workflow's contents. The registry's managed surface is the window -- one panel rim, one
    card -- so this route states neither: it fills that surface and hands it a titlebar and a card.
@@ -181,8 +182,17 @@ interface WorkflowFrameProps {
 }
 
 function WorkflowContents({ kind, title, description, onCancel, children, finalLabel, finalReason }: WorkflowFrameProps) {
+  const Icon = {
+    "model-download": categoryIdentity.models.icon,
+    "template-target": categoryIdentity.templates.icon,
+    "recipe-target": categoryIdentity.recipes.icon,
+    "prompt-use": categoryIdentity.prompts.icon,
+    "component-target": categoryIdentity.components.icon,
+    "skill-install": categoryIdentity.skills.icon,
+    "update-conflict": CircleAlert,
+  }[kind];
   return <div className={SHELL} data-workflow={kind}>
-    <header className={SHELL_HEADER}><h2 className="m-0 min-w-0 flex-1 truncate type-xl font-normal">{title}</h2><WindowClose label={`Close ${title}`} onClick={onCancel} /></header>
+    <header className={SHELL_HEADER}><Icon className="size-5 shrink-0 text-muted" aria-hidden="true" /><h2 className="m-0 min-w-0 flex-1 truncate type-xl font-normal">{title}</h2><WindowClose label={`Close ${title}`} onClick={onCancel} /></header>
     <div className={SHELL_CARD}>
     <div className={SHELL_BODY}><p className="m-0 flex-none type-sm leading-copy text-muted">{description}</p>{children}</div>
     <i className="mx-4.5 h-px flex-none bg-divider" aria-hidden="true" />

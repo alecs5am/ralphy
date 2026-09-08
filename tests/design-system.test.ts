@@ -17,6 +17,7 @@ import { SharedArtifactInspector } from "@/pages/shared-library";
 import { presentSharedArtifact } from "@/pages/shared-library";
 import { ICON_BUTTON, ICON_BUTTON_QUIET } from "@/shared/ui/IconButton";
 import { WINDOW_CLOSE } from "@/shared/ui/Window";
+import { PAGE_HEADER_BUTTON } from "@/shared/ui/PageHeader";
 import { builtStylesheetLink, readStylesheet } from "./style-sources";
 import { WorkspaceScreenView, createWorkspaceScreenController } from "@/pages/workspace";
 
@@ -71,6 +72,7 @@ const marketplaceStyles = readStylesheet("marketplace.css");
 const marketplaceTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/marketplace.css"), "utf8");
 const marketplaceSurfaceSource = sliceSource("src/pages/marketplace");
 const chromeTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/chrome.css"), "utf8");
+const pageHeaderTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/page-header.css"), "utf8");
 const titlebarSource = readFileSync(join(process.cwd(), "src/widgets/titlebar/ui/Titlebar.tsx"), "utf8");
 const shellTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/shell.css"), "utf8");
 const shellStyles = readStylesheet("instrument.css");
@@ -78,7 +80,7 @@ const shellSource = [
   "src/app/layout/InstrumentShell.tsx",
   "src/shared/instrument/primitives.tsx",
   "src/widgets/sidebar/ui/InstrumentProfileControl.tsx",
-  "src/widgets/dynamic-island/ui/DynamicIsland.tsx",
+  "src/widgets/dynamic-island/ui/Notch.tsx",
   "src/shared/instrument/overlay-registry.tsx",
 ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 const selectMenuSource = readFileSync(join(process.cwd(), "src/shared/ui/SelectMenu.tsx"), "utf8");
@@ -243,7 +245,7 @@ async function activeScreenMarkup(): Promise<{ workspace: string } & ProjectMark
   const activityMarkup = renderToStaticMarkup(createElement(ProjectScreenView, { project, controller: projectController, snapshot: projectController.getSnapshot() }));
   // Memory has no stylesheet of its own any more, so the fragment carries the class strings the
   // route really renders. Without them these probes would measure element defaults, not the screen.
-  const memory = `<main class="main-region memory-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink">
+  const memory = `<main class="main-region memory-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 type-base text-ink">
     <div class="memory-topbar flex h-11.5 items-center justify-between gap-3 px-5 pt-3 type-xs uppercase tracking-mono text-on-instrument-muted"></div>
     <div class="memory-filters m-0 flex w-full max-w-none flex-wrap items-center gap-2 rounded-panel bg-surface p-2"></div>
     <section class="memory-rulebook m-0 flex min-h-0 w-full max-w-none flex-1 flex-col gap-8.5 overflow-visible bg-transparent p-0"><div class="memory-group min-w-0"><header><i></i></header><div class="grid gap-0.75">
@@ -339,7 +341,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
             })()\`);
             const documentNode = await win.webContents.debugger.sendCommand("DOM.getDocument");
             const focusSelectors = ({
-              workspace: [".workspace-overview-header button"],
+              workspace: [".page-header-action[title='Refresh workspace']"],
               documents: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"],
               media: [".project-dock button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"],
               units: [".project-dock button[aria-selected=true]", ".unit-card"],
@@ -377,7 +379,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const mediaInsets = [".project-region", ".asset-grid-scroll"].map((selector) => {
                 const element = root.querySelector(selector); return element ? parseFloat(getComputedStyle(element).paddingLeft) : 0;
               }).filter((value) => value > 0);
-              const focusSelectors = ({ workspace: [".workspace-overview-header button"], documents: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"], media: [".project-dock button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"], units: [".project-dock button[aria-selected=true]", ".unit-card"], activity: [".project-dock button[aria-selected=true]", ".activity-scroll"], memory: [".memory-rule-head"] })[screen];
+              const focusSelectors = ({ workspace: [".page-header-action[title='Refresh workspace']"], documents: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"], media: [".project-dock button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"], units: [".project-dock button[aria-selected=true]", ".unit-card"], activity: [".project-dock button[aria-selected=true]", ".activity-scroll"], memory: [".memory-rule-head"] })[screen];
               const focus = focusSelectors.map((selector) => {
                 const target = root.querySelector(selector);
                 const style = getComputedStyle(target);
@@ -1001,7 +1003,7 @@ describe("design system contract", () => {
     // The workspace overview's bands now live on the elements that draw them: the day strip
     // reads its role key, and the outcome groups reach one column by deriving the count rather
     // than by the authored 760px query, which the utility on the grid always beat anyway.
-    expect(workspaceOverviewSurfaceSource).toContain("grid-cols-(--workspace-day-columns)");
+    expect(workspaceOverviewTheme).toMatch(/\.workspace-plan-days\s*\{[^}]*grid-template-columns: var\(--workspace-day-columns\)/);
     expect(workspaceOverviewTheme).toMatch(/--workspace-outcome-columns:\s*repeat\(auto-fit/);
   });
 
@@ -1044,7 +1046,7 @@ describe("design system contract", () => {
     expect(workspaceOverviewSurfaceSource).toContain("@container/main-region");
     expect(workspaceOverviewSurfaceSource).not.toContain("@container/instrument-desk");
     expect(workspaceOverviewSurfaceSource).not.toMatch(/@(?:min|max)-\[/);
-    for (const key of ["section: 860px", "row: 760px", "portfolio: 900px", "portfolio-narrow: 520px"]) {
+    for (const key of ["section: 860px", "row: 760px", "portfolio: 900px", "portfolio-narrow: 380px"]) {
       expect(workspaceOverviewTheme).toContain(`--container-workspace-${key}`);
     }
     // One chrome for the three overview details, and it states the theme's own surface and ink: it
@@ -1070,11 +1072,12 @@ describe("design system contract", () => {
     const header = readFileSync(join(process.cwd(), "src/pages/workspace/ui/WorkspaceOverviewHeader.tsx"), "utf8");
     expect(header).not.toContain("bg-instrument");
     expect(header).not.toContain("focus-on-instrument");
-    // The one action in this header is the route's primary, so it takes the brand accent and the
-    // ink that reads on it -- including the focus ring, which is drawn inside the fill.
-    expect(header).toContain("bg-brand");
-    expect(header).toContain("text-brand-ink");
-    expect(header).toContain("focus-visible:outline-brand-ink");
+    // Refresh now uses the shared shell action pair, including its inset focus ring.
+    expect(header).toContain("<PageHeader");
+    expect(header).toContain("className={PAGE_HEADER_BUTTON}");
+    expect(PAGE_HEADER_BUTTON).toContain("bg-card");
+    expect(PAGE_HEADER_BUTTON).toContain("text-ink");
+    expect(PAGE_HEADER_BUTTON).toContain("focus-visible:outline-ink");
     // The deleted reduced-motion blanket had nothing to hold back: this area declares no
     // transition and no animation of its own, and an !important rule in an unlayered sheet
     // cannot beat an !important utility inside @layer utilities anyway.
@@ -1205,7 +1208,7 @@ describe("design system contract", () => {
     // The rulebook is borderless, the route states its own desk padding, and the open rule is
     // told apart from a closed one by the body's lighter surface on the plate -- not by a second
     // tone on the plate itself, which the utilities on the article have beaten for a while.
-    const memoryPlate = { memoryRegionPadding: "8px 8px 24px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryRulePlate: "rgb(30, 30, 30)", memoryOpenBody: "rgb(20, 20, 20)", memoryBodyBorder: "0px" };
+    const memoryPlate = { memoryRegionPadding: "8px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryRulePlate: "rgb(30, 30, 30)", memoryOpenBody: "rgb(20, 20, 20)", memoryBodyBorder: "0px" };
     expect(results.filter(({ screen }) => screen === "memory").map(({ memoryRegionPadding, memoryTopbarBorder, memoryFilterBorder, memoryRulePlate, memoryOpenBody, memoryBodyBorder }) => ({ memoryRegionPadding, memoryTopbarBorder, memoryFilterBorder, memoryRulePlate, memoryOpenBody, memoryBodyBorder }))).toEqual([memoryPlate, memoryPlate, memoryPlate]);
     expect(results.filter(({ screen }) => screen === "media").map(({ width, mediaInsets }) => ({ width, mediaInsets: mediaInsets.length })))
       .toEqual([{ width: 2560, mediaInsets: 1 }, { width: 1360, mediaInsets: 1 }, { width: 1100, mediaInsets: 1 }]);
@@ -1266,7 +1269,7 @@ describe("design system contract", () => {
     // shell it stands in draws no corner and no depth of its own. The sheet's `padding: 0` and
     // `background: var(--canvas)` never rendered either -- the route's own utilities said otherwise.
     expect(workbenchStyles).not.toMatch(/\.calendar-region|\.memory-region/);
-    expect(calendarScreenSource).toMatch(/className="main-region calendar-region [^"]*\bbg-transparent\b[^"]*\bp-2 pb-6\b/);
+    expect(calendarScreenSource).toMatch(/className="main-region calendar-region [^"]*\bbg-transparent\b[^"]*\bp-2\b/);
     expect(calendarScreenSource).toMatch(/className="calendar-shell [^"]*\bbg-transparent\b[^"]*\bp-0\b/);
     // design v2 in this area: no border, no shadow and no gradient anywhere. The one exception is
     // the inset ring on today's cell in the date picker, which is a mark and not a border.
@@ -1275,8 +1278,10 @@ describe("design system contract", () => {
     expect(calendarMemorySurfaceSource).not.toMatch(/\b(?:border|shadow|bg-gradient|bg-linear|bg-radial)-/);
     // Container queries only, read against the route's own content row -- never the window.
     expect(calendarMemorySurfaceSource).not.toMatch(/@(?:min|max)-\[/);
-    for (const key of ["--container-calendar-toolbar", "--container-memory-row"]) expect(calendarMemoryTheme).toContain(key);
-    expect(calendarMemorySurfaceSource).toContain("@max-calendar-toolbar/main-region:");
+    expect(calendarMemoryTheme).toContain("--container-memory-row");
+    expect(calendarScreenSource).toContain("<PageHeader");
+    expect(pageHeaderTheme).toContain("container: page-controls / inline-size");
+    expect(pageHeaderTheme).toContain("@container page-controls");
     expect(calendarMemorySurfaceSource).toContain("@max-memory-row/main-region:");
   });
 
@@ -1331,7 +1336,9 @@ describe("design system contract", () => {
     // 32, not 36: the island stands on the chrome row, so its height is the row's or the 8 gap
     // under the chrome closes to 4 beneath it alone.
     expect(shellTheme).toMatch(/--island-rows:\s*32px 0fr/);
-    expect(shellTheme).toMatch(/--island-rows-open:\s*44px 1fr/);
+    expect(shellTheme).toMatch(/--island-rows-open:\s*32px 1fr/);
+    // Opening must never narrow a fully populated Notch.
+    expect(shellTheme.match(/--spacing-island-open:\s*([^;]+);/)?.[1]).toBe(shellTheme.match(/--spacing-island-max:\s*([^;]+);/)?.[1]);
     expect(shellSource).toContain("grid-rows-(--island-rows-open)");
     expect(shellSource).toMatch(/surfaceClassName="fixed z-sheet inset-y-2 left-2 w-max max-w-overlay-fit/);
     expect(instrument).not.toContain("right-rail-sheet");
@@ -1354,7 +1361,8 @@ describe("design system contract", () => {
     // The witness per element is one utility the deleted rule's own declarations became.
     const renderers: Array<[string, string, string[]]> = [
       ["main-region", "@container/main-region", ["src/app/ui/app-frames.tsx", "src/pages/project/ui/ProjectScreen.tsx", "src/pages/workspace/ui/WorkspaceScreen.tsx", "src/pages/calendar/ui/CalendarScreen.tsx", "src/pages/marketplace/ui/MarketplaceScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx", "src/pages/library/ui/LibraryScreen.tsx", "src/pages/memory/ui/MemoryScreen.tsx", "src/pages/shared-library/ui/SharedLibraryScreen.tsx"]],
-      ["screen-kicker", "mb-1", ["src/pages/workspace/ui/WorkspaceScreen.tsx", "src/pages/library/ui/LibraryScreen.tsx", "src/pages/shared-library/ui/SharedLibraryScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx"]],
+      // Page identity and actions moved into one shared component, including its spacing.
+      ["page-header-identity", "gap-2", ["src/shared/ui/PageHeader.tsx"]],
       ["content-section", "min-w-0", ["src/pages/library/ui/LibraryScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx"]],
       // Two renderers, not the five the deleted file's prose claimed: the overview, the
       // marketplace and the project panel each draw their own `*-section-heading`, which the
@@ -1363,7 +1371,7 @@ describe("design system contract", () => {
       // The row's `gap: 14px` and `flex: none` were already dead on both renderers: each states
       // its own `gap-*` and its own flex behaviour, and a layered important utility beats an
       // unlayered declaration. `display: flex` is the one declaration that had to move.
-      ["workspace-header-actions", "flex", ["src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx", "src/pages/workspace/ui/WorkspaceOverviewHeader.tsx"]],
+      ["page-header-actions", "flex", ["src/shared/ui/PageHeader.tsx"]],
     ];
     // `sidebar-profile-name` is absent from that list on purpose: its one renderer was
     // `ProfileMenu`, and the sidebar footer mounts `InstrumentProfileControl` instead, whose
@@ -1371,6 +1379,12 @@ describe("design system contract", () => {
     // pinned as gone rather than held as a name no markup answers to.
     expect(existsSync(join(process.cwd(), "src/components/ProfileMenu.tsx"))).toBe(false);
     expect(styles).not.toContain("sidebar-profile-name");
+    for (const area of ["src/pages/workspace", "src/pages/library", "src/pages/shared-library", "src/pages/workspace-projects"]) {
+      const source = layerSource(area);
+      expect(source).toContain("<PageHeader");
+      expect(source).not.toContain("screen-kicker");
+      expect(source).not.toContain("workspace-header-actions");
+    }
     for (const [element, witness, files] of renderers) {
       for (const file of files) {
         const source = readFileSync(join(process.cwd(), file), "utf8");
@@ -1398,7 +1412,9 @@ describe("design system contract", () => {
       expect(chromeTheme).toContain(key);
     }
     const projectsScreen = readFileSync(join(process.cwd(), "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx"), "utf8");
-    expect(projectsScreen).toContain("@min-workspace-header/instrument-desk:");
+    expect(projectsScreen).toContain("<PageHeader");
+    expect(pageHeaderTheme).toContain("@container page-controls");
+    expect(pageHeaderTheme).toContain(".page-header-search { width: 160px; }");
     // A `display` utility on the trigger beats an authored `display: none`, so the activity
     // toolbar's container hide has to be a variant on the element, not a rule in the sheet.
     expect(readFileSync(join(process.cwd(), "src/pages/project/ui/ActivityTimeline.tsx"), "utf8"))
@@ -1513,8 +1529,10 @@ describe("design system contract", () => {
     // Container queries only, read against the route's own content row -- never the window.
     expect(workspaceMediaSource).not.toMatch(/@(?:min|max)-\[/);
     expect(workspaceMediaSource).not.toMatch(/\b(?:sm|md|lg|xl|2xl):/);
-    expect(workspaceMediaTheme).toContain("--container-workspace-projects-header");
-    expect(workspaceMediaSource).toContain("@max-workspace-projects-header/main-region:flex-col");
+    expect(workspaceMediaSource).toContain("<PageHeader");
+    expect(pageHeaderTheme).toContain("container: page-controls / inline-size");
+    expect(pageHeaderTheme).toContain("@container page-controls");
+    expect(pageHeaderTheme).toContain(".page-header-inline .page-header { min-height: 36px; flex-wrap: wrap; }");
     // The three players mount on a black widget and on a light one, so the skin is a prop and no
     // caller repaints half of a surface/ink pair from CSS.
     expect(readFileSync(join(process.cwd(), "src/entities/media/lib/tone.ts"), "utf8"))
@@ -1609,7 +1627,8 @@ describe("design system contract", () => {
     expect(renderer).toContain("@min-workspace-section/instrument-desk:col-span-6");
     // Strips inside a half-width section derive their track count instead of declaring it.
     expect(workspaceOverviewTheme).toMatch(/--workspace-efficiency-columns:\s*repeat\(auto-fit/);
-    expect(workspaceOverviewTheme).toMatch(/--workspace-day-columns:\s*repeat\(auto-fit/);
+    expect(workspaceOverviewTheme).toMatch(/--workspace-day-columns:\s*repeat\(7, minmax\(0, 1fr\)\)/);
+    expect(workspaceOverviewTheme).toMatch(/--workspace-day-wide-columns:\s*repeat\(14, minmax\(0, 1fr\)\)/);
     expect(workspaceOverviewTheme).toMatch(/--workspace-metric-columns:\s*repeat\(auto-fit/);
     expect(styles).not.toMatch(/@media\(max-width:1050px\)/);
   });
@@ -1701,11 +1720,14 @@ describe("design system contract", () => {
     // The hero is the black widget, and it now carries the class that flips the on-dark token
     // set for its subtree, which is what makes its focus ring visible at all.
     expect(/const HERO = "([^"]*)"/.exec(picker)?.[1] ?? "").toMatch(/\bbg-instrument\b/);
-    // `.project-glyph` reached no component at all; the identity plate that does render reads
-    // the same ramp through --glyph-color.
+    // Overview uses the shared project artwork, matching the project identity elsewhere.
     expect(workbenchStyles).not.toMatch(/\.project-glyph\s*\{/);
     expect(readFileSync(join(process.cwd(), "src/pages/workspace/ui/WorkspaceOperations.tsx"), "utf8"))
-      .toMatch(/color-mix\(in_srgb,var\(--glyph-color\)/);
+      .toContain("<DitherIdentity");
+    expect(readFileSync(join(process.cwd(), "src/shared/instrument/primitives.tsx"), "utf8"))
+      .toContain("...projectGlyphVars(name), maskImage, WebkitMaskImage: maskImage");
+    expect(readFileSync(join(process.cwd(), "src/shared/instrument/primitives.tsx"), "utf8"))
+      .toContain("projectGlyphAsset(name)");
     // Handoff 13 moved the nav onto the one sidebar card, so selection is no longer an inversion
     // against a black widget: a selected row is the field recess with the theme ink, and hover
     // takes the same surface. Stated once in the sidebar's own vocabulary; the stylesheet's
@@ -1776,7 +1798,9 @@ describe("design system contract", () => {
     expect(app).toContain("<AgentChatPanel");
     expect(app).not.toContain("<RightPanelSummary");
     expect(panels).toContain("AgentChatPanel");
-    expect(panels).toContain("AgentChatMenu");
+    expect(panels).not.toContain("AgentChatMenu");
+    expect(panels).toContain("active.title");
+    expect(panels).toContain('aria-label="Open canvases"');
     // One model control, not a provider pill beside a model pill: handoff 17's single pill lists
     // every connected provider's catalog, so a row carries both halves of the choice.
     expect(panels).not.toContain("AgentProviderMenu");
@@ -1885,7 +1909,7 @@ describe("design system contract", () => {
       "utf8",
     );
     const settingsPreferences = readFileSync(
-      join(process.cwd(), "src/pages/settings/lib/preferences.ts"),
+      join(process.cwd(), "src/shared/model/app-preferences.ts"),
       "utf8",
     );
 

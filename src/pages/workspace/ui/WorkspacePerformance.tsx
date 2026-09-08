@@ -1,5 +1,11 @@
-import { CalendarDays, Settings } from "lucide-react";
+import { CalendarDays, ChartNoAxesCombined, Radio, Settings } from "lucide-react";
 import { useState } from "react";
+import { SocialIcon } from "@/shared/ui/SocialIcon";
+import { Window } from "@/shared/ui/Window";
+import { OverviewHeading } from "./OverviewHeading";
+import { AccessibleTrendChart } from "./WorkspaceCharts";
+export { AccessibleTrendChart } from "./WorkspaceCharts";
+import { WorkspaceAccountHealth, WorkspaceEngagement } from "./WorkspaceEngagement";
 import type { WorkspaceCalendarNavigationContext } from "@/shared/model/workbench";
 import { DetailDialog } from "./DetailDialog";
 import {
@@ -14,10 +20,6 @@ import {
   PLATE_COPY,
   PLATE_TITLE,
   SECTION,
-  SECTION_HALF,
-  SECTION_HEADING,
-  SECTION_META,
-  SECTION_TITLE,
 } from "../lib/overview-chrome";
 import type {
   AccountPresentation,
@@ -25,11 +27,6 @@ import type {
   WorkspaceMomentumPresentation,
   WorkspaceOverviewPresentation,
 } from "../lib/overview-presentation";
-
-interface TrendPoint {
-  label: string;
-  value: number;
-}
 
 const numberFormat = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
 
@@ -63,12 +60,7 @@ function availabilityReason(value: Availability<unknown>, fallback: string): str
   return value.status === "ready" ? fallback : value.reason;
 }
 
-function SectionHeading({ id, title, meta }: { id: string; title: string; meta?: string }) {
-  return <header className={SECTION_HEADING}>
-    <h2 className={SECTION_TITLE} id={id}>{title}</h2>
-    {meta && <span className={SECTION_META}>{meta}</span>}
-  </header>;
-}
+
 
 function UnavailablePanel({ title, reason }: { title: string; reason: string }) {
   return <div className={PLATE} role="note">
@@ -86,45 +78,28 @@ function MetricStrip({ values }: { values: WorkspaceMomentumPresentation["totals
     ["Comments", metric(values.comments), values.comments === null ? "Comments unavailable" : `${values.comments.toLocaleString()} comment${values.comments === 1 ? "" : "s"}`],
     ["Shares", metric(values.shares), values.shares === null ? "Shares unavailable" : `${values.shares.toLocaleString()} share${values.shares === 1 ? "" : "s"}`],
   ];
-  return <dl className="workspace-metric-strip m-0 grid grid-cols-(--workspace-metric-columns) gap-2 overflow-hidden rounded-cell bg-transparent">
-    {metrics.map(([label, value, accessible]) => <div className="min-w-0 rounded-cell bg-card p-3" key={label}>
-      <dt className="type-xs text-muted">{label}</dt>
-      <dd className="m-0 mt-1 font-code type-xl font-semibold tabular-nums leading-none text-ink" aria-label={accessible}>{value}</dd>
+  return <dl className="workspace-metric-strip m-0 overflow-hidden rounded-frame bg-card">
+    {metrics.map(([label, value, accessible], index) => <div className="workspace-metric min-w-0 px-3 py-3" key={label}>
+      <span className="workspace-metric-index font-code type-mono-xs text-muted" aria-hidden="true">0{index + 1}</span>
+      <dt className="type-sm text-muted">{label}</dt>
+      <dd className="m-0 mt-2 type-display font-medium tracking-tight tabular-nums leading-none text-ink" aria-label={accessible}>{value}</dd>
     </div>)}
   </dl>;
 }
 
-const TREND_CELL = "p-2 font-normal text-left";
 
-export function AccessibleTrendChart({ value }: { value: readonly TrendPoint[] }) {
-  const max = Math.max(...value.map((point) => point.value), 1);
-  const points = value.map((point, index) => {
-    const x = value.length < 2 ? 0 : (index / (value.length - 1)) * 100;
-    const y = 40 - (point.value / max) * 40;
-    return `${x},${y}`;
-  }).join(" ");
-  return <div className="workspace-trend">
-    <svg className="h-45 w-full overflow-visible" viewBox="0 0 100 40" role="img">
-      <title>Workspace performance trend</title>
-      <desc>Values over the selected reporting period. Exact values follow in a table.</desc>
-      <polyline className="fill-none stroke-ink stroke-2" points={points} vectorEffect="non-scaling-stroke" />
-    </svg>
-    <table className="w-full border-collapse font-code type-xs text-muted">
-      <caption className="py-2 text-left text-muted">Workspace performance trend values</caption>
-      <thead><tr><th className={TREND_CELL} scope="col">Period</th><th className={TREND_CELL} scope="col">Value</th></tr></thead>
-      <tbody>{value.map((point) => <tr key={point.label}><th className={TREND_CELL} scope="row">{point.label}</th><td className={TREND_CELL}>{point.value.toLocaleString()}</td></tr>)}</tbody>
-    </table>
-  </div>;
-}
 
 export function WorkspaceMomentum({ value }: { value: WorkspaceMomentumPresentation }) {
-  return <section className={`${SECTION} workspace-momentum`} aria-labelledby="workspace-momentum-title">
-    <SectionHeading id="workspace-momentum-title" title="Workspace momentum" meta={value.periodLabel} />
+  return <Window className="workspace-overview-section workspace-momentum col-span-12 gap-1 text-ink" role="region" aria-labelledby="workspace-momentum-title">
+    <OverviewHeading id="workspace-momentum-title" title="Workspace momentum" icon={ChartNoAxesCombined} meta={value.periodLabel} />
     <MetricStrip values={value.totals} />
+    <div className="workspace-performance-charts">
     {(value.trend.status === "ready" || value.trend.status === "partial") && <AccessibleTrendChart value={value.trend.value} />}
+    <WorkspaceEngagement totals={value.totals} />
+    </div>
     {value.trend.status === "partial" && <UnavailablePanel title="Partial trend data" reason={value.trend.reason} />}
-    {(value.trend.status === "empty" || value.trend.status === "unavailable") && <UnavailablePanel title="Trend unavailable" reason={value.trend.reason} />}
-  </section>;
+    {(value.trend.status === "empty" || value.trend.status === "unavailable") && <details className="px-2 py-1 type-sm text-muted"><summary className="cursor-pointer">Trend unavailable · reporting history not connected</summary><p className="mt-2 type-xs">{value.trend.reason}</p></details>}
+  </Window>;
 }
 
 function publicationCount(value: Availability<number>): string {
@@ -141,33 +116,34 @@ export function AccountPortfolio({
   onSelect(account: AccountPresentation): void;
 }) {
   const accounts = value.status === "ready" || value.status === "partial" ? value.value : [];
-  return <section className={`${SECTION_HALF} workspace-accounts`} aria-labelledby="workspace-accounts-title">
-    <SectionHeading id="workspace-accounts-title" title="Accounts" meta={accounts.length ? `${accounts.length} returned by Core` : undefined} />
+  return <section className={`${SECTION} workspace-accounts`} aria-labelledby="workspace-accounts-title">
+    <OverviewHeading id="workspace-accounts-title" title="Accounts" icon={Radio} meta={accounts.length ? `${accounts.length} channels` : undefined} />
     {value.status === "partial" && <UnavailablePanel title="Partial account data" reason={value.reason} />}
     {(value.status === "empty" || value.status === "unavailable") && <UnavailablePanel title="Accounts unavailable" reason={value.reason} />}
     {value.status === "ready" && accounts.length === 0 && <UnavailablePanel title="No connected accounts" reason="No connected accounts were returned by Core." />}
+    {accounts.length > 0 && <WorkspaceAccountHealth accounts={accounts} />}
     {accounts.length > 0 && <div className="account-portfolio-wrap @container/account-portfolio">
       {/* Four accounts across, then two, then one. The count is read against the portfolio's
           own width, so a detail drawer or the chat rail re-flows it with no viewport rule. */}
-      <div className="account-portfolio grid grid-cols-4 gap-3 @max-workspace-portfolio/account-portfolio:grid-cols-2 @max-workspace-portfolio-narrow/account-portfolio:grid-cols-1" aria-label="Account portfolio">
+      <div className="account-portfolio" aria-label="Account portfolio">
         {accounts.map((account) => {
           const warning = account.relinkRequired || !account.credentialConfigured;
-          return <button id={`workspace-account-${account.id}`} className="account-card flex min-h-0 min-w-0 flex-col items-stretch gap-2 rounded-inner bg-card p-3 text-left type-sm text-ink hover:bg-row-hover" type="button" key={account.id} onClick={() => onSelect(account)}>
+          return <button id={`workspace-account-${account.id}`} className="account-card flex min-h-0 min-w-0 flex-col items-stretch gap-1.5 rounded-frame bg-card px-3 py-2 text-left type-sm text-ink hover:bg-row-hover" type="button" key={account.id} onClick={() => onSelect(account)}>
             <span className="account-card-heading flex items-center justify-between gap-2">
-              <strong className="truncate type-xs font-normal capitalize text-muted">{account.platform}</strong>
+              <strong className="flex min-w-0 items-center gap-2 truncate type-sm font-normal capitalize text-muted"><SocialIcon platform={account.platform} className="size-5 flex-none text-ink" />{account.platform}</strong>
               <span className={`account-health${warning ? " is-warning" : ""} rounded-control px-2 py-0.5 type-xs whitespace-nowrap ${warning ? "bg-field text-muted" : "bg-field text-ink"}`}>{health(account)}</span>
             </span>
-            <b className="truncate type-lg font-normal text-ink">{handle(account.username)}</b>
-            {account.displayName && <small className="type-xs text-muted">{account.displayName}</small>}
-            <span className="account-card-facts mt-auto flex flex-col gap-1 font-code type-xs text-muted">
+            <b className="truncate type-sm font-medium text-ink">{handle(account.username)}</b>
+            {account.displayName && <small className={account.username ? "sr-only" : "truncate type-xs text-muted"}>{account.displayName}</small>}
+            <span className="account-card-facts mt-auto flex flex-wrap gap-x-3 gap-y-1 font-code type-xs text-muted">
               <span>{publicationCount(account.publicationCount)}</span>
-              <span>Last Core update <time dateTime={new Date(timestampMs(account.updatedAt)).toISOString()}>{new Date(timestampMs(account.updatedAt)).toLocaleString()}</time></span>
+              <span>Updated <time dateTime={new Date(timestampMs(account.updatedAt)).toISOString()}>{new Date(timestampMs(account.updatedAt)).toLocaleDateString()}</time></span>
             </span>
-            <span className="account-metric-unavailable type-xs leading-row text-muted">{availabilityReason(account.metrics, "No provider metrics were returned by Core.")}</span>
           </button>;
         })}
       </div>
     </div>}
+    {accounts.some((account) => account.metrics.status === "unavailable") && <details className="px-2 py-1 type-xs text-muted"><summary className="cursor-pointer">About channel analytics</summary><p className="mt-2">Account metrics are not available from the current Core contract.</p></details>}
   </section>;
 }
 

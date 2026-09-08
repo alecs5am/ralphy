@@ -38,10 +38,15 @@
     "electron"
   ],
   "dependencies": {
+    "@hyperframes/core": "0.8.31",
+    "@hyperframes/player": "0.8.31",
+    "@hyperframes/sdk": "0.8.31",
+    "@outpacelabs/avatars": "^0.6.0",
     "@radix-ui/react-dialog": "1.1.15",
     "@radix-ui/react-select": "2.2.6",
     "@tanstack/react-virtual": "3.5.0",
-    "boring-avatars": "2.0.4",
+    "@xyflow/react": "^12.11.6",
+    "gsap": "3.14.2",
     "htmlparser2": "10.1.0",
     "lucide-react": "0.564.0",
     "marked": "16.4.2",

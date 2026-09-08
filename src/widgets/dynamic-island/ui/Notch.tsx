@@ -1,6 +1,7 @@
-import { Bell, ChevronDown, CircleAlert, CircleCheck, LoaderCircle } from "lucide-react";
+import { Bell, ChevronDown, CircleAlert } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
+import { IslandActivity } from "./IslandActivity";
 import { projectGlyphAsset, projectGlyphVars } from "@/shared/lib/project-glyph";
 import type { DynamicIslandFeed, IslandContext, IslandNotification } from "../model/feed";
 
@@ -11,7 +12,7 @@ let hasAnimatedMockNotification = false;
    shrinks when the label is long. */
 const IDENTITY_MARK = "size-4 flex-none [mask-repeat:no-repeat] [mask-size:16px_16px]";
 
-export function DynamicIsland({ feed, context, projectName, mock, onNavigate }: {
+export function Notch({ feed, context, projectName, mock, onNavigate }: {
   feed: DynamicIslandFeed;
   context: IslandContext;
   projectName: string | null;
@@ -22,8 +23,15 @@ export function DynamicIsland({ feed, context, projectName, mock, onNavigate }: 
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const detail = useRef<HTMLDivElement>(null);
-  const detailId = `dynamic-island-detail-${useId().replace(/:/g, "")}`;
-  const notifications = feed.notifications.status === "ready" || feed.notifications.status === "partial" ? feed.notifications.value : [];
+  const detailId = `notch-detail-${useId().replace(/:/g, "")}`;
+  const [notificationState, setNotificationState] = useState<{ epoch: number | undefined; read: string[]; dismissed: string[] }>({ epoch: feed.rootEpoch, read: [], dismissed: [] });
+  const local = notificationState.epoch === feed.rootEpoch ? notificationState : { epoch: feed.rootEpoch, read: [], dismissed: [] };
+  const updateNotification = (id: string, dismiss = false) => {
+    detail.current?.focus({ preventScroll: true });
+    setNotificationState({ ...local, read: [...new Set([...local.read, id])], dismissed: dismiss ? [...new Set([...local.dismissed, id])] : local.dismissed });
+  };
+  const sourceNotifications = feed.notifications.status === "ready" || feed.notifications.status === "partial" ? feed.notifications.value : [];
+  const notifications = sourceNotifications.filter(({ id }) => !local.dismissed.includes(id)).map((item) => ({ ...item, unread: item.unread && !local.read.includes(item.id) }));
   const unread = notifications.filter(({ unread: value }) => value).length;
   const hasUnreadError = notifications.some((notification) => notification.unread && notification.severity === "error");
   const projectStatus = projectName && feed.projectStatus.status === "ready" ? feed.projectStatus.value : null;
@@ -40,14 +48,16 @@ export function DynamicIsland({ feed, context, projectName, mock, onNavigate }: 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); close(); }
     };
+    const onPointerDown = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false); };
     document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
     detail.current?.focus({ preventScroll: true });
-    return () => document.removeEventListener("keydown", onKeyDown);
+    return () => { document.removeEventListener("keydown", onKeyDown); document.removeEventListener("pointerdown", onPointerDown); };
   }, [open]);
 
-  const taskProgress = feed.activeTask?.progress === null || feed.activeTask?.progress === undefined
-    ? null
-    : Math.round(feed.activeTask.progress * 100);
+  const progress = feed.activeTask?.progress;
+  const taskProgress = typeof progress === "number" && Number.isFinite(progress) ? Math.round(Math.max(0, Math.min(1, progress)) * 100) : null;
+  const navigate = (destination: NonNullable<IslandNotification["destination"]>) => { setOpen(false); onNavigate(destination); };
   const statusChip = (tone: "approved" | "needsWork" | "rejected", count: number) => <span className="flex items-center gap-1.25">
     <i className={`size-1.75 shrink-0 rounded-full ${tone === "approved" ? "bg-on-instrument" : tone === "rejected" ? "bg-alert" : "outline-(length:--spacing-island-ring) -outline-offset-(length:--spacing-island-ring) outline-on-instrument-muted"}`} aria-hidden="true" />
     <b className="font-display type-base font-extrabold tracking-label text-on-instrument">{count}</b>
@@ -60,17 +70,9 @@ export function DynamicIsland({ feed, context, projectName, mock, onNavigate }: 
   // segments after it appear only when there is something to report.
   const contextLabel = [context.label, context.detail].filter(Boolean).join(" \u00b7 ");
 
-  /* The island expands in place, like the iPhone one: the same plate morphs from a pill into a
-     panel. The plate is in flow rather than absolutely positioned over a zero-width anchor --
-     that older shape left every no-drag box in this subtree empty, so the plate itself sat inside
-     the header's drag region and macOS turned each click into a window drag. The centred
-     absolute box now lives in InstrumentShell, so the plate grows symmetrically around the
-     centre and its no-drag box always matches what the pointer actually hits.
-
-     `corner-shape` cannot be interpolated: switching it mid-transition snapped the pill to a
-     different curve while the radius was still animating, so the morphing plate stays round for
-     its whole travel and never states a shape at all. */
-  return <div className="dynamic-island relative z-island flex [-webkit-app-region:no-drag]" ref={root} data-open={open || undefined} data-mock={mock || undefined} data-animate={animate || undefined}>
+  /* Keep one plate and a finite half-height pill radius. Interpolating rounded-full's huge
+     radius clips the growing panel into an oval until the very last frame. */
+  return <div className="dynamic-island relative z-island flex [-webkit-app-region:no-drag]" ref={root} onBlur={(event) => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false); }} data-open={open || undefined} data-mock={mock || undefined} data-animate={animate || undefined}>
     {/* The dismiss surface, and it exists only while the island is open. A `document` listener for
         an outside pointerdown cannot see the one click the operator is most likely to make: the
         island stands in the titlebar, and Electron hands a mousedown on a drag region to the OS
@@ -82,22 +84,21 @@ export function DynamicIsland({ feed, context, projectName, mock, onNavigate }: 
         top, and the scrim covers everything else. */}
     {open && <div
       className="dynamic-island-scrim fixed inset-0 [-webkit-app-region:no-drag]"
-      onPointerDown={() => setOpen(false)}
+      onPointerDown={close}
       aria-hidden="true"
     />}
-    <div className={`dynamic-island-shell relative grid max-h-overlay-fit-block max-w-island-max overflow-hidden [corner-shape:round] bg-instrument text-on-instrument [transition-property:width,border-radius,grid-template-rows] duration-slow ease-instrument motion-reduce:duration-0 motion-reduce:[transition-property:none] [-webkit-app-region:no-drag] ${open ? "w-island-open rounded-panel grid-rows-(--island-rows-open)" : "w-max rounded-control grid-rows-(--island-rows)"} ${animate ? "animate-island-in motion-reduce:animate-none" : ""}`}>
+    <div className={`dynamic-island-shell relative grid max-h-overlay-fit-block max-w-island-max overflow-hidden [corner-shape:round] bg-instrument text-on-instrument [interpolate-size:allow-keywords] [transition-property:width,border-radius,grid-template-rows] duration-notch ease-notch motion-reduce:duration-0 motion-reduce:[transition-property:none] [-webkit-app-region:no-drag] ${open ? "w-island-open rounded-panel grid-rows-(--island-rows-open)" : "w-max rounded-notch grid-rows-(--island-rows)"} ${animate ? "animate-island-in motion-reduce:animate-none" : ""}`}>
       <button
         ref={trigger}
         className="dynamic-island-trigger group/island flex h-full w-full min-w-0 items-center gap-3 pr-2 pl-4 [border-radius:inherit] focus-visible:outline-2 focus-visible:outline-focus-on-instrument focus-visible:[outline-offset:-3px]"
         type="button"
-        aria-label="Project activity"
+        aria-label="Notch activity"
         aria-expanded={open}
         aria-controls={detailId}
         onClick={() => setOpen((value) => !value)}
       >
-        {/* The island always carries the context, so it never contracts to a bare circle. The
-            label re-mounts on change (React key), which replays the tune-in keyframes. */}
-        <span className="dynamic-island-context flex min-w-0 items-center gap-2 animate-island-tune motion-reduce:animate-none" key={contextLabel} style={context.identity ? projectGlyphVars(context.identity) : undefined}>
+        {/* Keep context mounted so live updates do not restart motion or move the trigger. */}
+        <span className="dynamic-island-context flex min-w-0 items-center gap-2" style={context.identity ? projectGlyphVars(context.identity) : undefined}>
           {context.identity
             ? <i className={`dynamic-island-identity ${IDENTITY_MARK} bg-(--glyph-color,var(--instrument-dither-highlight))`} style={{ maskImage: `url("${projectGlyphAsset(context.identity)}")`, WebkitMaskImage: `url("${projectGlyphAsset(context.identity)}")` }} aria-hidden="true" />
             : <i className={`dynamic-island-identity is-blank ${IDENTITY_MARK} rounded-control bg-on-instrument-muted-decorative`} aria-hidden="true" />}
@@ -132,44 +133,28 @@ export function DynamicIsland({ feed, context, projectName, mock, onNavigate }: 
       </button>
       <span className="sr-only" aria-live="polite">{feed.activeTask?.label ?? (unread ? `${unread} unread notifications` : "")}</span>
       <div
-        /* Closed, the panel must not contribute to the plate's `max-content` width, or the
-           collapsed pill is sized by the widest line of a panel nobody can see yet. */
-        className={`dynamic-island-detail min-h-0 overflow-x-hidden overscroll-contain outline-0 ${open ? "w-full overflow-y-auto" : "w-0 overflow-y-hidden"}`}
+        /* Contain the detail's intrinsic width in BOTH states. Changing its contribution on
+           open changes the max-content animation endpoint and makes a compact pill jump. */
+        className="dynamic-island-detail min-h-0 w-full [contain:inline-size] overflow-x-hidden overflow-y-auto overscroll-contain outline-0"
         id={detailId}
         ref={detail}
         role="region"
         tabIndex={-1}
-        aria-label="Project activity"
+        aria-label="Notch activity"
         data-instrument-overlay="dynamic-island"
         data-instrument-overlay-kind="popover"
         aria-hidden={!open || undefined}
         inert={!open || undefined}
       >
-        <div className={`dynamic-island-detail-inner grid gap-2 px-2 pb-2 transition-opacity duration-normal ease-instrument motion-reduce:transition-none ${open ? "opacity-100 delay-90" : "opacity-0"}`}>
+        <div className="dynamic-island-detail-inner grid w-island-open max-w-island-max gap-2 px-2 pb-2 motion-reduce:transition-none">
           {(mock || projectStatus) && <header className="flex min-w-0 items-center justify-between gap-3 px-2 pt-1 pb-1.5">
             {projectStatus && <span className="type-meta text-on-instrument-muted">{projectStatus.approved} approved · {projectStatus.needsWork} needs work · {projectStatus.rejected} rejected</span>}
             {/* The alarm red is 4.15:1 as 9px copy on the island's own plate; the bright variant
                 exists for exactly this -- an alarm standing on a black widget. */}
             {mock && <small className="ml-auto shrink-0 font-code type-mono-xs tracking-mono text-alert-bright">UX TEST FEED</small>}
           </header>}
-          {projectName && feed.projectStatus.status === "unavailable" && <p className="m-0 rounded-inner bg-instrument-raised px-3 py-2 type-xs text-on-instrument-muted">{feed.projectStatus.reason}</p>}
-          {feed.activeTask && <section className="grid gap-1" aria-label="Active task">
-            <span className="px-2 font-code type-mono-xs tracking-mono text-on-instrument-muted">ACTIVE TASK</span>
-            <button className="grid min-h-14 grid-cols-(--dynamic-island-row-columns) items-center gap-2 rounded-inner bg-instrument-raised px-2.5 py-2 text-left text-on-instrument hover:bg-instrument-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-on-instrument aria-disabled:text-on-instrument-muted" type="button" aria-disabled={!feed.activeTask.destination} onClick={() => { if (feed.activeTask?.destination) onNavigate(feed.activeTask.destination); }}>
-              <span className="grid size-7 place-items-center rounded-full bg-instrument">{feed.activeTask.status === "running" ? <LoaderCircle className="is-spinning animate-spinner motion-reduce:animate-none" aria-hidden="true" size={14} /> : feed.activeTask.status === "failed" ? <CircleAlert className="text-alert" aria-hidden="true" size={14} /> : <CircleCheck className="text-on-instrument-muted" aria-hidden="true" size={14} />}</span>
-              <span className="grid min-w-0 gap-1"><strong className="truncate type-sm font-normal">{feed.activeTask.label}</strong>{taskProgress !== null && <span className="h-1 overflow-hidden rounded-full bg-instrument"><i className="block h-full rounded-full bg-on-instrument" style={{ width: `${taskProgress}%` }} /></span>}</span>
-              <small className="font-display type-base text-on-instrument-muted">{taskProgress === null ? feed.activeTask.status : `${taskProgress}%`}</small>
-            </button>
-          </section>}
-          {!feed.activeTask && <section className="grid gap-1" aria-label="Active task">
-            <span className="px-2 font-code type-mono-xs tracking-mono text-on-instrument-muted">ACTIVE TASK</span>
-            <p className="m-0 rounded-inner bg-instrument-raised px-3 py-2.5 type-xs text-on-instrument-muted">{projectName ? "No active task for this project." : "Open a project to track its active task here."}</p>
-          </section>}
-          <section className="grid gap-1" aria-label="Notifications">
-            <span className="flex items-center justify-between px-2 font-code type-mono-xs tracking-mono text-on-instrument-muted"><span>NOTIFICATIONS</span>{unread > 0 && <b className="font-display type-sm text-on-instrument">{unread} NEW</b>}</span>
-            <div className="dynamic-island-notifications grid gap-1">{notifications.map((notification) => <button className="grid min-h-12 grid-cols-(--dynamic-island-row-columns) items-center gap-2 rounded-inner bg-instrument-raised px-2.5 py-2 text-left text-on-instrument hover:bg-instrument-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-on-instrument aria-disabled:text-on-instrument-muted" type="button" key={notification.id} aria-disabled={!notification.destination} onClick={() => { if (notification.destination) onNavigate(notification.destination); }}><span className="grid size-7 place-items-center rounded-full bg-instrument">{notification.severity === "error" ? <CircleAlert className="text-alert" aria-hidden="true" size={14} /> : <Bell className="text-on-instrument-muted" aria-hidden="true" size={14} />}</span><span className="grid min-w-0"><strong className="truncate type-sm font-normal">{notification.title}</strong><small className="type-meta text-on-instrument-muted">{new Date(notification.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></span>{notification.unread && <i className={`size-2 rounded-full ${notification.severity === "error" ? "bg-alert" : "bg-on-instrument"}`} aria-label="Unread" />}</button>)}</div>
-            {notifications.length === 0 && <p className="m-0 rounded-inner bg-instrument-raised px-3 py-2.5 type-xs text-on-instrument-muted">{feed.notifications.status === "empty" || feed.notifications.status === "unavailable" ? feed.notifications.reason : "No notifications."}</p>}
-          </section>
+          {projectName && (feed.projectStatus.status === "unavailable" || feed.projectStatus.status === "error") && <details className="rounded-inner bg-instrument-raised px-3 py-2 type-xs text-on-instrument-muted"><summary className="cursor-pointer">Review counts are not available</summary><p className="mb-0 mt-2 leading-prose">{feed.projectStatus.reason}</p></details>}
+          <IslandActivity feed={feed} notifications={notifications} unread={unread} projectName={projectName} taskProgress={taskProgress} onNavigate={navigate} onRead={(id) => updateNotification(id)} onDismiss={(id) => updateNotification(id, true)} onReadAll={() => { detail.current?.focus({ preventScroll: true }); setNotificationState({ ...local, read: [...new Set([...local.read, ...notifications.map(({ id }) => id)])] }); }} />
         </div>
       </div>
     </div>

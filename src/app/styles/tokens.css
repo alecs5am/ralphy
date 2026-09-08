@@ -76,6 +76,9 @@ html[data-theme="dark"] {
   --instrument-card: #181818;
   --instrument-field: #262626;
   --instrument-row-hover: #232323;
+  --instrument-generation-field-hover: #2E2E2E;
+  --instrument-generation-ruler-tick: #3A3A38;
+  --instrument-generation-ruler-major: #6A6A66;
   --instrument-chip-on-panel: #1A1A1A;
   /* The keycap's own surface step: a socket below its panel, a face above the socket. */
   --instrument-keycap-socket: #1D1D1D;
@@ -102,6 +105,17 @@ html[data-theme="dark"] {
   --instrument-tag-unit: #B9B4EF;
   --instrument-tag-file: #A6C2E8;
   --instrument-tag-project: #98CCD6;
+  /* Node editor v20: sRGB equivalents of the type identity hues. */
+  --instrument-node-prompt: #8EA4D4;
+  --instrument-node-llm: #AC9ACD;
+  --instrument-node-image: #7AB395;
+  --instrument-node-video: #6CB0C5;
+  --instrument-node-media: #BAA16E;
+  --instrument-node-connector: #C094BB;
+  --instrument-port-text: #A970FF;
+  --instrument-port-image: #19D77C;
+  --instrument-port-video: #3995FF;
+  --instrument-port-audio: #FFA033;
   --instrument-chat-field: #262626;
   --instrument-chat-control: #2F2F2F;
   --instrument-chat-control-hover: #3A3A3A;
@@ -119,6 +133,9 @@ html[data-theme="dark"] {
   --instrument-danger-fill: #E0362C;
   --instrument-brand: #0071E3;
   --instrument-brand-ink: #FFFFFF;
+  --instrument-generation-brand: #0171E4;
+  --instrument-generation-brand-hover: #015BB8;
+  --instrument-generation-cost-warning: #E0796F;
   --instrument-error-text: #E8E8E6;
   --instrument-traffic-close: #ED6A5E;
   --instrument-traffic-minimize: #F0B544;
@@ -198,6 +215,9 @@ html[data-theme="light"] {
   --instrument-card: #FFFFFF;
   --instrument-field: #F1F2F4;
   --instrument-row-hover: #F6F7F9;
+  --instrument-generation-field-hover: #ECEEF1;
+  --instrument-generation-ruler-tick: #CFD4DC;
+  --instrument-generation-ruler-major: #AEB5C2;
   --instrument-chip-on-panel: #E7E9ED;
   /* The keycap's own surface step: a socket below its panel, a face above the socket. */
   --instrument-keycap-socket: #D6D6D3;
@@ -224,6 +244,17 @@ html[data-theme="light"] {
   --instrument-tag-unit: #625CC6;
   --instrument-tag-file: #4A72AD;
   --instrument-tag-project: #37808E;
+  /* Node editor v20: sRGB equivalents of the type identity hues. */
+  --instrument-node-prompt: #3F568A;
+  --instrument-node-llm: #604B83;
+  --instrument-node-image: #1D6746;
+  --instrument-node-video: #00637B;
+  --instrument-node-media: #6F530A;
+  --instrument-node-connector: #744470;
+  --instrument-port-text: #8B3DFF;
+  --instrument-port-image: #009A50;
+  --instrument-port-video: #0071E3;
+  --instrument-port-audio: #CA6900;
   --instrument-chat-field: #F4F5F8;
   --instrument-chat-control: #F1F2F4;
   --instrument-chat-control-hover: #E7E9ED;
@@ -241,6 +272,9 @@ html[data-theme="light"] {
   --instrument-danger-fill: #E0362C;
   --instrument-brand: #0071E3;
   --instrument-brand-ink: #FFFFFF;
+  --instrument-generation-brand: #0171E4;
+  --instrument-generation-brand-hover: #015BB8;
+  --instrument-generation-cost-warning: #E0796F;
   --instrument-error-text: #E8E8E6;
   --instrument-traffic-close: #ED6A5E;
   --instrument-traffic-minimize: #F0B544;

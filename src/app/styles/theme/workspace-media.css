@@ -51,6 +51,7 @@
 /* `grid-template-columns` is not a Tailwind namespace, so a template is a plain custom property
    read back with `grid-cols-(--name)`. */
 :root {
+  --workspace-unit-gallery-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
   /* The asset modal: the stage, then an inspector that never collapses below a readable measure. */
   --asset-modal-columns: minmax(0, 1fr) clamp(300px, 22vw, 360px);
   /* A property row in the modal inspector: a fixed label column and the value. */

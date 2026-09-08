@@ -8,6 +8,7 @@ import {
   UserRound,
 } from "lucide-react";
 import type { ComponentType, ReactNode, SVGProps } from "react";
+import { categoryIdentity, MarketplaceCategoryArtwork, MarketplaceCategorySignature } from "./MarketplaceCategoryIdentity";
 import {
   ASIDE_SECTION,
   DETAIL_ACTIONS,
@@ -24,6 +25,7 @@ import {
   DETAIL_TITLE,
   HERO_ACTION_GLYPH,
   HERO_ACTION_PRIMARY,
+  HERO_STATE,
   REVIEW_ACTION_PLATE,
   REVIEW_BLOCK,
   REVIEW_REASON,
@@ -101,7 +103,7 @@ function UnavailableReview({ id, label, reason, tone, className = "", onReview }
       aria-describedby={onReview ? undefined : id}
       onClick={onReview}
     >{label}</button>
-    <p className={REVIEW_REASON} id={id}>{reason} The final action is disabled.</p>
+    <p className={tone === "hero" ? `m-0 max-w-130 ${HERO_STATE}` : REVIEW_REASON} id={id}>{reason} The final action is disabled.</p>
   </div>;
 }
 
@@ -174,12 +176,13 @@ function UnavailableDetailFrame({ category, onReview, onBack, children }: Market
     {onBack && <button className={`marketplace-public-back ${DETAIL_BACK}`} type="button" onClick={onBack}><ArrowLeft className={HERO_ACTION_GLYPH} aria-hidden="true" />Back to {copy.label}</button>}
     <header className={`marketplace-public-hero ${DETAIL_HERO}`}>
       <span className={DETAIL_EYEBROW}>{copy.label} · Unavailable capability</span>
-      <h2 className={DETAIL_TITLE} id="marketplace-unavailable-title">{copy.unavailable}</h2>
-      <p className={DETAIL_LEAD}>No production {copy.singular} record is rendered without a source contract.</p>
+      <h2 className={DETAIL_TITLE} id="marketplace-unavailable-title">{copy.label} aren't available in this build.</h2>
+      <p className={DETAIL_LEAD}>There is no item to install yet. You can review what this category will need below.</p>
       <div className={`marketplace-public-actions ${DETAIL_ACTIONS}`}><UnavailableReview tone="hero" id={reviewId} label={copy.reviewLabel} reason={copy.reviewReason} onReview={onReview} /></div>
+      <MarketplaceCategorySignature category={category} />
     </header>
     <div className={`marketplace-public-detail-layout ${DETAIL_LAYOUT}`}>
-      <div className={`marketplace-public-detail-main ${DETAIL_COLUMN}`}>{children}</div>
+      <details className={`marketplace-public-detail-main ${DETAIL_COLUMN}`}><summary className="cursor-pointer rounded-cell bg-surface p-4 text-sm text-ink">What is missing from this category</summary><p className={DETAIL_COPY}>{copy.unavailable}</p>{children}</details>
       <UnavailableAside category={category} />
     </div>
   </article>;
@@ -207,14 +210,12 @@ export function MarketplaceUnavailableCategory({ category, sourceReason, onOpenD
   onOpenDetail?(category: UnsupportedCategory): void;
 }) {
   const copy = categoryCopy[category];
-  const Icon = copy.icon;
   return <section className="marketplace-unavailable-category mt-6 flex min-h-65 flex-col items-center justify-center gap-2.25 rounded-widget bg-surface p-6 text-center" role="status" aria-labelledby={`marketplace-${category}-unavailable-title`}>
-    <Icon className="w-5 text-muted" aria-hidden="true" />
+    <span className={`w-48 rounded-cell ${categoryIdentity[category].tone}`}><MarketplaceCategoryArtwork category={category} className="h-24 w-full" /></span>
     <h2 className="m-0 type-heading font-normal" id={`marketplace-${category}-unavailable-title`}>{copy.label} catalog unavailable</h2>
-    <p className="m-0 max-w-140 type-sm leading-copy text-ink">{copy.unavailable}</p>
     <p className="m-0 max-w-140 type-sm leading-copy text-muted">{sourceReason}</p>
-    <div className="marketplace-unavailable-requirements my-2 grid w-full max-w-190 grid-cols-3 gap-2 text-left @max-marketplace-split/main-region:grid-cols-1">{copy.requirements.map((requirement) => <p className="m-0 rounded-cell bg-surface-sunken p-3.25 type-xs leading-copy text-muted" key={requirement}>{requirement}</p>)}</div>
-    <small className="type-xs text-muted">No sample items are shown as production catalog records.</small>
+    <details className="w-full max-w-190 text-left"><summary className="cursor-pointer py-2 text-center text-xs text-muted">Why this catalog is unavailable</summary><p className="m-0 type-sm leading-copy text-ink">{copy.unavailable}</p><div className="marketplace-unavailable-requirements my-2 grid grid-cols-3 gap-2 @max-marketplace-split/main-region:grid-cols-1">{copy.requirements.map((requirement) => <p className="m-0 rounded-cell bg-surface-sunken p-3.25 type-xs leading-copy text-muted" key={requirement}>{requirement}</p>)}</div></details>
+    <small className="type-xs text-muted">Only items from your connected catalogs appear here.</small>
     <button
       className={REVIEW_ACTION_PLATE}
       id={marketplaceUnavailableDetailOriginId(category)}
