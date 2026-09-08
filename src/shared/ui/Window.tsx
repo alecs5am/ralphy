@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { X } from "./icons";
 import type { ComponentPropsWithRef } from "react";
 
 import { ICON_BUTTON } from "./IconButton";

@@ -9,6 +9,7 @@
  */
 import { useState } from "react";
 import {
+  ChevronRight,
   FilePen,
   FileText,
   Globe,
@@ -16,8 +17,8 @@ import {
   Search,
   Terminal,
   Wrench,
-  type LucideIcon,
-} from "lucide-react";
+  type AppIcon,
+} from "@/shared/ui/icons";
 
 import type { AgentChatEntry } from "../model/chat-state";
 import { META } from "./agent-thread-chrome";
@@ -27,7 +28,7 @@ import { META } from "./agent-thread-chrome";
 /* What a tool call is, as far as the transcript can tell: the harness reports a name and a
    one-line summary, so the family comes from the name and the argument is the summary. */
 interface ToolFamily {
-  icon: LucideIcon;
+  icon: AppIcon;
   /* The verb a detail row leads with -- it takes the argument directly, as in "Searched <pattern>". */
   verb: string;
   /* The noun a group counts, and the verb that counts it where the row's own verb cannot: a group
@@ -158,20 +159,11 @@ export function ToolGroup({ entries }: { entries: readonly AgentChatEntry[] }) {
 /* Down is expanded, right is collapsed -- one glyph rotated rather than two icons, so the two
    states cannot drift apart. */
 export function Chevron({ open }: { open: boolean }) {
-  return <svg
+  return <ChevronRight
     className={`agent-chevron flex-none text-muted-decorative transition-transform duration-fast ease-instrument motion-reduce:transition-none ${open ? "rotate-90" : ""}`}
-    width={11}
-    height={11}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    size={11}
     aria-hidden="true"
-  >
-    <path d="m9 6 6 6-6 6" />
-  </svg>;
+  />;
 }
 
 /* The failure window: the one render in 2c the wire can fill. The title is primary ink on the

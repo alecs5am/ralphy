@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { AlertCircle, Braces, FileText, Pilcrow, Search } from "lucide-react";
+import { AlertCircle, Braces, FileText, Pilcrow, Search } from "@/shared/ui/icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { DocumentDetailDto, DocumentDto, DocumentSearchDto } from "../../../../electron/ralphy/types";

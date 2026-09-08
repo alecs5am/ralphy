@@ -7,7 +7,7 @@
  * to see what the system currently says.
  */
 import { useEffect, useMemo, useState } from "react";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen } from "@/shared/ui/icons";
 
 import { ProfileAvatar } from "@/shared/ui/ProfileAvatar";
 import type { SettingsContext } from "../model/context";

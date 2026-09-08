@@ -1,5 +1,5 @@
 import { PageHeader, PAGE_HEADER_BUTTON, PAGE_HEADER_PRIMARY } from "@/shared/ui/PageHeader";
-import { AlertCircle, Boxes, Maximize2, Plus, Upload } from "lucide-react";
+import { AlertCircle, Boxes, Maximize2, Plus, Upload } from "@/shared/ui/icons";
 import { useEffect, useId, useState, useSyncExternalStore, type MouseEvent } from "react";
 import type { MediaWorkbenchBridge } from "../../../../electron/media/types";
 import { bridge } from "@/shared/api/ipc";

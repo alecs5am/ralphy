@@ -1,4 +1,4 @@
-import { Settings, SlidersHorizontal } from "lucide-react";
+import { Settings, SlidersHorizontal } from "@/shared/ui/icons";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { InstrumentOverlay } from "@/shared/instrument/overlay-registry";

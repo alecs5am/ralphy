@@ -274,7 +274,7 @@ describe("Marketplace non-mutating action reviews", () => {
     expect(markup).toContain("<progress");
     expect(markup).toContain("value=\"62\"");
     expect(markup).toContain("value=\"100\"");
-    expect(markup).toContain("lucide-loader-circle");
+    expect(markup).toContain('data-icon="LoaderCircle"');
     expect(markup).toContain("aria-label=\"Qwen 14B download progress: 62%\"");
     expect(markup).toContain("aria-label=\"Flux download progress: 100%\"");
   });

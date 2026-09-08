@@ -1,4 +1,4 @@
-import { ChevronDown, FileText } from "lucide-react";
+import { ChevronDown, FileText } from "@/shared/ui/icons";
 import { Fragment, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import type { ContextBlockDto, ContextRail } from "../../../../electron/agent/context-document";

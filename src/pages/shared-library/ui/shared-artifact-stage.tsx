@@ -5,7 +5,7 @@
  * The stage decides nothing about the artifact -- the kind comes from the mime type, and each
  * player is handed the skin of the surface it stands on rather than repainting half of it.
  */
-import { FileText, ImageOff } from "lucide-react";
+import { FileText, ImageOff } from "@/shared/ui/icons";
 import { useEffect, useState } from "react";
 import type { ArtifactRevisionDto } from "../../../../electron/ralphy/types";
 import { isSupportedFontPreviewMime } from "../../../../shared/font-preview";

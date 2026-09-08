@@ -7,7 +7,7 @@
  * a primary pill. Naming these once is what keeps a fourth menu from inventing a fifth pill.
  */
 import { useEffect, useRef, useState } from "react";
-import { Calendar, Image, ListChecks, Search } from "lucide-react";
+import { Calendar, Image, ListChecks, Search } from "@/shared/ui/icons";
 
 import type { AgentProvider } from "@/shared/api/ipc";
 import type { AgentChatController } from "@/features/agent-chat";

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Copy, Pencil, RotateCcw, TriangleAlert } from "lucide-react";
+import { Copy, Pencil, RotateCcw, TriangleAlert } from "@/shared/ui/icons";
 import { bridge } from "@/shared/api/ipc";
 import { AgentTaggedText } from "./agent-tags";
 import { AgentMark } from "@/shared/ui/AgentMark";

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X } from "@/shared/ui/icons";
 import { CANVAS_LIMIT, type CanvasNode, type WorkflowCanvas } from "../../../../shared/workflow-canvas";
 import { canvasNodePorts } from "../../../../shared/canvas-ports";
 import { CANVAS_CREATION_CHOICES, connectionToNewNode, createNodeFromChoice, type CanvasWireOrigin } from "../model/node-creation";

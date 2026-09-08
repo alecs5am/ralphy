@@ -1,4 +1,4 @@
-import { FileText, Film, Images, Layers3, Search } from "lucide-react";
+import { FileText, Film, Images, Layers3, Search } from "@/shared/ui/icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { BuildDto, ProjectOverviewDto, UnitDto } from "../../../../electron/ralphy/types";

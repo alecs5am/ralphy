@@ -42,6 +42,7 @@
 }
 .canvas-screen .react-flow__controls-button { width: 32px; height: 32px; border-bottom: 0; }
 .canvas-screen .react-flow__controls-button { border-radius: 50%; }
+.canvas-screen .react-flow__controls-button .app-icon { width: 16px; height: 16px; max-width: none; max-height: none; fill: none; }
 .canvas-screen .react-flow__controls-button:focus-visible { outline: 2px solid var(--instrument-text-primary); outline-offset: -2px; }
 .canvas-screen .react-flow__minimap { overflow: hidden; padding: 5px; border-radius: 14px; }
 .canvas-screen .react-flow__minimap-svg { width: 144px; height: 92px; }

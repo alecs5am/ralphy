@@ -1,4 +1,4 @@
-import { ArrowLeft, Copy } from "lucide-react";
+import { ArrowLeft, Copy } from "@/shared/ui/icons";
 import { useEffect, useRef, useState } from "react";
 import { MarkdownView } from "@/shared/ui/MarkdownView";
 import { bridge } from "@/shared/api/ipc";

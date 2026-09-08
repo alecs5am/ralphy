@@ -5,7 +5,7 @@ import { Modal } from "@/shared/ui/Modal";
 import { MediaPreview } from "@/shared/ui/MediaPreview";
 import { Window } from "@/shared/ui/Window";
 import type { ReactFlowInstance } from "@xyflow/react";
-import { ArrowLeft, Check, CircleAlert, Copy, GitBranch, History, LayoutGrid, LoaderCircle, MessageSquare, MoreHorizontal, Pencil, Play, Redo2, Save, Scan, Trash2, Undo2, X } from "lucide-react";
+import { ArrowLeft, Check, CircleAlert, Copy, GitBranch, History, LayoutGrid, LoaderCircle, MessageSquare, MoreHorizontal, Pencil, Play, Redo2, Save, Scan, Trash2, Undo2, X } from "@/shared/ui/icons";
 import { bridge } from "@/shared/api/ipc";
 import { SelectMenu } from "@/shared/ui/SelectMenu";
 import { InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";

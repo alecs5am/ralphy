@@ -1,4 +1,4 @@
-import { Blocks, Bot, Code2, Cpu, LayoutTemplate, MessageSquareText } from "lucide-react";
+import { Blocks, Bot, Code2, Cpu, LayoutTemplate, MessageSquareText } from "@/shared/ui/icons";
 import type { MarketplaceCategory } from "../model/navigation";
 
 export const categoryIdentity = {

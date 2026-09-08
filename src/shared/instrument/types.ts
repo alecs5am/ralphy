@@ -1,5 +1,5 @@
 import type * as React from "react";
-import type { LucideIcon } from "lucide-react";
+import type { AppIcon } from "../ui/icons";
 
 export type Availability<T> =
   | { status: "ready"; value: T }
@@ -31,6 +31,6 @@ export interface InstrumentScreenHeaderProps {
 export interface ProjectDockItem<Id extends string = string> {
   id: Id;
   label: string;
-  icon: LucideIcon;
+  icon: AppIcon;
   disabledReason?: string;
 }

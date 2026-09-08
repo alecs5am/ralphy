@@ -1,4 +1,4 @@
-import { ArrowUpRight, Clapperboard, GitCompareArrows, Image, Plus, RefreshCw, Workflow } from "lucide-react";
+import { ArrowUpRight, Clapperboard, GitCompareArrows, Image, Plus, RefreshCw, Workflow } from "@/shared/ui/icons";
 import type { SavedCanvas, WorkflowCanvas } from "../../../../shared/workflow-canvas";
 import { canvasNodeWidth } from "../model/node-layout";
 import { canvasNodeHeight, type CanvasTemplate } from "../model/canvas-editor";

@@ -1,5 +1,5 @@
 import { PageHeader } from "@/shared/ui/PageHeader";
-import { FolderOpen, Pin, Search } from "lucide-react";
+import { FolderOpen, Pin, Search } from "@/shared/ui/icons";
 
 import { Keycap } from "@/shared/ui/Keycap";
 import { useEffect, useMemo, useRef, useState } from "react";

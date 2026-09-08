@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowUpRight, CalendarDays } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarDays } from "@/shared/ui/icons";
 import type { WorkspaceCalendarNavigationContext, WorkspacePage } from "@/shared/model/workbench";
 import { OverviewHeading } from "./OverviewHeading";
 import { WorkspaceUnitOutcomes } from "./WorkspaceUnitOutcomes";

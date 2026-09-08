@@ -1,5 +1,5 @@
 import { PageHeader, PAGE_HEADER_BUTTON } from "@/shared/ui/PageHeader";
-import { FileText, Film, Images, Layers3, LayoutGrid, List, Search } from "lucide-react";
+import { FileText, Film, Images, Layers3, LayoutGrid, List, Search } from "@/shared/ui/icons";
 import { useEffect, useState } from "react";
 
 import type { OverviewPublicationDto, ProjectOverviewDto, UnitDto } from "../../../../electron/ralphy/types";

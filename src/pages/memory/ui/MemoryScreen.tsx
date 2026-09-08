@@ -4,7 +4,7 @@ import {
   Activity, Archive, Brain, ArrowDownUp, ArrowLeft, Box, Building2, Check, ChevronRight,
   CircleSlash, Cpu, Eye, FileClock, Globe2, History, Inbox, Layers3, Palette, PencilLine,
   PenTool, Plus, Search, TriangleAlert, UserRound, Wrench, X,
-} from "lucide-react";
+} from "@/shared/ui/icons";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { MemoryDetailDto, MemoryTier, MemoryType } from "../../../../electron/ralphy/types";
 import type { MemoryMutation } from "../../../../electron/ralphy/memory-reader";

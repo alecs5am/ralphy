@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "@/shared/ui/icons";
 import { useCallback, useId, useRef, useState, type ReactNode } from "react";
 import { SelectMenu } from "@/shared/ui/SelectMenu";
 import type { Availability, SharedArtifactPresentation } from "../lib/presentation";

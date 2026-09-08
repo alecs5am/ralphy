@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, ChevronRight, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronRight, Search, X } from "@/shared/ui/icons";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 

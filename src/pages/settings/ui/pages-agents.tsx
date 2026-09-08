@@ -7,7 +7,7 @@
  * whether the test call worked.
  */
 import { useRef, useState } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@/shared/ui/icons";
 
 import type { HarnessRow } from "../lib/harnesses";
 import {

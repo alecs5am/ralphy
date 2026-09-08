@@ -6,7 +6,7 @@
  * draws on live in `shared-artifact-stage`.
  */
 import * as Dialog from "@radix-ui/react-dialog";
-import { ChevronLeft, ChevronRight, ExternalLink, PanelRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, PanelRight } from "@/shared/ui/icons";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ArtifactMediaCardDto } from "../../../../electron/ralphy/types";
 import { bridge } from "@/shared/api/ipc";

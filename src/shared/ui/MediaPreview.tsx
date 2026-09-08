@@ -1,4 +1,4 @@
-import { Film, Image, Music2 } from "lucide-react";
+import { Film, Image, Music2 } from "./icons";
 import { useState } from "react";
 
 export function MediaPreview({ url, posterUrl, kind, label, text }: { url?: string; posterUrl?: string; kind: "text" | "image" | "video" | "audio"; label: string; text?: string }) {

@@ -1,4 +1,4 @@
-import { AlertTriangle, FolderOpen, ListTodo, RefreshCw } from "lucide-react";
+import { AlertTriangle, FolderOpen, ListTodo, RefreshCw } from "@/shared/ui/icons";
 import { useState } from "react";
 import type { ProjectSummary } from "@/shared/api/ipc";
 import { DitherIdentity } from "@/shared/instrument/primitives";

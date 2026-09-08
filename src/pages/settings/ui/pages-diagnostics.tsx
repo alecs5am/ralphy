@@ -6,7 +6,7 @@
  * states the versions it can actually see, including Chromium's, read from the user agent.
  */
 import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@/shared/ui/icons";
 
 import { bridge } from "@/shared/api/ipc";
 import { RalphyMascot } from "@/shared/ui/RalphyMascot";

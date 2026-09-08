@@ -1,5 +1,5 @@
 import * as Select from "@radix-ui/react-select";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "./icons";
 import { useId, useRef, useState, type ReactNode } from "react";
 
 import { InstrumentOverlay, type InstrumentSharedSelectOwnerId } from "../instrument/overlay-registry";

@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronDown, CircleAlert, Cpu, GitBranch, Scan, Sparkles, Square } from "lucide-react";
+import { CheckCircle2, ChevronDown, CircleAlert, Cpu, GitBranch, Scan, Sparkles, Square } from "@/shared/ui/icons";
 import { GenerationParameter, GenerationStepper, GenerationVoicePicker, STUDIO_LABEL, STUDIO_BUTTON, STUDIO_PRIMARY } from "@/entities/generation";
 import { AiBrandIcon } from "@/shared/ui/AiBrandIcon";
 import type { CanvasNodeConfig } from "../../../../shared/workflow-canvas";

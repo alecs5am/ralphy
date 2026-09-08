@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { DomUtils, parseDocument } from "htmlparser2";
 
 import { layerSource } from "./source-layers";
 import { act } from "react";
@@ -181,7 +182,9 @@ describe("workspace projects navigation", () => {
     expect(markup).toContain("Open project Launch film");
     expect(markup).toContain("Pin project Launch film");
     expect(markup).toContain("1 final");
-    expect(markup.slice(markup.indexOf("workspace-project-grid"))).not.toContain("3.84");
+    const grid = DomUtils.findOne((element) => element.attribs.class?.split(" ").includes("workspace-project-grid") ?? false, parseDocument(markup).children);
+    expect(grid).not.toBeNull();
+    expect(DomUtils.textContent(grid!)).not.toContain("3.84");
     // The card states its own width in markup; the sheet's `.workspace-project-card-shell
     // .workspace-project-card { width: 100% }` was already shadowed by that utility, and the rest
     // of that rule (`min-height: 0`, `background: transparent`, `box-shadow: none`) only cancelled

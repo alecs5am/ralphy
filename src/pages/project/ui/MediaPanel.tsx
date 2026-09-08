@@ -1,4 +1,4 @@
-import { AlertCircle, Check, Copy, ExternalLink, Eye, FolderOpen, GalleryHorizontalEnd, RefreshCw } from "lucide-react";
+import { AlertCircle, Check, Copy, ExternalLink, Eye, FolderOpen, GalleryHorizontalEnd, RefreshCw } from "@/shared/ui/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ProjectMediaFilter, ProjectMediaKind } from "../../../../electron/media/types";
 import type { MediaCardDto, MediaProvenance } from "../../../../electron/ralphy/types";

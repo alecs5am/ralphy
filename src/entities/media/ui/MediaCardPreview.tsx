@@ -1,4 +1,4 @@
-import { FileText, Film, Image, Music2 } from "lucide-react";
+import { FileText, Film, Image, Music2 } from "@/shared/ui/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { MediaCardDto, MediaRef } from "../../../../electron/ralphy/types";

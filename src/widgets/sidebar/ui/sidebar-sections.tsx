@@ -5,7 +5,7 @@
  * Each takes what it draws and reports a choice upward. None of them reads the search needle: the
  * card filters its lists before handing them over, so a list never has to know why it is short.
  */
-import { Compass } from "lucide-react";
+import { Compass } from "@/shared/ui/icons";
 import { useId, type CSSProperties } from "react";
 
 import type { WorkspaceSummary } from "@/shared/api/ipc";

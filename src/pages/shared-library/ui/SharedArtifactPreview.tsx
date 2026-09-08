@@ -1,4 +1,4 @@
-import { FileText, ImageOff } from "lucide-react";
+import { FileText, ImageOff } from "@/shared/ui/icons";
 import { useCallback, useEffect, useState } from "react";
 import type { ProjectPreview } from "@/shared/api/ipc";
 import { AudioWaveform } from "@/entities/media";

@@ -1,4 +1,4 @@
-import { ArrowRight, GitMerge, Plus, WandSparkles } from "lucide-react";
+import { ArrowRight, GitMerge, Plus, WandSparkles } from "@/shared/ui/icons";
 import { SelectMenu } from "@/shared/ui/SelectMenu";
 import type { CanvasNodeData } from "./canvas-node-types";
 import { NODE_FIELD } from "./canvas-node-chrome";

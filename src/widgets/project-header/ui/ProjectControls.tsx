@@ -1,5 +1,5 @@
 import { PageHeader, usePageHeaderHost } from "@/shared/ui/PageHeader";
-import { Activity, FileText, FolderOpen, Image, Layers3 } from "lucide-react";
+import { Activity, FileText, FolderOpen, Image, Layers3 } from "@/shared/ui/icons";
 import { createPortal } from "react-dom";
 import { useOptionalInstrumentScroll } from "@/shared/lib/instrument-scroll";
 import { ProjectDock } from "./ProjectDock";

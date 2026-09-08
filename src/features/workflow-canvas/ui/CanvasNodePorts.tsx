@@ -1,5 +1,5 @@
 import { Handle, Position, useConnection, useNodeConnections, useReactFlow } from "@xyflow/react";
-import { AudioLines, Film, Image, Layers } from "lucide-react";
+import { AudioLines, Film, Image, Layers } from "@/shared/ui/icons";
 import { canvasNodePorts, connectionProblem, type CanvasPort } from "../../../../shared/canvas-ports";
 import type { CanvasFlowNode } from "./canvas-node-types";
 

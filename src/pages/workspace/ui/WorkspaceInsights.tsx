@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Brain, Gauge, Lightbulb } from "lucide-react";
+import { Brain, Gauge, Lightbulb } from "@/shared/ui/icons";
 import type { WorkspacePage } from "@/shared/model/workbench";
 import { DetailDialog } from "./DetailDialog";
 import { OverviewHeading } from "./OverviewHeading";

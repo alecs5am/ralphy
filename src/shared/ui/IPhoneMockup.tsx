@@ -1,4 +1,4 @@
-import { BatteryFull, Signal, Wifi } from "lucide-react";
+import { BatteryFull, Signal, Wifi } from "./icons";
 import type { ReactNode } from "react";
 
 // Adapted from 21st.dev/lovesickfromthe6ix/iphone-mockup for Ralphy's fixed stage geometry.

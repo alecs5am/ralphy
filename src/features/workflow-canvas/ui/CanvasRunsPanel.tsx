@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowUpRight, Check, ChevronDown, ChevronRight, Clock3, Expand, FileText, Image, LoaderCircle, Minimize2, Play, Square, X } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, ChevronRight, Clock3, Expand, FileText, Image, LoaderCircle, Minimize2, Play, Square, X } from "@/shared/ui/icons";
 import type { CanvasRun, CanvasRunResult } from "../../../../shared/canvas-runtime";
 import { CANVAS_BUTTON } from "./canvas-chrome";
 

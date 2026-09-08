@@ -1,4 +1,4 @@
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "@/shared/ui/icons";
 import type { GenerationDraft, GenerationModel } from "../../../../shared/generation-studio";
 import { STUDIO_LABEL } from "@/entities/generation"
 import { GenerationParameter, GenerationStepper } from "@/entities/generation"

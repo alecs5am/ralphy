@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus } from "@/shared/ui/icons";
 import type { GenerationField } from "../../../../shared/generation-studio";
 import { SelectMenu } from "@/shared/ui/SelectMenu";
 import { STUDIO_FIELD, STUDIO_LABEL } from "./generation-chrome";

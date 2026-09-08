@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, CircleAlert } from "lucide-react";
+import { Bell, ChevronDown, CircleAlert } from "@/shared/ui/icons";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { IslandActivity } from "./IslandActivity";

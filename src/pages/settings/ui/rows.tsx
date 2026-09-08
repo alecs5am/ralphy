@@ -1,4 +1,4 @@
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus } from "@/shared/ui/icons";
 import type { ReactNode } from "react";
 
 import { SelectMenu } from "@/shared/ui/SelectMenu";

@@ -1,4 +1,4 @@
-import { Cable, CircleAlert, Unplug } from "lucide-react";
+import { Cable, CircleAlert, Unplug } from "@/shared/ui/icons";
 import { Window, WindowBody, WindowClose, WindowTitlebar } from "@/shared/ui/Window";
 import { canvasNodePorts } from "../../../../shared/canvas-ports";
 import { CanvasNodeBody } from "./CanvasNodeBody";

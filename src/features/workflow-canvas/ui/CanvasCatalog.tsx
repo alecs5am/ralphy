@@ -1,6 +1,6 @@
 import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, RefreshCw } from "lucide-react";
+import { Check, RefreshCw } from "@/shared/ui/icons";
 import { GenerationPickerMenu, STUDIO_ICON, STUDIO_BUTTON, studioSelection } from "@/entities/generation";
 import type { CanvasMediaKind } from "../../../../shared/workflow-canvas";
 import type { CanvasModelCatalog, CanvasModelDescriptor } from "../../../../shared/canvas-runtime";

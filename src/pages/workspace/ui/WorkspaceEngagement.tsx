@@ -1,5 +1,5 @@
 import { Window, WindowTitlebar, WINDOW_CARD } from "@/shared/ui/Window";
-import { Heart } from "lucide-react";
+import { Heart } from "@/shared/ui/icons";
 import type { AccountPresentation, WorkspaceMomentumPresentation } from "../lib/overview-presentation";
 import { SegmentMeter } from "./WorkspaceCharts";
 

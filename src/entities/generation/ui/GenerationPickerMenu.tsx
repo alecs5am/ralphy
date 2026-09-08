@@ -1,6 +1,6 @@
 import { useRef, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Search, X } from "lucide-react";
+import { Search, X } from "@/shared/ui/icons";
 import { InstrumentOverlay } from "@/shared/instrument/overlay-registry";
 import { STUDIO_ICON } from "./generation-chrome";
 

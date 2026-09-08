@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "@/shared/ui/icons";
 import { useEffect, useState } from "react";
 import { MarkdownView } from "@/shared/ui/MarkdownView";
 import { bridge } from "@/shared/api/ipc";

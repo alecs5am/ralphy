@@ -1,6 +1,6 @@
 import { NodeResizeControl, NodeResizer, NodeToolbar, Position, useUpdateNodeInternals, type NodeProps } from "@xyflow/react";
 import { useEffect, useState } from "react";
-import { ArrowDownToLine, Copy, Lock, Maximize2, MoveDiagonal2, Pencil, SlidersHorizontal, Trash2, Unlock, Unplug } from "lucide-react";
+import { ArrowDownToLine, Copy, Lock, Maximize2, MoveDiagonal2, Pencil, SlidersHorizontal, Trash2, Unlock, Unplug } from "@/shared/ui/icons";
 import { CANVAS_NODE_MIN_WIDTH, CANVAS_NODE_MAX_WIDTH } from "../../../../shared/workflow-canvas";
 import { canvasNodePorts } from "../../../../shared/canvas-ports";
 import { canvasModelIssues } from "../../../../shared/canvas-readiness";

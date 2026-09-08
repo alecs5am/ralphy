@@ -6,7 +6,7 @@
  * keychain, and the panel only ever learns whether it worked.
  */
 import { useState, type FormEvent } from "react";
-import { ArrowUp, Check, KeyRound, LoaderCircle, LogIn, Plug } from "lucide-react";
+import { ArrowUp, Check, KeyRound, LoaderCircle, LogIn, Plug } from "@/shared/ui/icons";
 
 import type { AgentProviderStatus } from "@/shared/api/ipc";
 import type { AgentChatController } from "@/features/agent-chat";

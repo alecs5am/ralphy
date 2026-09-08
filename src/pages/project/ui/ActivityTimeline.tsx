@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Activity, Archive, CheckCircle2, FileText, Film, Layers3, MessageSquare, Play, Search, type LucideIcon } from "lucide-react";
+import { Activity, Archive, CheckCircle2, FileText, Film, Layers3, MessageSquare, Play, Search, type AppIcon } from "@/shared/ui/icons";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { ActivityRunDetail } from "../../../../electron/media/types";
@@ -77,7 +77,7 @@ export function activityInstrumentState(page: DomainPage, selected: boolean): In
   return page.status === "loading" || page.status === "error" ? "partial" : "ready";
 }
 
-function appearance(value: Pick<ActivityDto, "action" | "entityType">): { tone: ActivityTone; Icon: LucideIcon } {
+function appearance(value: Pick<ActivityDto, "action" | "entityType">): { tone: ActivityTone; Icon: AppIcon } {
   const kind = `${value.action} ${value.entityType}`.toLowerCase();
   if (kind.includes("archiv")) return { tone: "archive", Icon: Archive };
   if (isMilestone(value.action)) return { tone: "success", Icon: CheckCircle2 };

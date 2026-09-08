@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Sparkles } from "@/shared/ui/icons";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useRef } from "react";
 import type { GenerationDraft, GenerationModel } from "../../../../shared/generation-studio";

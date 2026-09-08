@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+import type { AppIcon } from "@/shared/ui/icons";
 import type { ReactNode } from "react";
 import { WindowTitlebar } from "@/shared/ui/Window";
 import { SECTION_META, SECTION_TITLE } from "../lib/overview-chrome";
@@ -6,7 +6,7 @@ import { SECTION_META, SECTION_TITLE } from "../lib/overview-chrome";
 export function OverviewHeading({ id, title, icon: Icon, meta, children }: {
   id: string;
   title: string;
-  icon: LucideIcon;
+  icon: AppIcon;
   meta?: ReactNode;
   children?: ReactNode;
 }) {

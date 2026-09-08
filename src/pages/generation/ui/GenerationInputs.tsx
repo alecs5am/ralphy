@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, Film, Image, Plus, X } from "lucide-react";
+import { ArrowRight, Film, Image, Plus, X } from "@/shared/ui/icons";
 import { bridge } from "@/shared/api/ipc";
 import type { GenerationDraft, GenerationInputSpec, GenerationModel } from "../../../../shared/generation-studio";
 import { STUDIO_LABEL } from "@/entities/generation"

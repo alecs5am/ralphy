@@ -1,4 +1,4 @@
-import { Clock3, DollarSign, RotateCw } from "lucide-react";
+import { Clock3, DollarSign, RotateCw } from "@/shared/ui/icons";
 
 import type { ActivityRunDetail } from "../../../../electron/media/types";
 import type { ActivityDto } from "../../../../electron/ralphy/types";

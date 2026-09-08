@@ -4,7 +4,7 @@
  * Each view receives the days and the events and decides nothing about what is loaded -- the
  * route owns the range, so switching views never refetches.
  */
-import { AlertTriangle, CheckCheck } from "lucide-react";
+import { AlertTriangle, CheckCheck } from "@/shared/ui/icons";
 import { useContext, useEffect, useState, type CSSProperties } from "react";
 import type { CalendarEventDto } from "../../../../electron/ralphy/types";
 import { entityDragProps, type Attachment } from "@/features/agent-chat";

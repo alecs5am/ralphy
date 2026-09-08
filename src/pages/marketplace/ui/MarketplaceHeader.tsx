@@ -1,4 +1,4 @@
-import { Search, X } from "lucide-react";
+import { Search, X } from "@/shared/ui/icons";
 import type { FormEvent } from "react";
 import { SelectMenu, type SelectMenuOption } from "@/shared/ui/SelectMenu";
 import type {

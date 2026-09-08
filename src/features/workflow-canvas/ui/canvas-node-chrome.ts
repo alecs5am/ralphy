@@ -1,4 +1,4 @@
-import { AudioLines, Box, Brain, Clapperboard, FileText, GitFork, Images, Image, StickyNote, Workflow } from "lucide-react";
+import { AudioLines, Box, Brain, Clapperboard, FileText, GitFork, Images, Image, StickyNote, Workflow } from "@/shared/ui/icons";
 import type { CanvasNode } from "../../../../shared/workflow-canvas";
 
 export const NODE_FIELD = "nodrag nopan nowheel w-full min-w-0 rounded-field border-0 bg-field px-2.5 py-2 type-xs text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-50";

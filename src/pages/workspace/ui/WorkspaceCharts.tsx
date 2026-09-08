@@ -1,5 +1,5 @@
 import { useId, useState, type CSSProperties } from "react";
-import { ChartNoAxesCombined } from "lucide-react";
+import { ChartNoAxesCombined } from "@/shared/ui/icons";
 import { Window, WindowBody, WindowTitlebar } from "@/shared/ui/Window";
 
 interface TrendPoint { label: string; value: number }

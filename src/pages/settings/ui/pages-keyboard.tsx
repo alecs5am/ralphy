@@ -7,7 +7,7 @@
  * resolved, so the registry never holds two commands on one chord.
  */
 import { useEffect, useState } from "react";
-import { ArrowUpRight, RotateCcw, Search } from "lucide-react";
+import { ArrowUpRight, RotateCcw, Search } from "@/shared/ui/icons";
 
 import { Keycap } from "@/shared/ui/Keycap";
 import type { SettingsContext } from "../model/context";

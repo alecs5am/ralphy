@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Background, BackgroundVariant, Controls, MiniMap, Position, ReactFlow, ViewportPortal, applyEdgeChanges, applyNodeChanges, useNodesInitialized, useReactFlow, useViewport, type Connection, type Edge, type ReactFlowInstance, type Viewport } from "@xyflow/react";
-import { Copy, LayoutGrid, LoaderCircle, LockKeyhole, Scan, SquareDashed, Trash2, Unplug, Upload, Workflow } from "lucide-react";
+import { Background, BackgroundVariant, ControlButton, Controls, MiniMap, Position, ReactFlow, ViewportPortal, applyEdgeChanges, applyNodeChanges, useNodesInitialized, useReactFlow, useStore, useViewport, type Connection, type Edge, type ReactFlowInstance, type Viewport } from "@xyflow/react";
+import { Minus, Plus, Copy, LayoutGrid, LoaderCircle, LockKeyhole, Scan, SquareDashed, Trash2, Unplug, Upload, Workflow } from "@/shared/ui/icons";
 import { canvasNodePorts, connectionProblem } from "../../../../shared/canvas-ports";
 import { CANVAS_LIMIT, type CanvasEdge, type CanvasNode, type WorkflowCanvas } from "../../../../shared/workflow-canvas";
 import { CanvasNodeCard, type CanvasFlowNode, type CanvasNodeData } from "./CanvasNodeCard";
@@ -26,7 +26,15 @@ function InitialFit({ enabled }: { enabled: boolean }) {
 
 function BoardControls({ children }: { children?: ReactNode }) {
   const { zoom } = useViewport();
-  return <Controls showInteractive={false} position="bottom-left"><span className="flex h-8 min-w-12 items-center justify-center bg-card px-2 font-display type-sm tabular-nums text-ink" aria-label="Canvas zoom">{Math.round(zoom * 100)}%</span>{children}</Controls>;
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const minZoom = useStore((state) => state.minZoom);
+  const maxZoom = useStore((state) => state.maxZoom);
+  return <Controls showZoom={false} showFitView={false} showInteractive={false} position="bottom-left">
+    <ControlButton className="react-flow__controls-zoomin" aria-label="Zoom in" title="Zoom in" disabled={zoom >= maxZoom} onClick={() => void zoomIn()}><Plus size={16} /></ControlButton>
+    <ControlButton className="react-flow__controls-zoomout" aria-label="Zoom out" title="Zoom out" disabled={zoom <= minZoom} onClick={() => void zoomOut()}><Minus size={16} /></ControlButton>
+    <ControlButton className="react-flow__controls-fitview" aria-label="Fit view" title="Fit view" onClick={() => void fitView()}><Scan size={16} /></ControlButton>
+    <span className="flex h-8 min-w-12 items-center justify-center bg-card px-2 font-display type-sm tabular-nums text-ink" aria-label="Canvas zoom">{Math.round(zoom * 100)}%</span>{children}
+  </Controls>;
 }
 
 export function CanvasBoard({ canvas, nodeData, onEdit, onError, onSelection, onReady, onViewport, onDropFiles, selection, controls, dropDisabled = false, importing = false, inactive = false }: {

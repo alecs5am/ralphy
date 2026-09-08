@@ -6,7 +6,7 @@
  * beside this file -- a list never has to know why it is short. The chrome vocabulary and the two
  * route tables live in `sidebar-chrome`.
  */
-import { PanelLeft, Plus, Search } from "lucide-react";
+import { PanelLeft, Plus, Search } from "@/shared/ui/icons";
 
 import { Keycap } from "@/shared/ui/Keycap";
 import { useId, useMemo, useState } from "react";

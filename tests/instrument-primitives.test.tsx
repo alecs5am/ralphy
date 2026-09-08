@@ -1,5 +1,5 @@
 import { act } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw } from "../src/shared/ui/icons";
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 

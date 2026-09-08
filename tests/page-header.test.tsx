@@ -1,5 +1,5 @@
 import { act, useState } from "react";
-import { Layers3 } from "lucide-react";
+import { Layers3 } from "../src/shared/ui/icons";
 import { expect, test } from "vitest";
 import { PageHeader, PageHeaderHost } from "@/shared/ui/PageHeader";
 import { createReactHost } from "./react-host";

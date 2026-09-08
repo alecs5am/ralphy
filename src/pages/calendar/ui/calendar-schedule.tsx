@@ -9,7 +9,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import {
   AlertTriangle, ArrowLeft, ArrowUpRight, CalendarClock, Check, ChevronDown, ChevronLeft,
   ChevronRight, Clock3, Globe2, Repeat, SlidersHorizontal,
-} from "lucide-react";
+} from "@/shared/ui/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   CalendarChannelInput, CalendarReadyUnitDto, CalendarWorkspaceDto, JsonValue,

@@ -1,4 +1,4 @@
-import { AudioLines, Clapperboard, Image, Mic, Music2, Waves } from "lucide-react";
+import { AudioLines, Clapperboard, Image, Mic, Music2, Waves } from "@/shared/ui/icons";
 import { generationDraftFromRun, type GenerationDraft, type GenerationKind, type GenerationModel } from "../../../../shared/generation-studio";
 import type { CanvasRun } from "../../../../shared/canvas-runtime";
 

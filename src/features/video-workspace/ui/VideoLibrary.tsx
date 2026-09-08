@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Film, FolderOpen, Image, Music2, PanelLeftClose, Plus, Search, Type, Upload } from "lucide-react";
+import { Film, FolderOpen, Image, Music2, PanelLeftClose, Plus, Search, Type, Upload } from "@/shared/ui/icons";
 import { Window, WindowBody, WindowTitlebar } from "@/shared/ui/Window";
 import type { VideoEditor } from "../model/useVideoWorkspace";
 import type { VideoWorkspaceAsset } from "../../../../shared/video-workspace";

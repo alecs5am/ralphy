@@ -6,7 +6,7 @@
  * difference between them. A preview that fails to load falls back to its category glyph rather
  * than leaving a hole the size of a video.
  */
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@/shared/ui/icons";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { WINDOW, WINDOW_PLATE } from "@/shared/ui/Window";

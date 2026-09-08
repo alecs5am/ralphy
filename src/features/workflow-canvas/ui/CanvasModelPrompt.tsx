@@ -1,4 +1,4 @@
-import { Check, Cable } from "lucide-react";
+import { Check, Cable } from "@/shared/ui/icons";
 import type { CanvasNodeData } from "./canvas-node-types";
 import { STUDIO_FIELD, STUDIO_LABEL } from "@/entities/generation";
 

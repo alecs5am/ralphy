@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDownToLine, ArrowLeft, ArrowUpRight, Check, Clock3, Copy, Image, LoaderCircle, Maximize2, Minimize2, RotateCcw, Scan, Square, X } from "lucide-react";
+import { ArrowDownToLine, ArrowLeft, ArrowUpRight, Check, Clock3, Copy, Image, LoaderCircle, Maximize2, Minimize2, RotateCcw, Scan, Square, X } from "@/shared/ui/icons";
 import type { CanvasRun, CanvasRunResult } from "../../../../shared/canvas-runtime";
 import { generationDraftFromRun, type GenerationDraft, type GenerationKind, type GenerationModel } from "../../../../shared/generation-studio";
 import { MediaPreview } from "@/shared/ui/MediaPreview";

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, ChevronDown, Mic, Pause, Play, RefreshCw } from "lucide-react";
+import { Check, ChevronDown, Mic, Pause, Play, RefreshCw } from "@/shared/ui/icons";
 import { bridge } from "@/shared/api/ipc";
 import { GENERATION_PROVIDERS_CHANGED_EVENT, type GenerationVoice } from "../../../../shared/generation-studio";
 import { STUDIO_BUTTON, STUDIO_FIELD, STUDIO_ICON } from "./generation-chrome";

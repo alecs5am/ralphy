@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Globe, RotateCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Globe, RotateCw } from "@/shared/ui/icons";
 import { useEffect, useRef, useState } from "react";
 
 /**

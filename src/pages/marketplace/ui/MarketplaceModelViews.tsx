@@ -6,7 +6,7 @@ import {
   HardDrive,
   RefreshCw,
   TriangleAlert,
-} from "lucide-react";
+} from "@/shared/ui/icons";
 import { useEffect, useRef, useState } from "react";
 import type {
   LocalModelMachine,

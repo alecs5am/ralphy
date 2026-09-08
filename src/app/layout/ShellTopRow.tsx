@@ -10,7 +10,7 @@
  * The row is a drag region, and every control in it opts back out -- a button that moves the
  * window instead of firing is the defect this pairing prevents.
  */
-import { ArrowLeft, ArrowRight, LayoutGrid, MessageSquare, PanelLeft } from "lucide-react";
+import { ArrowLeft, ArrowRight, LayoutGrid, MessageSquare, PanelLeft } from "@/shared/ui/icons";
 import type { ReactNode } from "react";
 
 import type { WorkbenchLens } from "@/shared/model/workbench";

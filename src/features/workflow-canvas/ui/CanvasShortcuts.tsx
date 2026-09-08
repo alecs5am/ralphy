@@ -1,4 +1,4 @@
-import { Keyboard } from "lucide-react";
+import { Keyboard } from "@/shared/ui/icons";
 import { CANVAS_BUTTON } from "./canvas-chrome";
 
 export function CanvasShortcuts() {

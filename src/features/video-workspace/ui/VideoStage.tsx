@@ -1,5 +1,5 @@
 import { createElement, useEffect, useRef, useState } from "react";
-import { Frame, Maximize2, Volume2, VolumeX } from "lucide-react";
+import { Frame, Maximize2, Volume2, VolumeX } from "@/shared/ui/icons";
 import "@hyperframes/player";
 import type { HyperframesPlayer } from "@hyperframes/player";
 import { bridge } from "@/shared/api/ipc";

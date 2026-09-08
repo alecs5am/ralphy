@@ -15,8 +15,8 @@ import {
   LayoutTemplate,
   MessageSquareText,
   Package,
-} from "lucide-react";
-import { type ComponentType, type SVGProps } from "react";
+} from "@/shared/ui/icons";
+import type { AppIcon } from "@/shared/ui/icons";
 import { WINDOW, WINDOW_PLATE, WINDOW_TITLEBAR } from "@/shared/ui/Window";
 import type {
   MarketplaceCategory,
@@ -30,7 +30,7 @@ import type {
 } from "../lib/presentation";
 import { categoryIdentity, MarketplaceCategoryArtwork } from "./MarketplaceCategoryIdentity";
 
-type Icon = ComponentType<SVGProps<SVGSVGElement>>;
+type Icon = AppIcon;
 export const categoryIcons: Record<MarketplaceCategory, Icon> = {
   models: Cpu,
   templates: LayoutTemplate,

@@ -1,5 +1,5 @@
 import { PageHeader, PageHeaderMore, PAGE_HEADER_BUTTON } from "@/shared/ui/PageHeader";
-import { ChartNoAxesCombined, RefreshCw } from "lucide-react";
+import { ChartNoAxesCombined, RefreshCw } from "@/shared/ui/icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   Availability,

@@ -2,7 +2,7 @@ import { PageHeader, PAGE_HEADER_BUTTON } from "@/shared/ui/PageHeader";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   Brain, ChevronDown, FileText, Layers, Package, ScrollText, Settings2, Sparkles,
-} from "lucide-react";
+} from "@/shared/ui/icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {

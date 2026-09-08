@@ -1,4 +1,4 @@
-import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
+import { RotateCcw, ZoomIn, ZoomOut } from "@/shared/ui/icons";
 import { useEffect, useRef, useState, type PointerEvent, type WheelEvent } from "react";
 import { clampImageTransform, containedImageSize, scaleFromWheel, zoomAroundPoint, type ImageTransform, type Size } from "../lib/image-viewport";
 import { PLAYER_CHROME, PLAYER_CONTROL, PLAYER_MAT, playerTone, type PlayerTone } from "../lib/tone";

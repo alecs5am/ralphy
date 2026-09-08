@@ -1,4 +1,4 @@
-import { Bookmark, FolderInput, TriangleAlert } from "lucide-react";
+import { Bookmark, FolderInput, TriangleAlert } from "@/shared/ui/icons";
 import type { LocalModelMachine } from "../../../../electron/media/types";
 import type { MarketplaceLibrarySection } from "../model/navigation";
 import { LIBRARY_COPY, LIBRARY_MONO, LIBRARY_PLATE, LIBRARY_ROUTE, LIBRARY_TITLE, LIBRARY_UNAVAILABLE } from "../lib/detail-chrome";

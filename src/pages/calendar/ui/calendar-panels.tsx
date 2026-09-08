@@ -7,7 +7,7 @@
 import {
   AlertTriangle, ArrowUpRight, CalendarClock, Check, FilePenLine, GitCommitHorizontal,
   GripVertical, RefreshCw, X,
-} from "lucide-react";
+} from "@/shared/ui/icons";
 import { useState, type DragEvent as ReactDragEvent } from "react";
 import type {
   CalendarEventDto, CalendarEventStatus, CalendarReadyUnitDto, CalendarWorkspaceDto,

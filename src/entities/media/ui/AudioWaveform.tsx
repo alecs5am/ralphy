@@ -1,4 +1,4 @@
-import { Pause, Play, RotateCcw, RotateCw, Volume2, VolumeX } from "lucide-react";
+import { Pause, Play, RotateCcw, RotateCw, Volume2, VolumeX } from "@/shared/ui/icons";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type WaveSurfer from "wavesurfer.js";
 import { INSTRUMENT_PALETTE } from "@/shared/instrument/palette";

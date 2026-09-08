@@ -8,8 +8,8 @@
 import {
   Boxes, Brain, CalendarDays, ChartNoAxesCombined, CircleAlert, Download, FolderOpen, Layers,
   Layers3, PackageCheck, Plus, Save, Sparkles, Store, UsersRound, WandSparkles, Workflow,
-  type LucideIcon,
-} from "lucide-react";
+  type AppIcon,
+} from "@/shared/ui/icons";
 
 import type { WorkspaceSummary } from "@/shared/api/ipc";
 import type { WorkspacePage } from "@/shared/model/workbench";
@@ -24,7 +24,7 @@ export interface SidebarChat {
   updatedAt: number;
 }
 
-export const PAGE_ICONS: Record<WorkspacePage, LucideIcon> = {
+export const PAGE_ICONS: Record<WorkspacePage, AppIcon> = {
   overview: ChartNoAxesCombined,
   generation: WandSparkles,
   projects: FolderOpen,
@@ -36,7 +36,7 @@ export const PAGE_ICONS: Record<WorkspacePage, LucideIcon> = {
   calendar: CalendarDays,
 };
 
-export const MARKETPLACE_CATEGORIES: Array<{ id: MarketplaceCategory; label: string; icon: LucideIcon }> = [
+export const MARKETPLACE_CATEGORIES: Array<{ id: MarketplaceCategory; label: string; icon: AppIcon }> = [
   { id: "models", label: "Models", icon: Boxes },
   { id: "templates", label: "Templates", icon: Layers3 },
   { id: "recipes", label: "Recipes", icon: WandSparkles },
@@ -45,7 +45,7 @@ export const MARKETPLACE_CATEGORIES: Array<{ id: MarketplaceCategory; label: str
   { id: "skills", label: "Skills", icon: Store },
 ];
 
-export const MARKETPLACE_LIBRARY: Array<{ id: MarketplaceLibrarySection; label: string; icon: LucideIcon }> = [
+export const MARKETPLACE_LIBRARY: Array<{ id: MarketplaceLibrarySection; label: string; icon: AppIcon }> = [
   { id: "installed", label: "Installed", icon: PackageCheck },
   { id: "saved", label: "Saved", icon: Save },
   { id: "added", label: "Added", icon: Plus },

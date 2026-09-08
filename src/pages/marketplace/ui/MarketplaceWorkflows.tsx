@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleAlert, Download, LoaderCircle } from "lucide-react";
+import { CheckCircle2, CircleAlert, Download, LoaderCircle } from "@/shared/ui/icons";
 import { useRef, useState, type ReactNode } from "react";
 import { InstrumentOverlay } from "@/shared/instrument/overlay-registry";
 import type { CatalogResult } from "@/shared/api/ipc";

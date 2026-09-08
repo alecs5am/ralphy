@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AudioLines, Check, Cpu } from "lucide-react";
+import { AudioLines, Check, Cpu } from "@/shared/ui/icons";
 import type { GenerationCatalog, GenerationDraft, GenerationModel } from "../../../../shared/generation-studio";
 import { AiBrandIcon } from "@/shared/ui/AiBrandIcon";
 import { studioSelection } from "@/entities/generation"

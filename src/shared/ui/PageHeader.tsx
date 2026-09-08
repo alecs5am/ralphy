@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { MoreHorizontal, type LucideIcon } from "lucide-react";
+import { MoreHorizontal, type AppIcon } from "./icons";
 import { Window } from "./Window";
 
 export const PageHeaderHost = createContext<HTMLElement | null>(null);
@@ -10,7 +10,7 @@ export const PAGE_HEADER_PRIMARY = `${PAGE_HEADER_BUTTON} page-header-primary`;
 
 /** The page still owns its controls and state; only their DOM destination changes in desk mode. */
 export function PageHeader({ title, icon: Icon, meta, description, children }: {
-  title: string; icon: LucideIcon; meta?: ReactNode; description?: string; children?: ReactNode;
+  title: string; icon: AppIcon; meta?: ReactNode; description?: string; children?: ReactNode;
 }) {
   const host = usePageHeaderHost();
   const header = <div className="page-header flex min-w-0 flex-1 items-center gap-2 text-ink" role="group" aria-label={`${title} controls`}>

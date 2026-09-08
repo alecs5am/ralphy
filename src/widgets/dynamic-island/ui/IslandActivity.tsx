@@ -1,4 +1,4 @@
-import { ArrowUpRight, Bell, Check, CircleAlert, CircleCheck, LoaderCircle, X } from "lucide-react";
+import { ArrowUpRight, Bell, Check, CircleAlert, CircleCheck, LoaderCircle, X } from "@/shared/ui/icons";
 import { IconButton } from "@/shared/ui/IconButton";
 import type { DynamicIslandFeed, IslandNotification } from "../model/feed";
 

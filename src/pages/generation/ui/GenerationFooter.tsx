@@ -1,4 +1,4 @@
-import { Plug, Scan, Sparkles } from "lucide-react";
+import { Plug, Scan, Sparkles } from "@/shared/ui/icons";
 import type { GenerationModel } from "../../../../shared/generation-studio";
 import { settingsStorage, useAppPreferences } from "@/shared/model/app-preferences";
 import type { useGenerationStudio } from "../model/use-generation-studio";

@@ -10,8 +10,8 @@ import {
   Search,
   WandSparkles,
   Workflow,
-  type LucideIcon,
-} from "lucide-react";
+  type AppIcon,
+} from "@/shared/ui/icons";
 import { useState } from "react";
 
 import { Keycap } from "@/shared/ui/Keycap";
@@ -42,7 +42,7 @@ const TILE = "flex flex-col gap-2.25 rounded-cell bg-panel p-2.75 text-left hove
    here fails the typecheck. It used to be a Partial read through a `!`, and the Context page shipped
    without a tile -- `TILE_ICONS.context` was undefined, React threw on an undefined element type,
    and the whole tree unmounted, leaving the window grey the moment anyone opened the hub. */
-const TILE_ICONS: Record<WorkspaceViewType, LucideIcon> = {
+const TILE_ICONS: Record<WorkspaceViewType, AppIcon> = {
   overview: LayoutDashboard,
   generation: WandSparkles,
   projects: Folder,

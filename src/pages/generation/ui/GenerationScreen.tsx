@@ -1,6 +1,6 @@
 import { PageHeader } from "@/shared/ui/PageHeader";
 import { useState } from "react";
-import { LoaderCircle, Plug, RefreshCw, Sparkles, X } from "lucide-react";
+import { LoaderCircle, Plug, RefreshCw, Sparkles, X } from "@/shared/ui/icons";
 import { InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
 import { GENERATION_SCREEN_STATES } from "../model/instrument-states";
 import { useGenerationStudio } from "../model/use-generation-studio";

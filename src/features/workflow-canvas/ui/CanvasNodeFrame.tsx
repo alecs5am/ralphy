@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ArrowDownToLine, AudioLines, Cable, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, FileText, Pause, Play, RotateCcw, Square, Upload } from "lucide-react";
+import { ArrowDownToLine, AudioLines, Cable, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, FileText, Pause, Play, RotateCcw, Square, Upload } from "@/shared/ui/icons";
 import type { CanvasRunResult } from "../../../../shared/canvas-runtime";
 import type { CanvasNodeData } from "./canvas-node-types";
 import { nodeIdentity } from "./canvas-node-chrome";

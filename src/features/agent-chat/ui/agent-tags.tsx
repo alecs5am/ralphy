@@ -8,7 +8,7 @@
  * a sent turn, from one definition.
  */
 import type { ReactNode } from "react";
-import { FileText, Folder, Layers } from "lucide-react";
+import { FileText, Folder, Layers } from "@/shared/ui/icons";
 
 import { ATTACHMENT_KINDS } from "../lib/attachments";
 import { bridge } from "@/shared/api/ipc";

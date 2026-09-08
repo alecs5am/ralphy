@@ -1,4 +1,4 @@
-import { CalendarDays, ChartNoAxesCombined, Radio, Settings } from "lucide-react";
+import { CalendarDays, ChartNoAxesCombined, Radio, Settings } from "@/shared/ui/icons";
 import { useState } from "react";
 import { SocialIcon } from "@/shared/ui/SocialIcon";
 import { Window } from "@/shared/ui/Window";

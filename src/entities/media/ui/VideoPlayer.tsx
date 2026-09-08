@@ -1,4 +1,4 @@
-import { Expand, FastForward, Pause, Play, Rewind, Volume2, VolumeX } from "lucide-react";
+import { Expand, FastForward, Pause, Play, Rewind, Volume2, VolumeX } from "@/shared/ui/icons";
 import { useEffect, useRef, useState } from "react";
 import { SnappySlider } from "@/shared/ui/SnappySlider";
 import { PLAYER_CHROME, PLAYER_CONTROL, playerTone, type PlayerTone } from "../lib/tone";

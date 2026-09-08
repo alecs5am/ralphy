@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Captions, Copy, Film, SlidersHorizontal, Trash2, Type, Upload, Volume2, WandSparkles } from "lucide-react";
+import { Captions, Copy, Film, SlidersHorizontal, Trash2, Type, Upload, Volume2, WandSparkles } from "@/shared/ui/icons";
 import { GenerationParameter } from "@/entities/generation";
 import { Window, WindowBody, WindowTitlebar } from "@/shared/ui/Window";
 import { INSTRUMENT_PALETTE } from "@/shared/instrument/palette";

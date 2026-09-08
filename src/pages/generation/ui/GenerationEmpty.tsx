@@ -1,4 +1,4 @@
-import { ArrowUpRight, AudioLines, Clapperboard, Image } from "lucide-react";
+import { ArrowUpRight, AudioLines, Clapperboard, Image } from "@/shared/ui/icons";
 import type { GenerationKind } from "../../../../shared/generation-studio";
 import { generationTab, STARTERS } from "../lib/generation-presentation";
 

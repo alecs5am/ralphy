@@ -5,7 +5,7 @@ import {
   FolderOpen,
   GalleryHorizontalEnd,
   Layers3,
-} from "lucide-react";
+} from "@/shared/ui/icons";
 import type {
   CatalogResult,
   ProjectSummary,

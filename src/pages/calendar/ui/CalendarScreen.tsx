@@ -8,7 +8,7 @@ import { PageHeader, PageHeaderMore, PAGE_HEADER_BUTTON, PAGE_HEADER_PRIMARY } f
  */
 import {
   CalendarDays, Columns3, List, ChevronLeft, ChevronRight, CircleAlert, Globe2, PanelRight, Plus, SlidersHorizontal,
-} from "lucide-react";
+} from "@/shared/ui/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   CalendarEventDto, CalendarReadyUnitDto, CalendarWorkspaceDto,

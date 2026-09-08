@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Clock3, Copy, GitCompareArrows, History, MessageSquare, RotateCcw, Sparkles } from "lucide-react";
+import { Check, Clock3, Copy, GitCompareArrows, History, MessageSquare, RotateCcw, Sparkles } from "@/shared/ui/icons";
 import { Window, WindowBody, WindowTitlebar } from "@/shared/ui/Window";
 import { bridge } from "@/shared/api/ipc";
 import type { VideoAgentRequest, VideoWorkspaceRef } from "../../../../shared/video-workspace";

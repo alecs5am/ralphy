@@ -1,4 +1,4 @@
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw } from "@/shared/ui/icons";
 import { lazy, Suspense, useEffect, useState, useSyncExternalStore } from "react";
 import { ProjectControls } from "@/widgets/project-header";
 import { InstrumentScreenRoot, type InstrumentScreenStateDescriptor } from "@/shared/instrument/screen-state-registry";

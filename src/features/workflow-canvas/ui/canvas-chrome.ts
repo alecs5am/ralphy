@@ -1,4 +1,4 @@
-import { Box, Clapperboard, Cpu, FileText, Workflow, ImagePlus, Cable, Layers3, StickyNote, Split } from "lucide-react";
+import { Box, Clapperboard, Cpu, FileText, Workflow, ImagePlus, Cable, Layers3, StickyNote, Split } from "@/shared/ui/icons";
 import type { CanvasNodeKind } from "../../../../shared/workflow-canvas";
 export const NODE_ICONS = { prompt: FileText, media: ImagePlus, model: Cpu, connector: Cable, variation: Layers3, output: Box, note: StickyNote, step: Workflow } satisfies Record<CanvasNodeKind, typeof FileText>;
 export const TEMPLATE_ICONS = { blank: Workflow, image: ImagePlus, video: Clapperboard, comparison: Split };

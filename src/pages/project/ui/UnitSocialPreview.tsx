@@ -16,7 +16,7 @@ import {
   Shuffle,
   ThumbsDown,
   ThumbsUp,
-} from "lucide-react";
+} from "@/shared/ui/icons";
 import { useEffect, useState } from "react";
 
 import { AudioWaveform } from "@/entities/media";

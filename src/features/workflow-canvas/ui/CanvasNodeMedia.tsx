@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowDownToLine, Check, Copy, FileText, Images, Upload } from "lucide-react";
+import { ArrowDownToLine, Check, Copy, FileText, Images, Upload } from "@/shared/ui/icons";
 import { MediaPreview as CanvasMediaPreview } from "@/shared/ui/MediaPreview";
 import type { CanvasNodeData } from "./canvas-node-types";
 import { NODE_ACTION } from "./canvas-node-chrome";

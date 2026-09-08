@@ -1,4 +1,4 @@
-import { FolderKanban } from "lucide-react";
+import { FolderKanban } from "@/shared/ui/icons";
 import type { ProjectSummary } from "@/shared/api/ipc";
 
 /* A status fact is a pill on the theme's own widget: surface and ink stated together. */

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, Columns2, Film, History, LoaderCircle, Maximize2, PanelLeftOpen, PanelRightClose, PanelRightOpen, Play, RotateCcw, Save, SlidersHorizontal, Sparkles, Type, X } from "lucide-react";
+import { ArrowLeft, Check, Columns2, Film, History, LoaderCircle, Maximize2, PanelLeftOpen, PanelRightClose, PanelRightOpen, Play, RotateCcw, Save, SlidersHorizontal, Sparkles, Type, X } from "@/shared/ui/icons";
 import { PageHeader, PageHeaderHost, usePageHeaderHost, PAGE_HEADER_BUTTON, PAGE_HEADER_PRIMARY } from "@/shared/ui/PageHeader";
 import { ResizeHandle } from "@/shared/ui/ResizeHandle";
 import type { VideoAgentRequest, VideoWorkspaceRef } from "../../../../shared/video-workspace";

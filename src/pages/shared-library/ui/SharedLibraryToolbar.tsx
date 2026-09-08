@@ -1,4 +1,4 @@
-import { Grid2X2, List, Search, X } from "lucide-react";
+import { Grid2X2, List, Search, X } from "@/shared/ui/icons";
 import { useId } from "react";
 import type { MediaKind, MediaProvenance } from "../../../../electron/ralphy/types";
 import { SelectMenu, type SelectMenuOption } from "@/shared/ui/SelectMenu";

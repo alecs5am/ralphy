@@ -11,8 +11,8 @@ import {
   Sparkles,
   Terminal,
   User,
-  type LucideIcon,
-} from "lucide-react";
+  type AppIcon,
+} from "@/shared/ui/icons";
 
 import type { AppPreferences } from "./preferences";
 
@@ -47,7 +47,7 @@ export const SETTINGS_NAV_GROUPS = [
   { label: "SUPPORT", items: ["diagnostics", "updates", "about"] },
 ] as const satisfies readonly { label: string; items: readonly SettingsPageId[] }[];
 
-export const SETTINGS_PAGE_ICONS: Record<SettingsPageId, LucideIcon> = {
+export const SETTINGS_PAGE_ICONS: Record<SettingsPageId, AppIcon> = {
   general: SlidersHorizontal,
   profile: User,
   appearance: Contrast,

@@ -16,8 +16,8 @@ import {
   WandSparkles,
   Workflow,
   X,
-  type LucideIcon,
-} from "lucide-react";
+  type AppIcon,
+} from "@/shared/ui/icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import {
@@ -43,7 +43,7 @@ import { InstrumentOverlay } from "@/shared/instrument/overlay-registry";
  * tab 30x28 R9, tabs 28 R9 between 96 and 150, overflow 24 R8, the `+` a 24 circle, page card R16.
  */
 
-const TAB_ICONS: Record<ViewTabType, LucideIcon> = {
+const TAB_ICONS: Record<ViewTabType, AppIcon> = {
   home: House,
   overview: LayoutDashboard,
   generation: WandSparkles,

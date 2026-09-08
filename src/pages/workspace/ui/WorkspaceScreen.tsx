@@ -1,5 +1,5 @@
 import { PageHeader } from "@/shared/ui/PageHeader";
-import { ChartNoAxesCombined, AlertCircle, RefreshCw } from "lucide-react";
+import { ChartNoAxesCombined, AlertCircle, RefreshCw } from "@/shared/ui/icons";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ProjectSummary } from "@/shared/api/ipc";
 import { bridge } from "@/shared/api/ipc";

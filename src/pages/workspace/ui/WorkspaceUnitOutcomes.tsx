@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight, Boxes, ChartNoAxesCombined } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Boxes, ChartNoAxesCombined } from "@/shared/ui/icons";
 import { useId, useState } from "react";
 import { SocialIcon } from "@/shared/ui/SocialIcon";
 import { Window } from "@/shared/ui/Window";

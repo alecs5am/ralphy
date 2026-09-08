@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, ChevronRight, Clock3, Copy, ExternalLink, Frame, Pause, Play, SlidersHorizontal, Volume2, VolumeX } from "lucide-react";
+import { Check, ChevronRight, Clock3, Copy, ExternalLink, Frame, Pause, Play, SlidersHorizontal, Volume2, VolumeX } from "@/shared/ui/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ProjectOverviewDto, UnitPreviewDto } from "../../../../electron/ralphy/types";

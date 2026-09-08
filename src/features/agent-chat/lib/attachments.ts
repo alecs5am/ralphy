@@ -1,4 +1,4 @@
-import { Brain, CalendarClock, FileText, Folder, Image, Layers, type LucideIcon } from "lucide-react";
+import { Brain, CalendarClock, FileText, Folder, Image, Layers, type AppIcon } from "@/shared/ui/icons";
 
 /**
  * Attachments: the chat's second reference channel.
@@ -28,7 +28,7 @@ export interface Attachment {
 /* The glyph and the word each kind is printed with. There is no colour here on purpose: colour is
    the *inline* tag's way of saying its kind inside a sentence, and an attachment is already a
    chip on its own strip with its kind spelled out. */
-export const ATTACHMENT_KINDS: Record<AttachmentKind, { icon: LucideIcon; label: string }> = {
+export const ATTACHMENT_KINDS: Record<AttachmentKind, { icon: AppIcon; label: string }> = {
   unit: { icon: Layers, label: "UNIT" },
   file: { icon: FileText, label: "FILE" },
   project: { icon: Folder, label: "PROJECT" },

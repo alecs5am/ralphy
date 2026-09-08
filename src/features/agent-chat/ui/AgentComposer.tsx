@@ -9,7 +9,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { X } from "lucide-react";
+import { X } from "@/shared/ui/icons";
 import {
   ATTACHMENT_KINDS,
   RALPHY_ENTITY_DRAG,

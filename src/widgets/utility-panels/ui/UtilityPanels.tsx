@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, MessageSquare, PanelRightClose, PanelsTopLeft, Plus, Workflow } from "lucide-react";
+import { ArrowUp, MessageSquare, PanelRightClose, PanelsTopLeft, Plus, Workflow } from "@/shared/ui/icons";
 import { motion } from "motion/react";
 import type { ProjectSummary, WorkspaceSummary } from "@/shared/api/ipc";
 import type { AgentChatController } from "@/features/agent-chat";

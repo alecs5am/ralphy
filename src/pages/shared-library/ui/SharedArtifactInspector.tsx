@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { ChevronRight, ExternalLink, RefreshCw } from "lucide-react";
+import { ChevronRight, ExternalLink, RefreshCw } from "@/shared/ui/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ArtifactMediaCardDto, ArtifactRevisionDto } from "../../../../electron/ralphy/types";
 import { bridge } from "@/shared/api/ipc";

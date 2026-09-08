@@ -9,7 +9,7 @@ import {
   FileText,
   Package,
   RefreshCw,
-} from "lucide-react";
+} from "@/shared/ui/icons";
 import type {
   MarketplaceBrowseRoute,
   MarketplaceCategory,

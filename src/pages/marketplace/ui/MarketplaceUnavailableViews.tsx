@@ -6,8 +6,9 @@ import {
   MessageSquareText,
   Send,
   UserRound,
-} from "lucide-react";
-import type { ComponentType, ReactNode, SVGProps } from "react";
+} from "@/shared/ui/icons";
+import type { ReactNode } from "react";
+import type { AppIcon } from "@/shared/ui/icons";
 import { categoryIdentity, MarketplaceCategoryArtwork, MarketplaceCategorySignature } from "./MarketplaceCategoryIdentity";
 import {
   ASIDE_SECTION,
@@ -32,7 +33,7 @@ import {
 } from "../lib/detail-chrome";
 
 type UnsupportedCategory = "prompts" | "components" | "skills";
-type Icon = ComponentType<SVGProps<SVGSVGElement>>;
+type Icon = AppIcon;
 
 const categoryCopy: Record<UnsupportedCategory, {
   label: string;

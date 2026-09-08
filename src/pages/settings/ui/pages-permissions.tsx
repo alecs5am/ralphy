@@ -6,7 +6,7 @@
  * The risk rows are the app's own gates, which is why they are a list here and not a paragraph.
  */
 import { useEffect, useState } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@/shared/ui/icons";
 
 
 import {

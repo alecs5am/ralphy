@@ -6,7 +6,7 @@
  * without the ink it pairs with -- a class list assembled at three call sites drifts at two of
  * them.
  */
-import { AlertTriangle, Instagram, ListFilter, Music2, Twitter, Youtube } from "lucide-react";
+import { AlertTriangle, Instagram, ListFilter, Music2, Twitter, Youtube } from "@/shared/ui/icons";
 import { createContext } from "react";
 import type { CalendarEventStatus } from "../../../../electron/ralphy/types";
 import { WINDOW } from "@/shared/ui/Window";

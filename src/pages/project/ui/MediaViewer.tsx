@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Copy, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, RefreshCw } from "@/shared/ui/icons";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import type { ArtifactMediaCardDto, ArtifactRevisionDto, GenerationAttemptDetailDto, MediaCardDto, MediaGenerationDetailDto, RunObjectMediaCardDto } from "../../../../electron/ralphy/types";

@@ -1,4 +1,4 @@
-import { Check, LoaderCircle } from "lucide-react";
+import { Check, LoaderCircle } from "@/shared/ui/icons";
 import { RalphyMascot } from "@/shared/ui/RalphyMascot";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
 

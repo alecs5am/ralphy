@@ -1,5 +1,5 @@
 import { useRef, useState, type PointerEvent } from "react";
-import { Captions, Film, Magnet, Mic, Music2, Pause, Play, Redo2, Scissors, SkipBack, SkipForward, Type, Undo2, Eye, EyeOff, Minus, Plus, LocateFixed } from "lucide-react";
+import { Captions, Film, Magnet, Mic, Music2, Pause, Play, Redo2, Scissors, SkipBack, SkipForward, Type, Undo2, Eye, EyeOff, Minus, Plus, LocateFixed } from "@/shared/ui/icons";
 import type { ElementSnapshot } from "@hyperframes/sdk";
 import type { VideoEditor } from "../model/useVideoWorkspace";
 import type { VideoTransport } from "./VideoStage";

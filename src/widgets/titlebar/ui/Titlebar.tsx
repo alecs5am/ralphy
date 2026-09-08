@@ -4,7 +4,7 @@ import {
   House,
   PanelLeft,
   PanelRight,
-} from "lucide-react";
+} from "@/shared/ui/icons";
 import { motion } from "motion/react";
 
 /* A row of window chrome: full-height, hairline gaps, and never part of the drag region.

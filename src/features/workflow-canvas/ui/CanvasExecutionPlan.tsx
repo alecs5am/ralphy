@@ -1,4 +1,4 @@
-import { CircleAlert, GitBranch, Unplug, X } from "lucide-react";
+import { CircleAlert, GitBranch, Unplug, X } from "@/shared/ui/icons";
 import type { CanvasExecutionPlan as Plan } from "../../../../shared/canvas-execution-plan";
 import type { CanvasNodeReadiness } from "../../../../shared/canvas-readiness";
 import { CANVAS_BUTTON, NODE_ICONS } from "./canvas-chrome";

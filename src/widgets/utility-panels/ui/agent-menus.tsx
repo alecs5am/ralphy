@@ -16,7 +16,7 @@ import {
   Search,
   ShieldCheck,
   SlidersHorizontal,
-} from "lucide-react";
+} from "@/shared/ui/icons";
 
 import type { AgentPermissionMode } from "@/shared/api/ipc";
 import type { AgentChatController } from "@/features/agent-chat";
