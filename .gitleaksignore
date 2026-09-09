@@ -2,3 +2,6 @@
 # `credentialDigest` is SHA-256 over the published all-zero-to-0x1f sample token
 # bytes, not a credential: runtime authentication never compares against it.
 npm/contracts/farm-identity-v1.golden.json:generic-api-key:5
+
+# Imported CLI documentation example uses the literal placeholder YOUR_API_KEY.
+apps/desktop/resources/prompt-pack/.agents/skills/researcher/references/site-grounding.md:curl-auth-header:115

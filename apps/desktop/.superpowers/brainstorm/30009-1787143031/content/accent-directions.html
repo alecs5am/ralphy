@@ -1,0 +1,67 @@
+<style>
+  .accent-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 24px;
+  }
+  .accent-card {
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 16px;
+    background: #151515;
+    cursor: pointer;
+    transition: transform 140ms ease, border-color 140ms ease;
+  }
+  .accent-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.28); }
+  .accent-card.selected { border-color: var(--swatch); box-shadow: 0 0 0 2px color-mix(in srgb, var(--swatch) 35%, transparent); }
+  .accent-card img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: left top; }
+  .accent-meta { display: flex; align-items: center; gap: 12px; padding: 14px 16px 16px; }
+  .accent-swatch { width: 14px; height: 14px; flex: none; border-radius: 999px; background: var(--swatch); }
+  .accent-copy { min-width: 0; flex: 1; }
+  .accent-copy h3 { margin: 0 0 3px; font-size: 16px; }
+  .accent-copy p { margin: 0; color: #989898; font-size: 13px; }
+  .accent-code { color: var(--swatch); font: 12px ui-monospace, monospace; }
+  @media (max-width: 900px) { .accent-grid { grid-template-columns: 1fr; } }
+</style>
+
+<h2>Какой акцент оживляет Higgsfield-базу?</h2>
+<p class="subtitle">Neutrals во всех вариантах одинаковые: #0F1113 · #1A1A1A · #23262A · #F7F7F8 · #A8A8A8. Сравниваем только акцент.</p>
+
+<div class="accent-grid">
+  <div class="accent-card" style="--swatch:#D1FE17" data-choice="acid-lime" onclick="toggleSelect(this)">
+    <img src="/files/accent-lime.png" alt="Ralphy with acid lime accent">
+    <div class="accent-meta">
+      <span class="accent-swatch"></span>
+      <div class="accent-copy"><h3>A · Acid Lime</h3><p>Самый Higgsfield. Резкий, модный, уверенный.</p></div>
+      <span class="accent-code">#D1FE17</span>
+    </div>
+  </div>
+
+  <div class="accent-card" style="--swatch:#2DE2FF" data-choice="electric-cyan" onclick="toggleSelect(this)">
+    <img src="/files/accent-cyan.png" alt="Ralphy with electric cyan accent">
+    <div class="accent-meta">
+      <span class="accent-swatch"></span>
+      <div class="accent-copy"><h3>B · Electric Cyan</h3><p>Более digital и tool-like, меньше fashion.</p></div>
+      <span class="accent-code">#2DE2FF</span>
+    </div>
+  </div>
+
+  <div class="accent-card" style="--swatch:#FF5A36" data-choice="signal-vermilion" onclick="toggleSelect(this)">
+    <img src="/files/accent-vermilion.png" alt="Ralphy with vermilion accent">
+    <div class="accent-meta">
+      <span class="accent-swatch"></span>
+      <div class="accent-copy"><h3>C · Signal Vermilion</h3><p>Самый дерзкий и editorial. Много энергии.</p></div>
+      <span class="accent-code">#FF5A36</span>
+    </div>
+  </div>
+
+  <div class="accent-card" style="--swatch:#9B6CFF" data-choice="ultraviolet" onclick="toggleSelect(this)">
+    <img src="/files/accent-ultraviolet.png" alt="Ralphy with ultraviolet accent">
+    <div class="accent-meta">
+      <span class="accent-swatch"></span>
+      <div class="accent-copy"><h3>D · Ultraviolet</h3><p>Знакомый характер, но чище и контрастнее.</p></div>
+      <span class="accent-code">#9B6CFF</span>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,80 @@
+/* Everything this surface draws now lives on the elements that draw it, in
+   src/screens/MarketplaceScreen.tsx and src/screens/marketplace/*. What is left here is what a
+   utility cannot express, and every rule below styles an element this area does not own.
+
+   Cascade fact these rules depend on, measured: an `!important` declaration in an unlayered
+   sheet loses to an `!important` utility inside @layer utilities. So a rule that has to beat a
+   utility must be unlayered *and* the utility must not exist -- which is only true for elements
+   no component of this area can put a class on. */
+
+/* The desk claim. Marketplace is the one route that owns its own scrolling, so while it is the
+   visible mode the desk stops being a scroll surface and hands its height to the route. The
+   three elements are the instrument shell's scroll column, App.tsx's mode stage and App.tsx's
+   mode surface: none of them is a Marketplace component, and the condition is a `:has()` on a
+   descendant, which no utility can state. instrument.css sets `height: auto` and
+   `overflow: visible` on the same elements for every other route, so these have to beat it. */
+.instrument-desk-scroll:has(> .main-content-stage > .app-mode-marketplace:not([hidden])) {
+  scrollbar-gutter: auto !important;
+}
+
+.instrument-desk-scroll > .main-content-stage:has(> .app-mode-marketplace:not([hidden])),
+.instrument-desk-scroll > .main-content-stage > .app-mode-marketplace:not([hidden]) {
+  display: flex !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+}
+
+/* The workflow overlay surface. InstrumentOverlay renders it and passes no className through,
+   so where it sits and how wide it is cannot be a utility; the registry's own managed surface
+   gives it the window chrome, and the route inside it brings the titlebar and the card. The
+   backdrop is the same element story: its tone and its place in the chooser stack are the only
+   things overridden here. */
+[data-instrument-overlay-backdrop]:has(+ [data-instrument-overlay="target-chooser"]) {
+  z-index: var(--z-chooser-backdrop);
+  background: var(--instrument-media-veil);
+}
+[data-instrument-overlay="target-chooser"] {
+  position: fixed;
+  z-index: var(--z-chooser);
+  top: 50%;
+  left: 50%;
+  display: flex;
+  width: min(620px, calc(100vw - 32px));
+  min-height: 0;
+  transform: translate(-50%, -50%);
+  flex-direction: column;
+  overflow: hidden;
+  corner-shape: squircle;
+}
+
+/* Mode switch and Marketplace navigation rows stand on the black sidebar widget, so their ring
+   is the on-instrument one and it is drawn inside the row rather than around it. Both elements
+   belong to the workbench chrome (ContextSidebar), not to this area, which is why the rule is
+   still a stylesheet rule: it moves when the chrome moves. */
+#app-mode-work:focus-visible,
+#app-mode-marketplace:focus-visible,
+.sidebar-nav[aria-label="Marketplace categories"] .sidebar-nav-row:focus-visible,
+.sidebar-nav[aria-label="My Library"] .sidebar-nav-row:focus-visible { outline: 2px solid var(--instrument-focus-on-dark); outline-offset: -2px; }
+html[data-theme="light"] #app-mode-work:focus-visible,
+html[data-theme="light"] #app-mode-marketplace:focus-visible,
+html[data-theme="light"] .sidebar-nav[aria-label="Marketplace categories"] .sidebar-nav-row:focus-visible,
+html[data-theme="light"] .sidebar-nav[aria-label="My Library"] .sidebar-nav-row:focus-visible { outline-color: var(--instrument-focus-on-light); }
+
+/* The reduced-motion contract for the borrowed children mounted on this route: the select-menu
+   chevron, the markdown view and the media elements, whose own motion is declared in another
+   sheet. It cannot reach this area's own motion -- an !important declaration here loses to an
+   !important utility in @layer utilities -- so every animation declared in the markup carries
+   its own motion-reduce variant. Measured the same way as the shared library's: with reduce
+   emulated, disabling this rule changed no computed transition or animation longhand on any of
+   the 62 elements under `.marketplace-screen` or the 444 reachable in total. It stays as the
+   guard over borrowed children, which is the one set a utility cannot name. */
+@media (prefers-reduced-motion: reduce) {
+  .marketplace-screen *,
+  .marketplace-screen *::before,
+  .marketplace-screen *::after,
+  .marketplace-workflow-window *,
+  .marketplace-workflow-window *::before,
+  .marketplace-workflow-window *::after { animation-duration: 0s !important; animation-name: none !important; transition-duration: 0s !important; }
+}

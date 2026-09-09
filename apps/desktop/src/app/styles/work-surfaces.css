@@ -1,0 +1,97 @@
+/* Work routes own their presentation through Tailwind utilities in route components, and the mode
+   surface states its own desk and ink in `App.tsx`. What is left here is the legacy token layer
+   and nothing else: two scopes of custom properties, which are values rather than styling and have
+   no utility form -- an `@theme` key names one role, and these name thirty each.
+
+   The light scope follows the DOM, so an overlay portalled to `document.body` stands outside it and
+   its legacy inks fall back to the on-dark family at the root. Every overlay in the app now states
+   its own surface and ink as a pair instead of inheriting them, which is the fix that scales: a
+   scope keyed on the overlay attribute would have to re-flip ten already-corrected overlays. */
+.app-mode-work {
+  --canvas: var(--instrument-desk);
+  --sunken: var(--instrument-widget-light-sunken);
+  --panel: var(--instrument-widget-light);
+  --panel-solid: var(--instrument-widget-light);
+  --raised: var(--instrument-widget-light-sunken);
+  --hover: var(--instrument-widget-light-hover);
+  --selected: var(--instrument-text-primary);
+  --selected-ink: var(--instrument-text-on-dark-primary);
+  --pressed: var(--instrument-desk-hover);
+  --fg: var(--instrument-text-primary);
+  --fg-2: var(--instrument-text-secondary-readable);
+  --fg-3: var(--instrument-text-secondary-readable);
+  --fg-4: var(--instrument-text-secondary-readable);
+  --accent: var(--instrument-text-primary);
+  --accent-soft: var(--instrument-text-secondary-readable);
+  --ok: var(--instrument-text-primary);
+  --warn: var(--instrument-text-secondary-readable);
+  --danger: var(--instrument-alert);
+  --line: color-mix(in srgb, var(--instrument-text-primary) 8%, transparent);
+  --line-strong: color-mix(in srgb, var(--instrument-text-primary) 16%, transparent);
+  --field-surface: var(--instrument-widget-light-sunken);
+  --field-text: var(--instrument-text-primary);
+  --field-placeholder: var(--instrument-text-secondary-readable);
+  --control-focus-color: var(--instrument-text-primary);
+  /* Without these the control inks fell through to the root on-dark values and painted
+     #A4A4A0 labels on light filter pills. */
+  --control-hover: var(--instrument-widget-light-hover);
+  /* --control-text-hover doubles as the selected ink, so this stays a surface rather than
+     an inversion fill; inverted pills use --selected / --selected-ink instead. */
+  --control-selected: var(--instrument-desk-hover);
+  --control-text: var(--instrument-text-secondary-readable);
+  --control-text-hover: var(--instrument-text-primary);
+}
+
+/* The desk is light but the widgets standing on it stay black in both themes, so ink
+   cannot be scoped to the app mode: every legacy token below resolves to desk ink and
+   turned invisible on a dark widget (unit status pills read #141414 on #141414). Any
+   element that paints a dark surface re-declares the on-dark ink set for its subtree. */
+:is(.bg-instrument, .bg-instrument-raised, .bg-instrument-hover, .activity-icon, .asset-preview, .select-menu-trigger, .select-menu-content) {
+  --canvas: var(--instrument-widget-dark);
+  --sunken: var(--instrument-widget-dark-raised);
+  --field-text: var(--instrument-text-on-dark-primary);
+  --field-placeholder: var(--instrument-text-on-dark-secondary-readable);
+  --panel: var(--instrument-widget-dark);
+  --panel-solid: var(--instrument-widget-dark);
+  --raised: var(--instrument-widget-dark-raised);
+  --hover: var(--instrument-widget-dark-hover);
+  --selected: var(--instrument-text-on-dark-primary);
+  --selected-ink: var(--instrument-selected-ink);
+  --pressed: var(--instrument-widget-dark-hover);
+  --fg: var(--instrument-text-on-dark-primary);
+  --fg-2: var(--instrument-text-on-dark-secondary-readable);
+  --fg-3: var(--instrument-text-on-dark-secondary-readable);
+  --fg-4: var(--instrument-text-on-dark-secondary-readable);
+  --accent: var(--instrument-text-on-dark-primary);
+  --accent-soft: var(--instrument-text-on-dark-secondary-readable);
+  --ok: var(--instrument-text-on-dark-primary);
+  --warn: var(--instrument-text-on-dark-secondary-readable);
+  --danger: var(--instrument-alert);
+  --line: color-mix(in srgb, var(--instrument-text-on-dark-primary) 8%, transparent);
+  --line-strong: color-mix(in srgb, var(--instrument-text-on-dark-primary) 16%, transparent);
+  --field-surface: var(--instrument-widget-dark-raised);
+  --control-focus-color: var(--instrument-text-on-dark-primary);
+  --control-hover: var(--instrument-widget-dark-hover);
+  /* Surface, not an inversion fill — see the note on the light scope. */
+  --control-selected: var(--instrument-widget-dark-hover);
+  --control-text: var(--instrument-text-on-dark-secondary-readable);
+  --control-text-hover: var(--instrument-text-on-dark-primary);
+}
+
+/* Deleted, each measured dead in the running renderer across 169 state-runs:
+
+   - `.app-mode-work :is(button, input, textarea, select) { font-family: var(--font-sans) }`
+     changed nothing on any of the 47 controls it matched. reset.css already gives those four
+     elements `font: inherit`, and `body` is the sans face, so the declaration only restated what
+     inheritance had already delivered.
+   - a second `[data-instrument-overlay-backdrop]` fill, identical to the one instrument.css
+     declares, plus a `backdrop-filter: none` that cancelled a blur nothing sets. Two copies of one
+     value is how a scrim ends up with two owners; instrument.css keeps the single copy.
+   - the reduced-motion blanket over `.app-mode-work *` and `[data-instrument-overlay] *`. It
+     matched 586 elements and changed none of them: an `!important` declaration in an *unlayered*
+     stylesheet loses to an `!important` utility inside `@layer utilities`, and every animation and
+     transition in the renderer is now declared as a utility. Motion is held back where it is
+     declared instead -- each animated element carries its own `motion-reduce:animate-none` or
+     `motion-reduce:transition-none`.
+   - the per-mode focus-ring override, already removed: the ring lives in reset.css and paints with
+     `--fg`, which the surface scopes above flip for free. */

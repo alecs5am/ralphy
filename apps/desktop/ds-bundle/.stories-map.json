@@ -1,0 +1,292 @@
+{
+  "global": "RalphyDesktop",
+  "pkg": "ralphy-desktop",
+  "pkgDir": "/Users/maximovchinnikov/github/ralphy/ralphy-desktop",
+  "extraEntries": [],
+  "exported": [],
+  "storybookStatic": null,
+  "keyRecipe": 7,
+  "cfgSliceGlobal": "90131b87814b5688e308aca0257cf407982b3f02ca637e099785a51f85e277d5",
+  "components": [
+    {
+      "name": "AgentChatPanel",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "93ec8baa6c0b8656",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "AiBrandIcon",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "d3ea2c0367b780b0",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "App",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "33700aa51a47bf94",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "AssetContent",
+      "group": "media",
+      "srcSha": null,
+      "sourceKey": "0d3882bce26ebd0c",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "AssetContextMenu",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "cd04cba9936b7dbc",
+      "cfgSlice": "c38bc6e45cbbb83b03614d282df5e10744507b5a60969a15d5b78b803fbe2cfb",
+      "stories": []
+    },
+    {
+      "name": "AssetTile",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "6a5228faf28d5ae4",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "AssetViewer",
+      "group": "screens",
+      "srcSha": null,
+      "sourceKey": "f705a68e116d3b8a",
+      "cfgSlice": "44346b650718ddb69ebc5fa27a76f72e73c0cba4e4842bdb815f2a98d2797048",
+      "stories": []
+    },
+    {
+      "name": "AudioWaveform",
+      "group": "media",
+      "srcSha": null,
+      "sourceKey": "9319a2fa2229dc28",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "BottomPanel",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "090d628f05729047",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "ContextSidebar",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "e6a0c823df0b9eef",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "ImageViewport",
+      "group": "media",
+      "srcSha": null,
+      "sourceKey": "b18685988a036c6d",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "Inspector",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "e8ca92f6ccc92888",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "InspectorPreview",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "5a184d3b83613ad4",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "LibraryScreen",
+      "group": "screens",
+      "srcSha": null,
+      "sourceKey": "9b76acee027e0cf8",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "MainHeader",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "133cf2d2471115b0",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "MarkdownView",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "6c593f8a2d8f1d4a",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "ProfileAvatar",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "47abf8be84eb4a11",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "ProfileMenu",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "8e311a80b345c20c",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "ProjectControls",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "593b9aa1e526c859",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "ProjectHeader",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "8c44bdb41fa9c64e",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "ProjectScreen",
+      "group": "screens",
+      "srcSha": null,
+      "sourceKey": "02b9d19111d40f0c",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "RalphyMascot",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "e8099e4349837bcd",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "ResizeHandle",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "24ef5360cedc8853",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "ReviewControls",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "fa90864f2646ee89",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "SelectMenu",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "37aa87b9e0042948",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "SettingsScreen",
+      "group": "screens",
+      "srcSha": null,
+      "sourceKey": "fe6831f5a017f80f",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "SidebarChrome",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "e53b773af52fbdfa",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "SnappySlider",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "7417f841faa767a7",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "TerminalPane",
+      "group": "terminal",
+      "srcSha": null,
+      "sourceKey": "2d855ee810315ab5",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "TerminalWorkspace",
+      "group": "terminal",
+      "srcSha": null,
+      "sourceKey": "e6e87b8c9998d440",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "VideoPlayer",
+      "group": "media",
+      "srcSha": null,
+      "sourceKey": "1136f8db52da4612",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "VirtualAssetGrid",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "2dbb3d11489d6da6",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "WelcomeScreen",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "b5dc56743aeca253",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "WorkspacePicker",
+      "group": "general",
+      "srcSha": null,
+      "sourceKey": "092b3529e73003ec",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    },
+    {
+      "name": "WorkspaceScreen",
+      "group": "screens",
+      "srcSha": null,
+      "sourceKey": "df2e59375aa31c81",
+      "cfgSlice": "5ff899b099eb6923833804cda955efdd69101524bec86f67dac5537cd81802e8",
+      "stories": []
+    }
+  ]
+}

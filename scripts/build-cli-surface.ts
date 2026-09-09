@@ -77,8 +77,8 @@ function captureHelp(repo: string, verb: string): string {
     { cwd: repo, encoding: "utf8" },
   );
   const out = (r.stdout + "\n" + r.stderr).trim();
-  // Strip ANSI escapes for stable diff.
-  return out.replace(/\x1b\[[0-9;]*m/g, "");
+  // Strip ANSI escapes and checkout paths so CI can reproduce the document.
+  return out.replace(/\x1b\[[0-9;]*m/g, "").replaceAll(repo, "<repository>");
 }
 
 async function main(): Promise<void> {

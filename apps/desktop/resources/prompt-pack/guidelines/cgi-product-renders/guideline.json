@@ -1,0 +1,17 @@
+{
+  "slug": "cgi-product-renders",
+  "name": "CGI product renders",
+  "tag": "@guideline:cgi-product-renders",
+  "version": "1.0",
+  "kind": "image-prompt",
+  "tagline": "Hyper-real product hero shots — coloured rim-light pair + 25° low-angle / 90° top-down / extreme macro vocabulary. Same composition language across two brand palettes (dark-tech and kawaii-yellow-pink).",
+  "description": "How to prompt an image model so the output reads as a premium CGI product render — the visual language of Nothing Phone launch stills, hyper-motion product ads, tech-porn macro hero shots. Covers the reusable shot grammar (front hero, 3/4 low-angle, top-down back, macro screen, PCB tech-porn) and the two palettes that ride on top (dark-cinematic-with-electric-blue-magenta vs sunny-kawaii-yellow-pink).",
+  "cover": "shot-01-front-hero",
+  "scope": ["image", "product", "cgi", "hypermotion", "hero", "macro"],
+  "models": [
+    "google/gemini-3-pro-image-preview",
+    "openai/gpt-5.4-image-2"
+  ],
+  "tags": ["product", "cgi", "render", "hypermotion", "hero", "macro", "tech-porn"],
+  "patterns": ["front-hero", "three-quarter-low-angle", "top-down-back", "macro-screen", "macro-pcb"]
+}

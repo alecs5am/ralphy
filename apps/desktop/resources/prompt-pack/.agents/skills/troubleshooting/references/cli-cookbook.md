@@ -1,0 +1,126 @@
+# CLI cookbook
+
+**Authoritative sources:**
+- `docs/agent-guide.md` — canonical command list with examples.
+- `docs/cli-spec.md` — full flag-level spec.
+
+When in doubt — **read the specs, don't improvise flags**.
+
+## Invocation
+
+- Globally installed: `ralphy <command>` (works from anywhere; finds project via `~/.config/ralphy/config.json`).
+- In-tree dev (no binary): `bun run ralph -- <command>` or `bun run ralphy -- <command>`.
+
+## Resources & operations
+
+- **Resources:** `brand`, `persona`, `ref`, `project`, `template`, `batch`, `asset`, `workspace`, `config`.
+- **Operations per resource:** `create | list | show <id> | update <id> | delete <id>`.
+- **Top-level:** `setup`, `status`, `doctor`, `generate {image|video|voiceover|music|captions}`, `render <project>`.
+
+## Output
+
+- JSON default (parse-friendly).
+- `-p` / `--pretty` for tables.
+- `--format json|table|csv` where supported.
+
+## Common entries
+
+### Project
+```bash
+ralphy project list
+ralphy project show <id>
+ralphy project create --id <ctx>-<NNN> --name "..."
+ralphy project timeline <id>
+ralphy project log <id>                           # last 50 generations
+ralphy project log <id> --type user-prompts
+ralphy project log <id> --type all --limit 200
+ralphy project log-prompt <id> --text "..." --stage feedback
+ralphy project log-asset <id> --kind photo --source <path> --purpose character-ref
+ralphy project transcribe <id> --audio <path> --language ru
+ralphy project score <id>                         # quality gate
+ralphy project delete <id>
+```
+
+### Template
+```bash
+ralphy template list
+ralphy template show <slug>
+ralphy template show <slug> --path                # path to template dir
+ralphy template use <slug> --project <id> --name "..." --brief "..."
+ralphy template register <slug>
+ralphy template suggest "<utterance>"             # top-3 ranked
+ralphy template create --slug <slug> --from-project <id>
+```
+
+### Generate (Sprint 3 — ralphy generate {kind})
+```bash
+ralphy generate image    --project <id> --slot <slot> --model <m> --prompt <p> [--ref <url>...]
+ralphy generate video    --project <id> --slot <slot> --model <m> --image <ref> --prompt <p> --duration <s>
+ralphy generate voiceover --project <id> --persona <p> --text <t>
+ralphy generate music    --project <id> --prompt <p> --duration <s>
+ralphy generate captions --project <id> --slot <slot> [--audio <path>] [--language ru]
+```
+
+### Render (Sprint 6.3)
+```bash
+ralphy render <project>                           # default — final.mp4
+ralphy render <project> --loudnorm                # post-process EBU R128
+```
+
+### Reference
+```bash
+ralphy ref create --url <URL> --type design|social
+ralphy ref scrape-trends --hashtags "ai,productivity" --limit 15
+ralphy brand create --name "..." --url <URL>
+```
+
+### Persona
+```bash
+ralphy persona list
+ralphy persona create --name "..." --archetype "<archetype>"
+ralphy persona show <name> -p
+```
+
+### Setup / status
+```bash
+ralphy setup
+ralphy setup --status                             # JSON (no TUI)
+ralphy setup --link <path>                        # link binary to project
+ralphy setup --unlink
+ralphy status -p
+ralphy doctor
+```
+
+### Workspace inspection
+```bash
+ralphy workspace stats
+tree -L 2 -I 'node_modules|.git|dist' workspace
+```
+
+### Batch (Sprint 6 / producer)
+```bash
+ralphy batch create --template <id> --variations <list-or-file>
+ralphy batch status <batch-id>
+ralphy batch status <batch-id> --update <project-id> --status completed --render-path <path>
+```
+
+## Inspection use cases
+
+- "What projects exist" → `ralphy project list`
+- "Show timeline for X" → `ralphy project timeline <id>`
+- "How much have we spent" → `ralphy project log <id> --type generations` + sum `cost_usd`
+- "What's in batch" → `ralphy batch status <batch-id>`
+- "Available templates" → `ralphy template list -p`
+
+## Workspace hygiene
+
+```bash
+ralphy workspace stats         # entity counts + disk
+```
+
+## Don't do
+
+- ❌ Edit `.ralphy/workspaces/<ws>/projects/<id>/scenario.json` directly — use `ralphy project update <id>` or hand off to scenarist.
+- ❌ Edit `.ralphy/workspaces/<ws>/templates/<slug>/template.json` directly — `ralphy template delete <id>` then `ralphy template create --from-project <id>` to re-extract from a working project.
+- ❌ Delete `.ralphy/workspaces/<ws>/projects/<id>/` via `rm -rf` — use `ralphy project delete <id>` (cleans up the registry).
+- ❌ Run `bunx hyperframes render` directly — use `ralphy render <id>`.

@@ -1,0 +1,52 @@
+[
+  {
+    "sheet": 1,
+    "components": [
+      "AgentChatPanel",
+      "AiBrandIcon",
+      "App",
+      "AssetContent",
+      "AssetContextMenu",
+      "AssetTile",
+      "AssetViewer",
+      "AudioWaveform",
+      "BottomPanel",
+      "ContextSidebar",
+      "ImageViewport",
+      "Inspector",
+      "InspectorPreview",
+      "LibraryScreen",
+      "MainHeader",
+      "MarkdownView"
+    ]
+  },
+  {
+    "sheet": 2,
+    "components": [
+      "ProfileAvatar",
+      "ProfileMenu",
+      "ProjectControls",
+      "ProjectHeader",
+      "ProjectScreen",
+      "RalphyMascot",
+      "ResizeHandle",
+      "ReviewControls",
+      "SelectMenu",
+      "SettingsScreen",
+      "SidebarChrome",
+      "SnappySlider",
+      "TerminalPane",
+      "TerminalWorkspace",
+      "VideoPlayer",
+      "VirtualAssetGrid"
+    ]
+  },
+  {
+    "sheet": 3,
+    "components": [
+      "WelcomeScreen",
+      "WorkspacePicker",
+      "WorkspaceScreen"
+    ]
+  }
+]

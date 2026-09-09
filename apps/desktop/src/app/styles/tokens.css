@@ -1,0 +1,695 @@
+@font-face {
+  font-family: "AWS Diatype";
+  src: url("/assets/fonts/AWSDiatype-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "AWS Diatype Mono";
+  src: url("/assets/fonts/AWSDiatypeRoundedSemi-Mono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Andale Mono";
+  src: url("/assets/fonts/AndaleMono-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "AWS Diatype Mono";
+  src: url("/assets/fonts/AWSDiatypeRoundedSemi-Mono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Doto";
+  src: url("/assets/fonts/Doto-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* instrument-token-definitions:start */
+:root,
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --instrument-desk: #050505;
+  --instrument-desk-board: #111111;
+  --instrument-desk-hover: #242422;
+  --instrument-widget-light: #141414;
+  --instrument-widget-light-hover: #242424;
+  --instrument-widget-light-sunken: #1E1E1E;
+  --instrument-text-primary: #F2F2F0;
+  /* Raised from #8A8A86 by handoff 17's chat field: the field is the lightest surface a secondary
+     line stands on in this family (#262626), and the old step measured 4.37:1 there. Every other
+     backdrop in the dark theme is darker, so the raise only ever adds contrast. */
+  --instrument-text-secondary-decorative: #8F8F8B;
+  --instrument-text-muted-decorative: #6A6A66;
+  --instrument-text-secondary-readable: #A4A4A0;
+  --instrument-unreviewed: #3A3A38;
+  --instrument-desk-primary-surface: #F2F2F0;
+  --instrument-desk-primary-ink: #111111;
+  --instrument-dock-hover: #242422;
+  --instrument-resize-grip: #242422;
+  --instrument-resize-grip-active: #6A6A66;
+  --instrument-error-surface: #2A1615;
+  /* Handoff 13's depth stack: desk -> panel -> card -> field, one step per level, and a field
+     is always a recess back toward the desk rather than a fifth level up. A panel is the 2px
+     chrome frame around a card, so the two differ by one step and read as a hairline, not as a
+     margin.
+
+     The step sizes are the design's; the values are this app's. One inversion: in the light
+     family a field and a row hover are steps *down* from the card toward the desk, and in the
+     dark one they are steps up -- a recess below #1E1E1E heads back toward the #050505 desk and
+     reads as a hole rather than as an input. The ordering is what carries over: a row hover is
+     always the smaller step of the two, a field the larger. */
+  --instrument-panel: #111111;
+  --instrument-card: #181818;
+  --instrument-field: #262626;
+  --instrument-row-hover: #232323;
+  --instrument-generation-field-hover: #2E2E2E;
+  --instrument-generation-ruler-tick: #3A3A38;
+  --instrument-generation-ruler-major: #6A6A66;
+  --instrument-chip-on-panel: #1A1A1A;
+  /* The keycap's own surface step: a socket below its panel, a face above the socket. */
+  --instrument-keycap-socket: #1D1D1D;
+  --instrument-keycap-face: #2F2F2F;
+  --instrument-keycap-face-hover: #3A3A3A;
+  --instrument-keycap-face-pressed: #242424;
+  --instrument-keycap-ink: #C8C8C4;
+  --instrument-keycap-ink-pressed: #F2F2F0;
+  /* The status-red pair handoff 17 fixes for a failed tool call, a rejected key and any other
+     line the provider itself reported as an error. It is its own pair rather than `--instrument-alert`
+     on `--instrument-error-surface`: that combination measures 3.45:1, and this one is the tint and
+     ink the design draws the failure window with, at 4.9:1 light and 5.0:1 dark. */
+  --instrument-failure-surface: #2A1615;
+  --instrument-failure-ink: #F0574B;
+  /* Handoff 17's chat surfaces. The chat card carries a field (the composer, a tool container, an
+     opener) and controls standing on that field (the pills), and both have to step *away* from the
+     card in whichever direction the theme's depth runs: the light family recesses toward the desk
+     and the dark family rises off it, so a single `panel`/`field` pair cannot serve both. The
+     values are the design's own greys; the direction is this app's. */
+  /* Handoff 17's entity tags. Colour is the kind, and one ink per kind is the whole of it: the tint
+     is that ink at 12%, which lands on the design's own #ECEBF8 / #E7EDF7 / #E2EFF1 over white and
+     goes dark of its own accord under the dark theme. The dark family takes the handoff's
+     lightened ink -- #625CC6 measures 3.1:1 on a #1E1E1E card, and 8.5:1 is what a label needs. */
+  --instrument-tag-unit: #B9B4EF;
+  --instrument-tag-file: #A6C2E8;
+  --instrument-tag-project: #98CCD6;
+  /* Node editor v20: sRGB equivalents of the type identity hues. */
+  --instrument-node-prompt: #8EA4D4;
+  --instrument-node-llm: #AC9ACD;
+  --instrument-node-image: #7AB395;
+  --instrument-node-video: #6CB0C5;
+  --instrument-node-media: #BAA16E;
+  --instrument-node-connector: #C094BB;
+  --instrument-port-text: #A970FF;
+  --instrument-port-image: #19D77C;
+  --instrument-port-video: #3995FF;
+  --instrument-port-audio: #FFA033;
+  --instrument-chat-field: #262626;
+  --instrument-chat-control: #2F2F2F;
+  --instrument-chat-control-hover: #3A3A3A;
+  --instrument-divider: #2E2E2E;
+  --instrument-widget-dark: #141414;
+  --instrument-widget-dark-raised: #1E1E1E;
+  --instrument-widget-dark-hover: #1C1C1C;
+  --instrument-media-frame: #060606;
+  --instrument-text-on-dark-primary: #F2F2F0;
+  --instrument-text-on-dark-secondary-readable: #A4A4A0;
+  --instrument-text-on-dark-muted-decorative: #6A6A66;
+  --instrument-alert: #E0362C;
+  --instrument-alert-text: #050505;
+  --instrument-alert-bright: #EB4438;
+  --instrument-danger-fill: #E0362C;
+  --instrument-brand: #0071E3;
+  --instrument-brand-ink: #FFFFFF;
+  --instrument-generation-brand: #0171E4;
+  --instrument-generation-brand-hover: #015BB8;
+  --instrument-generation-cost-warning: #E0796F;
+  --instrument-error-text: #E8E8E6;
+  --instrument-traffic-close: #ED6A5E;
+  --instrument-traffic-minimize: #F0B544;
+  --instrument-traffic-maximize: #5CC45C;
+  --instrument-identity1: #426F4C;
+  --instrument-identity1-highlight: #8FAE94;
+  --instrument-identity2: #207070;
+  --instrument-identity2-highlight: #80AFAE;
+  --instrument-identity3: #38698A;
+  --instrument-identity3-highlight: #89A9C1;
+  --instrument-identity4: #5F5D8C;
+  --instrument-identity4-highlight: #A1A1C3;
+  --instrument-identity5: #7C5378;
+  --instrument-identity5-highlight: #B79AB4;
+  --instrument-identity6: #895155;
+  --instrument-identity6-highlight: #C2989A;
+  --instrument-identity7: #835935;
+  --instrument-identity7-highlight: #BD9E86;
+  --instrument-identity8: #6A6630;
+  --instrument-identity8-highlight: #A9A783;
+  /* Handoff 15's socket keycap: the key sits recessed in its surface, and the depth is two flat
+     tone steps -- a socket one step below the surface, a face one step above the socket. No
+     shadow, no gradient, and never pure black for the socket, which reads as a hole punched in
+     the widget rather than a recess.
+     Three families, because a cap's tones come from what it stands on rather than from the
+     theme: `keycap-*` follows the theme surface, and the two `-on-` families are fixed because a
+     black widget is black in both themes and a white primary pill is white in both. */
+  --instrument-keycap-on-dark-socket: #1D1D1D;
+  --instrument-keycap-on-dark-face: #2F2F2F;
+  --instrument-keycap-on-dark-ink: #C8C8C4;
+  --instrument-keycap-on-dark-ink-loud: #F2F2F0;
+  --instrument-keycap-on-light-socket: #D6D6D3;
+  --instrument-keycap-on-light-face: #EEEEEC;
+  --instrument-keycap-on-light-ink: #111111;
+  --instrument-track-on-dark: #3A3A38;
+  --instrument-ghost: #262626;
+  --instrument-ghost-hover: #2E2E2E;
+  --instrument-focus-on-light: #111111;
+  --instrument-focus-on-dark: #DFE2E9;
+  --instrument-composer-surface: #F2F2F0;
+  --instrument-selected-surface: #F2F2F0;
+  --instrument-selected-surface-hover: #FFFFFF;
+  --instrument-selected-ink: #111111;
+  --instrument-waveform-wave: #4A4A48;
+  --instrument-waveform-progress: #E8E8E6;
+  --instrument-waveform-cursor: #DFE2E9;
+  --instrument-dither-base: #3F3F3D;
+  --instrument-dither-highlight: #8A8A86;
+  --instrument-legacy-canvas: #181818;
+  --instrument-legacy-sunken: #111111;
+  --instrument-legacy-sidebar: #1D1D1D;
+  --instrument-legacy-raised: #2D2D2D;
+  --instrument-legacy-hover: #343434;
+  --instrument-legacy-selected: #3A3A38;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --instrument-desk: #E9EBEF;
+  --instrument-desk-board: #D8D8D6;
+  --instrument-desk-hover: #D3D6DD;
+  --instrument-widget-light: #F1F2F6;
+  --instrument-widget-light-hover: #FFFFFF;
+  --instrument-widget-light-sunken: #E4E4E2;
+  --instrument-text-primary: #141414;
+  --instrument-text-secondary-decorative: #6E6E6A;
+  --instrument-text-muted-decorative: #9A9A96;
+  --instrument-text-secondary-readable: #4A4A48;
+  --instrument-unreviewed: #CCCED6;
+  --instrument-desk-primary-surface: #141414;
+  --instrument-desk-primary-ink: #F2F2F0;
+  --instrument-dock-hover: #DFE2E9;
+  --instrument-resize-grip: #CCCED6;
+  --instrument-resize-grip-active: #9A9A96;
+  --instrument-error-surface: #F6DEDC;
+  --instrument-panel: #F4F5F8;
+  --instrument-card: #FFFFFF;
+  --instrument-field: #F1F2F4;
+  --instrument-row-hover: #F6F7F9;
+  --instrument-generation-field-hover: #ECEEF1;
+  --instrument-generation-ruler-tick: #CFD4DC;
+  --instrument-generation-ruler-major: #AEB5C2;
+  --instrument-chip-on-panel: #E7E9ED;
+  /* The keycap's own surface step: a socket below its panel, a face above the socket. */
+  --instrument-keycap-socket: #D6D6D3;
+  --instrument-keycap-face: #EEEEEC;
+  --instrument-keycap-face-hover: #FFFFFF;
+  --instrument-keycap-face-pressed: #E2E2E0;
+  --instrument-keycap-ink: #5C5C58;
+  --instrument-keycap-ink-pressed: #141414;
+  /* The status-red pair handoff 17 fixes for a failed tool call, a rejected key and any other
+     line the provider itself reported as an error. It is its own pair rather than `--instrument-alert`
+     on `--instrument-error-surface`: that combination measures 3.45:1, and this one is the tint and
+     ink the design draws the failure window with, at 4.9:1 light and 5.0:1 dark. */
+  --instrument-failure-surface: #FBEAE9;
+  --instrument-failure-ink: #C22B22;
+  /* Handoff 17's chat surfaces. The chat card carries a field (the composer, a tool container, an
+     opener) and controls standing on that field (the pills), and both have to step *away* from the
+     card in whichever direction the theme's depth runs: the light family recesses toward the desk
+     and the dark family rises off it, so a single `panel`/`field` pair cannot serve both. The
+     values are the design's own greys; the direction is this app's. */
+  /* Handoff 17's entity tags. Colour is the kind, and one ink per kind is the whole of it: the tint
+     is that ink at 12%, which lands on the design's own #ECEBF8 / #E7EDF7 / #E2EFF1 over white and
+     goes dark of its own accord under the dark theme. The dark family takes the handoff's
+     lightened ink -- #625CC6 measures 3.1:1 on a #1E1E1E card, and 8.5:1 is what a label needs. */
+  --instrument-tag-unit: #625CC6;
+  --instrument-tag-file: #4A72AD;
+  --instrument-tag-project: #37808E;
+  /* Node editor v20: sRGB equivalents of the type identity hues. */
+  --instrument-node-prompt: #3F568A;
+  --instrument-node-llm: #604B83;
+  --instrument-node-image: #1D6746;
+  --instrument-node-video: #00637B;
+  --instrument-node-media: #6F530A;
+  --instrument-node-connector: #744470;
+  --instrument-port-text: #8B3DFF;
+  --instrument-port-image: #009A50;
+  --instrument-port-video: #0071E3;
+  --instrument-port-audio: #CA6900;
+  --instrument-chat-field: #F4F5F8;
+  --instrument-chat-control: #F1F2F4;
+  --instrument-chat-control-hover: #E7E9ED;
+  --instrument-divider: #DFE2E9;
+  --instrument-widget-dark: #141414;
+  --instrument-widget-dark-raised: #1E1E1E;
+  --instrument-widget-dark-hover: #1C1C1C;
+  --instrument-media-frame: #060606;
+  --instrument-text-on-dark-primary: #F2F2F0;
+  --instrument-text-on-dark-secondary-readable: #A4A4A0;
+  --instrument-text-on-dark-muted-decorative: #6A6A66;
+  --instrument-alert: #E0362C;
+  --instrument-alert-text: #050505;
+  --instrument-alert-bright: #EB4438;
+  --instrument-danger-fill: #E0362C;
+  --instrument-brand: #0071E3;
+  --instrument-brand-ink: #FFFFFF;
+  --instrument-generation-brand: #0171E4;
+  --instrument-generation-brand-hover: #015BB8;
+  --instrument-generation-cost-warning: #E0796F;
+  --instrument-error-text: #E8E8E6;
+  --instrument-traffic-close: #ED6A5E;
+  --instrument-traffic-minimize: #F0B544;
+  --instrument-traffic-maximize: #5CC45C;
+  --instrument-identity1: #426F4C;
+  --instrument-identity1-highlight: #8FAE94;
+  --instrument-identity2: #207070;
+  --instrument-identity2-highlight: #80AFAE;
+  --instrument-identity3: #38698A;
+  --instrument-identity3-highlight: #89A9C1;
+  --instrument-identity4: #5F5D8C;
+  --instrument-identity4-highlight: #A1A1C3;
+  --instrument-identity5: #7C5378;
+  --instrument-identity5-highlight: #B79AB4;
+  --instrument-identity6: #895155;
+  --instrument-identity6-highlight: #C2989A;
+  --instrument-identity7: #835935;
+  --instrument-identity7-highlight: #BD9E86;
+  --instrument-identity8: #6A6630;
+  --instrument-identity8-highlight: #A9A783;
+  /* See the note in the dark block: the two `-on-` families carry the same values there. */
+  --instrument-keycap-on-dark-socket: #1D1D1D;
+  --instrument-keycap-on-dark-face: #2F2F2F;
+  --instrument-keycap-on-dark-ink: #C8C8C4;
+  --instrument-keycap-on-dark-ink-loud: #F2F2F0;
+  --instrument-keycap-on-light-socket: #D6D6D3;
+  --instrument-keycap-on-light-face: #EEEEEC;
+  --instrument-keycap-on-light-ink: #111111;
+  --instrument-track-on-dark: #3A3A38;
+  --instrument-ghost: #262626;
+  --instrument-ghost-hover: #2E2E2E;
+  --instrument-focus-on-light: #111111;
+  --instrument-focus-on-dark: #DFE2E9;
+  --instrument-composer-surface: #F2F2F0;
+  --instrument-selected-surface: #F2F2F0;
+  --instrument-selected-surface-hover: #FFFFFF;
+  --instrument-selected-ink: #111111;
+  --instrument-waveform-wave: #4A4A48;
+  --instrument-waveform-progress: #E8E8E6;
+  --instrument-waveform-cursor: #DFE2E9;
+  --instrument-dither-base: #3F3F3D;
+  --instrument-dither-highlight: #8A8A86;
+  --instrument-legacy-canvas: #181818;
+  --instrument-legacy-sunken: #111111;
+  --instrument-legacy-sidebar: #1D1D1D;
+  --instrument-legacy-raised: #2D2D2D;
+  --instrument-legacy-hover: #343434;
+  --instrument-legacy-selected: #3A3A38;
+}
+/* instrument-token-definitions:end */
+
+/* Two roles for a dark plate laid over media, both theme-invariant because the media under
+   them is. They are derived from --instrument-media-frame rather than authored, so they stay
+   in step with the frame and do not belong in the palette block above.
+
+   A mark laid over media has no idea what is behind it: a poster, a photograph, a blown-out
+   sky. --instrument-media-plate is the plate a mark stands on, and it is opaque enough that
+   --instrument-text-on-dark-primary clears 4.5:1 over *anything* -- 7.7:1 against pure white,
+   which is the worst any sRGB media can be. Measured, not derived: scripts/audit-media-scrim.mjs
+   renders every site over a photograph, a real thumbnail and white, in both themes, and reads
+   each mark against the pixels it actually lands on. The hand-picked opacities this replaced
+   ran 50%-82%, and at 55% the calendar poster's format badge measured 4.05:1 over white.
+
+   --instrument-media-veil is the other role: a full-frame dimmer behind a modal. It carries no
+   ink of its own, so it guarantees nothing and stays lighter -- its job is to let the media
+   still read through. Keep the two apart: making the veil darker to satisfy a label would dim
+   every viewer, and lightening the plate to suit a backdrop would break the guarantee. The
+   app-chrome scrim is a third thing again and stays where it is, in instrument.css. */
+:root {
+  --instrument-media-plate: color-mix(in srgb, var(--instrument-media-frame) 72%, transparent);
+  --instrument-media-veil: color-mix(in srgb, var(--instrument-media-frame) 68%, transparent);
+
+  --canvas: var(--instrument-legacy-canvas);
+  --sunken: var(--instrument-legacy-sunken);
+  --panel: color-mix(in srgb, var(--instrument-widget-dark-raised) 72%, transparent);
+  --panel-solid: var(--instrument-widget-dark-raised);
+  --raised: var(--instrument-legacy-raised);
+  --hover: var(--instrument-legacy-hover);
+  --selected: var(--instrument-legacy-selected);
+  --selected-ink: var(--instrument-text-on-dark-primary);
+  --pressed: var(--instrument-dither-base);
+
+  --fg: var(--instrument-text-on-dark-primary);
+  --fg-2: var(--instrument-text-on-dark-secondary-readable);
+  --fg-3: var(--instrument-text-on-dark-secondary-readable);
+  /* The muted inks are decorative by design (status dots, dividers): at 2-3.4:1 they are
+     unreadable as copy, so the legacy 4th ink step stops at secondary. Reach for
+     --instrument-text-*-muted-decorative directly when the mark carries no text. */
+  --fg-4: var(--instrument-text-on-dark-secondary-readable);
+
+  --accent: var(--instrument-text-on-dark-primary);
+  --accent-soft: var(--instrument-text-on-dark-secondary-readable);
+  --accent-fill: color-mix(in srgb, var(--accent) 20%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 38%, transparent);
+
+  --ok: var(--instrument-text-on-dark-primary);
+  --warn: var(--instrument-text-on-dark-secondary-readable);
+  --danger-fill: var(--instrument-danger-fill);
+  --danger-fill-text: var(--instrument-alert-text);
+  --danger: var(--instrument-error-text);
+  --idle: var(--instrument-unreviewed);
+
+  --line: color-mix(in srgb, var(--instrument-text-on-dark-primary) 7%, transparent);
+  --line-strong: color-mix(in srgb, var(--instrument-text-on-dark-primary) 12%, transparent);
+
+  --control-hover: var(--hover);
+  --control-selected: var(--selected);
+  --control-text: var(--fg-2);
+  --control-text-hover: var(--fg);
+  --focus-on-light: var(--instrument-focus-on-light);
+  --focus-on-dark: var(--instrument-focus-on-dark);
+  --control-focus-color: var(--focus-on-dark);
+  /* One focus ring for the whole app. --fg is already context-aware (on-dark ink at the
+     root, desk ink inside .app-mode-work), so the ring follows its surface for free. */
+  --focus-ring-width: 2px;
+  --focus-ring: var(--focus-ring-width) solid var(--fg);
+  --focus-ring-offset: 2px;
+  --focus-ring-offset-inset: -2px;
+  --control-focus: 2px solid var(--control-focus-color);
+  --control-focus-on-light: 2px solid var(--focus-on-light);
+  /* Settings sit on the theme's own surfaces, so their ring is the theme ink. */
+  --control-focus-on-theme: var(--focus-ring-width) solid var(--instrument-text-primary);
+
+  --field-surface: var(--instrument-ghost);
+  /* design v2: no borders, shadows or volume anywhere — separation is surface or air.
+     Kept as a token so the remaining border declarations resolve to nothing. */
+  /* Controls are pills by default (design: controls/pills/dock R999). Multi-line fields
+     opt out to --radius-xl, the composer radius, because a stadium reads wrong at height. */
+  --field-radius: var(--radius-pill);
+  --field-radius-multiline: var(--radius-xl);
+  --field-height: var(--control-md);
+  --field-text: var(--fg);
+  --field-placeholder: var(--fg-3);
+
+  --menu-surface: var(--instrument-ghost);
+  --menu-radius: 16px;
+  --menu-padding: 2px;
+  --menu-item-height: 30px;
+  --menu-item-radius: var(--radius-md);
+
+  --font-sans: "AWS Diatype", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: "AWS Diatype Mono", "Andale Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-doto: "Doto", var(--font-mono);
+  /* Handoff 15's critical fix: the modifier symbols do not exist in AWS Diatype Mono, so the
+     browser silently substituted a system font mid-string and size, weight and baseline all
+     shifted. The symbols take the system stack outright, and the letters stay mono. */
+  --font-glyph: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  /* Type scale of the instrument language: mono micro-labels 10-12px uppercase,
+     UI text 12.5-14.5px, widget headings 17-18px. Doto is numbers only, >= 13px.
+
+     The 2026-08-25 readability review raised the bottom of this scale. The rungs below 10px were
+     legible on the design canvas and not on a real screen at a real viewing distance: a settings
+     row's description is prose, and it was set at 11.5px, one step above a caps micro-label. The
+     0.5px spacing between rungs is kept, so every distinction the screens draw with survives --
+     what changed is where the scale starts. Sizes at 20px and up were already legible and are
+     untouched, which widens the gap between body copy and a heading rather than narrowing it. */
+  --text-mono-2xs: 10px;
+  --text-mono-xs: 10.5px;
+  --text-mono-sm: 11px;
+  --text-meta: 11.5px;
+  --text-mono-md: 12px;
+  --text-xs: 12px;
+  --text-label: 12.5px;
+  --text-sm: 13px;
+  --text-ui: 13.5px;
+  --text-base: 14px;
+  --text-body: 14.5px;
+  --text-md: 15px;
+  --text-lg: 16px;
+  --text-title: 17px;
+  --text-subtitle: 18px;
+  --text-heading: 19px;
+  --text-xl: 20px;
+  --text-page: 21px;
+  --text-metric: 22px;
+  --text-section: 24px;
+  --text-display: 26px;
+  --text-hero: 28px;
+  --text-greeting: 29px;
+  --leading-tight: 1.3;
+  --leading-snug: 1.45;
+  --leading-body: 1.55;
+
+  --tracking-tight: -0.03em;
+  --tracking-label: 0.06em;
+  --tracking-caps: 0.08em;
+  --tracking-wide: 0.14em;
+  --tracking-mono: 0.11em;
+
+  /* A square small enough that any of the radii below would round it away: the 7px mark inside a
+     stop button, the dot in a slot. The design draws these at 2. */
+  --radius-dot: 2px;
+  --radius-keycap: 5px;
+  /* Handoff 15's socket keycap: socket = round(h * .3) + 2, face = round(h * .3). At the two sizes
+     the component ships -- 20 and 26 -- that is 8/6 and 10/8, so only the 6 is new. */
+  --radius-keycap-face: 6px;
+  --radius-sm: 8px;
+  --radius-tab: 9px;
+  --radius-md: 10px;
+  --radius-row: 12px;
+  --radius-lg: 14px;
+  --radius-preview: 12px;
+  /* Handoff 16's frame language: a zone is a panel with a 2px frame holding a card, and the two
+     radii are deliberately near-identical so the frame reads as a hairline rather than a margin.
+     14 is 16 less the 2 of frame, which makes the card's corner concentric with the shell's. */
+  --radius-frame: 14px;
+  --radius-xl: 18px;
+  --radius-panel: 14px;
+  /* The outer end of the scale is read against the window's own corner, which macOS draws at about
+     10 and which no app can change. At 20/18/16 our shells curved roughly twice as hard as the
+     window they sit in, which is what made the sidebar's corner read as the mistake next to it.
+     Four off each of the three steps closes most of that gap and keeps every nesting step whole:
+     a shell at 16 holds a panel at 14 holds a card at 12. */
+  --radius-window: 16px;
+  /* The workspace card is the sidebar's largest, and it was the one card rounder than the shell
+     holding it -- 22 inside 20 before, which the tighter shell only made plainer. It takes the
+     panel's step now, one inside the sidebar, like every other card in the app. */
+  --radius-hero: var(--radius-panel);
+  --radius-pill: 999px;
+  --radius-circle: 50%;
+
+  --control-sm: 26px;
+  --control-md: 30px;
+  --control-lg: 34px;
+  --row-md: 42px;
+  --row-lg: 48px;
+  --sidebar-w: 288px;
+  --inspector-w: 336px;
+  --titlebar-h: 48px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+
+  --blur: none;
+
+  /* Stacking scale. Every positioned layer picks one of these; raw z-index values are
+     what made overlay ordering unreviewable.
+
+     Two bands, and the line between them is `--z-sticky`. Below it is the order of things
+     inside one surface -- a card, a media frame, a device mockup -- where a value only means
+     "over the one under it" and nothing outside that surface can see it. From `--z-sticky` up
+     is the app's own stack, where two layers really do have to agree on an order. Thirty-two
+     class strings used to write the small band as a bare number, which is how a badge and an
+     overlay ended up on 3 and 4 with nothing saying which was meant to win. */
+  --z-surface-under: 0;      /* a fill behind the surface's own content */
+  --z-surface-content: 1;    /* the content itself */
+  --z-surface-note: 2;       /* a note or a badge on the content */
+  --z-surface-chip: 3;       /* a chip or a small control standing on media */
+  --z-surface-overlay: 4;    /* a row, rail, footer or popover over that */
+  --z-surface-progress: 5;   /* a progress hairline across the whole surface */
+  --z-surface-guide: 6;      /* a measuring overlay, and a bar floating over a grid */
+  --z-surface-device: 7;     /* device chrome: a notch, a status bar */
+
+  --z-base: 1;
+  --z-raised: 2;
+  --z-sticky: 8;
+  --z-header: 20;
+  --z-agent-popover: 30;
+  --z-desk-float: 40;
+  --z-chooser-backdrop: 70;
+  --z-chooser: 71;
+  --z-scrim: 80;
+  --z-scrim-content: 81;
+  --z-inspector: 90;
+  --z-overlay-backdrop: 110;
+  --z-sheet-backdrop: 119;
+  --z-sheet: 120;
+  --z-island: 150;
+  --z-mock-review: 180;
+  --z-inspector-float: 91;
+  --z-modal: 200;
+  --z-modal-content: 201;
+  --z-overlay-surface: 1400;
+  --z-popover: 1600;
+  --z-viewer: 2000;
+  --z-viewer-backdrop: 2100;
+  --z-viewer-content: 2101;
+
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --dur-fast: 90ms;
+  --dur: 160ms;
+  --dur-slow: 220ms;
+
+  --dither-op: 1;
+  --p1: var(--instrument-identity1);
+  --p1-hi: var(--instrument-identity1-highlight);
+  --p2: var(--instrument-identity2);
+  --p2-hi: var(--instrument-identity2-highlight);
+  --p3: var(--instrument-identity3);
+  --p3-hi: var(--instrument-identity3-highlight);
+  --p4: var(--instrument-identity4);
+  --p4-hi: var(--instrument-identity4-highlight);
+  --p5: var(--instrument-identity5);
+  --p5-hi: var(--instrument-identity5-highlight);
+  --p6: var(--instrument-identity6);
+  --p6-hi: var(--instrument-identity6-highlight);
+  --p7: var(--instrument-identity7);
+  --p7-hi: var(--instrument-identity7-highlight);
+  --p8: var(--instrument-identity8);
+  --p8-hi: var(--instrument-identity8-highlight);
+}
+
+/* Settings is portalled to body, outside the route-level light semantic scope. */
+[data-instrument-overlay="settings"] {
+  --canvas: var(--instrument-desk);
+  --sunken: var(--instrument-widget-light-sunken);
+  --panel: var(--instrument-widget-light);
+  --panel-solid: var(--instrument-widget-light);
+  --raised: var(--instrument-widget-light-sunken);
+  --hover: var(--instrument-widget-light-hover);
+  --selected: var(--instrument-desk-hover);
+  --selected-ink: var(--instrument-text-primary);
+  --pressed: var(--instrument-unreviewed);
+  --fg: var(--instrument-text-primary);
+  --fg-2: var(--instrument-text-secondary-readable);
+  --fg-3: var(--instrument-text-secondary-readable);
+  --fg-4: var(--instrument-text-secondary-readable);
+  --accent: var(--instrument-text-primary);
+  --accent-soft: var(--instrument-text-secondary-readable);
+  --accent-fill: color-mix(in srgb, var(--instrument-text-primary) 20%, transparent);
+  --accent-line: color-mix(in srgb, var(--instrument-text-primary) 38%, transparent);
+  --ok: var(--instrument-text-primary);
+  --warn: var(--instrument-text-secondary-readable);
+  --danger: var(--instrument-text-primary);
+  --line: color-mix(in srgb, var(--instrument-text-primary) 8%, transparent);
+  --line-strong: color-mix(in srgb, var(--instrument-text-primary) 16%, transparent);
+  --control-hover: var(--instrument-widget-light-hover);
+  --control-selected: var(--instrument-desk-hover);
+  --control-text: var(--instrument-text-secondary-readable);
+  --control-text-hover: var(--instrument-text-primary);
+  --control-focus-color: var(--instrument-text-primary);
+  --field-surface: var(--instrument-widget-light-sunken);
+  --field-text: var(--instrument-text-primary);
+  --field-placeholder: var(--instrument-text-secondary-readable);
+  --menu-surface: var(--instrument-widget-light);
+}
+
+@supports (corner-shape: squircle) {
+  .sq,
+  button,
+  input,
+  textarea,
+  select {
+    corner-shape: squircle;
+  }
+
+  .pill,
+  .rounded-full,
+  .rounded-control,
+  .dot,
+  .project-facts > span,
+  .tag-list button,
+  .library-mark,
+  .phase-indicator,
+  .status-dot,
+  [style*="border-radius: 999px"] {
+    corner-shape: round;
+  }
+
+  .rounded-panel,
+  .asset-modal-surface,
+  .select-menu-content,
+  .select-menu-trigger,
+  .workspace-project-card,
+  .bottom-panel,
+  .utility-right-panel,
+  .profile-avatar,
+  .workspace-picker-popover,
+  .workspace-hero,
+  .project-glyph,
+  .sidebar-row,
+  .video-controls,
+  .image-zoom-controls,
+  .inspector-preview {
+    corner-shape: squircle;
+  }
+}
+
+.panel-blur {
+  background: var(--panel);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .panel-blur {
+    background: var(--panel-solid);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Thumb follows the ink of the active theme, not the on-dark ink. */
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--instrument-text-primary) 16%, transparent);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--instrument-text-primary) 32%, transparent);
+  background-clip: padding-box;
+}

@@ -1,0 +1,38 @@
+/* The workbench frame: one rule, and the reduced-motion reset that has to sit beside it.
+
+   `.workbench` has four authors, not one. `App.tsx` renders it, and three geometry harnesses
+   (`tests/design-system.test.ts` twice, `tests/marketplace-geometry.test.tsx`) build the same
+   frame with no component at all and write `--sidebar-column` / `--right-column` themselves to
+   move the columns. `grid-template-columns` is not a Tailwind namespace, so a utility would have
+   to read one fixed custom property -- and then every builder of the frame would have to write
+   that one instead of the two it writes today. The rule stays here so the frame means the same
+   thing however it is built.
+
+   The transition is the only motion the frame declares, so its reduced-motion reset is the only
+   one left in a stylesheet: it can win because the declaration it cancels is in this same file
+   and is not a utility.
+
+   This file replaces `workbench.css` and the eight `workbench/*-unowned.css` chunks it imported.
+   Every other rule those chunks held was resolved into the markup of the components that render
+   the element, or deleted as dead -- see the commit message for the rule-by-rule account. */
+
+.workbench {
+  --sidebar-column: var(--sidebar-w);
+  --right-column: 0px;
+
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--sidebar-column) minmax(0, 1fr) var(--right-column);
+  grid-template-rows: minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 900px;
+  min-height: 640px;
+  overflow: hidden;
+  background: var(--canvas);
+  transition: grid-template-columns var(--dur-slow) var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workbench { transition-duration: 0ms; }
+}

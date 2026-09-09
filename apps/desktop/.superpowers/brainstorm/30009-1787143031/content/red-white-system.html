@@ -1,0 +1,56 @@
+<style>
+  .system-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:24px; }
+  .system-card { overflow:hidden; border:1px solid rgba(255,255,255,.10); border-radius:16px; background:#151515; cursor:pointer; transition:transform 140ms ease,border-color 140ms ease; }
+  .system-card:hover { transform:translateY(-2px); border-color:rgba(255,255,255,.28); }
+  .system-card.selected { border-color:var(--swatch); box-shadow:0 0 0 2px color-mix(in srgb,var(--swatch) 35%,transparent); }
+  .system-card img { display:block; width:100%; aspect-ratio:16/10; object-fit:cover; object-position:left top; }
+  .system-meta { padding:14px 16px 16px; }
+  .system-title { display:flex; align-items:center; gap:9px; margin-bottom:5px; }
+  .system-title h3 { margin:0; font-size:16px; }
+  .swatches { display:flex; gap:4px; margin-left:auto; }
+  .swatch { width:12px; height:12px; border-radius:999px; background:var(--c); }
+  .system-meta p { margin:0; color:#989898; font-size:13px; line-height:1.45; }
+  .tokens { display:flex; flex-wrap:wrap; gap:6px; margin-top:20px; }
+  .token { padding:5px 8px; border-radius:999px; background:#1c1e20; color:#a8a8a8; font:11px ui-monospace,monospace; }
+  @media (max-width:1100px) { .system-grid { grid-template-columns:1fr; } }
+</style>
+
+<h2>Laser Red + White на полной Higgsfield-системе</h2>
+<p class="subtitle">Во всех трёх — одинаковые реальные Higgsfield neutrals. Отличается только распределение accent-ролей.</p>
+
+<div class="system-grid">
+  <div class="system-card" style="--swatch:#FF3347" data-choice="laser-only" onclick="toggleSelect(this)">
+    <img src="/files/accent-laser-red.png" alt="Laser Red only">
+    <div class="system-meta">
+      <div class="system-title"><h3>R1 · Laser only</h3><div class="swatches"><span class="swatch" style="--c:#FF3347"></span></div></div>
+      <p>Красный отвечает за всё активное. Ярко, но ближе к error-семантике.</p>
+    </div>
+  </div>
+
+  <div class="system-card" style="--swatch:#F7F7F8" data-choice="white-only" onclick="toggleSelect(this)">
+    <img src="/files/accent-white.png" alt="White only">
+    <div class="system-meta">
+      <div class="system-title"><h3>R2 · White only</h3><div class="swatches"><span class="swatch" style="--c:#F7F7F8"></span></div></div>
+      <p>Самый editorial. Чисто, но почти исчезает фирменная подпись.</p>
+    </div>
+  </div>
+
+  <div class="system-card" style="--swatch:#FF3347" data-choice="red-white-hybrid" onclick="toggleSelect(this)">
+    <img src="/files/accent-red-white-hybrid.png" alt="Laser Red and White hybrid">
+    <div class="system-meta">
+      <div class="system-title"><h3>R3 · Red × White</h3><div class="swatches"><span class="swatch" style="--c:#F7F7F8"></span><span class="swatch" style="--c:#FF3347"></span></div></div>
+      <p>White = selection/navigation. Red = action/progress/focus. Самая системная версия.</p>
+    </div>
+  </div>
+</div>
+<div class="tokens">
+  <span class="token">canvas #0F1113</span>
+  <span class="token">sunken #131517</span>
+  <span class="token">panel #1A1A1A</span>
+  <span class="token">control #1C1E20</span>
+  <span class="token">raised #23262A</span>
+  <span class="token">ink #F7F7F8</span>
+  <span class="token">secondary #A8A8A8</span>
+  <span class="token">tertiary #898A8B</span>
+  <span class="token">signal #FF3347</span>
+</div>

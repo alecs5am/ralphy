@@ -1,0 +1,41 @@
+{
+  "slug": "cgi-product-renders",
+  "items": [
+    {
+      "id": "shot-01-front-hero",
+      "media": "shot-01-front-hero.jpg",
+      "kind": "image",
+      "aspect": "1:1",
+      "caption": "Front hero — straight-on, eye-level, 5° forward tilt. Dark studio + electric-blue rim from camera-left + neon-magenta kicker from camera-right + light atmospheric haze. The reusable opener of any product spot.",
+      "pattern": "front-hero",
+      "model": "google/gemini-3-pro-image-preview"
+    },
+    {
+      "id": "shot-02-three-quarter",
+      "media": "shot-02-three-quarter.jpg",
+      "kind": "image",
+      "aspect": "1:1",
+      "caption": "3/4 low-angle heroic — camera 25° below the device, rotated 45° so front face + right side profile visible together. Specular highlights catch the casing edges. Sells weight + premium materials.",
+      "pattern": "three-quarter-low-angle",
+      "model": "google/gemini-3-pro-image-preview"
+    },
+    {
+      "id": "shot-04-macro-screen",
+      "media": "shot-04-macro-screen.jpg",
+      "kind": "image",
+      "aspect": "1:1",
+      "caption": "Extreme macro screen. Razor-focus on the OLED pixels + soft bokeh on the bezel. Cyan screen-glow + magenta rim. Tech-porn shot — drops in the middle of the spot for texture.",
+      "pattern": "macro-screen",
+      "model": "google/gemini-3-pro-image-preview"
+    },
+    {
+      "id": "shot-06-pcb-macro",
+      "media": "shot-06-pcb-macro.jpg",
+      "kind": "image",
+      "aspect": "1:1",
+      "caption": "PCB macro — bare hardware tech-porn. Gold GPIO pins catch the rim lights. The 'we made this for builders' shot.",
+      "pattern": "macro-pcb",
+      "model": "openai/gpt-5.4-image-2"
+    }
+  ]
+}

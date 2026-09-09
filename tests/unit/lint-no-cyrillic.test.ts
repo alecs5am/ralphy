@@ -31,7 +31,7 @@ describe("scanRepo", () => {
     expect(hits).toEqual([]);
   });
 
-  test("allowlist is a Set (empty after #479 translated the original debt)", () => {
+  test("allowlist keeps imported translation debt explicit", () => {
     expect(ALLOWLIST).toBeInstanceOf(Set);
   });
 });

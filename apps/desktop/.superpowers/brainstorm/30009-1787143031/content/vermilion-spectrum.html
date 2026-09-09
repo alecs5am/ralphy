@@ -1,0 +1,39 @@
+<style>
+  .accent-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; margin-top:24px; }
+  .accent-card { overflow:hidden; border:1px solid rgba(255,255,255,.10); border-radius:16px; background:#151515; cursor:pointer; transition:transform 140ms ease,border-color 140ms ease; }
+  .accent-card:hover { transform:translateY(-2px); border-color:rgba(255,255,255,.28); }
+  .accent-card.selected { border-color:var(--swatch); box-shadow:0 0 0 2px color-mix(in srgb,var(--swatch) 35%,transparent); }
+  .accent-card img { display:block; width:100%; aspect-ratio:16/10; object-fit:cover; object-position:left top; }
+  .accent-meta { display:flex; align-items:center; gap:12px; padding:14px 16px 16px; }
+  .accent-swatch { width:14px; height:14px; flex:none; border-radius:999px; background:var(--swatch); }
+  .accent-copy { min-width:0; flex:1; }
+  .accent-copy h3 { margin:0 0 3px; font-size:16px; }
+  .accent-copy p { margin:0; color:#989898; font-size:13px; }
+  .accent-code { color:var(--swatch); font:12px ui-monospace,monospace; }
+  @media (max-width:900px) { .accent-grid { grid-template-columns:1fr; } }
+</style>
+
+<h2>Докручиваем направление C</h2>
+<p class="subtitle">Одинаковая Higgsfield-база, четыре соседних тёплых акцента. Смотри прежде всего на tabs, slider и маленькие badges.</p>
+
+<div class="accent-grid">
+  <div class="accent-card" style="--swatch:#FF4D5E" data-choice="blazing-coral" onclick="toggleSelect(this)">
+    <img src="/files/accent-coral.png" alt="Ralphy with blazing coral accent">
+    <div class="accent-meta"><span class="accent-swatch"></span><div class="accent-copy"><h3>C1 · Blazing Coral</h3><p>Чуть мягче, fashion и social-first.</p></div><span class="accent-code">#FF4D5E</span></div>
+  </div>
+
+  <div class="accent-card" style="--swatch:#FF5A36" data-choice="signal-vermilion" onclick="toggleSelect(this)">
+    <img src="/files/accent-vermilion.png" alt="Ralphy with signal vermilion accent">
+    <div class="accent-meta"><span class="accent-swatch"></span><div class="accent-copy"><h3>C2 · Signal Vermilion</h3><p>Исходный C. Самый сбалансированный.</p></div><span class="accent-code">#FF5A36</span></div>
+  </div>
+
+  <div class="accent-card" style="--swatch:#FF6A00" data-choice="atomic-orange" onclick="toggleSelect(this)">
+    <img src="/files/accent-atomic-orange.png" alt="Ralphy with atomic orange accent">
+    <div class="accent-meta"><span class="accent-swatch"></span><div class="accent-copy"><h3>C3 · Atomic Orange</h3><p>Громче, теплее, больше creator energy.</p></div><span class="accent-code">#FF6A00</span></div>
+  </div>
+
+  <div class="accent-card" style="--swatch:#FF3347" data-choice="laser-red" onclick="toggleSelect(this)">
+    <img src="/files/accent-laser-red.png" alt="Ralphy with laser red accent">
+    <div class="accent-meta"><span class="accent-swatch"></span><div class="accent-copy"><h3>C4 · Laser Red</h3><p>Самый резкий; легко спутать с danger.</p></div><span class="accent-code">#FF3347</span></div>
+  </div>
+</div>

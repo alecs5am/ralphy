@@ -1,0 +1,13 @@
+{
+  "namespace": "RalphyDesktop",
+  "source": "ralphy-desktop@0.1.0",
+  "shape": "package",
+  "provider": "PreviewCanvas",
+  "componentCount": 35,
+  "skippedStoryIds": [],
+  "runtimeFontPrefixes": [
+    "SF Pro",
+    "-apple-system",
+    "BlinkMacSystem"
+  ]
+}

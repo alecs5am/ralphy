@@ -1,0 +1,15 @@
+node_modules/
+dist/
+dist-electron/
+/build/
+/release/
+native/RalphyMedia/.build/
+.worktrees/
+*.log
+.DS_Store
+.superpowers/brainstorm/.last-*
+.superpowers/brainstorm/*/state/
+.superpowers/sdd/nothing-instrument/
+
+# Captures from `bun run audit:media:scrim` when SCRIM_AUDIT_SHOTS=1.
+.scrim-audit/

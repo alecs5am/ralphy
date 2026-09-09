@@ -1,0 +1,32 @@
+<style>
+  .compare { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:24px; }
+  .choice { overflow:hidden; border:1px solid rgba(255,255,255,.10); border-radius:16px; background:#151515; cursor:pointer; transition:transform 140ms ease,border-color 140ms ease; }
+  .choice:hover { transform:translateY(-2px); border-color:rgba(255,255,255,.28); }
+  .choice.selected { border-color:#f7f7f8; box-shadow:0 0 0 2px rgba(247,247,248,.22); }
+  .choice img { display:block; width:100%; aspect-ratio:16/10; object-fit:cover; object-position:left top; }
+  .meta { padding:14px 16px 16px; }
+  .meta h3 { margin:0 0 5px; font-size:16px; }
+  .meta p { margin:0; color:#989898; font-size:13px; line-height:1.45; }
+  .rule { display:inline-flex; margin-top:10px; padding:4px 7px; border-radius:999px; background:#1c1e20; color:#a8a8a8; font:11px ui-monospace,monospace; }
+  @media (max-width:1100px) { .compare { grid-template-columns:1fr; } }
+</style>
+
+<h2>R2: насколько убрать borders?</h2>
+<p class="subtitle">Белый остаётся только selection-акцентом. Сравниваем способ разделения поверхностей.</p>
+
+<div class="compare">
+  <div class="choice" data-choice="r2-original" onclick="toggleSelect(this)">
+    <img src="/files/accent-white.png" alt="Original white-only treatment">
+    <div class="meta"><h3>R2 · Original</h3><p>Текущая версия: линии слишком часто работают как второй акцент.</p><span class="rule">5–15% lines</span></div>
+  </div>
+
+  <div class="choice" data-choice="r2-borderless" onclick="toggleSelect(this)">
+    <img src="/files/r2-borderless.png" alt="Borderless white-only treatment">
+    <div class="meta"><h3>R2A · Borderless</h3><p>Разделение только фоном и spacing. Самый чистый и editorial.</p><span class="rule">3.5% seams only</span></div>
+  </div>
+
+  <div class="choice" data-choice="r2-hairline" onclick="toggleSelect(this)">
+    <img src="/files/r2-hairline.png" alt="Hairline white-only treatment">
+    <div class="meta"><h3>R2B · Hairline</h3><p>Карточки без рамок; слабая линия остаётся у controls и pane boundaries.</p><span class="rule">4.5% · focus 10%</span></div>
+  </div>
+</div>

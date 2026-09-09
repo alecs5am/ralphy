@@ -1,7 +1,7 @@
 {
   "name": "ugc-cli",
   "version": "0.3.0",
-  "description": "Ralphy — open-source agent-facing content production runtime. Published binary: @alecs5am/ralphy.",
+  "description": "Ralphy \u2014 open-source desktop app for content creation, with an integrated agent runtime and standalone CLI.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/alecs5am/ralphy.git"
@@ -60,6 +60,13 @@
     "lint:no-legacy-state": "bun run scripts/lint-no-legacy-state.ts",
     "lint:no-cyrillic": "bun run scripts/lint-no-cyrillic.ts",
     "smoke:modes": "bun run scripts/smoke-modes.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "dev": "bun run --cwd apps/desktop dev",
+    "start": "bun run --cwd apps/desktop start",
+    "install:desktop": "bun install --cwd apps/desktop --frozen-lockfile",
+    "build:desktop": "bun run --cwd apps/desktop build",
+    "test:desktop": "bun run --cwd apps/desktop test",
+    "check:desktop": "bun run --cwd apps/desktop typecheck && bun run test:desktop && bun run build:desktop && bun run --cwd apps/desktop audit:arch && bun run --cwd apps/desktop audit:style",
+    "package:mac": "bun run --cwd apps/desktop package:mac"
   }
 }

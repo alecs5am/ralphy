@@ -129,3 +129,24 @@ If you need any of these, read the actual source — they're discoverable:
 - Public architecture documentation — the sibling [`ralphy-docs`](https://github.com/alecs5am/ralphy-docs) repository.
 
 The point of this file is to make the **non-obvious** things visible. Everything else, you can find by reading.
+
+## Unified application repository
+
+The primary product lives in `apps/desktop/` in this repository. The runtime and standalone CLI remain at the root. Read the desktop package's `AGENTS.md` before changing it and run its commands from that package directory, or use `bun run check:desktop` from the root. Separate lockfiles preserve both packages' existing dependency sets. Do not run bare `bun test` at the repository root: use `bun run test` for the runtime and `bun run test:desktop` for the Vitest application suite.
+
+The app calls the documented runtime CLI/bridge contract. A repository merge does not introduce imports from `cli/` into application source. Keep generated user state in the root `.ralphy/` directory. Desktop historical branches are retained under `desktop/`; start new product work from `main`.
+
+## Personal Git identity
+
+On the maintainer machine, configure each checkout locally:
+
+```sh
+git config --local user.name alecs5am
+git config --local user.email 209291055+alecs5am@users.noreply.github.com
+git config --local user.useConfigOnly true
+git remote set-url origin git@github-alecs5am:alecs5am/ralphy.git
+```
+
+The SSH host must select the personal key with `IdentitiesOnly yes`. Confirm with `ssh -T git@github-alecs5am`. SSH authentication and commit author metadata are independent settings; both must identify the personal account.
+
+Keep the global corporate Git and `gh` accounts unchanged. The maintainer checkout provides `git gh` as a repository-local alias that obtains the `alecs5am` token using `gh auth token --hostname github.com --user alecs5am` and passes it to the requested `gh` process through `GH_TOKEN`. It must fail if token lookup fails; never fall back to the active corporate account. Plain `gh` still uses the globally active account.

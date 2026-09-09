@@ -28,11 +28,27 @@ const BINARY_EXT =
 /**
  * Translation-debt escape hatch (#465): paths whose Cyrillic is tracked debt
  * rather than a fresh violation. The original seven all-Russian content/audit
- * docs were translated to English in #479, so this is now EMPTY — the gate scans
- * the whole tree. Add a path here ONLY for genuine pre-existing debt, and delete
+ * docs were translated to English in #479. The desktop import retains its existing
+ * reference archives, design notes, and language label as explicit translation
+ * debt; no package-wide exemption is allowed. Add a path ONLY for pre-existing debt, and delete
  * it the moment the file is translated.
  */
-export const ALLOWLIST = new Set<string>([]);
+export const ALLOWLIST = new Set<string>([
+  "apps/desktop/.superpowers/brainstorm/30009-1787143031/content/accent-directions.html",
+  "apps/desktop/.superpowers/brainstorm/30009-1787143031/content/r2-border-treatment.html",
+  "apps/desktop/.superpowers/brainstorm/30009-1787143031/content/red-white-system.html",
+  "apps/desktop/.superpowers/brainstorm/30009-1787143031/content/vermilion-spectrum.html",
+  "apps/desktop/docs/design/context-surface-handoff.md",
+  "apps/desktop/docs/superpowers/plans/2026-08-19-local-models-browser.md",
+  "apps/desktop/docs/superpowers/plans/2026-08-20-nothing-foundation-shell.md",
+  "apps/desktop/docs/superpowers/plans/2026-08-24-chat-mode-backlog.md",
+  "apps/desktop/docs/superpowers/specs/2026-07-30-design-system-transfer.md",
+  "apps/desktop/docs/superpowers/specs/2026-08-20-nothing-os-redesign-design.md",
+  "apps/desktop/scripts/prepare-instrument-evidence.mjs",
+  "apps/desktop/src/pages/settings/ui/pages-personal.tsx",
+  "apps/desktop/src/widgets/view-panel/ui/ViewPanelHub.tsx",
+  "apps/desktop/tests/instrument-reference.test.ts",
+]);
 
 export interface CyrillicHit {
   file: string;

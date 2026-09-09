@@ -1,0 +1,18 @@
+{
+  "slug": "indie-ps1-ps2-horror",
+  "name": "Indie PS1 / PS2 horror registers",
+  "tag": "@guideline:indie-ps1-ps2-horror",
+  "version": "1.0",
+  "kind": "image-prompt",
+  "tagline": "Two distinct retro-game horror looks: crude PS1 indie-horror (Chilla's Art / Fears to Fathom) for found-footage dread, and smooth PS2 cutscene (Silent Hill 2) for sad / doomer melancholy. Each needs named game references + style refs, and they are NOT interchangeable.",
+  "description": "How to prompt gpt-5.4-image-2 for the two most-confused retro-game horror registers. (1) Crude PS1 indie-horror: name the games (Chilla's Art, Fears to Fathom), pass THEIR screenshots as the dominant style ref, do NOT ref your own cinematic frame, and frame as a first-person game screenshot. (2) Smooth PS2 cutscene (sad / doomer / heavy-rain melancholy): the Silent Hill 2 look — dated-realistic smooth-shaded 3D, NOT crude blocky PS1. Picking the wrong one is the most common miss.",
+  "cover": "ps1-firstperson",
+  "scope": ["image", "video", "horror", "ps1", "ps2", "retro-game", "doomer"],
+  "models": [
+    "openai/gpt-5.4-image-2",
+    "google/gemini-3-pro-image-preview",
+    "bytedance/seedance-2.0"
+  ],
+  "tags": ["ps1", "ps2", "horror", "found-footage", "doomer", "retro-game", "silent-hill"],
+  "patterns": ["ps1-firstperson", "ps2-cutscene-doomer"]
+}

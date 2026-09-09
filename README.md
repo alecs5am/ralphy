@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="docs/branding/banner.png" alt="RALPHY — turn your coding agent into a content farm" width="100%" />
+<img src="docs/branding/banner.png" alt="Ralphy content creation" width="100%" />
 
-# Turn your coding agent into a content farm.
+# Ralphy
 
-**Open-source runtime for agent-driven content production.** You chat with Hermes, Claude Code, Codex, or another local coding agent; the agent drives Ralphy. Forkable, observable, reproducible.
+**An open-source desktop app for creating and managing content.** Work with projects, media, generation tools, and local agents in one application. The Ralphy runtime and standalone CLI power the same workflows.
 
 [![Tests](https://github.com/alecs5am/ralphy/actions/workflows/test.yml/badge.svg)](https://github.com/alecs5am/ralphy/actions/workflows/test.yml)
 [![Release](https://github.com/alecs5am/ralphy/actions/workflows/release.yml/badge.svg)](https://github.com/alecs5am/ralphy/actions/workflows/release.yml)
@@ -18,9 +18,29 @@
 
 ## What it is
 
-**Ralphy is a tool for local agents, not a CLI you operate by hand.** You stay in chat — Hermes, Claude Code, Codex, or another coding agent — and describe what you want; the agent runs Ralphy for you. The CLI is the runtime that gives the agent reproducible model calls, account workspaces, shared brand assets, content units, quality gates, renders, logs, and memory.
+Ralphy brings content generation, project workspaces, media review, and local agents into one desktop application. This repository contains the product in [`apps/desktop`](apps/desktop/) and its runtime in [`cli`](cli/). Desktop development previously lived in `alecs5am/ralphy-desktop`; its history is preserved here.
 
-Under the hood, two API keys (`OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY`) wire up image / video / vision / LLM (OpenRouter), voice + music (ElevenLabs), HTML+GSAP composition (HyperFrames), and a local async-job queue (bun + SQLite). Direct `ralphy <verb>` commands stay available for setup, debugging, and power users — but driving them yourself is not the primary workflow.
+The desktop calls the runtime through its CLI and bridge contract. Agents can also use the standalone CLI for reproducible model calls, content units, renders, logs, and memory.
+
+## Run the desktop app
+
+Requires Bun and macOS. From the repository root:
+
+```bash
+bun install --frozen-lockfile
+bun run install:desktop
+bun run start
+```
+
+`bun run dev` opens the renderer development server with fixture data. For real workspaces, install the Ralphy CLI using the instructions below, or set `RALPHY_BIN` to an absolute path to your development binary. User generation data stays in the root `.ralphy/` directory.
+
+```bash
+bun run check:desktop   # types, tests, build, architecture and styles
+bun run build:desktop
+bun run package:mac     # requires the approved runtime; see apps/desktop/README.md
+```
+
+The desktop and runtime retain separate Bun packages and lockfiles. Install both with the commands above; no sibling checkout is needed. See the [desktop guide](apps/desktop/README.md) for application details.
 
 ## Demo
 
@@ -28,7 +48,7 @@ Under the hood, two API keys (`OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY`) wire 
 
 **Cost:** ~$8–12 per 30s video. **Speed:** ~8 min cold-start, ~25 min for a 10-batch. **Engine:** HyperFrames (HTML + GSAP, deterministic Puppeteer + FFmpeg render).
 
-## Install
+## Install the standalone runtime
 
 | Platform | Command |
 |---|---|
@@ -96,12 +116,12 @@ transfer.
 
 ## Why Ralphy
 
-What you actually get vs other ways to do this. The operator is your agent; you stay in chat.
+The desktop and agent runtime share these production capabilities.
 
 |  | Closed SaaS (Higgsfield, HeyGen, Captions) | Other OSS (ShortGPT, MoneyPrinterTurbo) | **Ralphy** |
 |---|---|---|---|
 | Source | Closed | OSS (script-shaped) | **Apache 2.0, fork-able** |
-| Who operates it | You, in their web UI | You, hand-running a script | **Your agent — you stay in chat** |
+| Who operates it | You, in their web UI | You, hand-running a script | **Desktop app or your local agent** |
 | Agent surface | Their cloud agent | None | **Local skills + playbooks; works in any agent** |
 | Models | Vendor lock-in | One model, hardcoded | **Any OpenRouter model — Kling / Seedance / Veo / Sora / Nano-Banana** |
 | Cost transparency | Subscription black box | Free-but-you-DIY | **`--dry-run` shows the bill before you spend** |
@@ -116,7 +136,8 @@ The hard rule that makes the rest work: **`ralphy <verb>` is the only entry-poin
 
 ```mermaid
 graph LR
-    A[Agent: Claude Code / Cursor / Codex] -->|playbooks| B[ralphy CLI]
+    DSK[Ralphy desktop app] -->|bridge| B[ralphy runtime / CLI]
+    A[Agent: Claude Code / Cursor / Codex] -->|playbooks| B
     B --> C[Provider router]
     C --> D[OpenRouter<br/>Kling / Seedance / Veo / Sora / Nano-Banana]
     C --> E[ElevenLabs<br/>TTS + Music]
@@ -142,9 +163,11 @@ graph LR
 
 ```bash
 git clone https://github.com/alecs5am/ralphy.git
-cd ralphy && bun install
+cd ralphy && bun install --frozen-lockfile
+bun run install:desktop
+bun run check:desktop
 
-bun test                       # unit + integration (1,000+ tests)
+bun run test                   # runtime unit + integration tests
 bun run lint                   # typecheck + project lints (errors / help-examples / skills / agents-md / cli-surface)
 bun run cli:surface:build      # regenerate docs/cli-surface.generated.md
 bun run build:bin              # build cross-platform binaries

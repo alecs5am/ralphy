@@ -1,0 +1,172 @@
+/* What is left of the instrument shell's stylesheet after the frame moved into markup. Two kinds
+   of rule remain, and nothing else:
+
+   1. THE SCRIM CONTRACT. `[data-instrument-overlay-backdrop]` is the one rule that owns the tone
+      of every scrim in the app. Ten components render that attribute on their own Radix overlay
+      and deliberately state only position and layer, because this rule owns the fill; there is no
+      utility form for "every element carrying this attribute", so a utility on any one overlay
+      would leave the other nine unpainted. It stays here, first, where every later sheet and every
+      per-overlay utility can still override it.
+
+   2. RULES THIS AREA DOES NOT OWN. Each styles an element no shell component renders, and each was
+      measured live in the running renderer before being kept. They are verbatim and in the order
+      they had, so the cascade against every later sheet is unchanged.
+
+   Everything else this file used to carry is now stated on the element that renders it:
+   `instrument/primitives.tsx`, `instrument/InstrumentProfileControl.tsx`,
+   `instrument/InstrumentShell.tsx`, `instrument/DynamicIsland.tsx`,
+   `instrument/overlay-registry.tsx`, `components/Titlebar.tsx` and `App.tsx`. The role keys those
+   components read live in `styles/theme/shell.css`. */
+
+/* The scrim, for every overlay in the app. Per-overlay tone is a `scrimClassName` on the overlay
+   (the rail sheet takes a lighter one); this is the default every other scrim inherits. */
+[data-instrument-overlay-backdrop] {
+  position: fixed;
+  z-index: var(--z-overlay-backdrop);
+  inset: 0;
+  background: color-mix(in srgb, var(--instrument-widget-dark) 62%, transparent);
+}
+
+/* ...and one entrance for it. Two areas had a private `from { opacity: 0 }` of their own with a
+   name of their own; a scrim fades in the same way wherever it is, so `Modal` states this once. */
+@keyframes overlay-fade {
+  from { opacity: 0; }
+}
+
+/* Two declarations that cannot move onto the desk scroller, because another area is designed to
+   beat them. `styles/marketplace.css` claims the desk for the one route that scrolls itself:
+
+     .instrument-desk-scroll:has(> .main-content-stage > .app-mode-marketplace:not([hidden]))
+       { scrollbar-gutter: auto !important }
+     .instrument-desk-scroll > .main-content-stage:has(...) { min-height: 0 !important; ... }
+
+   Both are unlayered `!important`, and an unlayered `!important` loses to an `!important` utility
+   in `@layer utilities`. Measured: stating these two as utilities on the elements defeated the
+   claim -- the marketplace desk kept an 11px scrollbar gutter it had given up, and every
+   marketplace surface came out 11px narrower. The condition is a `:has()` on a descendant of
+   another area, so it has no utility form and the claim cannot be restated in markup. They stay
+   unlayered here, at the cascade position they had, so marketplace still wins.
+
+   Owned by: the shell, but readable only from here. */
+.instrument-desk-scroll { scrollbar-gutter: stable; }
+
+.instrument-desk-scroll > .main-content-stage { min-height: 100%; }
+
+/* The desk is the app's only scroll surface, so every named scroll region inside it has to give
+   up its own scrolling or the reader gets two nested scrollbars for one page. The list names 24
+   classes across eight areas, none of them this one's, and it is declared from this area only
+   because `.instrument-desk-scroll` is the element that makes the rule true. There is no utility
+   form for a blanket over other areas' elements. Measured: the `height`, `max-height` and
+   `overflow` halves are shadowed today by the utilities each of those elements carries, and the
+   `overscroll-behavior` and `scrollbar-gutter` halves still render.
+
+   Owned by: no single area. */
+.instrument-desk-scroll :is(
+  .main-content-stage,
+  .app-mode-surface,
+  .main-region,
+  .project-region,
+  .project-domain-body,
+  .project-media-grid,
+  .asset-grid-scroll,
+  .workspace-overview,
+  .workspace-overview-scroll,
+  .shared-library-screen,
+  .shared-library-content,
+  .shared-library-scroll,
+  .shared-inspector-scroll,
+  .marketplace-screen,
+  .marketplace-scroll,
+  .documents-master,
+  .documents-detail,
+  .units-grid-scroll,
+  .activity-scroll,
+  .memory-rulebook,
+  .calendar-week-scroll,
+  .calendar-agenda-list
+) {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  overscroll-behavior: auto !important;
+  scrollbar-gutter: auto !important;
+}
+
+.instrument-desk-scroll :is(
+  .documents-workbench,
+  .units-workbench,
+  .activity-log
+) { height: auto !important; }
+
+/* Owner: documents & activity (`screens/project/ActivityInspector.tsx`). The desk is the only
+   scroll surface here, so a right-hand inspector that is just a grid column grows with the table
+   and rides away with it. Pin it instead and let it scroll on its own once it outgrows the
+   viewport. It only reaches this scope when the rail is closed -- docked, the inspector is
+   portalled into the rail and stands outside the desk entirely. */
+.instrument-desk-scroll .activity-inspector {
+  position: sticky;
+  top: 0;
+  max-height: 100%;
+  align-self: start;
+  overflow-y: auto;
+}
+
+/* Owner: workbench chrome (`components/ContextSidebar.tsx`). The mode switch's gooey travelling
+   indicator, in pill geometry: two blobs on different durations stretch through each other while
+   the filter fuses them. Measured live, including its reduced-motion path -- unlike the sidebar's
+   own slide-in, every declaration below does apply, so nothing here needs moving to win. */
+.mode-goo-filter { position: absolute; width: 0; height: 0; pointer-events: none; }
+.mode-goo { position: absolute; z-index: 0; inset: 4px; pointer-events: none; }
+.mode-goo-blob {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc(100% / var(--mode-count, 2));
+  border-radius: var(--radius-pill);
+  corner-shape: round;
+  background: var(--instrument-selected-surface);
+  transform: translateX(calc(var(--mode-index, 0) * 100%));
+}
+.mode-goo-blob-leading { transition: transform 300ms var(--ease); }
+.mode-goo-blob-trailing { transition: transform 480ms var(--ease); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-goo { filter: none !important; }
+  .mode-goo-blob-leading { transition-duration: 0ms; }
+  .mode-goo-blob-trailing { display: none; }
+}
+
+/* Owner: workbench project (`components/ProjectControls.tsx`, `instrument/ProjectDock.tsx`,
+   `screens/ProjectScreen.tsx`). The section dock floats over the bottom of the desk column --
+   not the window, which is why it is absolute and not fixed: fixed positioning centred it on the
+   app and drifted off the project whenever a column took width. Its container naming and its
+   drag opt-out are in workbench/13-unowned.css and have to stay after this rule. */
+.project-controls { position: absolute; z-index: var(--z-desk-float); top: auto; bottom: 10px; left: 50%; width: max-content; height: auto; container-type: normal; transform: translateX(-50%); }
+.project-dock { display: flex; width: max-content; align-items: center; gap: 2px; padding: 5px; border-radius: var(--radius-pill); background: var(--instrument-widget-light); color: var(--instrument-text-primary); }
+.project-dock button { position: relative; display: grid; width: 40px; height: 40px; place-items: center; padding: 0; border: 0; border-radius: var(--radius-pill); corner-shape: round; background: transparent; color: var(--instrument-text-secondary-readable); }
+.project-dock button:hover { background: var(--instrument-dock-hover); }
+.project-dock button.is-active,
+.project-dock button.is-active:hover { background: var(--instrument-desk-primary-surface); color: var(--instrument-desk-primary-ink); }
+.project-dock button > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.project-dock button:focus-visible { outline: 2px solid var(--instrument-text-primary); outline-offset: 2px; }
+/* The active button is an inverted plate, so its ring has to be drawn in its own ink. */
+.project-dock button[aria-selected="true"]:focus-visible { outline-color: var(--instrument-desk-primary-ink); outline-offset: -3px; }
+.project-domain-body { min-height: 0; padding-bottom: 64px; }
+
+/* A monochrome brand mark. Five of the lobe-icons exports are a single path with `fill="#FFFFFF"`
+   -- the brands whose logo has no colour -- so on the chat's card they painted white on white.
+   The mark is drawn as a mask over `currentColor` instead: one asset per brand, and the ink comes
+   from the surface the mark stands on, in either theme. `--brand-mask` is set per element. */
+.ai-brand-icon.is-mono {
+  display: inline-block;
+  flex: none;
+  background-color: currentColor;
+  mask: var(--brand-mask) center / contain no-repeat;
+}
+
+/* An entity tag's glyph. `vertical-align` is not a Tailwind namespace and a tag's icon has to sit
+   1.5px below the baseline to centre against the label beside it, so the one property the utility
+   layer cannot state lives here. */
+.agent-tag-glyph {
+  vertical-align: -1.5px;
+}

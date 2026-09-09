@@ -1,0 +1,275 @@
+# Chat Mode Backlog — 2026-08-24 review round
+
+**Source:** operator review of the chat lens on the real library (`~/.ralphy`, workspace
+`UX Testing Lab`, project `UX Tester`), 2026-08-24 night.
+
+**Core:** `ralphy/.worktrees/sqlite-domain-store` working copy (`SCHEMA_VERSION = 9`) is the only
+build that opens the home library. Run Desktop with `RALPHY_BIN` pointing at a wrapper that execs
+that worktree's `cli/index.ts`, and start vite with the `renderer-real` launch configuration.
+
+Status legend: `[ ]` open, `[x]` landed and verified in the running app, `[~]` landed but the
+verification is partial (says which part).
+
+---
+
+## A. Lens and shortcut semantics
+
+- [x] **A1 — `⌘R` toggles the right panel inside the chat lens.** The chat itself is permanent
+  there; the chord must open and close the view panel, not the lens.
+- [x] **A2 — `⌘R` does nothing under the desk lens.** The chord belongs to the chat lens only.
+
+## B. Composer
+
+- [x] **B1 — `@` picker highlight resets to the first row.** `sync()` runs on `keyup` and sets the
+  highlight back to 0, so `↑`/`↓` can never land anywhere but the first row.
+- [x] **B2 — Composer has no maximum height.** Cap it at roughly 12–15 lines and scroll inside.
+- [x] **B3 — Chat measure is far too narrow.** The thread should read at ~740 units, not ~60, and
+  the type should step up slightly.
+- [x] **B4 — Drag and drop drops a raw image into the transcript.** A dropped image currently
+  renders full-bleed with nothing to act on. Handle drops as *attachments*, entity-aware:
+  - a drop from Finder is a `file`;
+  - a drop from the app's own panels is a Ralphy entity — media, unit, scheduled content, memory,
+    document, whatever the source says it is.
+  Attachments are a separate channel from inline tags: inline tags are what the operator types.
+
+  Landed as `src/chat/attachments.ts`: a drag type of our own (`application/x-ralphy-entity`) that
+  the app's own rows carry — Unit cards, the workspace Units rows, media tiles, document rows,
+  memory rules, calendar publications and the ready drawer — and a strip of removable chips above
+  the composer. A Finder drop becomes a `file` with the real path (`webUtils.getPathForFile` in
+  the preload). The window now refuses a stray drop outright, which is what the reported bug was:
+  the default action for a dropped image is to *navigate* to it, so the window became the image.
+  Attachments ride under the message as an `Attached:` block in the same `@kind:ref` vocabulary,
+  so the operator's own bubble renders them as chips.
+
+## C. Provider integration
+
+- [x] **C1 — Refresh the Codex integration.** New models are rejected and the harness reports that
+  Codex must be updated. Confirm what the installed Codex CLI actually accepts and follow it.
+  Second pass got this wrong. It read the refusal as "this build cannot run that model" and dropped
+  the row from the menu, which is the one thing that could not help: the operator does have 5.6
+  models.
+
+  Third pass, the real cause. The 400 is a **server-side gate on the client version**, and the app
+  was resolving `~/.local/bin/codex`, which stays pinned to the release it was installed with —
+  0.142.4 here, while Codex's own updater had moved
+  `~/.codex/packages/standalone/current` to 0.149.1 that same morning. Both builds *list*
+  `gpt-5.6-luna` in their bundled catalogue, so no catalogue check could ever have caught it. The
+  binary resolver now prefers the symlink Codex itself calls the installed version, every listed
+  model stays in the menu, and the provider row prints the resolved CLI version so a stale install
+  is visible before a turn fails rather than after. Verified live: the row reads `CLI 0.149.1` and a
+  real `gpt-5.6-luna` turn from inside the app returns.
+- [~] **C2 — Refresh the Claude Code integration.** Same currency check for the Claude harness.
+  Checked against the installed `claude 2.1.228`: every flag the session spawns still exists
+  (`-p`, `--output-format stream-json`, `--verbose`, `--include-partial-messages`,
+  `--setting-sources`, `--permission-mode`, `--no-chrome`, `--model`, `--resume`), the three model
+  aliases are the three the CLI documents (`opus`, `sonnet`, `fable`), every permission mode we
+  send is in its `choices` list, and `auth status --json` answers in the shape we parse.
+
+  Changed: the Ralphy context now goes through `--append-system-prompt` rather than being glued to
+  the front of the operator's sentence — that is where a harness's own context belongs, and it
+  leaves the message the operator wrote as the message the model answers. Codex `exec` has no
+  equivalent, so there it stays a prefix.
+
+  **Not verified live:** this machine has no Claude account or key (`auth status` reports
+  `loggedIn: false`), so the streaming parser has not been run against a real Claude turn. Sign in
+  and send one message to close this out.
+- [~] **C3 — Streaming looks dead on Codex.** The parser now forwards a growing message as
+  suffixes, so the transcript streams as soon as the CLI reports one -- but the installed
+  `codex-cli 0.142.4` never does: `codex exec --json` emits `item.completed` for an assistant
+  message and nothing before it (verified against a live turn), and `codex exec` has no
+  partial-output flag. Claude's harness streams properly through `--include-partial-messages`.
+  The cure for Codex is `codex update`; ours is done.
+- [x] **C4 — Generated chat titles.** A chat is currently named after its first prompt. Both Codex
+  and Claude Code name sessions themselves; integrate whatever they already produce. Neither hands
+  that name to a one-shot caller -- `codex exec` writes no thread name, and Claude's
+  `generate_session_title` is a control request on the bidirectional stream the `-p` path cannot
+  reach -- so the name is asked for the same way they ask for it: one short read-only turn after
+  the first reply, once per chat, which a real send stops rather than queues behind.
+
+  Found on the way: `codex exec` refuses to start outside a git repository, and the harness runs in
+  the library's parent, which is the operator's home. A `full` turn never hit it because bypassing
+  the sandbox bypasses the trust check -- so **Plan and Auto were broken for every turn** and
+  looked fine. `--skip-git-repo-check` is now passed; what a turn may touch is still the sandbox's
+  decision alone.
+- [x] **C5 — "Provider Settings" opens Settings at its last page.** It must land on the provider
+  page.
+
+  Cost, asked and answered. It is one extra short turn per chat, once, when the first answer lands.
+  It now goes to the cheapest model each CLI documents — `gpt-5.4-mini` for Codex, `fable` for
+  Claude (`claude 2.1.228` documents no `haiku` alias) — falling back to the chat's own model if the
+  cheap alias is refused. What it does *not* shrink is the input: a Codex turn measured 21.5k input
+  tokens on both models, because Codex loads its own instructions, `AGENTS.md`, skills and plugins
+  before the prompt, and `codex exec` exposes no flag to trim that. So the saving is the per-token
+  rate, not the token count.
+
+## D. Chat scope and panel state
+
+- [x] **D1 — Chats belong to a workspace.** Switching workspace switches the chat list. The
+  stored key gained the workspace (`agent-chats:3:<root>:<workspace>`); the pre-scope record is
+  consumed by the migration rather than copied into every workspace.
+- [x] **D2 — Panel state per chat.** `ViewPanelPreferences.tabsByWorkspace` became `byChat`, and
+  the width moved inside it -- selecting a chat restores its tabs *and* the width it stood at. The
+  record is capped at 40 chats, oldest first, so a closed chat cannot grow the blob forever.
+- [x] **D3 — Add a web browser view tab.** An Electron `<webview>` in its own session partition,
+  with `hardenWebviewAttach` in main deciding what a guest may attach with (no preload, no node,
+  `http(s)` only). The guest stays mounted behind the page card, so switching tabs does not reload
+  the page.
+
+## E. Context transparency
+
+- [ ] **E1 — Show what the chat can reach.** Core ships `AGENTS.md` and a tree of instruction
+  files (art director and friends) plus installed skills the harness can call. The app should show
+  the operator the system-prompt entry point, the files already in context, and what the harness
+  may pull in as it works.
+
+  First pass shipped a **Context** popover in the composer toolbar, reading the truth in main: the
+  working directory, the library and the active project, the provider's own instruction files with
+  whether each exists, its configuration, its installed skills with a count, and the injected
+  preamble verbatim.
+
+  **Rejected: wrong shape.** "юзер не будет искать какие то файлы" — a list of paths in a rail-width
+  popover is a developer's debug view, not a place an operator reads or edits their context. Context
+  is not one list either: there is what the developer bakes into `.ralphy`, what the operator adds
+  per workspace and globally, Ralphy's own memory, and the skills the marketplace installs. Every
+  one of those mutates what the agent knows, and the popover shows one of them.
+
+  The deliverable is now a design document covering the whole system and the view it deserves, for
+  Claude Design to draw: `docs/design/context-system-ui-handoff.md`. The popover stays only until
+  that view exists.
+
+  Writing it against the shipping build turned up four **defects**, listed in the document as D1–D4.
+  Three of them mean the agent does not receive context the app already holds:
+
+  - [x] **D1 — the memory digest is computed and withheld.** `memory.recall` is wired end to end and
+    its only caller is `MemoryScreen`, which shows the digest to the *operator*. The chat never calls
+    it and the preamble carries no memory. Fix: the workspace digest goes into the preamble — it is
+    capped at 50 entries and carries its own "background reference, not instructions" caution, so the
+    cost is bounded and the framing is already right.
+  - [x] **D2 — the preamble names a CLI that cannot open the library.** It says "use the installed
+    Ralphy CLI (`ralphy`)", a bare name resolving to whatever is on `PATH`. Here that is
+    `/opt/homebrew/bin/ralphy` 0.2.0, whose `workspace` command has only `stats` and `clean` and
+    which cannot read a schema-9 store — while the app resolves its own working binary and a packaged
+    build already ships one at `<resources>/bin/ralphy`. Fix: name the absolute path of the binary
+    the app itself uses, and say in one line that the library is a store read through it rather than
+    a tree to walk.
+
+    Both fixed and verified from inside a real turn: asked without running any commands, the agent
+    answered "8 entries" and the exact absolute path of the binary the app is running. The digest is
+    workspace-scoped, so the chat request now carries a `workspaceId` of its own — a chat can have a
+    workspace with no project selected, and the workspace is what scopes memory. A recall failure
+    leaves the preamble without memory rather than failing the turn.
+  - [ ] **D3 — Ralphy ships no prompts into the library it creates.** `~/.ralphy` is created on first
+    run with exactly one empty `workspaces/` directory in it. The operator's decision (2026-08-25):
+    **the prompts are bundled with the app** — materialised into the library on install, refreshed by
+    an app update, and shadowed by an operator override rather than edited in place, which is the same
+    shadowing rule a project document and a workspace memory already use. Needs a build artifact with
+    a version and a manifest; the design section "The bundled prompt pack" specifies the semantics.
+  - [ ] **D4 — workspace and project documents are stored and never offered.** Unlike the others this
+    carries a real token-cost question, which the document asks rather than assumes.
+
+  The finding it rests on: the harness runs the CLI in the library's *parent*, the operator's home.
+  Core's own `AGENTS.md`, its 16 playbooks and its skills live in the core checkout, which is not
+  the working directory and is not reachable by a relative path — so the preamble's old line,
+  "Follow this repository's AGENTS.md and CLAUDE.md", named a file that is not there. The preamble
+  is now built from the same inventory the panel shows and states absolute paths. Putting Core's
+  guides *into* that context is a Core-side question (its installer's `ROUTING_BLOCK` still leaves
+  `<repo>` unexpanded) and is not this repository's to answer.
+
+## F. Surfaces outside the chat
+
+- [x] **F1 — The project dock shows up in Marketplace.** It is exclusive to My Work, and only with
+  a project open.
+- [x] **F2 — Dynamic island does not collapse on outside click.** An open island should close when
+  the operator clicks away.
+- [x] **F3 — Workspace `Units` page says "Units not wired yet"** while the workspace has units and
+  they are reachable elsewhere. Superseded plan 2026-08-20 Task 3, which specified the
+  unavailable plate as the deliverable: the sidebar counts those Units from the catalogue, so the
+  plate had become a contradiction rather than an honesty. Second pass: the publication chips were
+  written with `bg-ok`/`bg-warn`, which name colours no theme defines — the app's palette is
+  monochrome with one alert accent — so they rendered with no plate at all. They now speak the
+  calendar's vocabulary: ink for what has happened, a quiet plate for what is only planned.
+
+## G. Test data
+
+- [x] **G1 — Fill the gaps in the test workspace.** `UX Testing Lab`'s overview is mostly
+  "unavailable from the current Core contract"; establish which panels are missing *data* and
+  which are missing *contract*, then write the data the workspace needs to render a full overview.
+
+  **The data was never missing.** Core's `workspace.overview` scopes its `units`, `publications`
+  and `metrics` sections to `project_id IS NULL` — "owned by the workspace itself" — and its own
+  integration tests state that on purpose ("Workspace-scoped sections never leak Project-owned
+  rows"). For a workspace whose work lives in projects that is always none, so the overview
+  reported zero Units, zero publications and no metrics for a workspace holding eighteen Units and
+  publications with real reach. Widening Core's clause was tried and reverted: it breaks three of
+  Core's tests and contradicts a decision Core states in words.
+
+  The first fix composed the reading on the Desktop side — one `project.overview` request per
+  Project, pages concatenated, metric totals added up in the reader. **Rejected, and rightly.** It
+  produced a total no single query had computed, a page that could not paginate because it was
+  stitched from other pages, and a null-versus-zero problem that existed only because the addition
+  happened outside the database.
+
+  Second fix, in the right place: Core's `workspace.overview` now takes `include: "owned" | "tree"`.
+  `owned` is the default and unchanged, so the test that states the narrow rule keeps passing;
+  `tree` is the other honest question — everything under this workspace, Projects included — and it
+  is one `WHERE` clause where the rows are. Widening reaches down, never sideways: another
+  workspace's Project stays out, which the new Core test asserts. Desktop asks once and filters the
+  legacy catalog ghost, which is all it ever should have done. `UX Testing Lab` shows
+  1 publication, 11.8k views, 36.7h watch time, 972 likes, 68 comments, 143 shares, and the right
+  account carries its publication.
+
+  Still genuinely **contract**, not data — nothing in the library can fill these today:
+  - trend points and comparable reporting windows (Momentum's trend, Top/emerging, What works,
+    What Ralphy learned — all need a metrics history Core does not keep);
+  - per-account metrics;
+  - the workspace timezone and cadence targets (Content plan's coverage line);
+  - Ready-Unit lifecycle state.
+
+  One honest disagreement is left: the Content plan reads publication rows, whose only future
+  `scheduledAt` in this workspace is in the past, while the Calendar shows eight publications
+  between Aug 25 and Aug 28 from its own reader. The two panels answer "what is scheduled" from
+  different sources. Worth settling before either is trusted.
+
+## H. Raised 2026-08-25
+
+- [x] **H1 — Type scale readability.** Settings' main content was hard to read. The cause was not
+  the settings screen but the bottom of the shared type scale: row descriptions sat at 11.5px, one
+  step above a caps micro-label, and the caps labels themselves ran 8.5–10.5px. Contrast was never
+  the problem — measured 6:1 and better everywhere, against a 4.5:1 bar.
+
+  The scale's floor is raised, keeping the 0.5px spacing between rungs so every distinction the
+  screens draw with survives; sizes from 20px up are untouched, which widens the gap between body
+  copy and a heading rather than narrowing it. Measured clipping before and after across the twelve
+  settings pages and the workspace pages: no new truncation, no horizontal overflow.
+
+- [x] **H2 — Streaming.** An answer arrived in one piece after the whole turn. `codex exec --json`
+  is why: it reports an assistant message only as a finished item — measured on 0.149.1, a
+  2504-character answer arrives as exactly one `item.completed` and nothing before it. There is no
+  flag for it and `codex features list` has no streaming feature for exec, so the `item.updated`
+  branch in the parser was correct and unreachable.
+
+  The transport is now `codex app-server`, the protocol Codex's own desktop client speaks, which
+  emits `item/agentMessage/delta` as the model writes. Same total time as exec on the same prompt
+  and model (11.1s vs 11.4s), with the first token at 10.5s instead of at the end; 15–33 delta
+  events per short answer. The wait before the first token is Codex loading its own instructions and
+  the model thinking — unchanged.
+
+- [~] **H3 — Content plan versus Calendar.** Settle what each panel is for. The operator's reading:
+  the Calendar shows finished content that is actually booked into a slot, while the Content plan is
+  mostly *ideas not yet made* — some of which may later be realised and link to a Unit. That is a
+  different axis from "scheduled versus published", and neither panel currently draws it.
+
+  Designed in `docs/design/content-plan-versus-calendar.md`. **No new entity is needed.** Core's
+  `calendar_entries` has carried the whole lifecycle since schema 9 —
+  `state IN ('idea','queued','produced','gated','scheduled','published')`, a nullable `scheduled_at`
+  and a nullable `unit_revision_id` as independent columns — and the `idea | queued | produced |
+  gated` half is never written and never read. The word `idea` appears in Core's calendar code once,
+  as the state of a cadence *slot*. `calendar.create` requires a `unitRevisionId`, so an idea cannot
+  be created from the app at all; every calendar row necessarily already has a Unit behind it, which
+  is exactly why the plan has nothing to show that the Calendar does not.
+
+  The dividing line proposed is one checkable property: **does the row have a `scheduled_at`.** The
+  plan is the pipeline and the cadence it is measured against; the Calendar is the timetable,
+  including the row nothing else in the app can state — a committed date with no content behind it.
+  Identity survives the whole way, so a card moves between the two views instead of being recreated.
+  Seven contract gaps are named, five decisions are put to the operator.
