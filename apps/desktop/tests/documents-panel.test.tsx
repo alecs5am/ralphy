@@ -572,6 +572,9 @@ describe("documents workbench", () => {
     expect(listedBadges).toContain("format-markdown");
     expect(listedBadges).toContain("format-json");
     expect(listedBadges).toContain("format-text");
+    for (const icon of ["FileText", "FileJson", "FileTxt"]) {
+      expect(listedBadges).toContain(`data-icon="${icon}"`);
+    }
     await controller.searchDocuments("formats");
     const badges = markup(controller);
     expect(badges).toContain("document-format-badge format-markdown");

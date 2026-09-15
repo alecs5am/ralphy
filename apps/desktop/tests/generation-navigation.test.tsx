@@ -88,3 +88,21 @@ test("settings entry can open Providers and return to the default entry", async 
     host.restore();
   }
 });
+
+test("view overflow retains the displaced tab and excludes the visible active tab", async () => {
+  const host = createReactHost();
+  const { createRoot } = await import("react-dom/client");
+  const root = createRoot(host.container as unknown as Element);
+  let set = tabSetFor(EMPTY_VIEW_PANEL, null);
+  for (const type of ["units", "memory", "calendar", "context"] as const) set = openViewTab(set, { type, label: type });
+  try {
+    await act(async () => root.render(<ViewPanel set={set} width={310} chords={{}} onOpen={noAction} onClose={noAction} onSelect={noAction}>Content</ViewPanel>));
+    expect(host.container.querySelector(".view-panel-tab")?.textContent).toContain("context");
+    await act(async () => host.container.querySelector(".view-panel-overflow")!.dispatchEvent(new Event("click", { bubbles: true })));
+    const menu = document.body.querySelector(".view-panel-overflow-list");
+    expect(menu?.textContent).toContain("units");
+    expect(menu?.textContent).toContain("memory");
+    expect(menu?.textContent).toContain("calendar");
+    expect(menu?.textContent).not.toContain("context");
+  } finally { await act(async () => root.unmount()); host.restore(); }
+});

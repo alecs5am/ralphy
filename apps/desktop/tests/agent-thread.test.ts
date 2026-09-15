@@ -78,7 +78,7 @@ describe("agent transcript", () => {
     expect(groupLabel([tool("Bash", "bun test")])).toBe("Ran a command");
     expect(groupMeta([tool("Bash", "bun test", "running")])).toBe("1 RUNNING");
     /* An unknown tool name still names something: the transcript never prints a blank row. */
-    expect(groupLabel([tool("Plurio__ask", "why")])).toBe("Called a tool");
+    expect(groupLabel([tool("ExampleConnector__ask", "why")])).toBe("Called a tool");
   });
 
   test("reads a duration the way the design writes it", () => {

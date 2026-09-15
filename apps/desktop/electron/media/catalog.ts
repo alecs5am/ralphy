@@ -25,7 +25,7 @@ import type {
   WorkspaceSummary,
 } from "./types";
 import type { RalphyBridgeClient } from "../ralphy/client";
-import type { Page, ProjectDto, WorkspaceDto } from "../ralphy/types";
+import type { Page, ProjectDto, UnitDto, WorkspaceDto } from "../ralphy/types";
 
 const JSON_LIMIT_BYTES = 1024 * 1024;
 const TEXT_LIMIT_BYTES = 2 * 1024 * 1024;
@@ -248,13 +248,19 @@ export async function resolveProjectPath(
   rootPath: string,
   workspaceId: string,
   projectId: string,
-): Promise<string> {
+  client?: Pick<RalphyBridgeClient, "request">,
+): Promise<string | undefined> {
   validateIdentifier(workspaceId, "workspace id");
   validateIdentifier(projectId, "project id");
   const domain = await isDomainLibraryRoot(rootPath);
+  if (domain) {
+    if (!client) throw new Error("Core is required to resolve a database project");
+    await client.request("project.show", { context: { workspaceId }, projectId });
+    return undefined; // Database projects need no filesystem bucket, even after media is imported.
+  }
   const path = await resolveContainedPath(
     rootPath,
-    join(domain ? "buckets" : "workspaces", workspaceId, "projects", projectId),
+    join("workspaces", workspaceId, "projects", projectId),
   );
   const info = await lstat(path);
   if (!info.isDirectory()) throw new Error(`Project is not a directory: ${projectId}`);
@@ -279,6 +285,21 @@ export async function buildDomainCatalog(
 
   const workspaces: WorkspaceSummary[] = [];
   const projects: ProjectSummary[] = [];
+  const countUnits = async (workspaceId: string, projectId: string | null) => {
+    let count = 0;
+    let after: string | null = null;
+    const seen = new Set<string>();
+    do {
+      const page: Page<UnitDto> = await client.request("unit.list", {
+        context: { workspaceId, ...(projectId ? { projectId } : {}) }, after, limit: 100,
+      });
+      count += page.items.filter((unit) => unit.workspaceId === workspaceId && unit.projectId === projectId).length;
+      after = page.nextCursor;
+      if (after && seen.has(after)) throw new Error("Repeated Unit catalog cursor");
+      if (after) seen.add(after);
+    } while (after !== null);
+    return count;
+  };
   for (const workspace of workspaceRows) {
     if (isLegacyCatalogGhost("workspace", workspace)) continue;
     const projectRows: ProjectDto[] = [];
@@ -295,7 +316,10 @@ export async function buildDomainCatalog(
     } while (after !== null);
 
     const visibleProjects = projectRows.filter((project) => !isLegacyCatalogGhost("project", project));
+    let workspaceUnitCount = await countUnits(workspace.id, null);
     for (const project of visibleProjects) {
+      const unitCount = await countUnits(workspace.id, project.id);
+      workspaceUnitCount += unitCount;
       projects.push({
         workspaceId: workspace.id,
         projectId: project.id,
@@ -310,7 +334,7 @@ export async function buildDomainCatalog(
         spendUsd: null,
         finalCount: 0,
         sharedCount: 0,
-        unitCount: 0,
+        unitCount,
         recentActivity: isoTime(project.updatedAt),
       });
       onProgress?.({ generation, workspacesRead: workspaces.length, projectsRead: projects.length });
@@ -322,7 +346,7 @@ export async function buildDomainCatalog(
       absolutePath: join(root, "buckets", workspace.id),
       projectCount: visibleProjects.length,
       sharedCount: 0,
-      unitCount: 0,
+      unitCount: workspaceUnitCount,
       finalCount: 0,
       recentActivity: isoTime(workspace.updatedAt),
     });

@@ -53,6 +53,8 @@ const UNIT_KEYS = [
   "latestRevisionId",
   "projectId",
   "selectedRevisionId",
+  "sourceRevisionId",
+  "sourceLabel",
   "slug",
   "updatedAt",
   "workspaceId",

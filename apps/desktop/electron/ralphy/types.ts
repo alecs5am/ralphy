@@ -570,6 +570,8 @@ export interface CompositionBuildCompletion {
   }>;
 }
 export interface UnitDto extends ScopedDto {
+  sourceRevisionId?: string | null;
+  sourceLabel?: string | null;
   compositionId: string | null;
   slug: string;
   format: string;

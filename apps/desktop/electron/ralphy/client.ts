@@ -296,6 +296,11 @@ export class RalphyBridgeClient {
     this.#spawnBridge = options.spawn ?? nodeSpawn;
   }
 
+  get requiresReconnect(): boolean {
+    return this.#terminalError?.code === "E_PROTOCOL_INVALID"
+      && this.#terminalError.message === "Bridge request id capacity is exhausted";
+  }
+
   start(): Promise<BridgeHello> {
     if (this.#closed) return Promise.reject(this.#closedError());
     if (this.#hello) return Promise.resolve(this.#hello);

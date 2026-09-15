@@ -9,7 +9,7 @@ import { bridge } from "@/shared/api/ipc";
 import { InstrumentScreenRoot, type InstrumentScenarioState } from "@/shared/instrument/screen-state-registry";
 import { WINDOW, WINDOW_PLATE } from "@/shared/ui/Window";
 import { UnitStatus } from "@/entities/unit";
-import { unitLifecycle, type UnitLifecycle } from "@/entities/unit";
+import { unitLifecycle, unitRevisionNumber, type UnitLifecycle } from "@/entities/unit";
 import { preferredUnitPoster, resolveUnitMedia, unitPreviewKind, type UnitMedia } from "@/entities/unit";
 import type { DomainPage } from "@/entities/project";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../model/screen-controller";
@@ -98,7 +98,8 @@ function UnitCard({ unit, baseLifecycle, publications, controller, disabled, onO
       bridge.loadProjectUnitRevision(controller.getSnapshot().domain.project, unit.id, unit.latestRevisionId),
       bridge.loadProjectUnitPage(controller.getSnapshot().domain.project, { kind: "items", revisionId: unit.latestRevisionId }),
       bridge.loadProjectUnitPage(controller.getSnapshot().domain.project, { kind: "presentations", revisionId: unit.latestRevisionId }),
-    ]).then(async ([revision, items, presentations]) => {
+      unit.sourceRevisionId ? bridge.loadProjectUnitRevision(controller.getSnapshot().domain.project, unit.id, unit.sourceRevisionId).catch(() => null) : null,
+    ]).then(async ([revision, items, presentations, source]) => {
       const media = await resolveUnitMedia(bridge, controller.getSnapshot().domain.project, items.items);
       let lifecycle = unitLifecycle({ unit, revision, publications });
       if (revision.compositionRevisionId) {
@@ -109,7 +110,7 @@ function UnitCard({ unit, baseLifecycle, publications, controller, disabled, onO
         const buildItems = builds.items.filter((item): item is BuildDto => "state" in item && "compositionRevisionId" in item);
         lifecycle = unitLifecycle({ unit, revision, compositionRevision: productionRevision, builds: buildItems, publications });
       }
-      if (current) setSummary({ lifecycle, media: preferredUnitPoster(media) ?? media.find((item) => item.kind === "video") ?? media[0] ?? null, platforms: presentations.items.map(({ platform }) => platform), revisionNo: revision.revisionNo });
+      if (current) setSummary({ lifecycle, media: preferredUnitPoster(media) ?? media.find((item) => item.kind === "video") ?? media[0] ?? null, platforms: presentations.items.map(({ platform }) => platform), revisionNo: unitRevisionNumber(revision, source) });
     }).catch(() => undefined);
     return () => { current = false; };
   }, [controller, publications, unit]);
@@ -133,14 +134,16 @@ function UnitCard({ unit, baseLifecycle, publications, controller, disabled, onO
   </article>;
 }
 
-export function UnitsPanel({ page, controller, snapshot, targetUnitId, scrollMemory, resetToken, onEditVideo }: {
+export function UnitsPanel({ page, controller, snapshot, targetUnitId, onTargetUnitOpened, scrollMemory, resetToken, onEditVideo, onOpenUnit }: {
   page: DomainPage;
   controller: ProjectScreenController;
   snapshot: ProjectScreenSnapshot;
   targetUnitId?: string | null;
+  onTargetUnitOpened?(): void;
   scrollMemory: Map<string, number>;
   resetToken: string;
   onEditVideo?(unitId: string, title: string): void;
+  onOpenUnit?(unitId: string): void;
 }) {
   const units = page.items as UnitDto[];
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -154,7 +157,8 @@ export function UnitsPanel({ page, controller, snapshot, targetUnitId, scrollMem
     if (!targetUnitId) return;
     setViewerOpen(true);
     void controller.openUnit(targetUnitId);
-  }, [controller, targetUnitId]);
+    onTargetUnitOpened?.();
+  }, [controller, targetUnitId, onTargetUnitOpened]);
   const rememberedScroll = useRememberedScroll(scrollMemory, "units-grid", resetToken);
   const publications = (snapshot.domain.overview.value as ProjectOverviewDto | null)?.publications?.items ?? [];
   const rows = useMemo(() => units.map((unit) => ({ unit, lifecycle: unitLifecycle({ unit, publications }) })), [publications, units]);
@@ -176,6 +180,7 @@ export function UnitsPanel({ page, controller, snapshot, targetUnitId, scrollMem
   }, [rememberedScroll.ref]);
 
   const openUnit = (unitId: string, trigger: HTMLElement) => {
+    if (onOpenUnit) { onOpenUnit(unitId); return; }
     const scrollTop = scrollRef.current?.scrollTop ?? 0;
     setReturnFocus(trigger);
     setViewerOpen(true);

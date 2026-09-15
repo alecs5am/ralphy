@@ -1059,6 +1059,8 @@ Options:
 
 Commands:
   create [options]        Create a Unit identity and its first sealed revision
+  source [options] <id>   Link an exact original revision without adding a
+                          variant
   list [options]          List Units in the explicit scope
   show [options] <id>     Show a Unit and one exact sealed revision graph
   revise [options] <id>   Append a sealed Unit revision

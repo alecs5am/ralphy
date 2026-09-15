@@ -3,7 +3,7 @@ import { Copy, Pencil, RotateCcw, TriangleAlert } from "@/shared/ui/icons";
 import { bridge } from "@/shared/api/ipc";
 import { AgentTaggedText } from "./agent-tags";
 import { AgentMark } from "@/shared/ui/AgentMark";
-import { MarkdownView } from "@/shared/ui/MarkdownView";
+import { AgentMessage, type AgentUnitNavigation } from "./AgentMessage";
 import type { AgentChatEntry } from "../model/chat-state";
 import { BLOCK, LINE_ACTION, META } from "./agent-thread-chrome";
 import { Chevron, elapsedLabel, FAMILIES, family, ToolGroup, ToolRow } from "./agent-tool-rows";
@@ -148,13 +148,15 @@ function TurnView({
   streamingTool,
   onEdit,
   onRerun,
+  workspaceId,
+  onOpenUnit,
 }: {
   turn: Turn;
   busy: boolean;
   streamingTool: AgentChatEntry | null | undefined;
   onEdit(text: string): void;
   onRerun(text: string): void;
-}) {
+} & AgentUnitNavigation) {
   const [open, setOpen] = useState(true);
   const parts = agentBlocks(turn.work);
   const worked = parts.filter((block) => block.kind !== "prose");
@@ -180,7 +182,7 @@ function TurnView({
     </button>}
     {parts.map((block, index) => {
       if (block.kind === "prose") {
-        return <MarkdownView markdown={block.entry.text ?? ""} tone="chat" key={block.entry.id} />;
+        return <AgentMessage markdown={block.entry.text ?? ""} workspaceId={workspaceId} onOpenUnit={onOpenUnit} key={block.entry.id} />;
       }
       if (!open) return null;
       if (block.kind === "error") {
@@ -204,6 +206,8 @@ export function AgentThread({
   streamingTool,
   onEdit,
   onRerun,
+  workspaceId,
+  onOpenUnit,
 }: {
   entries: readonly AgentChatEntry[];
   busy: boolean;
@@ -212,7 +216,7 @@ export function AgentThread({
   streamingTool: AgentChatEntry | null;
   onEdit(text: string): void;
   onRerun(text: string): void;
-}) {
+} & AgentUnitNavigation) {
   const turns = agentTurns(entries);
   /* The transcript keeps a reading measure however wide the zone is: with the view panel closed the
      chat takes the window, and a 1200px line of prose is not a line. */
@@ -226,6 +230,8 @@ export function AgentThread({
       streamingTool={busy && index === turns.length - 1 ? streamingTool : undefined}
       onEdit={onEdit}
       onRerun={onRerun}
+      workspaceId={workspaceId}
+      onOpenUnit={onOpenUnit}
       key={turn.id}
     />)}
   </div>;

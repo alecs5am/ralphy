@@ -14,7 +14,7 @@ import { WORKSPACE_PAGES } from "./workspace-pages";
  * set *and* the width to follow the chat, so the width lives in each chat's record and the
  * top-level `width` is only what a chat that has never been sized inherits.
  */
-export const VIEW_TAB_TYPES = ["home", ...WORKSPACE_PAGES, "project", "browser"] as const;
+export const VIEW_TAB_TYPES = ["home", ...WORKSPACE_PAGES, "project", "unit", "browser"] as const;
 export type ViewTabType = (typeof VIEW_TAB_TYPES)[number];
 export const HOME_TAB_ID = "home";
 export const VIEW_PANEL_MIN = 380;

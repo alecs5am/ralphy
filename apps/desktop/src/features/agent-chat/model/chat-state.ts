@@ -6,9 +6,8 @@
  * of deltas is folded into the entry it belongs to rather than appended, so a re-render never
  * shows a half-written turn twice.
  *
- * The four bounds are storage bounds, enforced here so nothing downstream has to trust the
- * numbers: thirty chats, a hundred entries each, 128KB of text per entry, and ids that have to
- * look like ids.
+ * Stored records validate ids and bound individual text fields. A conversation's entries stay
+ * intact: tool-heavy turns can contain hundreds of records before their first answer.
  */
 import type {
   AgentChatEvent,
@@ -18,7 +17,6 @@ import type {
 } from "@/shared/api/ipc";
 
 export const MAX_PERSISTED_CHATS = 30;
-export const MAX_PERSISTED_ENTRIES = 100;
 export const MAX_ENTRY_TEXT = 128 * 1024;
 export const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const MODEL_ID = /^[~a-zA-Z0-9][a-zA-Z0-9._~:/-]{0,255}$/;
@@ -101,6 +99,7 @@ export type AgentChatAction =
   | { type: "set-title"; chatId: string; title: string; now: number }
   | { type: "set-auth"; method: ClaudeAuthMethod; now: number }
   | { type: "set-permission"; mode: AgentPermissionMode; now: number }
+  | { type: "recover-history"; chatId: string; sessionId: string; beforeId: number; entries: AgentChatEntry[] }
   | { type: "restore"; state: AgentChatState };
 
 export function validLocalId(value: string): boolean {
@@ -249,6 +248,12 @@ export function reduceAgentChat(
   action: AgentChatAction,
 ): AgentChatState {
   if (action.type === "restore") return action.state;
+  if (action.type === "recover-history") {
+    return updateChat(state, action.chatId, (chat) => (
+      chat.busy || chat.sessionId !== action.sessionId || chat.entries[0]?.id !== action.beforeId
+        ? chat : { ...chat, entries: action.entries, nextId: action.entries.length + 1 }
+    ));
+  }
   if (action.type === "select-chat") {
     return state.chats.some(({ id }) => id === action.chatId)
       ? { ...state, activeChatId: action.chatId }

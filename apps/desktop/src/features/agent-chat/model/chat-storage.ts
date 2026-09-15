@@ -1,18 +1,16 @@
 /**
  * Reading and writing a scope's chats, and refusing anything that does not parse.
  *
- * Storage is untrusted input: every field is checked, every list is bounded, and a record that
- * fails any check is dropped rather than repaired -- a chat that half-loads is worse than a chat
- * that is gone, because the operator cannot tell which turns are missing. The legacy key is read
- * once and migrated, never written.
+ * Storage is untrusted input: fields are checked before loading. Valid entries are never
+ * discarded to fit a display limit. The legacy key is read once and migrated, never written.
  */
-import type { AgentProvider } from "@/shared/api/ipc";
+import type { AgentHistoryEvent, AgentProvider } from "@/shared/api/ipc";
 
 import {
   createAgentChatState,
   createConversation,
+  reduceAgentChat,
   MAX_PERSISTED_CHATS,
-  MAX_PERSISTED_ENTRIES,
   MAX_ENTRY_TEXT,
   MODEL_ID,
   SESSION_ID,
@@ -119,9 +117,8 @@ function parseConversation(value: unknown): AgentConversation | null {
   ) return null;
   const entries = Array.isArray(row.entries)
     ? row.entries.map(parseEntry).filter((entry): entry is AgentChatEntry => entry !== null)
-      .slice(-MAX_PERSISTED_ENTRIES)
     : [];
-  const highestId = Math.max(0, ...entries.map((entry) => entry.id));
+  const highestId = entries.reduce((highest, entry) => Math.max(highest, entry.id), 0);
   return {
     id: row.id,
     title: entries.length === 0 ? "New chat" : boundedText(row.title)?.slice(0, 80) ?? "New chat",
@@ -153,9 +150,8 @@ function migrateLegacy(value: unknown, fallback: CreateAgentChatOptions): AgentC
   const row = value as Record<string, unknown>;
   const entries = Array.isArray(row.entries)
     ? row.entries.map(parseEntry).filter((entry): entry is AgentChatEntry => entry !== null)
-      .slice(-MAX_PERSISTED_ENTRIES)
     : [];
-  const highestId = Math.max(0, ...entries.map((entry) => entry.id));
+  const highestId = entries.reduce((highest, entry) => Math.max(highest, entry.id), 0);
   const chat: AgentConversation = {
     ...createConversation({ ...fallback, provider: "claude", model: "sonnet" }),
     title: "Claude chat",
@@ -180,11 +176,10 @@ export function saveAgentChats(
   storage: StorageLike,
   scope: AgentChatScope,
   state: AgentChatState,
-): void {
-  if (!scope.rootPath) return;
+): boolean {
+  if (!scope.rootPath) return false;
   const chats = state.chats.slice(-MAX_PERSISTED_CHATS).map((chat) => ({
     ...chat,
-    entries: chat.entries.slice(-MAX_PERSISTED_ENTRIES),
     busy: undefined,
     streamingAssistantId: undefined,
   }));
@@ -194,8 +189,9 @@ export function saveAgentChats(
       chats,
       activeChatId: state.activeChatId,
     }));
+    return true;
   } catch {
-    // Chat persistence is best-effort; provider CLIs keep canonical transcripts.
+    return false;
   }
 }
 
@@ -236,4 +232,26 @@ export function loadAgentChats(
     return createAgentChatState(fallback);
   }
   return createAgentChatState(fallback);
+}
+
+/** Add only the missing prefix. Keep the app's surviving messages, failures and results. */
+export function recoverAgentChatEntries(chat: AgentConversation, history: AgentHistoryEvent[]): AgentChatEntry[] {
+  let state = createAgentChatState({ chatId: chat.id, provider: chat.provider, model: chat.model, now: 0 });
+  for (const { at, event } of history) {
+    if (event.type === "prompt") {
+      state = { ...state, runningChatId: null, chats: state.chats.map((row) => ({ ...row, busy: false })) };
+      state = reduceAgentChat(state, { type: "send", chatId: chat.id, text: event.text, now: at });
+    } else state = reduceAgentChat(state, { type: "event", chatId: chat.id, event, now: at });
+  }
+  const first = chat.entries[0];
+  const recovered = state.chats[0].entries;
+  const matches = recovered.flatMap((entry, index) => entry.kind === first?.kind && (
+    entry.kind === "tool" ? entry.tool?.id === first.tool?.id
+      : entry.kind === "result" ? entry.run?.durationMs === first.run?.durationMs
+        : entry.text?.trim() === first.text?.trim()
+  ) ? [index] : []);
+  if (matches.length !== 1 || matches[0] === 0 || recovered[0]?.kind !== "user") {
+    throw new Error("Could not safely match the saved chat to its original transcript");
+  }
+  return [...recovered.slice(0, matches[0]), ...chat.entries].map((entry, index) => ({ ...entry, id: index + 1 }));
 }

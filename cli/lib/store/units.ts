@@ -134,6 +134,8 @@ export type MetricSnapshotFilter = {
 };
 
 type UnitDbRow = {
+  source_revision_id: string | null;
+  source_label: string | null;
   id: string;
   workspace_id: string;
   project_id: string | null;
@@ -230,14 +232,14 @@ type MetricSnapshotDtoDbRow = Omit<MetricSnapshotDto, "retentionCurve"> & {
 };
 
 const UNIT_COLUMNS =
-  "id, workspace_id, project_id, composition_id, slug, format, latest_revision_id, selected_revision_id, row_version, created_at, updated_at";
+  "id, workspace_id, project_id, composition_id, slug, format, latest_revision_id, selected_revision_id, source_revision_id, source_label, row_version, created_at, updated_at";
 const REVISION_COLUMNS =
   "id, unit_id, composition_revision_id, revision_no, parent_revision_id, iteration_id, note, metadata_json, authored_by_session_id, created_at, sealed_at";
 const PUBLICATION_COLUMNS =
   "id, presentation_id, effective_caption_revision_id, effective_options_json, social_account_id, submission_run_id, active_claim_run_id, revised_from_publication_id, rail, provider_publication_id, state, url, scheduled_at, submitted_at, published_at, error, failure_stage, idempotency_key, claim_kind, claim_epoch, claim_token, claim_expires_at, created_at, updated_at";
 const METRIC_SNAPSHOT_COLUMNS =
   "id, publication_id, source, as_of, window_start, window_end, views, likes, comments, shares, watch_time_ms, ctr, retention_curve_json, avg_view_duration_sec, note, raw_json, created_at";
-const UNIT_DTO_COLUMNS = `unit.id AS id, unit.workspace_id AS workspaceId,
+const UNIT_DTO_COLUMNS = `unit.source_revision_id AS sourceRevisionId, unit.source_label AS sourceLabel, unit.id AS id, unit.workspace_id AS workspaceId,
   unit.project_id AS projectId, unit.composition_id AS compositionId,
   unit.slug AS slug, unit.format AS format,
   unit.latest_revision_id AS latestRevisionId,
@@ -2976,6 +2978,8 @@ function getRevisionRow(db: Database, id: string): UnitRevisionRow | null {
 
 function toUnitRow(row: UnitDbRow): UnitRow {
   return {
+    sourceRevisionId: row.source_revision_id,
+    sourceLabel: row.source_label,
     id: row.id,
     workspaceId: row.workspace_id,
     projectId: row.project_id,
@@ -2992,6 +2996,8 @@ function toUnitRow(row: UnitDbRow): UnitRow {
 
 function toUnitDto(row: UnitRow): UnitDto {
   return {
+    sourceRevisionId: row.sourceRevisionId ?? null,
+    sourceLabel: row.sourceLabel ?? null,
     id: row.id,
     workspaceId: row.workspaceId,
     projectId: row.projectId,
@@ -3422,4 +3428,22 @@ function canonicalJson(value: unknown, label: string): JsonValue {
     result[key] = canonicalJson((value as Record<string, unknown>)[key], label);
   }
   return result;
+}
+
+/** Attach an exact imported baseline without adding or relabeling a creative version. */
+export function setUnitSource(input: { context: QueryContext; unitId: string; revisionId: string; label: string; expectedSourceRevisionId: string | null }): UnitDto {
+  const label = input.label.trim();
+  if (!label || label.length > 80) throw new Error("Source label must contain 1 to 80 characters");
+  const db = openDomainDb();
+  return withImmediateTransaction(() => {
+    const unit = getUnit({ context: input.context, unitId: input.unitId });
+    if (input.context.sessionId) assertActiveSessionScope(db, input.context.sessionId, unit);
+    const revision = getUnitRevision({ context: input.context, revisionId: input.revisionId });
+    const source = getUnit({ context: input.context, unitId: revision.unitId });
+    if (source.workspaceId !== unit.workspaceId || source.projectId !== unit.projectId || revision.sealedAt === null) throw new Error("Original must be a sealed revision in the same scope");
+    if ((unit.sourceRevisionId ?? null) !== input.expectedSourceRevisionId) throw new Error("Unit source changed; reload before updating");
+    db.prepare("UPDATE units SET source_revision_id = ?, source_label = ?, updated_at = ?, row_version = row_version + 1 WHERE id = ?").run(revision.id, label, Date.now(), unit.id);
+    appendActivity(db, { workspaceId: unit.workspaceId, projectId: unit.projectId, entityType: "unit", entityId: unit.id, action: "unit.source-linked", payload: { revisionId: revision.id, label }, createdAt: Date.now() });
+    return getUnit({ context: input.context, unitId: unit.id });
+  });
 }

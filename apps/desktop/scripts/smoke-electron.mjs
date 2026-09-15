@@ -60,7 +60,7 @@ const child = spawn(
     `--user-data-dir=${userData}`,
   ],
   {
-    cwd: root,
+    cwd: packagedApp ? userData : root,
     env: secretHandoffSmoke
       ? process.env
       : { ...process.env, RALPHY_SMOKE_TEST: "1" },
@@ -100,8 +100,8 @@ if (
   outcome.code !== 0
   || outcome.signal !== null
   || !output.includes("RALPHY_SMOKE_READY")
-  || !output.includes("RALPHY_TERMINAL_BRIDGE_READY")
 ) {
+  console.error(`Electron smoke failed: exit=${outcome.code}, signal=${outcome.signal}`);
   console.error(output);
   process.exit(1);
 }

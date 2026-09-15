@@ -3,3 +3,7 @@
 export * from "./ui/UnitStatus";
 export * from "./lib/unit-lifecycle";
 export * from "./lib/unit-previews";
+export * from "./lib/unit-revision-number";
+export * from "./ui/UnitRevisionPreview";
+
+export * from "./ui/UnitSourcePreview";

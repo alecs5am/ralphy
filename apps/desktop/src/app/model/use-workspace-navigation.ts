@@ -37,6 +37,7 @@ export function useWorkspaceNavigation({
   const [workspaceDestination, setWorkspaceDestination] = useState<WorkspaceDestination | null>(null);
   const [overviewReturnState, setOverviewReturnState] = useState<WorkspaceOverviewReturnState | null>(null);
   const [targetUnitId, setTargetUnitId] = useState<string | null>(null);
+  const clearTargetUnit = useCallback(() => setTargetUnitId(null), []);
 
   const clearOverviewNavigation = useCallback(() => {
     setWorkspaceDestination(null);
@@ -89,6 +90,7 @@ export function useWorkspaceNavigation({
     workspaceDestination,
     overviewReturnState,
     targetUnitId,
+    clearTargetUnit,
     clearOverviewNavigation,
     openWorkspace,
     openProject,

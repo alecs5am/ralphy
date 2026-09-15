@@ -15,6 +15,7 @@ import {
   listUnits,
   reviseUnit,
   selectUnitRevision,
+  setUnitSource,
   type ReviseUnitInput,
   type UnitItemInput,
   type UnitPresentationInput,
@@ -81,6 +82,17 @@ export function unitCmd(): Command {
       } catch (error) {
         conflict(error, "Unit", opts.slug);
       }
+    });
+
+  command
+    .command("source <id>")
+    .description("Link an exact original revision without adding a variant")
+    .requiredOption("--revision <id>", "Original sealed Unit revision in the same scope")
+    .requiredOption("--label <text>", "Source label, for example an import provider or uploaded file")
+    .option("--expected <id>", "Expected source revision ID or none", "none")
+    .action((id: string, opts, child: Command) => {
+      const context = resolve(child);
+      out(setUnitSource({ context: queryContext(context), unitId: id, revisionId: opts.revision, label: opts.label, expectedSourceRevisionId: opts.expected === "none" ? null : opts.expected }));
     });
 
   command

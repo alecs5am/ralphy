@@ -39,6 +39,8 @@ function codexEnvironment(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 
 export interface CodexRunRequest {
   rootPath: string;
+  workspaceId?: string | null;
+  projectId?: string | null;
   projectPath?: string;
   prompt: string;
   provider: "codex" | "openrouter";
@@ -125,7 +127,7 @@ const SILENT_ITEMS = new Set([
  */
 type SentLengths = Map<string, number>;
 
-function normalizedEvents(
+export function normalizedEvents(
   method: string,
   params: Record<string, unknown>,
   sent: SentLengths,
@@ -233,6 +235,8 @@ async function canonicalContext(request: CodexRunRequest): Promise<{
      guides and naming them would be a wish rather than an instruction. */
   const preamble = await agentPreamble({
     provider: request.provider,
+    workspaceId: request.workspaceId,
+    projectId: request.projectId,
     rootPath,
     projectPath,
     cwd,
@@ -521,8 +525,9 @@ export class CodexSession {
         approvalPolicy: "never",
         ...(request.model === "default" ? {} : { model: request.model }),
       };
+      // The renderer owns its transcript; a full media history can exceed the JSON line limit.
       const thread = request.resumeSessionId
-        ? await call("thread/resume", { threadId: request.resumeSessionId, ...settings })
+        ? await call("thread/resume", { threadId: request.resumeSessionId, excludeTurns: true, ...settings })
         : await call("thread/start", settings);
       const threadId = boundedString(objectFrom(thread.thread)?.id, 128);
       if (!SESSION_ID.test(threadId)) throw new Error("Codex did not open a thread");

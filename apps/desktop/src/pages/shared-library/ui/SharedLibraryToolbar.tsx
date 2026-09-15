@@ -55,12 +55,17 @@ export function SharedLibraryToolbar({ query, controller }: {
     </div>
     <SelectMenu tone="caller" overlayOwner="shared.toolbar" className={`shared-library-select ${SELECT}`} value={query.mediaKind} options={kinds} ariaLabel="Kind" prefix="Kind" onValueChange={(mediaKind) => controller.setQuery({ mediaKind })} />
     <SelectMenu tone="caller" overlayOwner="shared.toolbar" className={`shared-library-select ${SELECT}`} value={query.provenance} options={provenances} ariaLabel="Provenance" prefix="Provenance" onValueChange={(provenance) => controller.setQuery({ provenance })} />
-    {unavailable.map((label) => <button className={CONTROL} key={label} type="button" aria-disabled="true" aria-describedby={unavailableReasonId} data-unavailable-filter>{label}</button>)}
-    <button className={CONTROL} type="button" aria-disabled="true" aria-describedby={unavailableReasonId} data-unavailable-filter>Group by entity</button>
     {/* The sort control is pushed to the far end of the toolbar until the row is narrow enough
         that it reads as its own line. */}
     <SelectMenu tone="caller" overlayOwner="shared.toolbar" className={`shared-library-select ${SELECT} ml-auto @max-shared-header/main-region:ml-0`} value={query.sort} options={sorts} ariaLabel="Sort" prefix="Sort" onValueChange={(sort) => controller.setQuery({ sort })} />
     {dirty && <button className={CONTROL} type="button" onClick={() => controller.setQuery({ text: "", mediaKind: "all", provenance: "all" })}><X size={12} aria-hidden="true" />Clear filters</button>}
-    <p className="m-0 w-full type-mono-md leading-caption text-muted" id={unavailableReasonId}>{unavailableReason} Grouping by entity is unavailable from Core.</p>
+    <details className="w-full type-xs text-muted">
+      <summary className="cursor-pointer">Additional filters · unavailable</summary>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {unavailable.map((label) => <button className={CONTROL} key={label} type="button" aria-disabled="true" aria-describedby={unavailableReasonId} data-unavailable-filter>{label}</button>)}
+        <button className={CONTROL} type="button" aria-disabled="true" aria-describedby={unavailableReasonId} data-unavailable-filter>Group by entity</button>
+      </div>
+      <p className="mb-0 mt-2 leading-caption" id={unavailableReasonId}>{unavailableReason} Grouping by entity is unavailable from Core.</p>
+    </details>
   </form>;
 }

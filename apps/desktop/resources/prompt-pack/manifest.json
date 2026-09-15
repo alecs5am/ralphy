@@ -1,10 +1,10 @@
 {
   "packVersion": 1,
   "cliVersion": "0.3.0",
-  "installedAt": 1787683508091,
-  "source": "/Users/maximovchinnikov/github/ralphy/ralphy/.worktrees/sqlite-domain-store",
-  "root": "/Users/maximovchinnikov/github/ralphy/ralphy-desktop/.worktrees/nothing-os-redesign/resources/prompt-pack",
-  "totalBytes": 2119625,
+  "installedAt": 1789480749435,
+  "source": "/Users/maximovchinnikov/github/ralphy/ralphy",
+  "root": "/Users/maximovchinnikov/github/ralphy/ralphy/apps/desktop/resources/prompt-pack",
+  "totalBytes": 2130841,
   "files": [
     {
       "path": ".agents/skills/analog-horror-psa/SKILL.md",
@@ -803,8 +803,8 @@
     },
     {
       "path": ".agents/skills/templater/references/pool-migration.md",
-      "bytes": 6750,
-      "sha256": "3617e40d776f1d211eb84f924d137bb1034115a12e4f56a2ccc14d9d4413e27a"
+      "bytes": 6843,
+      "sha256": "5fa632002cf0c7d56397418e10fc855a783096198d27c0c1a46d14cad25bc7d7"
     },
     {
       "path": ".agents/skills/templater/references/recipe-vs-tag.md",
@@ -978,8 +978,8 @@
     },
     {
       "path": "AGENTS.md",
-      "bytes": 38036,
-      "sha256": "a97dd362ce9394da8c41bc10c47d0ef2996e0eb678e87c6847fa7b14a19f14aa"
+      "bytes": 39129,
+      "sha256": "0336ced650e3c1749982ffd3f756b19f3558ddb28c2c5bc0e6b7dab6b709922c"
     },
     {
       "path": "MODELS.md",
@@ -1003,8 +1003,8 @@
     },
     {
       "path": "docs/cli-surface.generated.md",
-      "bytes": 107086,
-      "sha256": "5f45736613cc899ff664da31c9d681559e7affeac589d623638eed67e740c7b5"
+      "bytes": 107132,
+      "sha256": "c4033275294e82192d3d94bb48585ad656155c072e17498d118041e8f31c3921"
     },
     {
       "path": "docs/content-mode-coverage.md",
@@ -1038,8 +1038,8 @@
     },
     {
       "path": "docs/developing-ralphy.md",
-      "bytes": 12709,
-      "sha256": "50a454786d6d6fad79a4c482951bc2d1d722d57120129e5ab3334c567eef25ed"
+      "bytes": 14497,
+      "sha256": "c298d927090e992c455650e2bc21253d851d225141436348069697eeef99af5d"
     },
     {
       "path": "docs/ffmpeg-recipes.md",
@@ -1235,6 +1235,11 @@
       "path": "docs/workspace-evaluators.md",
       "bytes": 20629,
       "sha256": "f36ae758e686c1e46c7884ee99984c4b1a34d1d8036e6837ac8c9696d8d2bf65"
+    },
+    {
+      "path": "guidelines/.DS_Store",
+      "bytes": 8196,
+      "sha256": "372cbecc9e2cf4d04deea995ed61dcace727afaa759b168cd04692f8a34717f9"
     },
     {
       "path": "guidelines/README.md",

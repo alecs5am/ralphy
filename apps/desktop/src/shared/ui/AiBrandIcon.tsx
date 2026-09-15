@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import type { AgentProvider } from "../api/ipc";
 
 export type AiBrand =
@@ -59,9 +58,10 @@ export function AiBrandIcon({
     return (
       <span
         /* A mask over `currentColor`, so the mark reads on the chat's card and on a black widget
-           alike. instrument.css owns the rule; the element owns which artwork it cuts. */
+           alike. Keep the URL in the inline property: a URL inside a CSS variable resolves
+           relative to the bundled stylesheet, which lives one assets directory deeper. */
         className={`ai-brand-icon is-mono is-${brand} select-none ${className}`.trim()}
-        style={{ "--brand-mask": `url("./assets/ai/${brand}.svg")`, width: size, height: size } as CSSProperties}
+        style={{ maskImage: `url("./assets/ai/${brand}.svg")`, width: size, height: size }}
         aria-hidden="true"
       />
     );

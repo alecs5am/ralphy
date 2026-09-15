@@ -31,6 +31,8 @@ const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 
 export interface ClaudeRunRequest {
   rootPath: string;
+  workspaceId?: string | null;
+  projectId?: string | null;
   projectPath?: string;
   prompt: string;
   model?: string;
@@ -221,6 +223,8 @@ async function canonicalContext(request: ClaudeRunRequest): Promise<{
      there the preamble is still a prefix. */
   const preamble = await agentPreamble({
     provider: "claude",
+    workspaceId: request.workspaceId,
+    projectId: request.projectId,
     rootPath,
     projectPath,
     cwd,

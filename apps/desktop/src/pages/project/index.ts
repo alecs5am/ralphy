@@ -10,6 +10,7 @@ export * from "./ui/ProjectScreen";
 export * from "./ui/UnitSocialPreview";
 export * from "./ui/UnitsPanel";
 export * from "./ui/UnitViewer";
+export * from "./ui/UnitView";
 export * from "./ui/VirtualAssetGrid";
 export * from "./model/screen-controller";
 export * from "./lib/activity-presentation";

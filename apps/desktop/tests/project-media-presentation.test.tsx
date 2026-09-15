@@ -86,10 +86,11 @@ function keydown(target: EventTarget, key: string, modifiers: Partial<Pick<Keybo
 }
 
 describe("Project media presentation", () => {
-  test("seeks compact social previews to their four-second poster frame", () => {
+  test("uses a four-second poster for long previews and starts short clips at the beginning", () => {
     expect(compactVideoStartTime(24, true)).toBe(4);
     expect(compactVideoStartTime(24, false)).toBe(0);
     expect(compactVideoStartTime(3, true)).toBe(0);
+    expect(compactVideoStartTime(4.041667, true)).toBe(0);
   });
 
   test("keeps accessible image zoom, pan, and fit presentation", () => {

@@ -551,8 +551,9 @@ describe("marketplace navigation", () => {
     const actualPanels = await vi.importActual<typeof import("@/widgets/utility-panels")>("../src/widgets/utility-panels/ui/UtilityPanels");
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
-    function NoRootChat() {
+    function NoRootChat({ saved = false }: { saved?: boolean }) {
       const chat = actualChat.useAgentChat({ rootPath: null, workspaceId: null, project: null, enabled: false });
+      if (saved) chat.activeChat = { ...chat.activeChat, entries: [{ id: 1, kind: "user", text: "Saved demo request" }] };
       return <actualPanels.AgentChatPanel chat={chat} workspace={null} project={null} onClose={() => undefined} onOpenSettings={() => undefined} />;
     }
     try {
@@ -562,6 +563,10 @@ describe("marketplace navigation", () => {
       expect(host.container.textContent).toContain("No provider connected");
       expect(host.container.textContent).toContain("Codex CLI not found");
       expect(host.container.querySelector("textarea")).toBeNull();
+      await act(async () => { root.render(<NoRootChat saved />); await settle(); });
+      expect(host.container.textContent).toContain("Saved demo request");
+      expect(host.container.textContent).toContain("Connect a provider to continue");
+      expect(host.container.querySelector("[aria-label=\"Send message\"]")).toBeNull();
     } finally {
       await act(async () => root.unmount());
       if (previousRaf) Object.defineProperty(globalThis, "requestAnimationFrame", previousRaf);

@@ -1487,8 +1487,8 @@ describe("design system contract", () => {
     expect(markdownViewSource).toContain('tone?: MarkdownTone');
     expect(markdownViewSource).toMatch(/tone === "chat" \? CHAT_TONE : DOCUMENT_TONE/);
     expect(markdownViewSource).not.toContain("INSTRUMENT_TONE");
-    expect(readFileSync(join(process.cwd(), "src/features/agent-chat/ui/AgentThread.tsx"), "utf8"))
-      .toContain('<MarkdownView markdown={block.entry.text ?? ""} tone="chat"');
+    expect(layerSource("src/features/agent-chat"))
+      .toMatch(/<MarkdownView\b[^>]*tone="chat"/);
     // Every legacy tone on the timeline icon collapsed to one of two on-dark inks, so the map
     // states two and not seven.
     expect([...new Set((/const ICON_TONE[^}]*}/s.exec(documentsActivitySource)?.[0] ?? "").match(/text-on-instrument(?:-muted)?/g) ?? [])].sort())

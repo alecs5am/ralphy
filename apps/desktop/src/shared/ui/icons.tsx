@@ -15,7 +15,8 @@ import {
   Copy01Icon, CpuIcon, Dollar01Icon, Download01Icon,
   ArrowExpand01Icon, LinkSquare02Icon, ViewIcon, ViewOffIcon,
   Forward01Icon, FileClockIcon, FilePenIcon, FilePenLineIcon,
-  File02Icon, Film01Icon, Folder01Icon, FolderHeartIcon,
+  FileBracesIcon, Txt01Icon,
+  Facebook01Icon, File02Icon, Film01Icon, Folder01Icon, FolderHeartIcon,
   FolderInputIcon, FolderKanbanIcon, FolderOpenIcon, ArtboardIcon,
   GalleryHorizontalEndIcon, GaugeIcon, GitBranchIcon, GitCommitIcon,
   GitCompareIcon, GitForkIcon, GitMergeIcon, GlobeIcon,
@@ -122,7 +123,10 @@ export const FastForward = /* @__PURE__ */ appIcon("FastForward", Forward01Icon)
 export const FileClock = /* @__PURE__ */ appIcon("FileClock", FileClockIcon);
 export const FilePen = /* @__PURE__ */ appIcon("FilePen", FilePenIcon);
 export const FilePenLine = /* @__PURE__ */ appIcon("FilePenLine", FilePenLineIcon);
+export const Facebook = /* @__PURE__ */ appIcon("Facebook", Facebook01Icon);
 export const FileText = /* @__PURE__ */ appIcon("FileText", File02Icon);
+export const FileJson = /* @__PURE__ */ appIcon("FileJson", FileBracesIcon);
+export const FileTxt = /* @__PURE__ */ appIcon("FileTxt", Txt01Icon);
 export const Film = /* @__PURE__ */ appIcon("Film", Film01Icon);
 export const Folder = /* @__PURE__ */ appIcon("Folder", Folder01Icon);
 export const FolderHeart = /* @__PURE__ */ appIcon("FolderHeart", FolderHeartIcon);

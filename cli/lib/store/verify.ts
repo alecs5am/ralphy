@@ -245,7 +245,7 @@ const TEXT_COLUMNS = {
   unit_items: "id,unit_revision_id,artifact_revision_id,document_revision_id,role,config_json",
   unit_presentations: "id,unit_revision_id,platform,effective_caption_revision_id,cover_artifact_revision_id,crop_json,safe_area_json,options_json",
   unit_revisions: "id,unit_id,parent_revision_id,iteration_id,note,metadata_json,authored_by_session_id,composition_revision_id",
-  units: "id,workspace_id,project_id,slug,format,latest_revision_id,selected_revision_id,composition_id",
+  units: "id,workspace_id,project_id,slug,format,latest_revision_id,selected_revision_id,composition_id,source_revision_id,source_label",
   personas: "id,workspace_id,slug,name,language,archetype,tone,metadata_json",
   workspace_templates: "id,workspace_id,slug,name,description,kind,format,category,document_revision_id,artifact_revision_id,metadata_json",
   workspaces: "id,slug,name,metadata_json",
@@ -1318,6 +1318,13 @@ function inspectBuildChains(
 
 function inspectUnitChains(db: Database, report: DomainVerificationReport): void {
   const target = report.brokenUnitChains;
+  appendUnitChain(target, "unit", "foreign-pointer", chainRows(db, `
+    SELECT unit.id AS entityId, unit.source_revision_id AS relatedId
+    FROM units unit
+    WHERE unit.source_revision_id IS NOT NULL AND NOT EXISTS (
+      SELECT 1 FROM unit_revisions revision JOIN units source ON source.id = revision.unit_id
+      WHERE revision.id = unit.source_revision_id AND revision.sealed_at IS NOT NULL
+        AND source.workspace_id = unit.workspace_id AND source.project_id IS unit.project_id)`));
   appendUnitChain(target, "unit", "scope-mismatch", chainRows(db, `
     SELECT unit.id AS entityId, unit.project_id AS relatedId
     FROM units unit LEFT JOIN projects project ON project.id = unit.project_id

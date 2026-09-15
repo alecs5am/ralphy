@@ -33,7 +33,7 @@ import {
   type CreateAgentChatOptions,
   type StorageLike,
 } from "./chat-state";
-import { chatScopeKey, loadAgentChats, saveAgentChats, type AgentChatScope } from "./chat-storage";
+import { chatScopeKey, loadAgentChats, recoverAgentChatEntries, saveAgentChats, type AgentChatScope } from "./chat-storage";
 
 export type { AgentChatScope };
 
@@ -112,6 +112,8 @@ export function useAgentChat({
   const [providersLoading, setProvidersLoading] = useState(false);
   const [authAction, setAuthAction] = useState<AgentProvider | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const loadedScope = useRef(scopeKey);
   const pendingState = useRef<AgentChatState | null>(null);
   const providersLoaded = useRef(false);
@@ -141,9 +143,27 @@ export function useAgentChat({
       return;
     }
     if (rootPath && storage && loadedScope.current === scopeKey) {
-      saveAgentChats(storage, { rootPath, workspaceId }, state);
+      const saved = saveAgentChats(storage, { rootPath, workspaceId }, state);
+      setPersistenceError(saved ? null : "Chat history could not be saved. Keep this window open and free some storage space.");
     }
   }, [rootPath, scopeKey, state, storage, workspaceId]);
+
+  useEffect(() => {
+    setHistoryError(null);
+    const first = activeChat.entries[0];
+    if (!enabled || loadedScope.current !== scopeKey || activeChat.busy || !activeChat.sessionId
+      || activeChat.provider === "claude" || !first || first.id <= 1) return;
+    let cancelled = false;
+    const { id, sessionId } = activeChat;
+    void bridge.loadAgentHistory(sessionId, workspaceId).then((history) => {
+      if (cancelled) return;
+      const entries = recoverAgentChatEntries(activeChat, history);
+      dispatch({ type: "recover-history", chatId: id, sessionId, beforeId: first.id, entries });
+    }).catch((error: unknown) => {
+      if (!cancelled) setHistoryError(`Earlier messages could not be restored: ${message(error)}`);
+    });
+    return () => { cancelled = true; };
+  }, [activeChat, enabled, scopeKey, workspaceId]);
 
   useEffect(() => bridge.onAgentEvent((envelope) => {
     if (envelope.storeId === rootPath) {
@@ -290,7 +310,7 @@ export function useAgentChat({
     providers,
     providersLoading,
     authAction,
-    connectionError,
+    connectionError: persistenceError ?? historyError ?? connectionError,
     connected,
     send,
     stop: () => {

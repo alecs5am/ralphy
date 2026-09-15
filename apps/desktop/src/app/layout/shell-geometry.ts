@@ -14,11 +14,9 @@ export const RIGHT_RAIL_MIN = 292;
 /* The chat lens' view panel. The width is the user's, and it has no design maximum: the panel may
    take nearly the whole window, the way a Codex-style layout lets the conversation shrink to a
    tenth of it. What stops it is the chat's own floor -- a share of the frame, with an absolute
-   floor because a conversation below it is not readable at any window size. Below
-   VIEW_PANEL_DROP there is no room for both columns at all. */
-export const VIEW_PANEL_DROP = 1_120;
+   floor because a conversation below it is not readable at any window size. */
 const VIEW_CHAT_MIN_RATIO = 0.12;
-const VIEW_CHAT_MIN = 240;
+const VIEW_CHAT_MIN = 360;
 /* The window's own chrome between the frame edge and the two content columns: 8 of desk on each
    side, plus the zone gap after the sidebar and the one between the chat and the panel. */
 const VIEW_CHROME = 32;
@@ -64,11 +62,9 @@ export function shellColumns({ dimensions, leftVisible, leftWidth, rightWidth, v
   const dockedDeskWidth = railDocked ? dimensions.deskWidth : dimensions.deskWidth - railWidth;
   /* The ceiling is whatever leaves the chat its floor, so dragging wide runs out of travel at the
      point the conversation would stop being usable rather than at an arbitrary width. */
-  const viewPanelMax = Math.max(
-    VIEW_PANEL_MIN,
-    dimensions.frameWidth - leftColumn - VIEW_CHROME
-      - Math.max(VIEW_CHAT_MIN, Math.round(dimensions.frameWidth * VIEW_CHAT_MIN_RATIO)),
-  );
+  const viewRoom = dimensions.frameWidth - leftColumn - VIEW_CHROME
+    - Math.max(VIEW_CHAT_MIN, Math.round(dimensions.frameWidth * VIEW_CHAT_MIN_RATIO));
+  const viewPanelMax = Math.max(VIEW_PANEL_MIN, viewRoom);
   return {
     leftWidth: left,
     leftColumn,
@@ -76,7 +72,7 @@ export function shellColumns({ dimensions, leftVisible, leftWidth, rightWidth, v
     railWidth,
     dockEligible: dimensions.frameWidth >= DOCK_WINDOW_MIN && dockedDeskWidth >= DOCK_DESK_MIN,
     viewPanelWidth: clampWidth(viewWidth, VIEW_PANEL_MIN, viewPanelMax, VIEW_PANEL_DEFAULT),
-    viewPanelFits: dimensions.frameWidth >= VIEW_PANEL_DROP,
+    viewPanelFits: viewRoom >= VIEW_PANEL_MIN,
     /* The same bounds the widths were clamped against, so a resize grabber and the clamp cannot
        disagree about where a drag runs out of travel. */
     bounds: {

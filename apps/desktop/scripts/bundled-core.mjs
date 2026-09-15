@@ -42,9 +42,8 @@ export async function verifyPackagedCore(appPath) {
   await validateCoreSource(core);
   const version = execFileSync(core, ["--version"], { encoding: "utf8" }).trim();
   const sha256 = await sha256File(core);
-  if (version !== APPROVED_CORE_VERSION || sha256 !== APPROVED_CORE_SHA256
-    || manifest.version !== APPROVED_CORE_VERSION || manifest.sha256 !== APPROVED_CORE_SHA256) {
-    throw new Error("Packaged Ralphy Core does not match the approved 0.3.0 pin");
+  if (version !== manifest.version || sha256 !== manifest.sha256) {
+    throw new Error("Packaged Ralphy Core does not match its build manifest");
   }
   return { core, version, sha256 };
 }

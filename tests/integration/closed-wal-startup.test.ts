@@ -248,7 +248,7 @@ describe("closed WAL startup", () => {
       fixture.db.query<{ version: number }, []>(
         "SELECT version FROM schema_migrations ORDER BY version",
       ).all().map((row) => row.version),
-    ).toEqual([1, 2, 3, 4, 6, 7, 8, 9]);
+    ).toEqual([1, 2, 3, 4, 6, 7, 8, 9, 10]);
     closeAsStandaloneWal(fixture);
 
     expectMigrationIncomplete(() =>

@@ -1,0 +1,30 @@
+import { afterEach, beforeEach, expect, test } from "bun:test";
+import { closeDomainDb } from "../../cli/lib/store/db.js";
+import { createDocument, reviseDocument } from "../../cli/lib/store/documents.js";
+import { createProject, createWorkspace } from "../../cli/lib/store/scopes.js";
+import { createUnitWithRevision, getUnit, listUnitRevisions, setUnitSource } from "../../cli/lib/store/units.js";
+import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+let tmp: TmpRoot;
+beforeEach(() => { tmp = makeTmpRoot("unit-source"); });
+afterEach(() => { closeDomainDb(); tmp.cleanup(); });
+test("an exact original stays separate from variants and cannot cross project boundaries or overwrite a changed link", () => {
+  const workspace = createWorkspace({ slug: "source-test", name: "Sources" });
+  const project = createProject({ workspaceId: workspace.id, slug: "demo", name: "Demo" });
+  const context = { workspaceId: workspace.id, projectId: project.id };
+  const create = (projectId: string, slug: string) => {
+    const doc = createDocument({ projectId, kind: "brief", slug, title: slug });
+    const text = reviseDocument({ documentId: doc.id, expectedHeadId: null, format: "markdown", title: slug, body: "Creative" });
+    return createUnitWithRevision({ projectId, slug, format: "post", items: [{ documentRevisionId: text.id, role: "body", position: 0 }] });
+  };
+  const original = create(project.id, "original");
+  const variant = create(project.id, "variants");
+  const input = { context, unitId: variant.unitId, revisionId: original.id, label: "Imported creative", expectedSourceRevisionId: null };
+  expect(setUnitSource(input)).toMatchObject({ sourceRevisionId: original.id, sourceLabel: "Imported creative", latestRevisionId: variant.id });
+  expect(listUnitRevisions({ context, unitId: variant.unitId, limit: 50 }).items).toHaveLength(1);
+  expect(getUnit({ context, unitId: original.unitId }).latestRevisionId).toBe(original.id);
+  expect(() => setUnitSource(input)).toThrow("changed");
+  const other = createProject({ workspaceId: workspace.id, slug: "other", name: "Other" });
+  const foreign = create(other.id, "foreign");
+  expect(() => setUnitSource({ ...input, revisionId: foreign.id, expectedSourceRevisionId: original.id })).toThrow();
+  expect(() => setUnitSource({ ...input, label: " ", expectedSourceRevisionId: original.id })).toThrow();
+});

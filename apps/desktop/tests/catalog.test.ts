@@ -7,6 +7,7 @@ import {
   ensureHomeLibraryRoot,
   readBoundedText,
   resolveContainedPath,
+  resolveProjectPath,
   trashContainedItems,
   validateLibraryRoot,
 } from "../electron/media/catalog";
@@ -20,13 +21,29 @@ afterEach(async () => {
 });
 
 describe("shallow library catalog", () => {
+  test("resolves a chat's database project without requiring a filesystem bucket", async () => {
+    fixture = await makeLibraryFixture();
+    await writeFile(join(fixture.rootPath, "ralphy.db"), "SQLite format 3\0");
+    await mkdir(join(fixture.rootPath, "buckets"));
+    const request = vi.fn().mockResolvedValue({ id: "prj_one", workspaceId: "ws_one" });
+    await expect(resolveProjectPath(fixture.rootPath, "ws_one", "prj_one", { request } as never)).resolves.toBeUndefined();
+    expect(request).toHaveBeenCalledWith("project.show", { context: { workspaceId: "ws_one" }, projectId: "prj_one" });
+    request.mockRejectedValueOnce(new Error("Project not found in workspace"));
+    await expect(resolveProjectPath(fixture.rootPath, "ws_other", "prj_one", { request } as never)).rejects.toThrow("Project not found");
+  });
   test("catalogs a DB-only domain Project without a Project bucket", async () => {
     fixture = await makeLibraryFixture();
     await rm(join(fixture.rootPath, "workspaces"), { recursive: true });
     await writeFile(join(fixture.rootPath, "ralphy.db"), "SQLite format 3\0");
     await mkdir(join(fixture.rootPath, "buckets"), { recursive: true });
     const client = {
-      request: vi.fn(async (method: string) => {
+      request: vi.fn(async (method: string, input: { context?: { projectId?: string }; after?: string }) => {
+        if (method === "unit.list") return {
+          items: input.context?.projectId
+            ? [{ workspaceId: "ws_one", projectId: null }, { workspaceId: "ws_one", projectId: "prj_one" }]
+            : [{ workspaceId: "ws_one", projectId: null }],
+          nextCursor: input.context?.projectId && !input.after ? "next" : null,
+        };
         if (method === "workspace.list") return {
           items: [{ id: "ws_one", slug: "studio", name: "Studio", rowVersion: 1, createdAt: 10, updatedAt: 20 }],
           nextCursor: null,
@@ -43,8 +60,8 @@ describe("shallow library catalog", () => {
 
     expect(result).toMatchObject({
       generation: 9,
-      workspaces: [{ id: "ws_one", name: "Studio", projectCount: 1 }],
-      projects: [{ workspaceId: "ws_one", projectId: "prj_one", name: "Launch", status: "active" }],
+      workspaces: [{ id: "ws_one", name: "Studio", projectCount: 1, unitCount: 3 }],
+      projects: [{ workspaceId: "ws_one", projectId: "prj_one", name: "Launch", status: "active", unitCount: 2 }],
     });
     await expect(realpath(join(fixture.rootPath, "buckets", "ws_one", "projects", "prj_one"))).rejects.toThrow();
   });
@@ -77,6 +94,7 @@ describe("shallow library catalog", () => {
     }));
     const client = {
       request: vi.fn(async (method: string, input: { workspaceId?: string }) => {
+        if (method === "unit.list") return { items: [], nextCursor: null };
         if (method === "workspace.list") return { items: workspaces, nextCursor: null };
         if (method === "project.list") return {
           items: input.workspaceId === "ws_normal" ? projects : [],

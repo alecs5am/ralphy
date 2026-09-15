@@ -1,7 +1,7 @@
 @font-face {
-  font-family: "AWS Diatype";
-  src: url("/assets/fonts/AWSDiatype-Regular.woff2") format("woff2");
-  font-weight: 400;
+  font-family: "Manrope";
+  src: url("/assets/fonts/Manrope-Variable.ttf") format("truetype");
+  font-weight: 200 800;
   font-style: normal;
   font-display: swap;
 }
@@ -415,7 +415,7 @@ html[data-theme="light"] {
   --menu-item-height: 30px;
   --menu-item-radius: var(--radius-md);
 
-  --font-sans: "AWS Diatype", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-sans: "Manrope", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: "AWS Diatype Mono", "Andale Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-doto: "Doto", var(--font-mono);
   /* Handoff 15's critical fix: the modifier symbols do not exist in AWS Diatype Mono, so the

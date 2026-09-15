@@ -156,12 +156,14 @@
 /* A monochrome brand mark. Five of the lobe-icons exports are a single path with `fill="#FFFFFF"`
    -- the brands whose logo has no colour -- so on the chat's card they painted white on white.
    The mark is drawn as a mask over `currentColor` instead: one asset per brand, and the ink comes
-   from the surface the mark stands on, in either theme. `--brand-mask` is set per element. */
+   from the surface the mark stands on, in either theme. The mask image is set per element. */
 .ai-brand-icon.is-mono {
   display: inline-block;
   flex: none;
   background-color: currentColor;
-  mask: var(--brand-mask) center / contain no-repeat;
+  mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
 }
 
 /* An entity tag's glyph. `vertical-align` is not a Tailwind namespace and a tag's icon has to sit

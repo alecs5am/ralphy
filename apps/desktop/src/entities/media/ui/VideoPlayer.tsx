@@ -24,7 +24,8 @@ const READOUT = "video-time text-center font-code type-xs";
    sits when the asset modal portals it to the body. */
 const ERROR = "video-player-error absolute top-1/2 left-1/2 max-w-video-error-measure -translate-x-1/2 -translate-y-1/2 rounded-field bg-instrument/92 px-3 py-2.25 type-sm text-center text-alert-bright";
 
-export const compactVideoStartTime = (duration: number, compact: boolean) => compact && duration > 4 ? 4 : 0;
+// Leave at least half the clip to play; a four-second generation must not open on its last frame.
+export const compactVideoStartTime = (duration: number, compact: boolean) => compact && duration >= 8 ? 4 : 0;
 
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";

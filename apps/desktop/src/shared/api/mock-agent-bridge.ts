@@ -11,7 +11,7 @@ import type {
 } from "../../../electron/media/types";
 import type { RalphyBridge } from "./ipc";
 
-export function mockAgentSurfaces(): Pick<RalphyBridge, "getAgentProviders" | "loginAgentProvider" | "setAgentApiKey" | "clearAgentApiKey" | "sendAgentMessage" | "stopAgent" | "onAgentEvent"> {
+export function mockAgentSurfaces(): Pick<RalphyBridge, "getAgentProviders" | "loadAgentHistory" | "loginAgentProvider" | "setAgentApiKey" | "clearAgentApiKey" | "sendAgentMessage" | "stopAgent" | "onAgentEvent"> {
   const agentCallbacks = new Set<(event: AgentChatEnvelope) => void>();
   let openRouterConfigured = false;
   let claudeAuth: ClaudeAuthState = {
@@ -23,6 +23,7 @@ export function mockAgentSurfaces(): Pick<RalphyBridge, "getAgentProviders" | "l
   };
 
   return {
+    async loadAgentHistory() { return []; },
     async getAgentProviders() {
       return [
         {

@@ -21,10 +21,10 @@ test("app icons render Hugeicons paths and preserve sizing, accessible names and
   expect(labelled).toContain('stroke-width="2"');
   expect(renderToStaticMarkup(<icons.ArrowRight />).match(/<path[^>]+/g))
     .not.toEqual(renderToStaticMarkup(<icons.ChevronRight />).match(/<path[^>]+/g));
-  for (const platform of ["tiktok", "pinterest", "youtube", "linkedin", "instagram", "x"]) {
+  for (const platform of ["facebook", "tiktok", "pinterest", "youtube", "linkedin", "instagram", "x"]) {
     expect(renderToStaticMarkup(<SocialIcon platform={platform} />)).toContain('class="app-icon"');
   }
-  expect(renderToStaticMarkup(<SocialIcon platform="__proto__" />)).toBe("");
+  expect(renderToStaticMarkup(<SocialIcon platform="__proto__" />)).toContain('data-icon="Globe"');
 
   const host = createReactHost();
   const { createRoot } = await import("react-dom/client");

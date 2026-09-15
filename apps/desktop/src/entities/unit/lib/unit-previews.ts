@@ -1,4 +1,4 @@
-import type { UnitItemDto, UnitPresentationDto } from "../../../../electron/ralphy/types";
+import type { Page, UnitItemDto, UnitPresentationDto } from "../../../../electron/ralphy/types";
 import type { CompositionOutputPreview } from "../../../../electron/ralphy/project-reader";
 import type { MediaWorkbenchBridge, ProjectReference } from "../../../../electron/media/types";
 
@@ -29,7 +29,7 @@ export function unitPreviewKind(format: string): UnitPreviewKind {
   const value = format.toLowerCase();
   if (value.includes("long") || value.includes("16:9") || value.includes("youtube")) return "longform";
   if (value.includes("carousel") || value.includes("gallery") || value.includes("slides")) return "carousel";
-  if (value.includes("post") || value.includes("article") || value.includes("text")) return "post";
+  if (value === "image" || value.includes("post") || value.includes("article") || value.includes("text")) return "post";
   if (value.includes("video") || value.includes("audio") || value.includes("9:16") || value.includes("reel") || value.includes("short")) return "video";
   return "generic";
 }
@@ -76,18 +76,49 @@ function targetFor(platform: string, format: string): SocialTarget {
 }
 
 export function socialTargets(format: string, presentations: UnitPresentationDto[]): SocialTarget[] {
+  if (presentations.length) return [...new Set([...presentations].sort((a, b) => a.position - b.position).map((item) => item.platform))].map((platform) => targetFor(platform, format));
   const kind = unitPreviewKind(format);
   const base = targets[kind] ?? [];
-  const presentationsOnly = kind === "generic" && presentations.length > 0;
   const fallback = [{ id: "generic-unit", platform: "generic", variant: "generic", label: "Preview" } satisfies SocialTarget];
-  const result = [...(presentationsOnly ? [] : base.length ? base : fallback)];
-  for (const platform of new Set(presentations.map((presentation) => presentation.platform))) {
-    if (!result.some((target) => target.platform === platform)) result.push(targetFor(platform, format));
-  }
-  return result;
+  return base.length ? [...base] : fallback;
 }
 
 type UnitMediaApi = Pick<MediaWorkbenchBridge, "resolveCompositionOutputPreview" | "loadDocumentPreview">;
+
+/** A revision owns its thumbnail; inspecting another revision must never change it. */
+export async function resolveUnitRevisionPreview(
+  api: UnitMediaApi & Pick<MediaWorkbenchBridge, "loadProjectUnitPage" | "loadProjectUnitPreview">,
+  project: ProjectReference,
+  revisionId: string,
+  preferMedia = false,
+): Promise<UnitMedia | null> {
+  project = { workspaceId: project.workspaceId, projectId: project.projectId };
+  const presentations = await api.loadProjectUnitPage(project, { kind: "presentations", revisionId });
+  const presentation = [...presentations.items].sort((a, b) => a.position - b.position)[0];
+  if (!preferMedia && presentation?.coverArtifactRevisionId) {
+    try {
+      const preview = await api.resolveCompositionOutputPreview(project, presentation.coverArtifactRevisionId);
+      if (preview.mime?.startsWith("image/")) return { id: presentation.coverArtifactRevisionId, role: "cover", position: 0, kind: "image", preview };
+    } catch { /* A missing cover can still have a playable public item. */ }
+  }
+  const metadata = presentation ? await api.loadProjectUnitPreview(project, revisionId, presentation.platform) : null;
+  const publicIds = metadata?.presentation.unitItemIds;
+  let cursor: string | null = null;
+  const seen = new Set<string>();
+  do {
+    const page: Page<UnitItemDto> = await api.loadProjectUnitPage(project, { kind: "items", revisionId, cursor });
+    const items = [...page.items].sort((a, b) => a.position - b.position).filter((item) => Array.isArray(publicIds)
+      ? publicIds.includes(item.id) : !["source", "reference", "evidence"].includes(item.role));
+    for (const item of items) {
+      const [media] = await resolveUnitMedia(api, project, [item]);
+      if (media && media.kind !== "other") return media;
+    }
+    cursor = page.nextCursor;
+    if (cursor && seen.has(cursor)) throw new Error("Repeated Unit item cursor");
+    if (cursor) seen.add(cursor);
+  } while (cursor);
+  return null;
+}
 
 export async function resolveUnitMedia(
   api: UnitMediaApi,

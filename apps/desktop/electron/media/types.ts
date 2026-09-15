@@ -629,6 +629,8 @@ export interface MediaWorkbenchBridge extends MarketplaceBridge, CanvasBridge, C
   ): Promise<AgentProviderStatus[]>;
   clearAgentApiKey(provider: "claude" | "openrouter"): Promise<AgentProviderStatus[]>;
   sendAgentMessage(request: AgentChatRequest): Promise<void>;
+  /** Read the provider's saved transcript without starting or resuming a model turn. */
+  loadAgentHistory(sessionId: string, workspaceId: string | null): Promise<AgentHistoryEvent[]>;
   /** One short read-only turn that names a chat, or null when the provider cannot answer now. */
   summariseAgentTitle(request: AgentChatRequest): Promise<string | null>;
   /** Everything a chat of this provider carries before it reads a message, in five layers. */
@@ -649,6 +651,11 @@ export interface MediaWorkbenchBridge extends MarketplaceBridge, CanvasBridge, C
 export const APP_CHANNELS = {
   toggleRightPanel: "app:toggle-right-panel",
 } as const;
+
+export interface AgentHistoryEvent {
+  at: number;
+  event: AgentChatEvent | { type: "prompt"; text: string };
+}
 
 export const MEDIA_CHANNELS = {
   loadGenerationProviders: "generation:providers:load",
@@ -743,6 +750,7 @@ export const AGENT_CHANNELS = {
   setApiKey: "agent:api-key:set",
   clearApiKey: "agent:api-key:clear",
   send: "agent:send",
+  history: "agent:history",
   title: "agent:title",
   context: "agent:context",
   contextRead: "agent:context:read",

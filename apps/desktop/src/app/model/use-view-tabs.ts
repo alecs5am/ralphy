@@ -127,15 +127,16 @@ export function useViewTabs({
   const routeToView = (request: OpenViewRequest) => {
     /* The browser is not a route, so opening or raising its tab leaves the work route where it is
        -- the same rule home has, and the reason neither steals your place. */
-    if (request.type === "browser") return;
+    if (request.type === "browser" || request.type === "unit") return;
     if (request.type !== "project") { onOpenWorkspacePage(request.type); return; }
     const project = projects.find((candidate) => candidate.projectId === request.targetId);
-    if (project) onOpenProject(project);
+    if (project) { onOpenProject(project); setLens("chat"); }
   };
 
   const openView = (request: OpenViewRequest) => {
     setCanvasSplitRequested(false);
     if (request.type === "canvas") setViewExpanded(true);
+    if (request.type === "unit") setViewExpanded(false);
     setLens("chat");
     setViewPanel((record) => ({ ...record, open: true }));
     updateTabs((set) => openViewTab(set, request));

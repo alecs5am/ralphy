@@ -179,11 +179,14 @@ function unitDto(value: unknown, project: ProjectRef, unitId: string): value is 
   return !!unit && exactKeys(unit, [
     "id", "workspaceId", "projectId", "compositionId", "slug", "format", "latestRevisionId",
     "selectedRevisionId", "createdAt", "updatedAt",
+    ...["sourceRevisionId", "sourceLabel"].filter((key) => Object.hasOwn(unit, key)),
   ]) && unit.id === unitId && unit.workspaceId === project.workspaceId
     && optionalScope(unit.projectId, project.projectId) && validId(unit.slug) && validId(unit.format)
     && (unit.compositionId === null || validId(unit.compositionId))
     && (unit.latestRevisionId === null || validId(unit.latestRevisionId))
     && (unit.selectedRevisionId === null || validId(unit.selectedRevisionId))
+    && (unit.sourceRevisionId == null || validId(unit.sourceRevisionId))
+    && (unit.sourceLabel == null || (typeof unit.sourceLabel === "string" && unit.sourceLabel.length <= 80))
     && sequence(unit.createdAt) && sequence(unit.updatedAt);
 }
 
@@ -229,11 +232,17 @@ function unitPresentationDto(value: unknown, revisionId: string): value is UnitP
     && validJson(presentation.options) && sequence(presentation.createdAt);
 }
 
-function unitPreviewDto(value: unknown, revisionId: string, platform: string): value is UnitPreviewDto {
-  const preview = record(value);
-  return !!preview && exactKeys(preview, ["unitRevisionId", "platform", "presentation"])
-    && preview.unitRevisionId === revisionId && preview.platform === platform
-    && record(preview.presentation) !== null && validJson(preview.presentation);
+async function unitRows<Item>(read: (after?: string) => Promise<Page<Item>>): Promise<Item[]> {
+  const rows: Item[] = [], cursors = new Set<string>();
+  let after: string | undefined;
+  do {
+    const page = await read(after);
+    rows.push(...page.items);
+    after = page.nextCursor ?? undefined;
+    if (after && cursors.has(after)) throw new Error("Invalid Unit page cursor");
+    if (after) cursors.add(after);
+  } while (after);
+  return rows;
 }
 
 function unitPage<Item>(
@@ -1168,9 +1177,22 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
     async loadProjectUnitPreview(project: ProjectRef, revisionId: string, platform: string): Promise<UnitPreviewDto> {
       const context = projectContext(project);
       if (!validId(revisionId) || !validId(platform)) throw new Error("Invalid Unit preview request");
-      const preview = await request("unit.preview", { context, unitRevisionId: revisionId, platform });
-      if (!unitPreviewDto(preview, revisionId, platform)) throw new Error("Invalid Unit preview");
-      return preview;
+      const presentations = await unitRows((cursor) => loadProjectUnitPage(project, { kind: "presentations", revisionId, cursor }));
+      const presentation = presentations.find((item) => item.platform === platform);
+      if (!presentation) throw new Error("Unit has no presentation for this platform");
+      const [items, captions] = await Promise.all([
+        unitRows(async (after) => unitPage(await request("presentation.items", { context, presentationId: presentation.id, ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT }), (value): value is { unitItemId: string; position: number } => {
+          const item = record(value);
+          return !!item && item.presentationId === presentation.id && validId(item.unitItemId) && sequence(item.position) && validJson(value);
+        })),
+        unitRows(async (after) => unitPage(await request("presentation.captions", { context, presentationId: presentation.id, ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT }), (value): value is { id: string; text: string } => {
+          const caption = record(value);
+          return !!caption && caption.presentationId === presentation.id && validId(caption.id) && typeof caption.text === "string" && validJson(value);
+        })),
+      ]);
+      const caption = captions.find((item) => item.id === presentation.effectiveCaptionRevisionId);
+      if (presentation.effectiveCaptionRevisionId && !caption) throw new Error("Unit caption revision is missing");
+      return { unitRevisionId: revisionId, platform, presentation: { ...presentation, caption: caption?.text ?? "", unitItemIds: items.sort((a, b) => a.position - b.position).map((item) => item.unitItemId) } };
     },
 
     async loadProjectUnitRevision(

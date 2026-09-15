@@ -57,6 +57,7 @@ const TAB_ICONS: Record<ViewTabType, AppIcon> = {
   context: Layers,
   /* A project tab is the media grid the handoff names: the grid is what a project opens on. */
   project: LayoutGrid,
+  unit: UsersRound,
   browser: Globe,
   canvas: Workflow,
 };
@@ -149,12 +150,12 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, brows
 
   const views = set.tabs.filter(({ id }) => id !== HOME_TAB_ID);
   const shown = visibleCount(width, views.length);
-  const hidden = views.slice(shown);
   /* The active tab is always on the strip. When it has fallen into the overflow it takes the last
      visible slot, which keeps every other tab in its original order -- the order `+N` lists. */
   const strip = views.slice(0, shown);
-  const activeHidden = hidden.some(({ id }) => id === set.activeTabId);
+  const activeHidden = views.slice(shown).some(({ id }) => id === set.activeTabId);
   if (activeHidden && strip.length) strip[strip.length - 1] = views.find(({ id }) => id === set.activeTabId)!;
+  const hidden = views.filter((tab) => !strip.some(({ id }) => id === tab.id));
 
   const homeActive = set.activeTabId === HOME_TAB_ID;
   const anchor = (node: HTMLElement | null) => {

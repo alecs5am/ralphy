@@ -28,7 +28,7 @@ function ProjectError({ error, onRetry }: { error: string | null; onRetry(): voi
   return <div className={PROJECT_LOCAL_ERROR} role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{error ?? "This section could not be loaded."}</span><button className={COMMAND_BUTTON} type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
 }
 
-export function ProjectScreenView({ project, workspaceName = null, rootEpoch = 0, controller, snapshot, targetUnitId, scrollMemory = new Map<string, number>(), documentsScrollMemory = scrollMemory, unitsScrollMemory = scrollMemory, activityScrollMemory = scrollMemory, onRequestAgent }: { project: ProjectSummary; workspaceName?: string | null; rootEpoch?: number; controller: ProjectScreenController; snapshot: ProjectScreenSnapshot; targetUnitId?: string | null; scrollMemory?: Map<string, number>; documentsScrollMemory?: Map<string, number>; unitsScrollMemory?: Map<string, number>; activityScrollMemory?: Map<string, number>; onRequestAgent?(request: VideoAgentRequest): void }) {
+export function ProjectScreenView({ project, workspaceName = null, rootEpoch = 0, controller, snapshot, targetUnitId, onTargetUnitOpened, scrollMemory = new Map<string, number>(), documentsScrollMemory = scrollMemory, unitsScrollMemory = scrollMemory, activityScrollMemory = scrollMemory, onRequestAgent, onOpenUnit }: { project: ProjectSummary; workspaceName?: string | null; rootEpoch?: number; controller: ProjectScreenController; snapshot: ProjectScreenSnapshot; targetUnitId?: string | null; onTargetUnitOpened?(): void; scrollMemory?: Map<string, number>; documentsScrollMemory?: Map<string, number>; unitsScrollMemory?: Map<string, number>; activityScrollMemory?: Map<string, number>; onOpenUnit?(unitId: string): void; onRequestAgent?(request: VideoAgentRequest): void }) {
   const [video, setVideo] = useState<{ unitId: string; title: string } | null>(null);
   useEffect(() => setVideo(null), [project.workspaceId, project.projectId]);
   const state = snapshot.domain;
@@ -55,7 +55,7 @@ export function ProjectScreenView({ project, workspaceName = null, rootEpoch = 0
     <div className={`project-domain-body @container/project-domain w-full min-h-0 flex-1 overflow-hidden${activeTab === "media" ? " is-media flex flex-col" : activeTab === "documents" ? " is-documents pb-6" : activeTab === "units" ? " is-units pb-6" : activeTab === "activity" ? " is-activity pb-6" : ""}`} role="tabpanel" id={`project-panel-${activeTab}`} aria-labelledby={`project-tab-${activeTab}`}>
       {activeTab === "documents" && page && (page.status === "loading" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="loading"><div className={PROJECT_SKELETON} role="status">Loading documents…</div></InstrumentScreenRoot> : page.status === "error" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="error"><ProjectError error={page.error} onRetry={retry} /></InstrumentScreenRoot> : <DocumentsPanel page={page} controller={controller} snapshot={snapshot} scrollMemory={documentsScrollMemory} resetToken={projectScrollToken} />)}
       {activeTab === "media" && page && <MediaPanel page={page} controller={controller} snapshot={snapshot} project={project} workspaceName={workspaceName} rootEpoch={rootEpoch} scrollMemory={scrollMemory} scrollResetToken={mediaScrollToken} />}
-      {activeTab === "units" && page && <PageState descriptor={unitsInstrumentStates} page={page} empty="No units yet." onRetry={retry}><UnitsPanel onEditVideo={(unitId, title) => setVideo({ unitId, title })} page={page} controller={controller} snapshot={snapshot} targetUnitId={targetUnitId} scrollMemory={unitsScrollMemory} resetToken={projectScrollToken} /></PageState>}
+      {activeTab === "units" && page && <PageState descriptor={unitsInstrumentStates} page={page} empty="No units yet." onRetry={retry}><UnitsPanel onOpenUnit={onOpenUnit} onEditVideo={(unitId, title) => setVideo({ unitId, title })} page={page} controller={controller} snapshot={snapshot} targetUnitId={targetUnitId} onTargetUnitOpened={onTargetUnitOpened} scrollMemory={unitsScrollMemory} resetToken={projectScrollToken} /></PageState>}
       {activeTab === "activity" && page && <PageState descriptor={activityInstrumentStates} page={page} empty="No activity yet." onRetry={retry}><ActivityTimeline page={page} controller={controller} scrollMemory={activityScrollMemory} resetToken={projectScrollToken} /></PageState>}
     </div>
     <MediaViewer controller={controller} snapshot={snapshot} />
@@ -74,7 +74,7 @@ export function startProjectScreenController(
   return () => controller.dispose();
 }
 
-function ConnectedProjectScreen({ project, workspaceName, rootEpoch, controller, targetUnitId, onRequestAgent }: { project: ProjectSummary; workspaceName: string | null; rootEpoch: number; controller: ProjectScreenController; targetUnitId?: string | null; onRequestAgent?(request: VideoAgentRequest): void }) {
+function ConnectedProjectScreen({ project, workspaceName, rootEpoch, controller, targetUnitId, onTargetUnitOpened, onRequestAgent, onOpenUnit }: { project: ProjectSummary; workspaceName: string | null; rootEpoch: number; controller: ProjectScreenController; targetUnitId?: string | null; onTargetUnitOpened?(): void; onOpenUnit?(unitId: string): void; onRequestAgent?(request: VideoAgentRequest): void }) {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   const projectScrollToken = JSON.stringify([rootEpoch, snapshot.domain.project.workspaceId, snapshot.domain.project.projectId]);
   const mediaScrollToken = JSON.stringify([projectScrollToken, snapshot.domain.media]);
@@ -98,7 +98,7 @@ function ConnectedProjectScreen({ project, workspaceName, rootEpoch, controller,
     };
     setOwnedScroll(currentScroll);
   }
-  return <ProjectScreenView onRequestAgent={onRequestAgent} project={project} workspaceName={workspaceName} rootEpoch={rootEpoch} controller={controller} snapshot={snapshot} targetUnitId={targetUnitId} scrollMemory={currentScroll.media} documentsScrollMemory={currentScroll.documents} unitsScrollMemory={currentScroll.units} activityScrollMemory={currentScroll.activity} />;
+  return <ProjectScreenView onOpenUnit={onOpenUnit} onRequestAgent={onRequestAgent} project={project} workspaceName={workspaceName} rootEpoch={rootEpoch} controller={controller} snapshot={snapshot} targetUnitId={targetUnitId} onTargetUnitOpened={onTargetUnitOpened} scrollMemory={currentScroll.media} documentsScrollMemory={currentScroll.documents} unitsScrollMemory={currentScroll.units} activityScrollMemory={currentScroll.activity} />;
 }
 
 export function ProjectScreen({
@@ -107,14 +107,17 @@ export function ProjectScreen({
   rootEpoch,
   activitySequence,
   targetUnitId,
+  onTargetUnitOpened,
   onRequestAgent,
+  onOpenUnit,
 }: {
   project: ProjectSummary;
   workspaceName?: string | null;
   rootEpoch: number;
   activitySequence: number;
   targetUnitId?: string | null;
-  onRequestAgent?(request: VideoAgentRequest): void;
+  onTargetUnitOpened?(): void;
+  onOpenUnit?(unitId: string): void; onRequestAgent?(request: VideoAgentRequest): void;
 }) {
   const [controller, setController] = useState<ProjectScreenController | null>(null);
   useEffect(
@@ -126,6 +129,6 @@ export function ProjectScreen({
     if (controller && targetUnitId) void controller.selectTab("units");
   }, [controller, targetUnitId]);
   return controller
-    ? <ConnectedProjectScreen onRequestAgent={onRequestAgent} project={project} workspaceName={workspaceName} rootEpoch={rootEpoch} controller={controller} targetUnitId={targetUnitId} />
+    ? <ConnectedProjectScreen onOpenUnit={onOpenUnit} onRequestAgent={onRequestAgent} project={project} workspaceName={workspaceName} rootEpoch={rootEpoch} controller={controller} targetUnitId={targetUnitId} onTargetUnitOpened={onTargetUnitOpened} />
     : <InstrumentScreenRoot descriptor={unitsInstrumentStates} state="loading"><main className="main-region project-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-transparent p-2 type-base text-ink"><div className={PROJECT_SKELETON} role="status">Loading project overview…</div></main></InstrumentScreenRoot>;
 }

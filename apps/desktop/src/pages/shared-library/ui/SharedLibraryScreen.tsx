@@ -267,8 +267,11 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
   return <InstrumentScreenRoot descriptor={sharedLibraryInstrumentStates} state={instrumentState}><main className={SCREEN} aria-busy={snapshot.refreshing || undefined}>
     <ScreenHeader workspaceName={workspaceName} totals={{ count: value.totalCount, bytes: value.totalSelectedBytes }} onAdd={add} onPromote={promote} />
     <SharedLibraryToolbar query={snapshot.query} controller={controller} />
-    <div className="flex-none rounded-control bg-surface-sunken px-3 py-2 type-xs text-muted" role="note">Grouping by entity is unavailable from Core. Showing one flat collection.</div>
-    <div className="mb-2 flex flex-none items-start gap-2 rounded-control bg-surface-sunken px-3 py-2 type-xs leading-4 text-muted" role="note"><AlertCircle className="mt-0.5 shrink-0" size={13} aria-hidden="true" /><span><strong className="text-ink">Attention evidence unavailable</strong> Missing-file evidence, broken-reference evidence, rights-unknown evidence, duplicate-candidate evidence, and revision-update evidence are unavailable from this Core version; no state is inferred.</span></div>
+    <details className="mb-2 flex-none rounded-field bg-surface-sunken px-3 py-2 type-xs leading-4 text-muted">
+      <summary className="cursor-pointer">Library details · some metadata is unavailable</summary>
+      <p>Items are shown in one collection. Entity grouping is not available yet.</p>
+      <p><strong className="text-ink">Attention evidence unavailable</strong> File health, references, rights, duplicates and revision updates have not been checked. No status is inferred.</p>
+    </details>
     {snapshot.refreshError && <div className={`shared-library-error ${NOTICE} mt-1 mb-2 rounded-field px-2.5 py-2`} role="alert"><AlertCircle aria-hidden="true" /><span>{snapshot.refreshError}</span><button className={DESK_ACTION} type="button" onClick={() => { void controller.refresh(); }}>Retry refresh</button></div>}
     {/* The content row is the container every width decision in this area is measured against:
         the inspector opening and the chat rail taking width both change it without the window

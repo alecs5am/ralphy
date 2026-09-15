@@ -70,12 +70,10 @@ export function WorkspaceDestinationFrame({ destination, onBack, children }: {
   </div>;
 }
 
-/* The sheet gave this plate a surface, a radius and a layer and no ink and no air at all, so the
-   copy sat flush against a rounded corner. Surface and ink travel as a pair, and the plate keeps
-   one gutter. */
+/* Errors float above the desk without changing the shell's height. */
 export function AppErrorBanner({ message, onDismiss }: { message: string; onDismiss(): void }) {
-  return <div className="error-banner z-banner flex items-center justify-between gap-3 rounded-field bg-surface-sunken px-3 py-2 type-sm text-ink" role="alert">
-    <span className="min-w-0">{message}</span>
-    <button className={COMMAND_BUTTON} type="button" onClick={onDismiss}>Dismiss</button>
+  return <div className="error-banner fixed bottom-4 left-4 right-4 z-banner flex max-w-lg items-center justify-between gap-3 rounded-field bg-surface-sunken px-3 py-2 type-sm text-ink shadow-lg" role="alert">
+    <span className="min-w-0 break-words">{message}</span>
+    <button className={`${COMMAND_BUTTON} shrink-0`} type="button" onClick={onDismiss}>Dismiss</button>
   </div>;
 }

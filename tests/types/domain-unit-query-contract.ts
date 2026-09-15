@@ -58,6 +58,8 @@ type UnitKeys = Assert<
     | "format"
     | "latestRevisionId"
     | "selectedRevisionId"
+    | "sourceRevisionId"
+    | "sourceLabel"
     | "createdAt"
     | "updatedAt"
   >

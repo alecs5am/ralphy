@@ -19,6 +19,16 @@ afterEach(async () => {
 });
 
 describe("EncryptedCredentialStore", () => {
+  test("does not query the OS keychain when no credential is stored", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "ralphy-empty-keys-"));
+    cleanupPaths.push(directory);
+    const cipher = { isEncryptionAvailable: vi.fn(() => true), encryptString: vi.fn(), decryptString: vi.fn() };
+    const store = new EncryptedCredentialStore({ path: join(directory, "missing.bin"), cipher, validate: validateOpenRouterApiKey });
+    expect(await store.read()).toBeNull();
+    expect(cipher.isEncryptionAvailable).not.toHaveBeenCalled();
+    expect(cipher.decryptString).not.toHaveBeenCalled();
+  });
+
   test("persists only encrypted API-key bytes and can clear them", async () => {
     const directory = await mkdtemp(join(tmpdir(), "ralphy-claude-key-"));
     cleanupPaths.push(directory);

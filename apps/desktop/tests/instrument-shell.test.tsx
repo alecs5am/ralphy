@@ -116,6 +116,10 @@ describe("instrument shell", () => {
     try {
       const shell = mounted.host.container.querySelector(".instrument-shell")!;
       const desk = mounted.host.container.querySelector(".instrument-desk-scroll")!;
+      expect(desk.getAttribute("class")).toContain("[&_.overscroll-contain]:overscroll-auto");
+      await mounted.render({ deskFill: true });
+      expect(desk.getAttribute("class")).not.toContain("[&_.overscroll-contain]:overscroll-auto");
+      await mounted.render({ deskFill: false });
       expect(mounted.observer.observedTargets()).toEqual(new Set([shell, desk] as unknown as Element[]));
 
       await act(async () => {
@@ -174,9 +178,9 @@ describe("instrument shell", () => {
       expect(deskColumn().getAttribute("hidden")).toBeNull();
 
       // The width is the user's, so it is no longer a step function of the window. There is no
-      // design maximum either: what stops the panel is the chat's own floor, the larger of 240 and
+      // design maximum either: what stops the panel is the chat's own floor, the larger of 360 and
       // 12% of the frame, so the panel may take almost the whole window. At 1200 with a 240 sidebar
-      // and 32 of chrome the ceiling is 1200 - 240 - 32 - 240 = 688 -- well clear of the 440 the
+      // and 32 of chrome the ceiling is 1200 - 240 - 32 - 360 = 568 -- well clear of the 440 the
       // panel is holding, which is the point: at every width where the panel shows at all, its
       // stored width survives.
       await act(async () => {
@@ -188,13 +192,13 @@ describe("instrument shell", () => {
       // The grabber's range is that same ceiling, so a drag cannot cross the chat's floor either.
       const handle = mounted.host.container.querySelector(".resize-instrument-view") as HostNode;
       expect(handle.getAttribute("aria-valuemin")).toBe("380");
-      expect(handle.getAttribute("aria-valuemax")).toBe("688");
-      // ...and it grows with the frame: at 2560 the ratio floor is 307, leaving 1981 of panel.
+      expect(handle.getAttribute("aria-valuemax")).toBe("568");
+      // ...and it grows with the frame: at 2560 the chat floor is 360, leaving 1928 of panel.
       await act(async () => {
         mounted.observer.resize(shell, 2_560, 1_400);
         await settle();
       });
-      expect(handle.getAttribute("aria-valuemax")).toBe("1981");
+      expect(handle.getAttribute("aria-valuemax")).toBe("1928");
 
       await act(async () => {
         mounted.observer.resize(shell, 1_200, 800);
@@ -203,6 +207,17 @@ describe("instrument shell", () => {
 
       await act(async () => {
         mounted.observer.resize(shell, 1_119, 800);
+        await settle();
+      });
+      expect(deskColumn().getAttribute("hidden")).toBeNull();
+      await act(async () => {
+        mounted.observer.resize(shell, 1012, 800);
+        await settle();
+      });
+      expect(deskColumn().getAttribute("hidden")).toBeNull();
+      expect(deskColumn().style.width).toBe("380px");
+      await act(async () => {
+        mounted.observer.resize(shell, 1011, 800);
         await settle();
       });
       expect(deskColumn().getAttribute("hidden")).toBe("");

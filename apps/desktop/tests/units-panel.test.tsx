@@ -75,10 +75,10 @@ function createApi() {
   };
 }
 
-function MountedProject({ controller, memory }: { controller: any; memory: Map<string, number> }) {
+function MountedProject({ controller, memory, targetUnitId, onTargetUnitOpened }: { controller: any; memory: Map<string, number>; targetUnitId?: string | null; onTargetUnitOpened?(): void }) {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   const View = screen.ProjectScreenView as React.ComponentType<any>;
-  return <View project={project} rootEpoch={1} controller={controller} snapshot={snapshot} unitsScrollMemory={memory} />;
+  return <View project={project} rootEpoch={1} controller={controller} snapshot={snapshot} unitsScrollMemory={memory} targetUnitId={targetUnitId} onTargetUnitOpened={onTargetUnitOpened} />;
 }
 
 function button(root: HostNode, text: string): HostNode {
@@ -96,6 +96,99 @@ async function click(node: HostNode): Promise<void> {
 }
 
 describe("units workbench", () => {
+  test("embeds the same Unit viewer inside its host without a modal or blocking the chat", async () => {
+    const api = createApi();
+    api.loadProjectUnit.mockImplementation(async () => ({ ...unit(1), sourceRevisionId: "revision-1-1", sourceLabel: "Uploaded file" }));
+    api.loadProjectPage.mockResolvedValue({ items: [{ ...unit(1), sourceRevisionId: "revision-1-1", sourceLabel: "Uploaded file" }], nextCursor: null } as never);
+    const controller = screen.createProjectScreenController(api as any, project);
+    await controller.start();
+    await controller.openUnit("unit-1");
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    const close = vi.fn();
+    try {
+      await act(async () => root.render(<screen.UnitViewer embedded open controller={controller} snapshot={controller.getSnapshot()} returnFocus={null} onOpenChange={close} />));
+      expect(host.container.querySelector(".unit-viewer")).not.toBeNull();
+      expect(document.body.querySelector(".unit-viewer-overlay")).toBeNull();
+      expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+      expect(controller.getSnapshot().unit.value?.sourceRevisionId).toBe("revision-1-1");
+      expect(host.container.querySelector(".unit-original-revision")).not.toBeNull();
+      expect(host.container.findAll((node) => node.getAttribute("aria-label") === "View revision 1")).toHaveLength(0);
+      await click(host.container.findAll((node) => node.getAttribute("aria-label") === "View revision 0")[0]!);
+      expect(host.container.querySelector(".unit-viewer-state")?.textContent).toBe("R0 · Original");
+      expect(host.container.querySelector(".unit-source-preview")?.textContent).toContain("Uploaded file");
+      expect(host.container.querySelector(".unit-primary-action")).toBeNull();
+      expect(api.selectProjectUnitRevision).not.toHaveBeenCalled();
+      await click(host.container.findAll((node) => node.getAttribute("aria-label") === "View revision 3")[0]!);
+      expect(host.container.querySelector(".unit-source-preview")).toBeNull();
+
+      expect(host.container.querySelector(".iphone-mockup")).not.toBeNull();
+      await click(button(host.container, "Device mockup"));
+      expect(host.container.querySelector(".iphone-mockup")).toBeNull();
+      expect(host.container.querySelector(".unit-clean-preview")).not.toBeNull();
+      expect(host.container.querySelector(".unit-preview-mode")).toBeNull();
+      await controller.inspectUnitRevision("revision-1-3");
+      await act(async () => root.render(<screen.UnitViewer embedded open controller={controller} snapshot={controller.getSnapshot()} returnFocus={null} onOpenChange={close} />));
+      expect(host.container.querySelector(".iphone-mockup")).toBeNull();
+      await click(button(host.container, "Device mockup"));
+      expect(host.container.querySelector(".iphone-mockup")).not.toBeNull();
+      await click(host.container.findAll((node) => node.getAttribute("aria-label") === "Close Unit preview")[0]!);
+      expect(close).toHaveBeenCalledWith(false);
+    } finally { await act(async () => root.unmount()); controller.dispose(); host.restore(); }
+  });
+
+  test("does not duplicate a presentation image as its own cover slide", async () => {
+    const api = createApi();
+    api.loadProjectUnit.mockImplementation(async () => ({ ...unit(1), format: "image" }));
+    api.loadProjectUnitPage.mockImplementation(async (_project, request): Promise<any> => ({ items: request.kind === "items"
+      ? [{ id: "image", unitRevisionId: "revision-1-2", artifactRevisionId: "image-rev", documentRevisionId: null, role: "primary", position: 0, config: null, createdAt: 1 }]
+      : request.kind === "presentations" ? [{ id: "presentation", unitRevisionId: "revision-1-2", platform: "instagram", position: 0, effectiveCaptionRevisionId: null, coverArtifactRevisionId: "image-rev", crop: null, safeArea: null, options: {}, createdAt: 1 }]
+        : [revision("revision-1-2", 2)], nextCursor: null }));
+    const preview = { url: "ralphy-media://asset/image", sizeBytes: 12, mime: "image/png" };
+    api.resolveCompositionOutputPreview.mockResolvedValue(preview);
+    const mediaSpy = vi.spyOn(bridge, "resolveCompositionOutputPreview").mockResolvedValue(preview);
+    const metadataSpy = vi.spyOn(bridge, "loadProjectUnitPreview").mockResolvedValue({ unitRevisionId: "revision-1-2", platform: "instagram", presentation: { caption: "", unitItemIds: ["image"] } });
+    const controller = screen.createProjectScreenController(api as any, project);
+    await controller.selectTab("units");
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} memory={new Map()} targetUnitId="unit-1" />); });
+      await vi.waitFor(() => expect(document.body.querySelectorAll(".unit-stage-slides img")).toHaveLength(1));
+      expect(document.body.querySelector(".unit-stage-slide-count")).toBeNull();
+    } finally {
+      await act(async () => { root.unmount(); });
+      controller.dispose(); host.restore(); mediaSpy.mockRestore(); metadataSpy.mockRestore();
+    }
+  });
+
+  test("consumes a chat navigation request so remounting does not reopen the closed viewer", async () => {
+    const controller = screen.createProjectScreenController(createApi() as any, project);
+    await controller.selectTab("units");
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    let targetUnitId: string | null = "unit-1";
+    const onTargetUnitOpened = vi.fn(() => { targetUnitId = null; });
+    const render = () => <MountedProject controller={controller} memory={new Map()} targetUnitId={targetUnitId} onTargetUnitOpened={onTargetUnitOpened} />;
+    try {
+      await act(async () => { root.render(render()); });
+      expect(onTargetUnitOpened).toHaveBeenCalledOnce();
+      const viewer = document.body.querySelector(".unit-viewer")! as unknown as HostNode;
+      await click(viewer.findAll((node) => node.getAttribute("aria-label") === "Close Unit preview")[0]!);
+      expect(document.body.querySelector(".unit-viewer")).toBeNull();
+      await act(async () => { root.render(null); });
+      await act(async () => { root.render(render()); });
+      expect(document.body.querySelector(".unit-viewer")).toBeNull();
+      expect(onTargetUnitOpened).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => { root.unmount(); });
+      controller.dispose(); host.restore();
+    }
+  });
+
   test("opens a Unit card in the social-preview modal with revision selection", async () => {
     const previewSpy = vi.spyOn(bridge, "resolveCompositionOutputPreview").mockResolvedValue({ url: "ralphy-media://asset/video-1", sizeBytes: 12, mime: "video/mp4" });
     const api = createApi();
@@ -134,7 +227,7 @@ describe("units workbench", () => {
         expect(viewer.findAll((node) => node.getAttribute("aria-label") === "Social platform")[0]).toBeDefined();
       });
       const socialTabs = viewer.findAll((node) => node.getAttribute("aria-label") === "Social platform")[0]!;
-      expect((socialTabs.style as unknown as Record<string, number>)["--gooey-count"]).toBe(3);
+      expect((socialTabs.style as unknown as Record<string, number>)["--gooey-count"]).toBe(2);
       await vi.waitFor(() => {
         expect(controller.getSnapshot().unitRevisions.nextCursor).toBeNull();
         expect(controller.getSnapshot().unitRevisions.items.map(({ id }: UnitRevisionDto) => id)).toContain("revision-1-1");
@@ -150,10 +243,10 @@ describe("units workbench", () => {
         expect(viewer.querySelector(".unit-social-media video")).not.toBeNull();
       });
       const platformTabs = socialTabs.findAll((node) => node.getAttribute("role") === "tab");
-      expect(platformTabs.map((node) => node.textContent)).toEqual(["", "", ""]);
-      expect(platformTabs.map((node) => node.getAttribute("aria-label"))).toEqual(["TikTok", "Reels", "Shorts"]);
-      expect(platformTabs.map((node) => node.getAttribute("title"))).toEqual(["TikTok", "Reels", "Shorts"]);
-      expect(platformTabs.map((node) => node.getAttribute("data-tooltip"))).toEqual(["TikTok", "Reels", "Shorts"]);
+      expect(platformTabs.map((node) => node.textContent)).toEqual(["", ""]);
+      expect(platformTabs.map((node) => node.getAttribute("aria-label"))).toEqual(["TikTok", "Shorts"]);
+      expect(platformTabs.map((node) => node.getAttribute("title"))).toEqual(["TikTok", "Shorts"]);
+      expect(platformTabs.map((node) => node.getAttribute("data-tooltip"))).toEqual(["TikTok", "Shorts"]);
 
       await click(platformTabs[0]);
       expect(platformTabs[0].getAttribute("aria-selected")).toBe("true");

@@ -16,7 +16,8 @@ import { join } from "node:path";
 
 const at = process.argv.indexOf("--bin");
 const bin = at > 0 ? process.argv[at + 1] : process.env.RALPHY_BIN ?? "ralphy";
-const out = join(process.cwd(), "resources", "prompt-pack");
+const outAt = process.argv.indexOf("--out");
+const out = outAt > 0 ? process.argv[outAt + 1] : join(process.cwd(), "resources", "prompt-pack");
 
 /* Replaced wholesale rather than merged: the manifest is the pack's own record
    of what it contains, and a file left behind from an older export would be a

@@ -10,6 +10,15 @@ async function home(): Promise<string> {
 }
 
 describe("what a chat can reach", () => {
+  test("scopes creative writes and gives agents the clickable unit contract", () => {
+    const preamble = ralphyPreamble({ rootPath: "/library/.ralphy", workspaceId: "ws_demo", projectId: "prj_demo", cwd: "/library", instructions: [], cli: "/bin/ralphy" });
+    expect(preamble).toContain("Active workspace ID: ws_demo");
+    expect(preamble).toContain("Active project: prj_demo");
+    expect(preamble).toContain("--root");
+    expect(preamble).toContain("<UnitCard workspaceId=");
+    expect(preamble).toContain("unit revise");
+    expect(preamble).toContain("hypotheses");
+  });
   test("names the provider's own files, not the other one's", () => {
     const codex = providerHome("codex", "/h");
     const claude = providerHome("claude", "/h");
@@ -49,9 +58,10 @@ describe("what a chat can reach", () => {
       rootPath: "/library/.ralphy",
       cwd: "/library",
       instructions: [],
-      cli: "/Applications/Ralphy.app/Contents/Resources/bin/ralphy",
+      cli: "/Applications/Ralphy Media.app/Contents/Resources/bin/ralphy",
     });
-    expect(named).toContain("Ralphy CLI: /Applications/Ralphy.app/Contents/Resources/bin/ralphy");
+    expect(named).toContain("Ralphy CLI: /Applications/Ralphy Media.app/Contents/Resources/bin/ralphy");
+    expect(named).toContain("`'/Applications/Ralphy Media.app/Contents/Resources/bin/ralphy' --help`");
     expect(named).toContain("read and change it through the CLI");
     expect(named).not.toMatch(/\(`ralphy`\)/);
 

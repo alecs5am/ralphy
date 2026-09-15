@@ -310,6 +310,8 @@ function memoryRow(memory: AgentMemoryDigest | null): ContextRowDto {
 export interface ContextPageInput {
   provider: AgentProvider;
   rootPath: string;
+  workspaceId?: string | null;
+  projectId?: string | null;
   projectPath?: string | null;
   projectName?: string | null;
   cwd: string;
@@ -351,6 +353,8 @@ export async function readContextPage(input: ContextPageInput): Promise<ContextP
   ];
   const preamble = ralphyPreamble({
     rootPath: input.rootPath,
+    workspaceId: input.workspaceId,
+    projectId: input.projectId,
     projectPath: input.projectPath,
     cwd: input.cwd,
     instructions: present,

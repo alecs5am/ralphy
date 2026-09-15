@@ -13,12 +13,12 @@ import {
   session as electronSession,
   shell,
 } from "electron";
-import { readFileSync, statSync } from "node:fs";
+import { mkdirSync, readFileSync, statSync } from "node:fs";
 import { mkdir, realpath, stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { Worker } from "node:worker_threads";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { registerCanvasRuntimeIpc } from "./canvas/runtime-ipc";
 import { canvasCli } from "./canvas/runtime-cli";
@@ -32,6 +32,7 @@ import {
   validateOpenRouterApiKey,
 } from "./claude/credentials";
 import { parseAgentChatRequest } from "./agent/request";
+import { readCodexHistory } from "./agent/codex-history";
 import { type AgentMemoryDigest } from "./agent/context";
 import { readContextPage, type ContextDocument } from "./agent/context-page";
 import { readContextFile } from "./agent/context-document";
@@ -174,6 +175,14 @@ import {
   searchLocalModels,
 } from "./local-models";
 
+// Keep native credential/settings storage in the same profile as Chromium.
+const userDataOverride = app.commandLine.getSwitchValue("user-data-dir");
+if (userDataOverride) {
+  const profile = resolve(userDataOverride);
+  mkdirSync(profile, { recursive: true });
+  app.setPath("userData", profile);
+}
+
 const RENDERER = join(__dirname, "..", "dist", "index.html");
 const WORKER_ENTRY = join(__dirname, "media", "worker.cjs");
 const WINDOW_STATE_LIMIT_BYTES = 1024;
@@ -209,6 +218,7 @@ let agentTurnBusy = false;
 let cachedOpenRouterModels: { at: number; models: AgentProviderStatus["models"] } | null = null;
 const ralphyBin = resolveRalphyExecutable({
   isPackaged: app.isPackaged,
+  appPath: app.getAppPath(),
   resourcesPath: process.resourcesPath,
   env: process.env,
 });
@@ -629,14 +639,29 @@ function assertTrustedSender(
   assertIpcSender(event, win);
 }
 
+function registerIpcHandle(
+  channel: string,
+  listener: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => unknown,
+): void {
+  ipcMain.handle(channel, async (event, ...args) => {
+    const ready = await toIpcResult(async () => {
+      assertTrustedSender(event);
+      const root = ralphySession.root;
+      // Reconnect before a new operation; never replay a failed mutation or interrupt a turn.
+      if (channel !== MEDIA_CHANNELS.restoreLibrary && root && !agentTurnBusy && ralphySession.client.requiresReconnect) {
+        await restoreLibrary(() => openLibrary(root));
+      }
+    });
+    if (!ready.ok) return ready;
+    return listener(event, ...args);
+  });
+}
+
 function securedHandle(
   channel: string,
   listener: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => unknown,
 ): void {
-  ipcMain.handle(channel, (event, ...args) => toIpcResult(() => {
-    assertTrustedSender(event);
-    return listener(event, ...args);
-  }));
+  registerIpcHandle(channel, (event, ...args) => toIpcResult(() => listener(event, ...args)));
 }
 
 async function refreshCatalog(
@@ -788,6 +813,15 @@ function parseAgentProvider(value: unknown, allowed: AgentProvider[]): AgentProv
 }
 
 function registerAgentIpc(): void {
+  securedHandle(AGENT_CHANNELS.history, async (event, rawSessionId: unknown, rawWorkspaceId: unknown) => {
+    assertTrustedSender(event);
+    const operation = captureBridgeRoot();
+    const sessionId = parseString(rawSessionId, "session ID", 36);
+    const workspaceId = rawWorkspaceId === null ? null : parseString(rawWorkspaceId, "workspace ID", 256);
+    const history = await readCodexHistory({ sessionId, workspaceId, rootPath: operation.rootPath });
+    assertBridgeRoot(operation);
+    return history;
+  });
   securedHandle(AGENT_CHANNELS.providers, async (event) => {
     assertTrustedSender(event);
     return agentProviderStatuses();
@@ -846,6 +880,7 @@ function registerAgentIpc(): void {
           operation.rootPath,
           request.project.workspaceId,
           request.project.projectId,
+          ralphySession.client,
         )
         : undefined;
       assertBridgeRoot(operation);
@@ -879,6 +914,8 @@ function registerAgentIpc(): void {
         try {
           await session.run({
             rootPath: operation.rootPath,
+            workspaceId: request.workspaceId ?? request.project?.workspaceId ?? null,
+            projectId: request.project?.projectId ?? null,
             projectPath,
             prompt: request.prompt,
             model: request.model,
@@ -913,6 +950,8 @@ function registerAgentIpc(): void {
       try {
         await session.run({
           rootPath: operation.rootPath,
+          workspaceId: request.workspaceId ?? request.project?.workspaceId ?? null,
+          projectId: request.project?.projectId ?? null,
           projectPath,
           prompt: request.prompt,
           provider: request.provider,
@@ -1042,6 +1081,7 @@ function registerAgentIpc(): void {
         operation.rootPath,
         request.project.workspaceId,
         request.project.projectId,
+        ralphySession.client,
       )
       : null;
     assertBridgeRoot(operation);
@@ -1057,7 +1097,9 @@ function registerAgentIpc(): void {
     const page = await readContextPage({
       provider,
       rootPath,
+      workspaceId,
       projectPath,
+      projectId: request.project?.projectId ?? null,
       projectName: request.project?.projectId ?? null,
       cwd: await realpath(dirname(rootPath)),
       cli: ralphyBin ?? null,
@@ -1409,7 +1451,7 @@ function registerProjectDomainIpc(): void {
       return {
         root: operation.rootPath, assertCurrent: () => assertBridgeRoot(operation),
         request: async (method, params) => { assertBridgeRoot(operation); const result = await client.request(method, params); assertBridgeRoot(operation); return result; },
-        cli: canvasCli(resolveRalphyExecutable({ isPackaged: app.isPackaged, resourcesPath: process.resourcesPath, env: process.env }) ?? "ralphy", operation.rootPath, workspaceId),
+        cli: canvasCli(resolveRalphyExecutable({ isPackaged: app.isPackaged, appPath: app.getAppPath(), resourcesPath: process.resourcesPath, env: process.env }), operation.rootPath, workspaceId),
         mint: async (path, mime, bytes) => {
           const minted = await mediaState.fileAccess.mintTrustedLocator(operation.rootPath, path, mime, bytes, () => assertBridgeRoot(operation));
           return { url: `ralphy-media://asset/${minted.token}` };
@@ -1437,7 +1479,7 @@ function registerProjectDomainIpc(): void {
         root: operation.rootPath, workspaceId,
         request: client.request.bind(client),
         assertCurrent: () => assertBridgeRoot(operation),
-        cli: canvasCli(resolveRalphyExecutable({ isPackaged: app.isPackaged, resourcesPath: process.resourcesPath, env: process.env }) ?? "ralphy", operation.rootPath, workspaceId, credentials),
+        cli: canvasCli(resolveRalphyExecutable({ isPackaged: app.isPackaged, appPath: app.getAppPath(), resourcesPath: process.resourcesPath, env: process.env }), operation.rootPath, workspaceId, credentials),
         mint: async (path, mime, bytes) => {
           const minted = await mediaState.fileAccess.mintTrustedLocator(operation.rootPath, path, mime, bytes, () => assertBridgeRoot(operation));
           return { url: `ralphy-media://asset/${minted.token}` };
@@ -1479,7 +1521,7 @@ function registerProjectDomainIpc(): void {
      own resources, so it registers beside the CDN catalog rather than inside it. */
   registerMarketplacePackIpc({
     handle: (channel, listener) => {
-      ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+      registerIpcHandle(channel, listener);
     },
     getWindow: () => win,
     bundledPack: bundledPromptPack,
@@ -1489,7 +1531,7 @@ function registerProjectDomainIpc(): void {
      belong in the library root that `--root` and an import can move. */
   registerMarketplaceInstallIpc({
     handle: (channel, listener) => {
-      ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+      registerIpcHandle(channel, listener);
     },
     getWindow: () => win,
     storePath: () => join(app.getPath("userData"), "marketplace-installs.json"),
@@ -1500,7 +1542,7 @@ function registerProjectDomainIpc(): void {
   });
   registerMarketplaceLibraryIpc({
     handle: (channel, listener) => {
-      ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+      registerIpcHandle(channel, listener);
     },
     getWindow: () => win,
     captureRoot: captureBridgeRoot,
@@ -1511,7 +1553,7 @@ function registerProjectDomainIpc(): void {
   });
   registerWorkspaceOverviewIpc({
     handle: (channel, listener) => {
-      ipcMain.handle(channel, (event, workspaceId) => listener(event, workspaceId));
+      registerIpcHandle(channel, listener);
     },
     getWindow: () => win,
     captureRoot: captureBridgeRoot,
@@ -1520,7 +1562,7 @@ function registerProjectDomainIpc(): void {
   });
   registerSharedLibraryIpc({
     handle: (channel, listener) => {
-      ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+      registerIpcHandle(channel, listener);
     },
     getWindow: () => win,
     captureRoot: captureBridgeRoot,
@@ -1551,7 +1593,7 @@ function registerProjectDomainIpc(): void {
   });
   registerProjectMediaIpc({
     handle: (channel, listener) => {
-      ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+      registerIpcHandle(channel, listener);
     },
     getWindow: () => win,
     captureRoot: captureBridgeRoot,
@@ -1799,17 +1841,14 @@ function createWindow(): void {
               fixture.innerHTML = [
                 '<div class="project-facts"><span>Fact</span></div>',
                 '<button class="structure-row">Row</button>',
-                '<div class="project-controls"></div>',
               ].join("");
               document.body.append(fixture);
               const fact = getComputedStyle(fixture.children[0].children[0]);
               const row = getComputedStyle(fixture.children[1]);
-              const controls = getComputedStyle(fixture.children[2]);
               const valid =
                 Number.parseFloat(fact.fontSize) >= 11
                 && fact.getPropertyValue("corner-shape").trim() === "round"
-                && row.borderBottomWidth === "0px"
-                && controls.containerName === "project-controls";
+                && row.borderBottomWidth === "0px";
               fixture.remove();
               return valid;
             })()`,

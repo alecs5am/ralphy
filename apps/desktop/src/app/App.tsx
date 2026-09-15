@@ -6,7 +6,7 @@ import { useAgentChat } from "@/features/agent-chat";
 import type { CanvasAgentRequest } from "@/features/workflow-canvas";
 import { bridge } from "@/shared/api/ipc";
 import { MigrationRecoveryScreen } from "@/pages/migration-recovery";
-import { browserLabel, retargetViewTab, ViewBrowser, ViewPanel, ViewPanelHub } from "@/widgets/view-panel";
+import { browserLabel, retargetViewTab, unitViewRequest, ViewBrowser, ViewPanel, ViewPanelHub } from "@/widgets/view-panel";
 import { InstrumentShell } from "./layout/InstrumentShell";
 import { useTheme } from "@/shared/lib/ThemeProvider";
 import { WORKSPACE_PAGE_LABELS } from "@/shared/model/workbench";
@@ -75,7 +75,6 @@ export function App() {
   const [canvasRequest, setCanvasRequest] = useState<(CanvasAgentRequest & { id: string; chatId: string | null }) | null>(null);
   const [sidebarSearchRequest, setSidebarSearchRequest] = useState(0);
   const [pageHeaderHost, setPageHeaderHost] = useState<HTMLDivElement | null>(null);
-
   const catalog = state.catalog;
   const workspaces = catalog?.workspaces ?? [];
   const projects = catalog?.projects ?? [];
@@ -95,7 +94,7 @@ export function App() {
   const {
     workspaceDestination,
     overviewReturnState,
-    targetUnitId,
+    targetUnitId, clearTargetUnit,
     clearOverviewNavigation,
     openWorkspace,
     openProject,
@@ -180,7 +179,7 @@ export function App() {
   });
 
   const canvasView = !!selectedWorkspace && marketplace.mode === "work" && (viewFrameActive ? viewTab.type === "canvas" : state.route.kind === "workspace" && workspacePage === "canvas");
-  const fillDesk = canvasView || (!!selectedWorkspace && marketplace.mode === "work" && (viewFrameActive ? viewTab.type === "generation" : state.route.kind === "workspace" && workspacePage === "generation"));
+  const fillDesk = canvasView || (viewFrameActive && viewTab.type === "unit") || (!!selectedWorkspace && marketplace.mode === "work" && (viewFrameActive ? viewTab.type === "generation" : state.route.kind === "workspace" && workspacePage === "generation"));
   const activeSidebarVisible = marketplace.mode === "work" ? sidebarVisible && !(canvasView && viewExpanded && (!viewFrameActive || viewPanel.open)) : marketplaceSidebarVisible;
   const workspacePickerVisible = isWorkspacePickerVisible({ mode: marketplace.mode, sidebarVisible: activeSidebarVisible, workspaceId: selectedWorkspace?.id ?? null });
 
@@ -202,6 +201,7 @@ export function App() {
   }
 
   let workContent = <WorkRoute
+    viewTab={viewFrameActive ? viewTab : null} onCloseUnitView={() => closeView(viewTab.id)}
     catalog={catalog}
     error={error}
     restoring={restoring}
@@ -218,11 +218,11 @@ export function App() {
     overviewReturnState={overviewReturnState}
     workspaceDestination={workspaceDestination}
     sidebarSearchRequest={sidebarSearchRequest}
-    targetUnitId={targetUnitId}
+    targetUnitId={targetUnitId} onTargetUnitOpened={clearTargetUnit}
     chat={agentChat.activeChat ?? null}
     onRetryLibrary={() => void restoreHomeLibrary()}
     onOpenWorkspace={openWorkspace}
-    onOpenProject={openProject}
+    onOpenProject={(project, unitId) => viewFrameActive ? openView(unitId ? unitViewRequest(project, unitId, "Unit") : { type: "project", targetId: project.projectId, label: project.name }) : openProject(project, unitId)}
     onOpenWorkspacePage={openWorkspacePage}
     onNavigateFromOverview={navigateFromOverview}
     onToggleProjectPin={(projectId) => dispatch({ type: "toggle-project-pin", projectId })}
@@ -241,7 +241,7 @@ export function App() {
       workspaces={workspaces}
       chords={viewChords}
       onOpen={openView}
-      onOpenProject={openProject}
+      onOpenProject={(project) => openView({ type: "project", targetId: project.projectId, label: project.name })}
       onOpenWorkspace={(workspaceId) => { switchAppMode("work"); openWorkspace(workspaceId); }}
     />;
   }
@@ -315,14 +315,14 @@ export function App() {
               onRememberLocation={rememberMarketplace}
             >{workContent}</AppDesk>}
             chat={<AgentChatPanel
+              onOpenUnit={(ref, unitId, label) => { if (ref.workspaceId === selectedWorkspace?.id) openView(unitViewRequest(ref, unitId, label)); }}
               onToggleView={toggleViewPanel}
               onOpenCanvas={() => openView({ type: "canvas", label: "Working canvases" })}
               draftRequest={canvasRequest}
               onDraftRequestHandled={() => setCanvasRequest(null)}
               onClose={() => setLens("desk")}
               onOpenSettings={openSettings}
-              /* The chat lens' Context is a view beside the chat, not a route change: the operator
-                 is mid-message, and the point is to read what the turn carries without leaving it. */
+              /* Keep Context beside the active chat. */
               onOpenContext={() => openView({ type: "context", label: WORKSPACE_PAGE_LABELS.context })}
               chat={agentChat}
               workspace={selectedWorkspace}

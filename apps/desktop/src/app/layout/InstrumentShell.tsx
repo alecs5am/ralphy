@@ -132,7 +132,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   });
   /* Under the chat lens the rail *is* the main column, so it is docked whatever the desk
      minimum says -- the desk is deliberately the narrow one. The view panel is what gives way
-     on a narrow window: below the drop width the chat takes the whole content area rather than
+     when both columns cannot fit: the chat takes the whole content area rather than
      the two columns squeezing each other. Inverting the overlay machinery so the *desk* could
      portal over the chat is the handoff's own next iteration, not this one. */
   const chatLens = props.lens === "chat";
@@ -326,7 +326,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
               {(props.viewPanelFrame ?? ((page: ReactNode) => page))(<div
                 /* The desk is the app's one scroll surface and the container eight other areas' width
                    variants read, so both the name and the type are stated here. */
-                className={`instrument-desk-scroll @container/instrument-desk min-h-0 min-w-0 flex-1 overflow-x-hidden overscroll-contain ${props.deskFill ? "flex flex-col overflow-hidden [scrollbar-gutter:auto]" : "overflow-y-auto"}`}
+                className={`instrument-desk-scroll @container/instrument-desk min-h-0 min-w-0 flex-1 overflow-x-hidden overscroll-contain ${props.deskFill ? "flex flex-col overflow-hidden [scrollbar-gutter:auto]" : "overflow-y-auto [&_.overscroll-contain]:overscroll-auto"}`}
                 ref={setDeskElement}
                 data-instrument-scroll-owner="instrument-desk-scroll"
                 inert={mode === "overlay" || undefined}

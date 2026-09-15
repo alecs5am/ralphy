@@ -333,7 +333,7 @@ describe("shared task 2d2 contracts", () => {
 
     applyMigrationsThroughV6(db);
 
-    expect(SCHEMA_VERSION).toBe(9);
+    expect(SCHEMA_VERSION).toBe(10);
     expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 6 });
     expect(db.query("SELECT version FROM schema_migrations ORDER BY version").all())
       .toEqual([1, 2, 3, 4, 5, 6].map((version) => ({ version })));

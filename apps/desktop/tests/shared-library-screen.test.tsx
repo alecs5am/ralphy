@@ -276,10 +276,11 @@ describe("Shared Library screen", () => {
     const mounted = await mountScreen();
     try {
       const text = mounted.host.container.textContent;
-      for (const state of ["missing-file", "broken-reference", "rights-unknown", "duplicate-candidate", "revision-update"]) {
-        expect(text.toLocaleLowerCase()).toContain(`${state} evidence`);
+      for (const state of ["File health", "references", "rights", "duplicates", "revision updates"]) {
+        expect(text).toContain(state);
       }
-      expect(text).toContain("unavailable from this Core version; no state is inferred");
+      expect(text).toContain("have not been checked. No status is inferred.");
+      expect(mounted.host.container.querySelector("details")?.getAttribute("open")).toBeNull();
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();

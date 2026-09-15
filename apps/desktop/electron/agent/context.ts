@@ -81,6 +81,8 @@ export function providerHome(provider: AgentProvider, home: string): {
  */
 export function ralphyPreamble(input: {
   rootPath: string;
+  workspaceId?: string | null;
+  projectId?: string | null;
   projectPath?: string | null;
   cwd: string;
   instructions: readonly string[];
@@ -93,7 +95,8 @@ export function ralphyPreamble(input: {
   return [
     "[Ralphy Media context]",
     `Library: ${input.rootPath}`,
-    input.projectPath ? `Active project: ${input.projectPath}` : "Active project: none selected",
+    `Active workspace ID: ${input.workspaceId ?? "none selected"}`,
+    `Active project: ${input.projectId ?? input.projectPath ?? "none selected"}`,
     `Working directory: ${input.cwd}`,
     ...(input.instructions.length > 0
       ? [`Instructions already in your context: ${input.instructions.join(", ")}`]
@@ -105,7 +108,13 @@ export function ralphyPreamble(input: {
     ...(input.cli
       ? [
         `Ralphy CLI: ${input.cli}`,
-        `Drive every Ralphy step through that exact path; \`${input.cli} --help\` lists it. The library is its store -- read and change it through the CLI rather than by reading files under it.`,
+        `Drive every Ralphy step through that exact path; \`'${input.cli.replaceAll("'", "'\\''")}' --help\` lists it. The library is its store -- read and change it through the CLI rather than by reading files under it.`,
+        `Always pass --root ${JSON.stringify(input.rootPath)} explicitly. Scoped CRUD commands use --workspace ${JSON.stringify(input.workspaceId ?? "<choose-workspace>")}. For generation and reference imports, --project and --workspace are mutually exclusive destinations: use only --project with a verified project ID from the active workspace. Never change a different workspace.`,
+        "Creative experiments: read source creatives and metrics through the connected MCP. Keep source IDs, URLs, date range and reported metrics in a project document; missing measurements stay unknown. Treat proposed audience or metric improvements as hypotheses, never measured lifts.",
+        "Use the active project, or create one in the active workspace if none is selected. Keep one Unit per source creative with `unit create`; reuse it for later experiments. Keep the original as a baseline; use `unit revise` for each alternative, passing the expected latest revision ID and original parent revision ID. Preserve previous versions. Record the changed variable and hypothesis in --note, with complete items and platform presentations for that version.",
+        "Persist real previews before claiming a variant is ready. Text-only variants can use Document items and platform captions; visual variants need distinct generated/imported Artifact revisions. A prompt or proposed actor change is a concept, not a rendered visual. Compare social platforms, copy, CTA, visual presence or actors when requested. Read CLI --help for exact document, artifact and unit commands. Do not publish or change ad campaigns during an experiment.",
+        "Unit presentation items are the public creative: put only audience-facing copy or media in them. Keep experiment hypotheses in the revision note and provenance in a separate project document. Exclude source-evidence and internal notes from presentation item lists.",
+        'Return Markdown with standalone MDX cards for saved project Units: <UnitCard workspaceId="ws_id" projectId="proj_id" unitId="unit_id" title="Creative 1" />. Replace IDs with actual CLI results. Put each card outside code fences, on its own line with blank lines around it. Only quoted string attributes are supported; no JavaScript, imports or expressions. The app reads the actual version count. Create the number of variants requested by the user, never a fixed demo count. When variants derive from an imported creative, retain that original as an unchanged sealed Unit revision and link it using `ralphy unit source <variant-unit-id> --revision <original-revision-id> --label "Source name"` using the actual source name. Do not call the first generated variant the original. The linked original is separate from the requested variant count. Include concise findings and test hypotheses alongside the cards.',
       ]
       : ["No Ralphy CLI is available to this chat; do not invent one."]),
     ...(lines.length > 0
@@ -127,6 +136,8 @@ export function ralphyPreamble(input: {
 export async function agentPreamble(input: {
   provider: AgentProvider;
   rootPath: string;
+  workspaceId?: string | null;
+  projectId?: string | null;
   projectPath?: string | null;
   cwd: string;
   home?: string;

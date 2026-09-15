@@ -17,6 +17,8 @@ import {
   VIEW_PANEL_MIN,
   workspacePageForTab,
   WORKSPACE_VIEW_TYPES,
+  readUnitViewTarget,
+  unitViewRequest,
 } from "@/widgets/view-panel";
 import {
   EMPTY_VIEW_PANEL,
@@ -32,6 +34,16 @@ const set = (): ViewTabSet => normalizeTabSet(undefined);
 const labels = (value: ViewTabSet) => value.tabs.map(({ label }) => label);
 
 describe("view panel tabs", () => {
+  test("Unit tabs retain their scoped target after saving and opening the same Unit twice", () => {
+    const request = unitViewRequest({ workspaceId: "ws", projectId: "prj" }, "unit", "Creative");
+    const first = openViewTab(set(), request);
+    expect(openViewTab(first, request)).toBe(first);
+    const stored = readViewPanel({ byChat: { chat: first } });
+    expect(activeViewTab(tabSetFor(stored, "chat"))).toMatchObject(request);
+    expect(readUnitViewTarget(request.targetId)).toEqual({ workspaceId: "ws", projectId: "prj", unitId: "unit" });
+    for (const invalid of [null, {}, "../prj/unit", "ws/prj/unit/extra", "ws//unit"]) expect(readUnitViewTarget(invalid)).toBeNull();
+  });
+
   test("home is first, permanent, and the fallback active tab", () => {
     const fresh = set();
     expect(fresh.tabs).toHaveLength(1);
@@ -113,7 +125,7 @@ describe("view panel tabs", () => {
 
   test("every openable type routes somewhere, and the tabs that are not routes do not", () => {
     // A workspace page routes; the project routes by id; home and the browser are their own pages.
-    const pageless = ["project", "browser"];
+    const pageless = ["project", "unit", "browser"];
     for (const descriptor of VIEW_TYPES) {
       const tab = { id: "x", type: descriptor.type, targetId: null, label: descriptor.label };
       expect(workspacePageForTab(tab) === null).toBe(pageless.includes(descriptor.type));

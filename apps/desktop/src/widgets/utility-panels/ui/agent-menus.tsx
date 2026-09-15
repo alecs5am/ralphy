@@ -80,7 +80,7 @@ export function AgentModelMenu({ chat, onOpenSettings }: { chat: AgentChatContro
   const visible = models.filter((model) => !needle || `${model.label} ${model.id} ${model.description}`
     .toLocaleLowerCase().includes(needle)).slice(0, 80);
   return (
-    <div className="agent-menu relative min-w-0" ref={menu.ref}>
+    <div className="agent-menu relative min-w-0 shrink-0" ref={menu.ref}>
       <button
         ref={menu.trigger}
         className={`agent-menu-trigger agent-model-trigger ${PILL_QUIET} max-w-agent-model-trigger`}
@@ -132,7 +132,10 @@ export function AgentModelMenu({ chat, onOpenSettings }: { chat: AgentChatContro
                 <AiBrandIcon className="shrink-0" provider={model.provider} model={model.id} size={15} />
                 <span className={ROW_COPY}>
                   <strong className="truncate type-sm font-normal">{model.label}</strong>
-                  <small className={`truncate ${META}`}>{PROVIDER_META[model.provider].label} · {model.description}</small>
+                  <small className={`truncate ${META}`} title={model.description}>
+                    {PROVIDER_META[model.provider].label}
+                    {model.description && model.description !== PROVIDER_META[model.provider].label ? ` · ${model.description}` : ""}
+                  </small>
                 </span>
                 {current && <Check size={12} />}
               </button>;
@@ -206,7 +209,7 @@ export function AgentModeMenu({
 }) {
   const menu = useDismissableMenu();
   return (
-    <div className="agent-menu relative min-w-0" ref={menu.ref}>
+    <div className="agent-menu relative min-w-0 shrink-0" ref={menu.ref}>
       <button
         ref={menu.trigger}
         className={`agent-menu-trigger agent-mode-trigger ${PILL_QUIET}`}
@@ -229,15 +232,15 @@ export function AgentModeMenu({
               type="button"
               role="menuitemradio"
               aria-checked={value === mode}
-              className={`${MENU_ROW} h-7 justify-between gap-2 px-2 type-sm ${value === mode ? "is-selected" : ""}`}
+              className={`${MENU_ROW} min-h-8 justify-between gap-2 px-2 py-1.5 type-sm ${value === mode ? "is-selected" : ""}`}
               key={mode}
               onClick={() => {
                 onChange(mode);
                 menu.setOpen(false);
               }}
             >
-              <span>{permissionLabels[mode]}</span>
-              {value === mode && <Check size={12} />}
+              <span className="min-w-0 flex-1">{permissionLabels[mode]}</span>
+              {value === mode && <Check size={12} className="flex-none" />}
             </button>
           ))}
         </div>

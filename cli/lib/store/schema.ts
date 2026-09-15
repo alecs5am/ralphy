@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 export const GLOBAL_MEMORY_WORKSPACE_ID = "ws_00000000-0000-0000-0000-000000000000";
 
 export type Migration = {
@@ -4556,6 +4556,13 @@ export const MIGRATIONS: readonly Migration[] = [
       BEGIN
         SELECT RAISE(ABORT, 'Publication requires a sealed Presentation, exact fresh Run, and valid rail scope');
       END;
+    `,
+  },
+  {
+    version: 10,
+    sql: `
+      ALTER TABLE units ADD COLUMN source_revision_id TEXT REFERENCES unit_revisions(id) ON DELETE RESTRICT;
+      ALTER TABLE units ADD COLUMN source_label TEXT;
     `,
   },
 ];

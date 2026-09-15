@@ -138,6 +138,7 @@ describe("CodexSession", () => {
     const resume = capture.requests.find(({ method }) => method === "thread/resume");
     expect(resume?.params).toMatchObject({
       threadId: "0199a213-81c0-7800-8aa1-bbab2a035a54",
+      excludeTurns: true,
       model: "gpt-5.5",
       sandbox: "danger-full-access",
       approvalPolicy: "never",

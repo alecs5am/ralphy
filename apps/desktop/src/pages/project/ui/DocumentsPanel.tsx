@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { AlertCircle, Braces, FileText, Pilcrow, Search } from "@/shared/ui/icons";
+import { AlertCircle, FileJson, FileText, FileTxt, Search } from "@/shared/ui/icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { DocumentDetailDto, DocumentDto, DocumentSearchDto } from "../../../../electron/ralphy/types";
@@ -88,22 +88,14 @@ function currentFormat(document: DocumentDto): DocumentSearchDto["format"] | nul
 }
 
 function FormatIcon({ format }: { format: string | null }) {
-  if (format === "json") return <Braces size={17} aria-hidden="true" />;
-  if (format === "text") return <Pilcrow size={17} aria-hidden="true" />;
-  return <FileText size={17} aria-hidden="true" />;
+  if (format === "json") return <FileJson size={22} aria-hidden="true" />;
+  if (format === "text") return <FileTxt size={22} aria-hidden="true" />;
+  return <FileText size={22} aria-hidden="true" />;
 }
 
-/**
- * The format, twice over in two shapes.
- *
- * In a row it is a bare mono word: the plated pill it used to be put a second object in every
- * row, 62px wide, saying what the row's own meta line said again three words later. In the
- * titlebar it keeps the pill and the glyph -- there is one of them, it stands for the document,
- * and it is the only thing on that line that is not text.
- */
 function FormatBadge({ format, row = false }: { format: string | null; row?: boolean }) {
   const name = `document-format-badge format-${format ?? "unknown"}`;
-  if (row) return <span className={`${name} truncate text-right font-code type-mono-sm text-muted`}>{formatLabel(format)}</span>;
+  if (row) return <span className={`${name} inline-flex items-center justify-center text-muted`} title={formatLabel(format)}><FormatIcon format={format} /><span className="sr-only">{formatLabel(format)}</span></span>;
   return <span className={`${name} inline-flex h-6 min-w-9 flex-none items-center justify-center gap-1 rounded-full bg-surface px-1.5 font-code type-meta text-muted`}><FormatIcon format={format} />{formatLabel(format)}</span>;
 }
 

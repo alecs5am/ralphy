@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, MessageSquare, PanelRightClose, PanelsTopLeft, Plus, Workflow } from "@/shared/ui/icons";
 import { motion } from "motion/react";
-import type { ProjectSummary, WorkspaceSummary } from "@/shared/api/ipc";
+import type { ProjectReference, ProjectSummary, WorkspaceSummary } from "@/shared/api/ipc";
 import type { AgentChatController } from "@/features/agent-chat";
 import { AgentComposer, type AgentComposerHandle } from "@/features/agent-chat";
 import { addAttachments, attachmentInstructions, withAttachments, type Attachment } from "@/features/agent-chat";
@@ -37,6 +37,7 @@ export function AgentChatPanel({
   onOpenSettings,
   onOpenContext,
   onOpenCanvas,
+  onOpenUnit,
   onToggleView,
   draftRequest,
   onDraftRequestHandled,
@@ -48,6 +49,7 @@ export function AgentChatPanel({
   onOpenSettings(page?: "agents"): void;
   onOpenContext(): void;
   onOpenCanvas?(): void;
+  onOpenUnit?(project: ProjectReference, unitId: string, label: string): void;
   onToggleView?(): void;
   draftRequest?: { id: string; prompt: string; chatId: string | null; attachment?: Attachment } | null;
   onDraftRequestHandled?(): void;
@@ -150,7 +152,7 @@ export function AgentChatPanel({
       </header>
 
       <div className={`utility-right-panel-card ${WINDOW_BODY}`}>
-      {!chat.connected ? (
+      {!chat.connected && active.entries.length === 0 ? (
         <AgentConnection chat={chat} />
       ) : (
         <>
@@ -181,11 +183,14 @@ export function AgentChatPanel({
                 onOpener={fillComposer}
               />
               : <AgentThread
+                workspaceId={workspace?.id}
+                onOpenUnit={onOpenUnit}
                 entries={active.entries}
                 busy={active.busy}
                 streamingTool={streamingTool}
                 onEdit={fillComposer}
                 onRerun={(text) => {
+                  if (!chat.connected) { onOpenSettings("agents"); return; }
                   chat.send(text);
                   followOutput.current = true;
                 }}
@@ -193,7 +198,11 @@ export function AgentChatPanel({
           </div>
           {/* The composer is a field on the card: one step off it, at the card's own radius, with
               the field above and the instruments below. */}
-          <AgentComposer
+          {!chat.connected ? (
+            <button type="button" className={`m-3 flex-none rounded-full px-3.5 py-2 type-sm ${PRIMARY}`} onClick={() => onOpenSettings("agents")}>
+              Connect a provider to continue
+            </button>
+          ) : <AgentComposer
             handle={composer}
             workspace={workspace}
             project={project}
@@ -205,7 +214,7 @@ export function AgentChatPanel({
             onAttach={(added) => setAttachments((current) => addAttachments(current, added))}
             onDetach={(index) => setAttachments((current) => current.filter((_, at) => at !== index))}
           >
-            <div className="agent-composer-toolbar flex items-center gap-1.5">
+            <div className="agent-composer-toolbar flex flex-wrap items-center gap-1.5">
               <AgentModeMenu value={active.permissionMode} onChange={chat.setPermissionMode} />
               <AgentContextLink onOpen={onOpenContext} />
               <span className="min-w-0 flex-1" aria-hidden="true" />
@@ -238,7 +247,7 @@ export function AgentChatPanel({
                   <ArrowUp size={13} strokeWidth={2} />
                 </button>}
             </div>
-          </AgentComposer>
+          </AgentComposer>}
         </>
       )}
       </div>

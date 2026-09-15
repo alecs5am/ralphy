@@ -4,6 +4,7 @@ import {
   chmod,
   mkdir,
   rename,
+  readFile,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -12,10 +13,8 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  APPROVED_CORE_SHA256,
-  APPROVED_CORE_SOURCE,
-  APPROVED_CORE_VERSION,
   readApprovedCoreBytes,
+  sha256File,
 } from "./bundled-core.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -26,9 +25,15 @@ const output = process.env.RALPHY_PACKAGE_OUTPUT
 const contents = join(output, "Contents");
 const resources = join(contents, "Resources");
 const application = join(resources, "app");
-const coreSource = process.env.RALPHY_CORE_BIN ?? APPROVED_CORE_SOURCE;
+const repository = resolve(root, "../..");
+if (!process.env.RALPHY_CORE_BIN) {
+  execFileSync("bun", ["scripts/build-binaries.ts", "--current", "--smoke"], { cwd: repository, stdio: "inherit" });
+}
+const coreSource = process.env.RALPHY_CORE_BIN ?? join(repository, "dist/binaries", `ralphy-${process.platform}-${process.arch}`);
 if (!isAbsolute(coreSource)) throw new Error("RALPHY_CORE_BIN must be an absolute path");
-const coreBytes = await readApprovedCoreBytes(coreSource);
+const coreBytes = process.env.RALPHY_CORE_BIN ? await readApprovedCoreBytes(coreSource) : await readFile(coreSource);
+const coreVersion = execFileSync(coreSource, ["--version"], { encoding: "utf8" }).trim();
+const coreSha256 = await sha256File(coreSource);
 
 await rm(output, { recursive: true, force: true });
 await mkdir(dirname(output), { recursive: true });
@@ -68,6 +73,9 @@ if (!existsSync(join(packSource, "manifest.json"))) {
   );
 }
 await cp(packSource, join(resources, "prompt-pack"), { recursive: true });
+if (!process.env.RALPHY_CORE_BIN) {
+  execFileSync("bun", ["scripts/vendor-prompt-pack.mjs", "--bin", join(repository, "cli/index.ts"), "--out", join(resources, "prompt-pack")], { cwd: root, stdio: "inherit" });
+}
 
 const bundledCore = join(resources, "bin/ralphy");
 await mkdir(dirname(bundledCore), { recursive: true });
@@ -76,8 +84,8 @@ await chmod(bundledCore, 0o755);
 await writeFile(
   join(resources, "ralphy-core.json"),
   `${JSON.stringify({
-    version: APPROVED_CORE_VERSION,
-    sha256: APPROVED_CORE_SHA256,
+    version: coreVersion,
+    sha256: coreSha256,
   }, null, 2)}\n`,
   { mode: 0o600 },
 );

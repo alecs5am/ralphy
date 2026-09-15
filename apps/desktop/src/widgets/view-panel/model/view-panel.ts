@@ -13,6 +13,7 @@ import {
   type ViewTabType,
   type WorkspacePage,
 } from "@/shared/model/workbench";
+import type { ProjectReference } from "@/shared/api/ipc";
 
 /* Re-exported so a component reaches for one module: the shapes are persisted state and live
    beside the other preferences, but the panel is one idea and this is where it is named. */
@@ -53,6 +54,7 @@ export const VIEW_TYPES: readonly ViewTypeDescriptor[] = [
   { type: "memory", label: WORKSPACE_PAGE_LABELS.memory, singleton: true, command: "view.memory" },
   { type: "context", label: WORKSPACE_PAGE_LABELS.context, singleton: true, command: "view.context" },
   { type: "project", label: "Project", singleton: false, command: null },
+  { type: "unit", label: "Unit", singleton: false, command: null },
   /* One browser per chat, not one per page: a second blank tab is a tab you have to name before
      it is worth anything, and the strip already has the chat's places on it. */
   { type: "browser", label: "Browser", singleton: true, command: null },
@@ -116,6 +118,16 @@ export interface OpenViewRequest {
   type: Exclude<ViewTabType, "home">;
   targetId?: string | null;
   label: string;
+}
+
+export function unitViewRequest(project: ProjectReference, unitId: string, label: string): OpenViewRequest {
+  return { type: "unit", targetId: `${project.workspaceId}/${project.projectId}/${unitId}`, label };
+}
+
+export function readUnitViewTarget(value: unknown): (ProjectReference & { unitId: string }) | null {
+  const parts = typeof value === "string" ? value.split("/") : [];
+  if (parts.length !== 3 || parts.some((part) => !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(part))) return null;
+  return { workspaceId: parts[0], projectId: parts[1], unitId: parts[2] };
 }
 
 /**

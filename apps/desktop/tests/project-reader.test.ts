@@ -57,6 +57,20 @@ const objectCard: MediaCardDto = {
 };
 
 describe("Project domain reader", () => {
+  test("assembles a platform preview from current Core pages and its exact effective caption", async () => {
+    const presentation: UnitPresentationDto = { id: "pres-1", unitRevisionId: "rev-1", platform: "facebook", position: 0, effectiveCaptionRevisionId: "cap-1", coverArtifactRevisionId: null, crop: null, safeArea: null, options: {}, createdAt: 1 };
+    const request = vi.fn(async (method: string, params: Record<string, unknown>) => {
+      if (method === "unit.presentations") return params.after ? page([presentation]) : page([], "next-platform");
+      if (method === "presentation.items") return page([{ id: "pi-1", presentationId: "pres-1", unitItemId: "item-content", position: 0, config: null, createdAt: 1 }]);
+      if (method === "presentation.captions") return page([{ id: "cap-1", presentationId: "pres-1", text: "The actual creative caption" }]);
+      throw new Error(`Unexpected method: ${method}`);
+    });
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+    await expect(reader.loadProjectUnitPreview(project, "rev-1", "facebook")).resolves.toMatchObject({ unitRevisionId: "rev-1", platform: "facebook", presentation: { caption: "The actual creative caption", unitItemIds: ["item-content"] } });
+    expect(request).not.toHaveBeenCalledWith("unit.preview", expect.anything());
+    request.mockImplementation(async () => page([{ ...presentation, unitRevisionId: "rev-other" }]));
+    await expect(reader.loadProjectUnitPreview(project, "rev-1", "facebook")).rejects.toThrow("Invalid Unit");
+  });
   test("loads a bounded safe run summary for Activity without generation payloads", async () => {
     const run = {
       id: "run-1", workspaceId: project.workspaceId, projectId: project.projectId, agentSessionId: null,

@@ -11,6 +11,7 @@ export type {
   AgentChatEnvelope,
   ActivityRefreshEvent,
   AgentChatEvent,
+  AgentHistoryEvent,
   AgentChatRequest,
   AgentModelOption,
   AgentPermissionMode,

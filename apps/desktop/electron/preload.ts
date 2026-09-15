@@ -239,6 +239,7 @@ const mediaBridge: MediaWorkbenchBridge = {
   readText: (path, maxBytes) => invoke(MEDIA_CHANNELS.readText, path, maxBytes),
   getMediaUrl: (path) => invoke(MEDIA_CHANNELS.getMediaUrl, path),
   getAgentProviders: () => invoke(AGENT_CHANNELS.providers),
+  loadAgentHistory: (sessionId, workspaceId) => invoke(AGENT_CHANNELS.history, sessionId, workspaceId),
   loginAgentProvider: (provider) => invoke(AGENT_CHANNELS.login, provider),
   setAgentApiKey: (provider, apiKey) => (
     invoke(AGENT_CHANNELS.setApiKey, provider, apiKey)

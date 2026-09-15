@@ -35,7 +35,7 @@ export type SocialPreviewProps = {
 // Every social frame is a black widget in both themes, so its ink is the on-instrument family
 // throughout: the theme ink would be black on black in the light theme. The frame also owns the
 // media it mounts -- a borrowed player fills it and keeps none of its own transport.
-const FRAME = "relative size-full min-h-0 overflow-hidden bg-device-body text-on-instrument [&_.custom-video-player]:size-full [&_.custom-video-player]:min-h-0 [&_.video-controls]:hidden [&_.viewer-video]:size-full [&_.viewer-video]:min-h-0 [&_.viewer-video]:object-cover [&_img]:size-full [&_img]:object-cover";
+const FRAME = "relative size-full min-h-0 overflow-hidden bg-device-body text-on-instrument [&_.custom-video-player]:size-full [&_.custom-video-player]:min-h-0 [&_.video-controls]:hidden [&_.viewer-video]:size-full [&_.viewer-video]:min-h-0 [&_.viewer-video]:object-contain [&_img]:size-full [&_img]:object-contain";
 const MEDIA = "unit-social-media size-full min-h-0 [&>*]:size-full [&>*]:min-h-0";
 // The feed chrome stands over the media, so its glyphs and labels carry their own shadow.
 const OVER_MEDIA = "[&_svg]:size-4.5 [&_svg]:[filter:drop-shadow(0_1px_2px_color-mix(in_srgb,var(--instrument-media-frame)_50%,transparent))]";
@@ -45,7 +45,7 @@ const AVATAR = "unit-social-avatar grid place-items-center rounded-full bg-devic
 const EMPTY = "preview-empty grid place-items-center text-on-instrument-muted";
 
 export function UnitMediaView({ item }: { item: UnitMedia }) {
-  if ("text" in item.preview) return <DocumentContent format={item.preview.format} text={item.preview.text} />;
+  if ("text" in item.preview) return <div className="h-full overflow-auto bg-surface p-4 text-ink"><DocumentContent format={item.preview.format} text={item.preview.text} /></div>;
   if (item.kind === "image") return <img src={item.preview.url} alt={item.role} />;
   /* The social mockup is a black screen. */
   if (item.kind === "video") return <VideoPlayer src={item.preview.url} name={item.role} compact tone="instrument" />;
@@ -96,19 +96,19 @@ function VerticalShell({ platform, slug, caption, media, guides }: SocialPreview
     <aside className={`unit-social-rail absolute right-3 z-surface-overlay grid justify-items-center ${youtube ? "bottom-13.5 gap-2.5" : "bottom-18.75 gap-2.25"} [&_small]:type-xs [&_small]:text-on-instrument [&_small]:[text-shadow:0_1px_2px_var(--instrument-media-frame)] [&_svg]:size-6.25 [&_svg]:[filter:drop-shadow(0_1px_3px_var(--instrument-media-frame))]`} aria-hidden="true">
       {tiktok || reels ? <span className={`${AVATAR} size-8.5`}>R</span> : null}
       {tiktok ? <>
-        <span className={RAIL_ACTION}><Heart /><small>12.4K</small></span>
-        <span className={RAIL_ACTION}><MessageCircle /><small>214</small></span>
-        <span className={RAIL_ACTION}><Bookmark /><small>1 208</small></span>
-        <span className={RAIL_ACTION}><Send /><small>486</small></span>
+        <span className={RAIL_ACTION}><Heart /><small>Likes</small></span>
+        <span className={RAIL_ACTION}><MessageCircle /><small>Comments</small></span>
+        <span className={RAIL_ACTION}><Bookmark /><small>Saves</small></span>
+        <span className={RAIL_ACTION}><Send /><small>Share</small></span>
       </> : reels ? <>
-        <span className={RAIL_ACTION}><Heart /><small>8 902</small></span>
-        <span className={RAIL_ACTION}><MessageCircle /><small>146</small></span>
-        <span className={RAIL_ACTION}><Send /><small>389</small></span>
+        <span className={RAIL_ACTION}><Heart /><small>Likes</small></span>
+        <span className={RAIL_ACTION}><MessageCircle /><small>Comments</small></span>
+        <span className={RAIL_ACTION}><Send /><small>Share</small></span>
         <span className={RAIL_ACTION}><MoreVertical /></span>
       </> : <>
-        <span className={RAIL_ACTION}><ThumbsUp /><small>12K</small></span>
+        <span className={RAIL_ACTION}><ThumbsUp /><small>Like</small></span>
         <span className={RAIL_ACTION}><ThumbsDown /><small>Dislike</small></span>
-        <span className={RAIL_ACTION}><MessageCircle /><small>214</small></span>
+        <span className={RAIL_ACTION}><MessageCircle /><small>Comments</small></span>
         <span className={RAIL_ACTION}><Send /><small>Share</small></span>
         <span className={RAIL_ACTION}><Shuffle /><small>Remix</small></span>
       </>}
@@ -128,7 +128,7 @@ function InstagramPost({ slug, caption, media }: SocialPreviewProps) {
     <header className="flex items-center gap-2 px-3 py-2.25 [&>svg]:ml-auto [&>svg]:size-4.5"><span className={`${AVATAR} size-7.5`}>R</span><strong>@ralphy</strong><MoreHorizontal /></header>
     <Carousel media={media} />
     <Actions />
-    <footer className="grid gap-0.75 px-2.75 pb-5 type-xs"><strong>18,412 likes</strong><p className="m-0 truncate"><b>@ralphy</b> {caption ?? slug}</p><small className="type-xs text-on-instrument-muted">8 minutes ago</small></footer>
+    <footer className="grid gap-0.75 px-2.75 pb-5 type-xs"><strong>Post preview</strong><p className="m-0 truncate"><b>@ralphy</b> {caption ?? slug}</p><small className="type-xs text-on-instrument-muted">Not published</small></footer>
   </article>;
 }
 
@@ -144,12 +144,12 @@ function XPost({ slug, caption, media }: SocialPreviewProps) {
 function YouTubePlayer({ slug, media }: SocialPreviewProps) {
   return <article className={`unit-social-preview is-youtube-player ${FRAME} grid h-auto w-social-player grid-rows-(--project-player-rows) rounded-widget`} aria-label="youtube preview">
     <div className="unit-social-media relative aspect-video h-auto min-h-0 overflow-hidden [&>*]:size-full [&>*]:min-h-0"><FirstMedia media={media} /><Play className="unit-youtube-play absolute left-1/2 top-1/2 size-14.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-media-plate p-4.5" /></div>
-    <footer className="grid grid-cols-(--project-row-columns) gap-1.25 p-2.5 [&_svg]:size-3"><strong className="col-span-full type-md">{slug}</strong><span className="flex items-center gap-1 font-code type-meta text-on-instrument-muted">Ralphy · 128K subscribers</span><span className="flex items-center gap-1 font-code type-meta text-on-instrument-muted"><ThumbsUp /> 12K　<Share2 /> Share</span></footer>
+    <footer className="grid grid-cols-(--project-row-columns) gap-1.25 p-2.5 [&_svg]:size-3"><strong className="col-span-full type-md">{slug}</strong><span className="flex items-center gap-1 font-code type-meta text-on-instrument-muted">Ralphy · Preview</span><span className="flex items-center gap-1 font-code type-meta text-on-instrument-muted"><ThumbsUp /> Like　<Share2 /> Share</span></footer>
   </article>;
 }
 
 function CleanPreview({ media }: Pick<SocialPreviewProps, "media">) {
-  return <article className={`unit-clean-preview ${FRAME}`} aria-label="Clean media preview"><FirstMedia media={media} /><span className="absolute bottom-2.5 right-2.5 rounded-control bg-media-plate px-1.75 py-1 font-code type-mono-md text-on-instrument">00:24</span></article>;
+  return <article className={`unit-clean-preview ${FRAME}`} aria-label="Clean media preview"><FirstMedia media={media} /></article>;
 }
 
 function GenericPreview({ media, slug }: SocialPreviewProps) {
@@ -157,6 +157,12 @@ function GenericPreview({ media, slug }: SocialPreviewProps) {
 }
 
 export function UnitSocialPreview({ target, ...props }: SocialPreviewProps & { target: SocialTarget }) {
+  if (props.previewMode !== "clean" && target.variant === "post" && props.caption && props.media.every((item) => item.kind === "document")) {
+    return <article className="unit-text-post flex size-full flex-col gap-5 overflow-auto bg-surface p-5 pt-12 text-ink" aria-label={`${target.platform} preview`}>
+      <header className="type-sm text-muted">{target.label} · Text post</header>
+      {props.media.length ? props.media.map((item) => "text" in item.preview ? <DocumentContent key={item.id} format={item.preview.format} text={item.preview.text} /> : null) : <p className="m-0 whitespace-pre-wrap type-lg leading-relaxed">{props.caption}</p>}
+    </article>;
+  }
   if (props.previewMode === "clean") return target.variant === "carousel" ? <article className={`unit-clean-preview ${FRAME}`} aria-label="Clean media preview"><Carousel media={props.media} /></article> : <CleanPreview media={props.media} />;
   if (target.platform === "instagram" && (target.variant === "carousel" || target.variant === "post")) return <InstagramPost {...props} />;
   if (target.platform === "x") return <XPost {...props} />;

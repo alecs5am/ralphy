@@ -11,11 +11,23 @@ files are not authoritative. Portable transfer uses `workspace.export` and
 <!-- ralphy-version-line: do not edit by hand. The `/release` skill bumps this line. -->
 > **Current ralphy CLI: `v0.3.0`** (released 2026-06-02). Verify the user's binary via `ralphy --version`. If it lags this version, suggest `brew upgrade ralphy` (macOS) or `npm update -g @alecs5am/ralphy` (cross-platform) so they pick up the fixes documented in this routing table.
 
+## Product and repository ownership
+
+**The Ralphy desktop application is the primary product.** This repository owns both the application in `apps/desktop/` and the runtime/standalone CLI in `cli/`. Read `apps/desktop/AGENTS.md` before changing the application. Use the documented CLI/bridge contract between the application and runtime; keep runtime code independent of the application package.
+
+Run the desktop from the root with `bun run start` or its renderer with `bun run dev`. Install its separate Bun package with `bun run install:desktop`, and validate it with `bun run check:desktop`. Runtime checks remain `bun run lint` and `bun run test:integration`. Keep user generation data in the root ignored `.ralphy/` tree.
+
+### Git and GitHub identity
+
+This is the personal `alecs5am/ralphy` repository. Use the `github-alecs5am` SSH host for both fetch and push. Before committing, verify the repository-local author is `alecs5am <209291055+alecs5am@users.noreply.github.com>`; never inherit a corporate author identity.
+
+On the maintainer machine, use `git gh ...` for GitHub operations: its repository-local alias runs `gh` with the personal account token for that process only and fails if that token is unavailable. For other checkouts, select the personal token per process. Never switch the globally active `gh` account or edit corporate repository settings as part of Ralphy work. See [repository setup](docs/developing-ralphy.md#personal-git-identity).
+
 ## Positioning (who operates Ralphy)
 
-**Chat is the user interface; the Ralphy CLI is the agent runtime.** The user does not operate `ralphy` by hand — they talk to Hermes, Claude Code, Codex, or another local coding agent in plain language, and the agent drives the CLI on their behalf. The product promise is "turn your coding agent into a content farm": the CLI exists to give agents reproducible model calls, workspace state, quality gates, renders, logs, and memory. Direct CLI use is for setup, debugging, and power users — not the default workflow. Practically: surface what you ran when it helps the user follow along, but never tell the user to run a `ralphy` verb when you can run it for them. (Memory: `agent-facing-ralphy-positioning`.)
+**The desktop application is the primary user interface; the CLI is its agent runtime and automation surface.** Users create and review content in the app, with local agents available for conversational workflows. Agents drive the same CLI on the user's behalf. Direct CLI use remains supported for setup, automation, debugging, and power users.
 
-**What a run produces.** A finished piece is a **Unit**: one Template (structure) + one Style (look) + N Recipes (effects) + M Assets (character / location / prop / music). Project deliverables land in `<project>/units/<slug>/`; account-level posts, threads, and articles land in `<workspace>/units/<slug>/`. Everything between a chat request and that Unit is the production contract below.
+**What a run produces.** A finished piece is a **Unit**: one Template (structure) + one Style (look) + N Recipes (effects) + M Assets (character / location / prop / music). Project deliverables land in `<project>/units/<slug>/`; account-level posts, threads, and articles land in `<workspace>/units/<slug>/`. Everything between a request and that Unit is the production contract below.
 
 ## The discipline (read this first, every time)
 

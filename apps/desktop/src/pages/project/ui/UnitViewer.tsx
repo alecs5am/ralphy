@@ -9,12 +9,12 @@ import { SnappySlider } from "@/shared/ui/SnappySlider";
 import { SocialIcon } from "@/shared/ui/SocialIcon";
 import { sortBuilds, sortPositioned } from "@/entities/composition";
 import { bridge } from "@/shared/api/ipc";
-import { unitLifecycle, type UnitLifecycle } from "@/entities/unit";
+import { unitLifecycle, unitRevisionNumber, type UnitLifecycle } from "@/entities/unit";
 import { preferredUnitPoster, resolveUnitMedia, socialTargets, unitPreviewKind, type UnitMedia } from "@/entities/unit";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../model/screen-controller";
 import { UnitSocialPreview } from "..";
 import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR, WindowClose } from "@/shared/ui/Window";
-import { UnitStatus } from "@/entities/unit";
+import { UnitStatus, UnitRevisionPreview, UnitSourcePreview } from "@/entities/unit";
 import { IconButton } from "@/shared/ui/IconButton";
 
 const formatTime = (value: number) => new Date(value < 1_000_000_000_000 ? value * 1000 : value).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -72,9 +72,9 @@ function ProductionDetails({ snapshot }: { snapshot: ProjectScreenSnapshot }) {
   </details>;
 }
 
-function captionFrom(metadata: UnitPreviewDto | null, fallback: string): string {
+function captionFrom(metadata: UnitPreviewDto | null): string {
   const value = metadata?.presentation.caption;
-  return typeof value === "string" && value.trim() ? value : `${fallback} — made with Ralphy. #ralphy`;
+  return typeof value === "string" ? value : "";
 }
 
 export function UnitViewer({
@@ -84,6 +84,7 @@ export function UnitViewer({
   snapshot,
   returnFocus,
   onEditVideo,
+  embedded = false,
 }: {
   open: boolean;
   onOpenChange(open: boolean): void;
@@ -91,13 +92,18 @@ export function UnitViewer({
   snapshot: ProjectScreenSnapshot;
   returnFocus: HTMLElement | null;
   onEditVideo?(unitId: string, title: string): void;
+  embedded?: boolean;
 }) {
   const unit = snapshot.unit.value;
   const revision = snapshot.inspectedUnitRevision.value;
+  const [originalUnitId, setOriginalUnitId] = useState<string | null>(null);
+  const sourceRevision = snapshot.unitRevisions.items.find((item) => item.id === unit?.sourceRevisionId);
+  const displayRevisionNo = revision ? unitRevisionNumber(revision, sourceRevision) : 0;
+  const showOriginal = !!unit?.sourceRevisionId && originalUnitId === unit.id;
   const productionRevision = revision?.compositionRevisionId === snapshot.inspectedCompositionRevision.value?.id ? snapshot.inspectedCompositionRevision.value : null;
   const overview = snapshot.domain.overview.value as ProjectOverviewDto | null;
   const publications = overview?.publications?.items ?? [];
-  const lifecycle = unit ? unitLifecycle({ unit, revision, compositionRevision: productionRevision, builds: snapshot.compositionBuilds.items, publications }) : null;
+  const lifecycle = unit && !showOriginal ? unitLifecycle({ unit, revision, compositionRevision: productionRevision, builds: snapshot.compositionBuilds.items, publications }) : null;
   const pending = snapshot.unitMutation !== "idle" || snapshot.compositionMutation !== "idle";
   const surface = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
@@ -107,6 +113,7 @@ export function UnitViewer({
   const target = targets.find((item) => item.id === targetId) ?? targets[0];
   const [metadata, setMetadata] = useState<UnitPreviewDto | null>(null);
   const [previewMode, setPreviewMode] = useState<"post" | "clean">("post");
+  const [deviceMockup, setDeviceMockup] = useState(true);
   const [guides, setGuides] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -120,12 +127,17 @@ export function UnitViewer({
     if (!isPresentationCover && !preview.mime?.startsWith("image/")) return null;
     return { id: artifactRevisionId, role: "vertical-cover", position: -1, kind: "image", preview };
   }, [snapshot.unitPresentations.items, snapshot.unitPreview.artifactRevisionId, snapshot.unitPreview.value]);
-  const previewMedia = useMemo(() => previewCover && !preferredUnitPoster(media, true) ? [...media, previewCover] : media, [media, previewCover]);
+  const previewMedia = useMemo(() => {
+    const ids = metadata?.presentation.unitItemIds;
+    const visible = Array.isArray(ids) ? ids.flatMap((id) => media.filter((item) => item.id === id)) : media;
+    const coverAlreadyVisible = snapshot.unitItems.items.some((item) => item.artifactRevisionId === previewCover?.id && visible.some((value) => value.id === item.id));
+    return previewCover && !coverAlreadyVisible && !preferredUnitPoster(visible, true) ? [...visible, previewCover] : visible;
+  }, [media, metadata, previewCover, snapshot.unitItems.items]);
 
   const revisions = useMemo(() => {
     const rows = revision && !snapshot.unitRevisions.items.some(({ id }) => id === revision.id) ? [...snapshot.unitRevisions.items, revision] : snapshot.unitRevisions.items;
-    return [...rows].sort((a, b) => b.revisionNo - a.revisionNo);
-  }, [revision, snapshot.unitRevisions.items]);
+    return rows.filter((item) => item.id !== unit?.sourceRevisionId).sort((a, b) => a.revisionNo - b.revisionNo);
+  }, [revision, snapshot.unitRevisions.items, unit?.sourceRevisionId]);
 
   useEffect(() => {
     if (!open || !revision) return;
@@ -165,10 +177,10 @@ export function UnitViewer({
     const events = ["loadedmetadata", "durationchange", "timeupdate", "play", "pause", "volumechange", "ended"];
     events.forEach((event) => element.addEventListener(event, sync));
     return () => events.forEach((event) => element.removeEventListener(event, sync));
-  }, [previewMedia, previewMode, target?.id]);
+  }, [previewMedia, previewMode, target?.id, deviceMockup, showOriginal]);
 
   const publication = unit && target ? publications.find((item) => item.unitId === unit.id && item.platform === target.platform) : null;
-  const caption = captionFrom(metadata, unit?.slug ?? "Unit");
+  const caption = captionFrom(metadata);
   const kind = unitPreviewKind(unit?.format ?? "");
   const mobile = kind !== "longform" && target?.platform !== "generic";
   const runningAgent = overview?.runs?.items.find(({ state }) => state === "running" || state === "pending");
@@ -181,36 +193,38 @@ export function UnitViewer({
   const primaryLabel = lifecycle?.action === "select" ? "Choose this version" : lifecycle?.action === "retry" ? "Retry render" : lifecycle?.action === "render" ? "Render final" : lifecycle?.label === "Published" && publication?.url ? "View post" : null;
   const activeMedia = () => stage.current?.querySelector<HTMLMediaElement>("video") ?? stage.current?.querySelector<HTMLMediaElement>("audio");
 
-  return <Dialog.Root open={open} onOpenChange={onOpenChange}>
-    {open && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Overlay forceMount className="unit-viewer-overlay fixed inset-0 z-scrim" data-instrument-overlay-backdrop="" />
-      <Dialog.Content forceMount className={`unit-viewer @container/unit-viewer fixed left-1/2 top-1/2 z-scrim-content h-unit-viewer-height w-unit-viewer-width -translate-x-1/2 -translate-y-1/2 text-ink outline-none ${WINDOW}`} data-instrument-overlay="unit-viewer" ref={surface} onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }} onCloseAutoFocus={(event) => { event.preventDefault(); returnFocus?.focus({ preventScroll: true }); }} tabIndex={-1}>
+  const Title = embedded ? "h2" : Dialog.Title;
+  const Description = embedded ? "p" : Dialog.Description;
+  const preview = target && unit ? <UnitSocialPreview target={target} media={previewMedia} slug={unit.slug} caption={caption} previewMode={deviceMockup ? previewMode : "clean"} guides={deviceMockup && guides} /> : <div className="preview-empty grid place-items-center text-muted">Loading preview…</div>;
+  const content = <>
         {/* One line, the way every other window's titlebar is: what this is, what state it is
             in, and the actions. Everything else -- the platform list, the revision stamp -- is
             content, and the card below already carries it. */}
-        <header className={`unit-viewer-header ${WINDOW_TITLEBAR}`}>
-          <Dialog.Title className="m-0 min-w-0 flex-none truncate type-heading font-normal text-ink">{unit?.slug ?? "Unit"}</Dialog.Title>
-          <Dialog.Description className="m-0 flex-none rounded-control bg-chip px-2.25 type-xs leading-5.5 text-muted">{unit?.format ?? "Loading Unit"}</Dialog.Description>
+        <header className={`unit-viewer-header ${embedded ? "flex min-w-0 flex-none flex-wrap items-center gap-2 p-3" : WINDOW_TITLEBAR}`}>
+          <Title className={`m-0 min-w-0 truncate type-heading font-normal text-ink ${embedded ? "w-full" : "flex-none"}`}>{unit?.slug ?? "Unit"}</Title>
+          <Description className="m-0 flex-none rounded-control bg-chip px-2.25 type-xs leading-5.5 text-muted">{unit?.format ?? "Loading Unit"}</Description>
           {lifecycle && <UnitStatus lifecycle={lifecycle} />}
-          <small className="unit-viewer-state min-w-0 flex-1 truncate font-code type-meta text-muted">{revision ? `R${revision.revisionNo} \u00b7 ${formatTime(revision.createdAt)}` : "Loading revision"}</small>
-          <div className="unit-viewer-actions flex flex-none items-center gap-2">
-            {unit && onEditVideo && (kind === "video" || kind === "longform") && <button type="button" className="inline-flex h-8 items-center gap-2 rounded-control bg-card px-3 type-sm text-ink" disabled={pending} onClick={() => onEditVideo(unit.id, unit.slug)}><SlidersHorizontal size={14} />Edit video</button>}
+          <small className="unit-viewer-state min-w-0 flex-1 truncate font-code type-meta text-muted">{showOriginal ? "R0 · Original" : revision ? `R${displayRevisionNo} \u00b7 ${formatTime(revision.createdAt)}` : "Loading revision"}</small>
+          <div className={`unit-viewer-actions flex flex-none items-center gap-2 ${embedded ? "w-full justify-between" : ""}`}>
+            {!showOriginal && unit && onEditVideo && (kind === "video" || kind === "longform") && <button type="button" className="inline-flex h-8 items-center gap-2 rounded-control bg-card px-3 type-sm text-ink" disabled={pending} onClick={() => onEditVideo(unit.id, unit.slug)}><SlidersHorizontal size={14} />Edit video</button>}
             {revision && lifecycle && primaryLabel ? <button className="unit-primary-action inline-flex h-8 items-center gap-1.75 rounded-control bg-brand px-3.5 type-ui text-brand-ink hover:opacity-88 disabled:opacity-45 [&_svg]:size-3.25" type="button" disabled={pending || revision.sealedAt === null || (lifecycle.action !== "select" && lifecycle.action !== "none" && !productionRevision)} onClick={runPrimaryAction}>{lifecycle.action === "select" ? <Check /> : lifecycle.action === "retry" ? <Clock3 /> : lifecycle.label === "Published" ? <ExternalLink /> : <Play />}{snapshot.unitMutation === "select" ? "Choosing\u2026" : snapshot.compositionMutation === "build" ? "Rendering\u2026" : primaryLabel}</button> : null}
-            <Dialog.Close asChild><WindowClose className="unit-viewer-close" label="Close Unit preview" /></Dialog.Close>
+            <WindowClose className="unit-viewer-close" label="Close Unit preview" onClick={() => onOpenChange(false)} />
           </div>
         </header>
 
         <div className={`unit-viewer-body ${WINDOW_BODY}`}>
         <div className={`unit-viewer-main grid min-h-0 min-w-0 flex-1 gap-5.5 px-5 py-3 @max-project-viewer/unit-viewer:flex @max-project-viewer/unit-viewer:flex-col @max-project-viewer/unit-viewer:overflow-y-auto ${kind === "longform" ? "grid-cols-(--project-viewer-longform-columns)" : "grid-cols-(--project-viewer-columns)"}`}>
+          {showOriginal && unit?.sourceRevisionId ? <UnitSourcePreview key={unit.sourceRevisionId} project={snapshot.domain.project} revisionId={unit.sourceRevisionId} label={unit.sourceLabel ?? "Source creative"} /> : <>
           <section className="unit-stage-column flex min-h-0 min-w-0 flex-col items-center gap-2 @max-project-viewer/unit-viewer:flex-none">
-            <div className={`unit-stage-toolbar flex w-full min-w-0 flex-none items-center justify-center gap-2 ${STAGE_TABS} ${STAGE_TAB_TOOLTIP}`}>
-              {target ? <GooeyTabs tabs={targets.map((item) => ({ value: item.id, label: <SocialIcon platform={item.platform} />, ariaLabel: item.label, tooltip: item.label }))} value={target.id} onValueChange={setTargetId} size="s" ariaLabel="Social platform" /> : null}
-              <div className="unit-preview-mode inline-flex flex-none rounded-field bg-surface p-0.75" role="group" aria-label="Preview mode"><button className={`h-6 rounded-control px-2.25 type-label ${previewMode === "post" ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted"}`} type="button" onClick={() => setPreviewMode("post")}>Post</button><button className={`h-6 rounded-control px-2.25 type-label ${previewMode === "clean" ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted"}`} type="button" onClick={() => setPreviewMode("clean")}>Clean</button></div>
-              {kind === "video" && <IconButton className={`unit-guides-toggle size-7.5 rounded-control [&_svg]:size-3.5 ${guides ? "is-active bg-ink/18 text-ink" : "hover:bg-surface"}`} label="Safe-area guides" aria-pressed={guides} onClick={() => setGuides((value) => !value)}><Frame /></IconButton>}
+            <div className={`unit-stage-toolbar flex flex-wrap w-full min-w-0 flex-none items-center justify-center gap-2 ${STAGE_TABS} ${STAGE_TAB_TOOLTIP}`}>
+              {target && (targets.length === 1 ? <span className="unit-stage-platform inline-flex h-7.5 items-center gap-1.5 rounded-field bg-surface px-2.5 type-label text-ink"><SocialIcon platform={target.platform} className="size-3.5" />{target.label}</span> : <GooeyTabs tabs={targets.map((item) => ({ value: item.id, label: <SocialIcon platform={item.platform} />, ariaLabel: item.label, tooltip: item.label }))} value={target.id} onValueChange={setTargetId} size="s" ariaLabel="Social platform" />)}
+              <button className={`unit-device-toggle inline-flex h-7.5 flex-none items-center gap-1.5 rounded-field px-2.5 type-label ${deviceMockup ? "bg-instrument text-on-instrument" : "bg-surface text-ink"}`} type="button" aria-pressed={deviceMockup} onClick={() => setDeviceMockup((value) => !value)}><Frame size={14} />Device mockup</button>
+              {deviceMockup && <div className="unit-preview-mode inline-flex flex-none rounded-field bg-surface p-0.75" role="group" aria-label="Preview mode"><button className={`h-6 rounded-control px-2.25 type-label ${previewMode === "post" ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted"}`} type="button" onClick={() => setPreviewMode("post")}>Post</button><button className={`h-6 rounded-control px-2.25 type-label ${previewMode === "clean" ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted"}`} type="button" onClick={() => setPreviewMode("clean")}>Clean</button></div>}
+              {deviceMockup && kind === "video" && <IconButton className={`unit-guides-toggle size-7.5 rounded-control [&_svg]:size-3.5 ${guides ? "is-active bg-ink/18 text-ink" : "hover:bg-surface"}`} label="Safe-area guides" aria-pressed={guides} onClick={() => setGuides((value) => !value)}><Frame /></IconButton>}
             </div>
             <div className="unit-stage-frame flex w-full min-h-0 min-w-0 flex-1 flex-col items-center gap-2 @max-project-viewer/unit-viewer:flex-none">
-            <div className={`unit-social-stage flex w-full min-h-0 min-w-0 flex-1 items-center justify-center overflow-visible rounded-none bg-transparent @max-project-viewer/unit-viewer:min-h-iphone-height @max-project-viewer/unit-viewer:flex-none is-${kind}`} ref={stage}>
-              {target && unit ? mobile ? <IPhoneMockup><UnitSocialPreview target={target} media={previewMedia} slug={unit.slug} caption={caption} previewMode={previewMode} guides={guides} /></IPhoneMockup> : <UnitSocialPreview target={target} media={previewMedia} slug={unit.slug} caption={caption} previewMode={previewMode} guides={guides} /> : <div className="preview-empty grid place-items-center text-muted">Loading preview…</div>}
+            <div className={`unit-social-stage flex w-full min-h-0 min-w-0 items-center justify-center overflow-visible rounded-none bg-transparent ${deviceMockup ? "flex-1 @max-project-viewer/unit-viewer:min-h-iphone-height @max-project-viewer/unit-viewer:flex-none" : "flex-1 @max-project-viewer/unit-viewer:h-unit-media-preview @max-project-viewer/unit-viewer:flex-none [&_.unit-clean-preview]:bg-transparent"} is-${kind}`} ref={stage}>
+              {deviceMockup && mobile && target && unit ? <IPhoneMockup>{preview}</IPhoneMockup> : preview}
             </div>
             {(kind === "video" || kind === "longform") && <div className={`unit-playback grid w-full max-w-iphone flex-none grid-cols-(--project-playback-columns) items-center gap-2 font-code type-mono-md text-muted${mobile ? " is-mobile" : ""}`}>
               <IconButton className="size-6.5 rounded-full hover:bg-surface [&_svg]:size-3.25" label={playing ? "Pause preview" : "Play preview"} onClick={() => { const element = activeMedia(); if (!element) return; if (element.paused) void element.play().catch(() => setPlaying(false)); else element.pause(); }}>{playing ? <Pause /> : <Play />}</IconButton>
@@ -227,11 +241,11 @@ export function UnitViewer({
 
             {runningAgent && lifecycle?.label === "In progress" && <section className="unit-agent-block mt-2.5 grid grid-cols-(--project-agent-row-columns) items-center gap-2 rounded-field bg-surface p-3.25 type-xs text-muted"><span className="unit-spinner size-3 animate-pulse rounded-full bg-muted motion-reduce:animate-none motion-reduce:opacity-80" aria-hidden="true" /><strong className="type-ui font-normal text-ink">Agent is assembling the unit</strong><small className="font-code type-meta text-muted">{runningAgent.startedAt ? formatTime(runningAgent.startedAt) : "queued"}</small><i className="col-span-full h-0.75 overflow-hidden rounded-control bg-surface"><span className="block h-full w-progress-agent bg-ink" /></i><p className="col-span-full m-0 truncate type-label text-muted">Preview updates as new builds land.</p></section>}
 
-            {revision && <section className={`${META_SECTION} unit-current-version`}><label className={META_LABEL}>CURRENT VERSION</label><div className="flex items-baseline gap-2"><strong className="font-code type-lg text-ink">R{revision.revisionNo}</strong><span className="type-sm text-muted">{revision.sealedAt ? "Preview ready" : "Building preview"}{revision.id === unit?.latestRevisionId ? " · latest" : ""}</span></div><small className="mt-0.5 block font-code type-meta text-muted">{revision.authoredBySessionId ? "Agent" : "Ralphy"} · {formatTime(revision.createdAt)}</small><p className="my-2.5 type-base leading-row text-muted">{revision.note ?? "Creative revision preview"}</p>{revision.id === unit?.selectedRevisionId ? <span className="unit-selected-version inline-flex h-7.5 items-center gap-1.5 rounded-control bg-transparent p-0 type-sm text-ink [&_svg]:size-3.25"><Check /> Selected version</span> : lifecycle?.action === "select" ? <button className="inline-flex h-7.5 items-center gap-1.5 rounded-control bg-ink/14 px-3.25 type-sm text-ink hover:bg-ink/24 [&_svg]:size-3.25" type="button" disabled={pending || revision.sealedAt === null} onClick={() => { void controller.selectInspectedUnitRevision(); }}><Check /> Choose this version</button> : null}</section>}
+            {revision && <section className={`${META_SECTION} unit-current-version`}><label className={META_LABEL}>CURRENT VERSION</label><div className="flex items-baseline gap-2"><strong className="font-code type-lg text-ink">R{displayRevisionNo}</strong><span className="type-sm text-muted">{revision.sealedAt ? "Preview ready" : "Building preview"}{revision.id === unit?.latestRevisionId ? " · latest" : ""}</span></div><small className="mt-0.5 block font-code type-meta text-muted">{revision.authoredBySessionId ? "Agent" : "Ralphy"} · {formatTime(revision.createdAt)}</small><p className="my-2.5 type-base leading-row text-muted">{revision.note ?? "Creative revision preview"}</p>{revision.id === unit?.selectedRevisionId ? <span className="unit-selected-version inline-flex h-7.5 items-center gap-1.5 rounded-control bg-transparent p-0 type-sm text-ink [&_svg]:size-3.25"><Check /> Selected version</span> : lifecycle?.action === "select" ? <button className="inline-flex h-7.5 items-center gap-1.5 rounded-control bg-ink/14 px-3.25 type-sm text-ink hover:bg-ink/24 [&_svg]:size-3.25" type="button" disabled={pending || revision.sealedAt === null} onClick={() => { void controller.selectInspectedUnitRevision(); }}><Check /> Choose this version</button> : null}</section>}
 
-            {targets.length > 0 && <section className={`${META_SECTION} unit-platforms grid content-start`}><label className={META_LABEL}>PLATFORMS</label>{targets.map((item) => <button className={`grid h-9.5 grid-cols-(--project-row-columns) items-center rounded-control px-3 text-left [&_em]:col-start-2 [&_em]:row-span-2 [&_em]:row-start-1 [&_em]:inline-flex [&_em]:items-center [&_em]:gap-1 [&_em]:font-code [&_em]:type-meta [&_em]:not-italic [&_em_svg]:size-2.5 [&_small]:row-start-2 [&_small]:font-code [&_small]:type-meta [&>span]:type-ui ${item.id === target?.id ? "is-active bg-instrument text-on-instrument [&_em]:text-on-instrument-muted [&_small]:text-on-instrument-muted" : "bg-transparent text-ink hover:bg-surface [&_em]:text-muted [&_small]:text-muted"}`} type="button" key={item.id} onClick={() => setTargetId(item.id)}><span className="unit-platform-label inline-flex items-center gap-1.75 [&_svg]:size-3.25"><SocialIcon platform={item.platform} />{item.label}</span><small>{item.variant === "carousel" ? `${media.length} slides` : kind === "longform" ? "16:9" : "9:16 · 00:24"}</small><em>{snapshot.unitPresentations.items.some(({ platform }) => platform === item.platform) ? <><Check /> READY</> : <><Clock3 /> PREPARING</>}</em></button>)}</section>}
+            {targets.length > 0 && <section className={`${META_SECTION} unit-platforms grid content-start gap-2`}><label className={META_LABEL}>PLATFORMS</label>{targets.map((item) => <button className={`grid min-h-11 grid-cols-(--project-row-columns) py-2 items-center rounded-control px-3 text-left [&_em]:col-start-2 [&_em]:row-span-2 [&_em]:row-start-1 [&_em]:inline-flex [&_em]:items-center [&_em]:gap-1 [&_em]:font-code [&_em]:type-meta [&_em]:not-italic [&_em_svg]:size-2.5 [&_small]:row-start-2 [&_small]:font-code [&_small]:type-meta [&>span]:type-ui ${item.id === target?.id ? "is-active bg-instrument text-on-instrument [&_em]:text-on-instrument-muted [&_small]:text-on-instrument-muted" : "bg-transparent text-ink hover:bg-surface [&_em]:text-muted [&_small]:text-muted"}`} type="button" key={item.id} onClick={() => setTargetId(item.id)}><span className="unit-platform-label inline-flex items-center gap-1.75 [&_svg]:size-3.25"><SocialIcon platform={item.platform} />{item.label}</span><small>{item.variant === "carousel" ? `${media.length} slides` : kind === "longform" ? "16:9" : kind === "post" ? "Text / image post" : duration > 0 ? formatDuration(duration) : "Preview"}</small><em>{snapshot.unitPresentations.items.some(({ platform }) => platform === item.platform) ? <><Check /> READY</> : <><Clock3 /> PREPARING</>}</em></button>)}</section>}
 
-            <section className={`${META_SECTION} unit-caption`}><label className={META_LABEL}>{kind === "longform" ? "TITLE & DESCRIPTION" : `CAPTION · ${target?.label ?? "PREVIEW"}`}</label><div className="rounded-field bg-surface px-3.5 py-3"><p className="m-0 type-ui leading-row text-muted">{caption}</p><span className="mt-2 flex items-center justify-between font-code type-meta text-muted">{caption.length} / 2200<IconButton className="size-6 rounded-control hover:bg-surface [&_svg]:size-3" label="Copy caption" onClick={() => { void bridge.copyText(caption); }}><Copy /></IconButton></span></div></section>
+            <section className={`${META_SECTION} unit-caption`}><label className={META_LABEL}>{kind === "longform" ? "TITLE & DESCRIPTION" : `CAPTION · ${target?.label ?? "PREVIEW"}`}</label><div className="rounded-field bg-surface px-3.5 py-3"><p className="m-0 type-ui leading-row text-muted">{caption}</p><span className="mt-2 flex items-center justify-between font-code type-meta text-muted">{caption.length} characters<IconButton className="size-6 rounded-control hover:bg-surface [&_svg]:size-3" label="Copy caption" onClick={() => { void bridge.copyText(caption); }}><Copy /></IconButton></span></div></section>
 
             {lifecycle?.label === "Scheduled" && publication?.scheduledAt && <section className={`${META_SECTION} unit-schedule`}><label className={META_LABEL}>SCHEDULE</label><div className="flex items-center gap-2.5 rounded-field bg-surface px-3.25 py-2.75 text-muted [&>svg]:size-3.75"><Clock3 /><span className="grid gap-0.5"><strong className="type-base font-normal text-ink">{formatTime(publication.scheduledAt)}</strong><small className="font-code type-meta text-muted">{target?.label} · scheduled</small></span></div></section>}
 
@@ -239,21 +253,32 @@ export function UnitViewer({
 
             <ProductionDetails snapshot={snapshot} />
           </aside>
+          </>}
         </div>
 
         <i className="unit-revisions-rule mx-5 h-px flex-none bg-divider" aria-hidden="true" />
         <section className="unit-revisions min-w-0 flex-none px-5 pb-3.5 pt-3" aria-label="Unit revisions">
-          <label className={META_LABEL}>REVISIONS · {revisions.length}</label>
+          <span className="mb-2 flex items-center justify-between gap-3"><label className="font-code type-meta tracking-block text-muted">REVISIONS · {revisions.length + (unit?.sourceRevisionId ? 1 : 0)}</label><span className="type-xs text-muted">Click a version to compare</span></span>
           <div className="flex gap-2 overflow-x-auto p-px" role="listbox" aria-label="Unit revisions list">
-            {revisions.map((item, index) => <button className={`relative grid w-revision-card min-w-revision-card-min grid-cols-(--project-revision-columns) gap-2.5 rounded-cell py-2.5 pl-2.5 pr-3.25 text-left [corner-shape:squircle] ${item.id === revision?.id ? "is-viewing bg-desk-primary text-desk-primary-ink [&_em]:text-desk-primary-ink [&_p]:text-desk-primary-ink [&_small]:text-desk-primary-ink [&_strong]:text-desk-primary-ink [&_b]:bg-desk-primary-ink/18 [&_b]:text-desk-primary-ink [&_i]:text-desk-primary-ink" : "bg-surface text-muted hover:bg-surface-hover [&_b]:bg-ink/18 [&_b]:text-ink [&_i]:text-muted"}`} type="button" role="option" aria-selected={item.id === revision?.id} key={item.id} onClick={() => { void controller.inspectUnitRevision(item.id); }} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); const next = revisions[index + (event.key === "ArrowLeft" ? -1 : 1)]; if (next) void controller.inspectUnitRevision(next.id); } }}>
-              <span className="unit-revision-thumb grid h-15.5 w-12 place-items-center overflow-hidden rounded-field bg-surface-sunken font-code type-sm text-muted [&_img]:size-full [&_img]:object-cover">{item.id === revision?.id && media[0] && !("text" in media[0].preview) && media[0].kind === "image" ? <img src={media[0].preview.url} alt="" /> : `R${item.revisionNo}`}</span>
-              <span className="grid min-w-0 grid-cols-(--project-glyph-row-columns) content-start gap-x-2 gap-y-0.75"><strong className="font-code type-sm text-ink">R{item.revisionNo}</strong><small className="font-code type-mono-sm text-muted">{formatTime(item.createdAt)}</small><p className="col-span-full mt-0.5 truncate type-xs text-muted">{item.note ?? (item.sealedAt ? "Preview ready" : "Building preview")}</p><em className="col-span-full font-code type-mono-sm not-italic text-muted">{item.sealedAt ? "preview" : "building"}</em></span>
-              <span className="unit-revision-badges absolute bottom-2 right-2.5 flex items-center gap-1.5">{item.id === unit?.selectedRevisionId && <b className="h-4 rounded-control px-1.5 font-code type-mono-xs leading-4 tracking-caps-tight">SELECTED</b>}{item.id === unit?.latestRevisionId && <i className="font-code type-mono-xs not-italic">LATEST</i>}{item.id === revision?.id && lifecycle?.label === "Ready" && <i className="is-final font-code type-mono-xs not-italic">✓ FINAL</i>}</span>
+            {unit?.sourceRevisionId && <button type="button" role="option" aria-label="View revision 0" aria-selected={showOriginal} onClick={() => setOriginalUnitId(unit.id)} onKeyDown={(event) => { if (event.key === "ArrowRight" && revisions[0]) { event.preventDefault(); setOriginalUnitId(null); void controller.inspectUnitRevision(revisions[0].id); } }} className={`unit-original-revision relative grid w-revision-card min-w-revision-card-min shrink-0 gap-2 rounded-cell p-1.5 text-left ring-1 ring-inset ring-brand ${showOriginal ? "is-viewing bg-brand/10 text-ink" : "bg-surface text-ink hover:bg-surface-hover"}`}>
+              <UnitRevisionPreview project={snapshot.domain.project} revisionId={unit.sourceRevisionId} className="unit-revision-thumb aspect-video w-full rounded-field" />
+              <span className="truncate px-1 type-xs text-secondary">{unit.sourceLabel ?? "Source creative"}</span>
+              <span className="flex items-center justify-between gap-2 px-1 pb-1"><strong className="font-code type-sm">R0</strong><span className="rounded-chip bg-brand px-2 py-1 font-code type-xs text-brand-ink">ORIGINAL</span></span>
+            </button>}
+            {revisions.map((item, index) => <button className={`relative grid w-revision-card min-w-revision-card-min shrink-0 gap-2 rounded-cell p-1.5 text-left ring-1 ring-inset transition-colors duration-fast focus-visible:outline-2 focus-visible:outline-brand motion-reduce:transition-none ${!showOriginal && item.id === revision?.id ? "is-viewing bg-brand/10 text-ink ring-brand" : "bg-surface text-ink ring-transparent hover:ring-divider hover:bg-surface-hover"}`} type="button" role="option" aria-label={`View revision ${unitRevisionNumber(item, sourceRevision)}`} aria-selected={!showOriginal && item.id === revision?.id} title={item.note ?? undefined} key={item.id} onClick={() => { setOriginalUnitId(null); void controller.inspectUnitRevision(item.id); }} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); const next = revisions[index + (event.key === "ArrowLeft" ? -1 : 1)]; if (next) { setOriginalUnitId(null); void controller.inspectUnitRevision(next.id); } else if (event.key === "ArrowLeft" && index === 0 && unit?.sourceRevisionId) setOriginalUnitId(unit.id); } }}>
+              <UnitRevisionPreview project={snapshot.domain.project} revisionId={item.id} sealedAt={item.sealedAt} className="unit-revision-thumb aspect-video w-full rounded-field" />
+              {item.note && <span className="truncate px-1 type-xs text-secondary">{item.note.split("\n", 1)[0]}</span>}
+              <span className="grid min-w-0 gap-1 px-1 pb-1"><span className="flex items-center justify-between gap-1"><strong className="font-code type-sm font-medium">R{unitRevisionNumber(item, sourceRevision)}</strong><span className="unit-revision-badges flex items-center gap-1.5 font-code type-mono-xs text-muted">{item.id === unit?.selectedRevisionId ? <b className="font-medium text-ink">SELECTED</b> : item.id === unit?.latestRevisionId ? <i className="font-medium not-italic text-ink">LATEST</i> : item.id === unit?.sourceRevisionId ? "ORIGINAL" : unitRevisionNumber(item, sourceRevision) === 1 ? "FIRST" : null}{!showOriginal && item.id === revision?.id && lifecycle?.label === "Ready" && <i className="is-final not-italic">✓ FINAL</i>}</span></span><small className="truncate font-code type-mono-sm text-muted">{formatTime(item.createdAt)}</small></span>
             </button>)}
           </div>
         </section>
         </div>
-      </Dialog.Content>
+  </>;
+  if (embedded) return open ? <section className={`unit-viewer @container/unit-viewer h-full w-full text-ink ${WINDOW}`} data-unit-view="panel" aria-label={`Unit preview: ${unit?.slug ?? "Loading"}`} ref={surface} onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); onOpenChange(false); } }}>{content}</section> : null;
+  return <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    {open && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
+      <Dialog.Overlay forceMount className="unit-viewer-overlay fixed inset-0 z-scrim" data-instrument-overlay-backdrop="" />
+      <Dialog.Content forceMount className={`unit-viewer @container/unit-viewer fixed left-1/2 top-1/2 z-scrim-content h-unit-viewer-height w-unit-viewer-width -translate-x-1/2 -translate-y-1/2 text-ink outline-none ${WINDOW}`} data-instrument-overlay="unit-viewer" ref={surface} onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }} onCloseAutoFocus={(event) => { event.preventDefault(); returnFocus?.focus({ preventScroll: true }); }} tabIndex={-1}>{content}</Dialog.Content>
     </Dialog.Portal>}
   </Dialog.Root>;
 }

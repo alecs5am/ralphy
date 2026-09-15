@@ -62,7 +62,6 @@ export class EncryptedCredentialStore {
   }
 
   async read(): Promise<string | null> {
-    if (!this.#cipher.isEncryptionAvailable()) return null;
     let handle: Awaited<ReturnType<typeof open>> | null = null;
     try {
       handle = await this.#openFile(
@@ -84,6 +83,7 @@ export class EncryptedCredentialStore {
         bytes += read.bytesRead;
       }
       if (bytes <= 0 || bytes > MAX_CREDENTIAL_BYTES) return null;
+      if (!this.#cipher.isEncryptionAvailable()) return null;
       return this.#validate(this.#cipher.decryptString(encrypted.subarray(0, bytes)));
     } catch {
       return null;

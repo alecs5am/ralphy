@@ -35,6 +35,37 @@ function initial(): AgentChatState {
 }
 
 describe("agent chat state", () => {
+  test("keeps the whole long turn across saves and reloads, including its initial prompt", () => {
+    const storage = new MemoryStorage();
+    const scope = { rootPath: "/tmp/history", workspaceId: "ws-1" };
+    let state = reduceAgentChat(initial(), {
+      type: "send", chatId: "chat-codex", text: "Import image and video creatives", now: 110,
+    });
+    for (let i = 0; i < 350; i++) {
+      state = reduceAgentChat(state, {
+        type: "event", chatId: "chat-codex", now: 120 + i,
+        event: { type: "tool-start", id: `tool-${i}`, name: "Bash", summary: `Step ${i}` },
+      });
+      state = reduceAgentChat(state, {
+        type: "event", chatId: "chat-codex", now: 120 + i,
+        event: { type: "tool-result", id: `tool-${i}`, ok: true },
+      });
+    }
+    state = reduceAgentChat(state, {
+      type: "event", chatId: "chat-codex", now: 500,
+      event: { type: "text-delta", text: "Creative versions are ready." },
+    });
+    for (let i = 0; i < 2; i++) {
+      saveAgentChats(storage, scope, state);
+      const restored = loadAgentChats(storage, scope, {
+        chatId: "fallback", provider: "codex", model: "default", now: 600,
+      });
+      expect(restored.chats[0].entries).toEqual(state.chats[0].entries);
+      expect(restored.chats[0].nextId).toBe(353);
+      state = restored;
+    }
+  });
+
   test("defaults to one full-access provider chat", () => {
     const state = initial();
     expect(state.activeChatId).toBe("chat-codex");

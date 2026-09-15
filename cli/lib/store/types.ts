@@ -289,6 +289,8 @@ export type BuildOutputDto = {
 };
 
 export type UnitDto = {
+  sourceRevisionId?: string | null;
+  sourceLabel?: string | null;
   id: string;
   workspaceId: string;
   projectId: string | null;

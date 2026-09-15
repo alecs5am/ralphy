@@ -306,6 +306,8 @@ export type CompositionAggregate = CompositionRow & {
 };
 
 export type UnitRow = {
+  sourceRevisionId?: string | null;
+  sourceLabel?: string | null;
   id: string;
   workspaceId: string;
   projectId: string | null;

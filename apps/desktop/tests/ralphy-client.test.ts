@@ -181,7 +181,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       v: 1,
       id: null,
       ok: false,
-      error: { code: "E_PROTOCOL_INVALID", message: "Fatal protocol error" },
+      error: { code: "E_PROTOCOL_INVALID", message: request.params.exhausted ? "Bridge request id capacity is exhausted" : "Fatal protocol error" },
     });
     return;
   }
@@ -843,6 +843,17 @@ describe("RalphyBridgeClient", () => {
     await expect(client.request("workspace.list", {})).rejects.toMatchObject({
       code: "E_PROTOCOL_INVALID",
     });
+    expect(client.requiresReconnect).toBe(false);
+    await client.close();
+  });
+
+  test("recognizes exhausted request capacity without replaying a request", async () => {
+    const client = new RalphyBridgeClient({ bin: fixtureBin, root: "/library" });
+    await client.start();
+    expect(client.requiresReconnect).toBe(false);
+    await expect(fixtureRequest(client, "workspace.list", { fatal: true, exhausted: true })).rejects.toMatchObject({ code: "E_PROTOCOL_INVALID" });
+    expect(client.requiresReconnect).toBe(true);
+    await expect(client.request("workspace.list", {})).rejects.toMatchObject({ code: "E_PROTOCOL_INVALID" });
     await client.close();
   });
 

@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { openDomainDbAt } from "../../cli/lib/store/db.js";
+import { GLOBAL_MEMORY_WORKSPACE_ID } from "../../cli/lib/store/schema.js";
 import {
   acquireMaintenanceLock,
   inventoryLegacySource,
@@ -113,7 +114,7 @@ describe("legacy semantic migration", () => {
     expect(first.workspaces).toBe(2);
     expect(first.projects).toBe(6);
     expect(second).toEqual(first);
-    expect(ctx!.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM workspaces").get()?.count).toBe(2);
+    expect(ctx!.db.query<{ count: number }, [string]>("SELECT COUNT(*) AS count FROM workspaces WHERE id <> ?").get(GLOBAL_MEMORY_WORKSPACE_ID)?.count).toBe(2);
     expect(ctx!.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM projects").get()?.count).toBe(6);
     const projects = ctx!.db.query<{ slug: string; state: string; metadata: string }, []>(
       "SELECT slug, state, metadata_json AS metadata FROM projects ORDER BY slug",

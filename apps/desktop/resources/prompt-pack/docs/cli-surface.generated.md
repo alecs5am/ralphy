@@ -1059,6 +1059,8 @@ Options:
 
 Commands:
   create [options]        Create a Unit identity and its first sealed revision
+  source [options] <id>   Link an exact original revision without adding a
+                          variant
   list [options]          List Units in the explicit scope
   show [options] <id>     Show a Unit and one exact sealed revision graph
   revise [options] <id>   Append a sealed Unit revision
@@ -1321,7 +1323,7 @@ Layout:
 
 Append-only: re-noting an existing slug writes <slug>.v2.md (then v3...) and the
 index points at the newest version; pass --force-overwrite for in-place replace.
-Current dirs: /Users/maximovchinnikov/github/ralphy/ralphy/.worktrees/sqlite-domain-store/.ralphy/memory
+Current dirs: <repository>/.ralphy/memory
 ```
 
 ### `ralphy lessons`

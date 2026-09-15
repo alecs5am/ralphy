@@ -20,6 +20,7 @@ import { SharedLibraryScreen } from "@/pages/shared-library";
 import { WorkspaceScreen } from "@/pages/workspace";
 import { WorkspaceProjectsScreen } from "@/pages/workspace-projects";
 import { WorkspaceUnitsScreen } from "@/pages/workspace-units";
+import { readUnitViewTarget, type ViewTab } from "@/widgets/view-panel";
 import type { AgentProvider, CatalogResult, ProjectSummary, WorkspaceSummary } from "@/shared/api/ipc";
 import type { WorkbenchRoute, WorkspaceDestination, WorkspaceOverviewReturnState, WorkspacePage } from "@/shared/model/workbench";
 
@@ -30,9 +31,12 @@ import { ProjectScreenLoadingFallback } from "./app-frames";
 const loadProjectScreen = () =>
   import("@/pages/project").then((module) => ({ default: module.ProjectScreen }));
 const ProjectScreen = lazy(loadProjectScreen);
+const UnitView = lazy(() => import("@/pages/project").then((module) => ({ default: module.UnitView })));
 const GenerationScreen = lazy(() => import("@/pages/generation").then((module) => ({ default: module.GenerationScreen })));
 
 export interface WorkRouteProps {
+  viewTab?: ViewTab | null;
+  onCloseUnitView?(): void;
   catalog: CatalogResult | null;
   error: string | null;
   restoring: boolean;
@@ -50,6 +54,7 @@ export interface WorkRouteProps {
   workspaceDestination: WorkspaceDestination | null;
   sidebarSearchRequest: number;
   targetUnitId: string | null;
+  onTargetUnitOpened?(): void;
   /* The Context page reads the active chat's own provider and its measured usage: context is a
      property of a chat, not of a workspace, and a figure from another chat would be the wrong
      number. There is no chat before the feature is enabled, and then there is no page. */
@@ -65,6 +70,8 @@ export interface WorkRouteProps {
 }
 
 export function WorkRoute({
+  viewTab,
+  onCloseUnitView,
   catalog,
   error,
   restoring,
@@ -82,6 +89,7 @@ export function WorkRoute({
   workspaceDestination,
   sidebarSearchRequest,
   targetUnitId,
+  onTargetUnitOpened,
   chat,
   onRetryLibrary,
   onOpenWorkspace,
@@ -92,6 +100,13 @@ export function WorkRoute({
   onOpenProviders,
   onRequestVideoAgent,
 }: WorkRouteProps) {
+  if (viewTab?.type === "unit") {
+    const target = readUnitViewTarget(viewTab.targetId);
+    const project = target?.workspaceId === selectedWorkspace?.id
+      ? projects.find((project) => project.workspaceId === target?.workspaceId && project.projectId === target?.projectId) : null;
+    return target && project ? <Suspense fallback={<p role="status">Opening Unit…</p>}><UnitView key={`${rootEpoch}:${viewTab.id}`} project={project} unitId={target.unitId} rootEpoch={rootEpoch} onClose={() => onCloseUnitView?.()} /></Suspense>
+      : <p role="alert">This Unit is not available in the current workspace.</p>;
+  }
   const library = (
     <LibraryScreen
       catalog={catalog}
@@ -202,6 +217,7 @@ export function WorkRoute({
         fallback={<ProjectScreenLoadingFallback />}
       >
         <ProjectScreen
+          onOpenUnit={viewTab ? (unitId) => onOpenProject(selectedProject, unitId) : undefined}
           onRequestAgent={onRequestVideoAgent}
           key={`project:${rootEpoch}:${selectedProject.workspaceId}:${selectedProject.projectId}`}
           project={selectedProject}
@@ -209,6 +225,7 @@ export function WorkRoute({
           rootEpoch={rootEpoch}
           activitySequence={activitySequence}
           targetUnitId={targetUnitId}
+          onTargetUnitOpened={onTargetUnitOpened}
         />
       </Suspense>
     );

@@ -48,7 +48,7 @@ For each candidate manifest entry:
 
 4. **Skip if SHA matches an existing entry.** Idempotent re-runs are safe; the skill detects when the same asset was already migrated under a different slug and reuses the existing key instead of duplicating.
 
-5. **Copy the file** to `/Users/maximovchinnikov/github/ralphy-assets/pool/<kind>/<filename>`. Never symlink — pool assets need to be standalone for the GitHub raw-fetch flow.
+5. **Copy the file** to `<ralphy-assets-checkout>/pool/<kind>/<filename>`, using the actual local checkout path. If that repository is unavailable, ask for its location before continuing. Never symlink — pool assets need to be standalone for the GitHub raw-fetch flow.
 
 6. **Append to `ralphy-assets/manifest.json`** under the `pool` section.
 
