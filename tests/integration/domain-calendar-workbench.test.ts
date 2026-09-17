@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import {
   createCalendarEvent,
   getCalendarWorkspace,
+  reconcileCalendarEvent,
   removeCalendarEvent,
   rescheduleCalendarEvent,
   retryCalendarEvent,
@@ -61,6 +62,60 @@ afterEach(() => {
 });
 
 describe("Calendar workbench projection", () => {
+  test("unknown submission outcomes cannot be retried, rescheduled, or removed without reconciliation", async () => {
+    const { context, draft } = singleChannelDraft();
+    let submitted = 0;
+    const adapter: PublicationProviderAdapter = {
+      async submit() { submitted++; throw new Error("Response lost after POST"); },
+      async lookup() { return { state: "unknown" }; },
+      async cancel() { throw new Error("Must not cancel an unknown post"); },
+    };
+    const result = await submitCalendarEvent({ context, eventId: draft.id, expectedRowVersion: draft.rowVersion, at }, adapter);
+    const input = { context, eventId: result.id, expectedRowVersion: result.rowVersion };
+    expect(result.channels[0]?.needsReconciliation).toBe(true);
+    await expect(retryCalendarEvent(input, adapter)).rejects.toThrow(/reconcil/i);
+    await expect(rescheduleCalendarEvent({ ...input, at: at + 60_000 }, adapter)).rejects.toThrow(/reconcil/i);
+    await expect(removeCalendarEvent(input, adapter)).rejects.toThrow(/reconcil/i);
+    await expect(submitCalendarEvent({ ...input, at: at + 60_000 }, adapter)).rejects.toThrow(/reconcil/i);
+    expect(submitted).toBe(1);
+    expect(openDomainDb().query("SELECT COUNT(*) AS count FROM publications").get()).toEqual({ count: 1 });
+    expect(calendarEvent(context.workspaceId, result.id)).toMatchObject({ at, rowVersion: result.rowVersion, status: "failed" });
+  });
+
+  test("checks uncertain publications without submitting or cancelling and preserves the schedule", async () => {
+    const { context, draft } = singleChannelDraft();
+    let submitted = 0;
+    let lookedUp = 0;
+    const adapter: PublicationProviderAdapter = {
+      async submit() { submitted++; throw new Error("Response lost after POST"); },
+      async lookup() { lookedUp++; return { state: "published", url: "https://example.test/post/1", publishedAt: at }; },
+      async cancel() { throw new Error("Status checks must not cancel"); },
+    };
+    const uncertain = await submitCalendarEvent({ context, eventId: draft.id, expectedRowVersion: draft.rowVersion, at }, adapter);
+    const checked = await reconcileCalendarEvent({ context, eventId: uncertain.id, expectedRowVersion: uncertain.rowVersion }, adapter);
+    expect(checked).toMatchObject({ at, status: "published", channels: [{ status: "published", postUrl: "https://example.test/post/1" }] });
+    expect(checked.channels[0]?.needsReconciliation).toBeUndefined();
+    expect(submitted).toBe(1);
+    expect(lookedUp).toBe(1);
+    await expect(reconcileCalendarEvent({ context, eventId: checked.id, expectedRowVersion: uncertain.rowVersion }, adapter)).rejects.toThrow();
+    expect(lookedUp).toBe(1);
+  });
+
+  for (const action of ["reschedule", "remove"] as const) test(`${action} preserves the scheduled entry and never replaces a post when cancellation is uncertain`, async () => {
+    const { context, draft } = singleChannelDraft();
+    let submitted = 0;
+    const adapter: PublicationProviderAdapter = {
+      async submit() { submitted++; return { state: "scheduled", providerPublicationId: "remote-post" }; },
+      async lookup() { return { state: "scheduled" }; },
+      async cancel() { throw new Error("Cancellation response lost"); },
+    };
+    const result = await submitCalendarEvent({ context, eventId: draft.id, expectedRowVersion: draft.rowVersion, at }, adapter);
+    const input = { context, eventId: result.id, expectedRowVersion: result.rowVersion };
+    await expect(action === "reschedule" ? rescheduleCalendarEvent({ ...input, at: at + 60_000 }, adapter) : removeCalendarEvent(input, adapter)).rejects.toThrow(/cancellation.*confirm|reconcil/i);
+    expect(submitted).toBe(1);
+    expect(calendarEvent(context.workspaceId, result.id)).toMatchObject({ at, status: "failed" });
+  });
+
   test("groups channel publications, derives ready states, and submits a local draft", async () => {
     const workspace = createWorkspace({ slug: "ux-lab", name: "UX Testing Lab" });
     const project = createProject({
@@ -329,11 +384,11 @@ describe("Calendar workbench projection", () => {
       channels: [{
         presentationId: readyPresentation.id,
         socialAccountId: instagram.id,
-        settings: { publishAs: "reel", shareToFeed: true },
+        settings: { instagramPostType: "post" },
       }, {
         presentationId: readyYoutube.id,
         socialAccountId: youtube.id,
-        settings: { visibility: "public", madeForKids: false },
+        settings: { youtubeVisibility: "public" },
       }],
     });
     expect(draft).toMatchObject({
@@ -344,7 +399,7 @@ describe("Calendar workbench projection", () => {
           platform: "instagram",
           account: "@ralphy.ai",
           status: "draft",
-          settings: { publishAs: "reel", shareToFeed: true },
+          settings: { instagramPostType: "post" },
         }),
         expect.objectContaining({
           platform: "youtube",
@@ -413,7 +468,7 @@ describe("Calendar workbench projection", () => {
     ]);
     expect(submittedRequests).toHaveLength(2);
     expect(submittedRequests.find((request) => request.platform === "instagram")!.options)
-      .toEqual({ publishAs: "reel", shareToFeed: true });
+      .toEqual({ instagramPostType: "post" });
 
     const retryRequests: Parameters<PublicationProviderAdapter["submit"]>[0][] = [];
     const cancelled: string[] = [];
@@ -478,3 +533,21 @@ describe("Calendar workbench projection", () => {
     expect(removed).toMatchObject({ at: null, status: "draft" });
   });
 });
+
+function calendarEvent(workspaceId: string, eventId: string) {
+  return getCalendarWorkspace({ context: { workspaceId }, from: monthStart(0), to: monthStart(1), timezone: "UTC" }).events.find((event) => event.id === eventId)!;
+}
+
+function singleChannelDraft() {
+  const workspace = createWorkspace({ slug: "calendar-safety", name: "Calendar safety" });
+  const context = { workspaceId: workspace.id };
+  setCommandContext({ kind: "scope", ...context });
+  const document = createDocument({ workspaceId: workspace.id, kind: "custom", slug: "caption", title: "Caption" });
+  const content = reviseDocument({ documentId: document.id, expectedHeadId: null, format: "text", body: "Approved content" });
+  const revision = createUnitWithRevision({ workspaceId: workspace.id, slug: "post", format: "video", items: [{ documentRevisionId: content.id, role: "primary", position: 0 }], presentations: [{ platform: "youtube", caption: "Approved content" }] });
+  selectUnitRevision({ unitId: revision.unitId, revisionId: revision.id, expectedSelectedRevisionId: null });
+  const presentation = listUnitPresentations({ context, revisionId: revision.id, limit: 10 }).items[0]!;
+  const account = upsertSocialAccount({ workspaceId: workspace.id, platform: "youtube", externalId: "channel" });
+  const draft = createCalendarEvent({ context, unitRevisionId: revision.id, at: null, draftAt: at, timezone: "UTC", channels: [{ presentationId: presentation.id, socialAccountId: account.id, settings: {} }] });
+  return { context, draft };
+}

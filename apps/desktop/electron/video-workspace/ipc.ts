@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { VIDEO_CHANNELS, videoHtml, videoRef } from "../../shared/video-workspace";
+import { VIDEO_CHANNELS, videoHtml, videoRef, VideoWorkspaceError } from "../../shared/video-workspace";
 import { importVideoAsset, loadVideo, renderVideo, saveVideo, type VideoRuntime } from "./runtime";
 
 const previews = new Map<string, { html: string; assertCurrent(): void }>();
@@ -23,27 +23,28 @@ export function registerVideoWorkspaceIpc(deps: {
         const ref = videoRef(rawRef), runtime = await deps.capture(ref.workspaceId);
         await runtime.request("unit.show", { context: { workspaceId: ref.workspaceId, projectId: ref.projectId }, unitId: ref.unitId });
         runtime.assertCurrent();
-        if (key === "loadVideoWorkspace") return loadVideo(runtime, ref);
+        if (key === "loadVideoWorkspace") return await loadVideo(runtime, ref);
         if (key === "saveVideoWorkspace") {
-          if (![24, 25, 30, 60].includes(Number(fps)) || expected !== null && typeof expected !== "string") throw new Error("Invalid video save request");
-          return saveVideo(runtime, ref, videoHtml(value), Number(fps), expected as string | null);
+          if (![24, 25, 30, 60].includes(Number(fps)) || expected !== null && typeof expected !== "string") throw new VideoWorkspaceError("Invalid video save request");
+          return await saveVideo(runtime, ref, videoHtml(value), Number(fps), expected as string | null);
         }
         if (key === "importVideoWorkspaceAsset") {
           const path = value === undefined ? await deps.chooseFile() : value;
           if (path === null) return null;
-          if (typeof path !== "string") throw new Error("Invalid media file");
-          return importVideoAsset(runtime, ref, path);
+          if (typeof path !== "string") throw new VideoWorkspaceError("Invalid media file");
+          return await importVideoAsset(runtime, ref, path);
         }
         if (key === "renderVideoWorkspace") {
-          if (typeof value !== "string") throw new Error("Save the video before rendering");
-          return renderVideo(runtime, ref, value);
+          if (typeof value !== "string") throw new VideoWorkspaceError("Save the video before rendering");
+          return await renderVideo(runtime, ref, value);
         }
         const html = videoHtml(value), token = randomUUID();
         previews.set(token, { html, assertCurrent: runtime.assertCurrent });
         while (previews.size > 16) previews.delete(previews.keys().next().value!);
         return `ralphy-video://preview/${token}`;
       } catch (error) {
-        throw Object.assign(error instanceof Error ? error : new Error("Video workspace failed"), { code: "E_VALIDATION_FAILED" });
+        if (error instanceof Error && "code" in error) throw error;
+        throw Object.assign(error instanceof Error ? error : new Error("Video workspace failed"), { code: "E_INTERNAL" });
       }
     });
   }

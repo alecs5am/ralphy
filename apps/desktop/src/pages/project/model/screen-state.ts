@@ -81,7 +81,7 @@ export interface ProjectScreenSnapshot {
   unitConflict: string | null;
   unitMutationError: string | null;
 }
-export type ProjectScreenApi = Pick<MediaWorkbenchBridge, "loadProjectOverview" | "loadProjectPage" | "loadProjectActivityRun" | "loadProjectMediaCard" | "loadProjectGeneration" | "loadProjectMediaRevisions" | "selectProjectMediaRevision" | "loadDocumentPreview" | "searchProjectDocuments" | "showProjectDocument" | "reviseProjectDocument" | "resolveProjectPreview" | "loadProjectComposition" | "loadProjectCompositionRevision" | "loadProjectCompositionBuild" | "loadProjectCompositionPage" | "reviseProjectComposition" | "selectProjectCompositionRevision" | "buildProjectComposition" | "resolveCompositionOutputPreview" | "loadProjectUnit" | "loadProjectUnitRevision" | "loadProjectUnitPage" | "selectProjectUnitRevision">;
+export type ProjectScreenApi = Pick<MediaWorkbenchBridge, "loadProjectOverview" | "loadProjectPage" | "loadProjectActivityRun" | "loadProjectMediaCard" | "loadProjectGeneration" | "loadProjectMediaRevisions" | "selectProjectMediaRevision" | "loadDocumentPreview" | "searchProjectDocuments" | "showProjectDocument" | "createProjectDocument" | "reviseProjectDocument" | "resolveProjectPreview" | "loadProjectComposition" | "loadProjectCompositionRevision" | "loadProjectCompositionBuild" | "loadProjectCompositionPage" | "reviseProjectComposition" | "selectProjectCompositionRevision" | "buildProjectComposition" | "resolveCompositionOutputPreview" | "loadProjectUnit" | "loadProjectUnitRevision" | "loadProjectUnitPage" | "selectProjectUnitRevision">;
 export interface ProjectScreenController {
   getSnapshot(): ProjectScreenSnapshot;
   subscribe(listener: () => void): () => void;
@@ -93,6 +93,7 @@ export interface ProjectScreenController {
   retry(): Promise<void>;
   loadActivityRun(runId: string): Promise<ActivityRunDetail>;
   openDocument(document: DocumentDto): Promise<void>;
+  createDocument(): Promise<void>;
   openDocumentById(documentId: string): Promise<void>;
   searchDocuments(query: string): Promise<void>;
   clearDocumentSearch(): void;

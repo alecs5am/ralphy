@@ -534,6 +534,22 @@ describe("migration maintenance lock", () => {
     }
   });
 
+  test("scopes worker detection and ignores unrelated render worker counts", () => {
+    fixtureRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rmu-scope-")));
+    const source = path.join(fixtureRoot, ".ralphy");
+    fs.mkdirSync(source);
+    const other = path.join(fixtureRoot, "other", ".ralphy");
+    const tools = processTools(fixtureRoot, {
+      ps: `printf '%s\\n' '1101 ralphy ralphy --root ${other} composition build --workers 1' '1102 ralphy ralphy --root ${other} daemon start' '1103 ralphy ralphy --root ${source} worker' '1104 ralphy ralphy daemon start'`,
+      lsof: `printf 'p1105\\ncunrelated-name\\nf3\\nn${source}/jobs.db\\n'`,
+    });
+    expect(scanMigrationProcesses([source], tools)).toEqual({ status: "ok", processes: [
+      { category: "source-open-file", pid: 1105, count: 1 },
+      { category: "watcher", pid: 1103, count: 1 },
+      { category: "watcher", pid: 1104, count: 1 },
+    ] });
+  });
+
   test("treats failed or truncated process inspection as unknown and blocks quiescence", () => {
     fixtureRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rmu-")));
     const source = path.join(fixtureRoot, ".ralphy");

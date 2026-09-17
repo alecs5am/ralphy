@@ -1,5 +1,4 @@
 import { Grid2X2, List, Search, X } from "@/shared/ui/icons";
-import { useId } from "react";
 import type { MediaKind, MediaProvenance } from "../../../../electron/ralphy/types";
 import { SelectMenu, type SelectMenuOption } from "@/shared/ui/SelectMenu";
 import type { SharedLibraryController } from "../model/controller";
@@ -16,8 +15,6 @@ const provenances: Array<SelectMenuOption<MediaProvenance | "all">> = [
 const sorts: Array<SelectMenuOption<SharedLibraryQueryState["sort"]>> = [
   ["recently-selected", "Recently selected"], ["name", "Name"], ["size", "Size"],
 ].map(([value, label]) => ({ value, label } as SelectMenuOption<SharedLibraryQueryState["sort"]>));
-const unavailable = ["Semantic role", "Entity", "Canonical", "Used / unused", "Rights", "Missing metadata"];
-const unavailableReason = "This filter is unavailable from the current Core media contract.";
 
 /* The toolbar is a light widget standing on the desk, so its controls take the sunken surface
    and the theme ink; the ring is the one reset.css paints. */
@@ -33,7 +30,7 @@ export function SharedLibraryToolbar({ query, controller }: {
   query: SharedLibraryQueryState;
   controller: Pick<SharedLibraryController, "setQuery">;
 }) {
-  const unavailableReasonId = useId();
+
   const dirty = query.text !== "" || query.mediaKind !== "all" || query.provenance !== "all";
   return <form className="shared-library-toolbar m-0 flex min-h-9 w-full max-w-none flex-none flex-wrap items-center gap-2 rounded-panel bg-surface p-2 type-sm text-ink" aria-label="Shared Library controls" onSubmit={(event) => event.preventDefault()}>
     {/* A field wrapped in a container shows the one ring on the container: reset.css paints it
@@ -59,13 +56,6 @@ export function SharedLibraryToolbar({ query, controller }: {
         that it reads as its own line. */}
     <SelectMenu tone="caller" overlayOwner="shared.toolbar" className={`shared-library-select ${SELECT} ml-auto @max-shared-header/main-region:ml-0`} value={query.sort} options={sorts} ariaLabel="Sort" prefix="Sort" onValueChange={(sort) => controller.setQuery({ sort })} />
     {dirty && <button className={CONTROL} type="button" onClick={() => controller.setQuery({ text: "", mediaKind: "all", provenance: "all" })}><X size={12} aria-hidden="true" />Clear filters</button>}
-    <details className="w-full type-xs text-muted">
-      <summary className="cursor-pointer">Additional filters · unavailable</summary>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {unavailable.map((label) => <button className={CONTROL} key={label} type="button" aria-disabled="true" aria-describedby={unavailableReasonId} data-unavailable-filter>{label}</button>)}
-        <button className={CONTROL} type="button" aria-disabled="true" aria-describedby={unavailableReasonId} data-unavailable-filter>Group by entity</button>
-      </div>
-      <p className="mb-0 mt-2 leading-caption" id={unavailableReasonId}>{unavailableReason} Grouping by entity is unavailable from Core.</p>
-    </details>
+
   </form>;
 }

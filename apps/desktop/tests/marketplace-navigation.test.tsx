@@ -111,6 +111,17 @@ afterEach(() => {
 });
 
 describe("marketplace navigation", () => {
+  test("restores old unavailable routes and source filters into supported browsing", () => {
+    const target = storage();
+    let state = readMarketplaceNavigation(target);
+    state = marketplaceReducer(state, { type: "navigate", location: { ...locationA, route: { kind: "library", section: "downloads" }, query: { ...locationA.query, filters: { ...locationA.query.filters, source: "modelscope" } } } });
+    writeMarketplaceNavigation(target, state);
+    const restored = readMarketplaceNavigation(target);
+    expect(restored.location.route).toEqual({ kind: "discover" });
+    expect(restored.location.query.filters.source).toBe("all");
+    expect(restored.history[restored.historyIndex]).toEqual(restored.location);
+  });
+
   test("round-trips one bounded query/location state and rejects malformed variants", () => {
     const target = storage();
     let state = readMarketplaceNavigation(target);

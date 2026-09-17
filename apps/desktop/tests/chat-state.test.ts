@@ -35,6 +35,25 @@ function initial(): AgentChatState {
 }
 
 describe("agent chat state", () => {
+  test("renamed archived chats preserve running work, manual titles and restoration after reload", () => {
+    const storage = new MemoryStorage(), scope = { rootPath: "/tmp/organized", workspaceId: "ws" };
+    let state = reduceAgentChat(initial(), { type: "rename-chat", chatId: "chat-codex", title: "My creative research" });
+    state = reduceAgentChat(state, { type: "set-title", chatId: "chat-codex", title: "Late generated title", now: 105 });
+    expect(state.chats[0].title).toBe("My creative research");
+    state = reduceAgentChat(state, { type: "send", chatId: "chat-codex", text: "Compare the images", now: 110 });
+    state = reduceAgentChat(state, { type: "archive-chat", chatId: "chat-codex", archived: true });
+    expect(state.runningChatId).toBe("chat-codex");
+    expect(state.chats[0].busy).toBe(true);
+    state = reduceAgentChat(state, { type: "event", chatId: "chat-codex", event: { type: "text-delta", text: "Still working" }, now: 120 });
+    expect(state.chats[0].entries.at(-1)?.text).toBe("Still working");
+    expect(state.chats[0].archived).toBe(true);
+    saveAgentChats(storage, scope, state);
+    state = loadAgentChats(storage, scope, { chatId: "fallback", provider: "codex", model: "default", now: 130 });
+    expect(state.chats[0]).toMatchObject({ title: "My creative research", manualTitle: true, archived: true });
+    state = reduceAgentChat(state, { type: "archive-chat", chatId: "chat-codex", archived: false });
+    expect(state.chats[0].entries).toHaveLength(2);
+    expect(state.chats[0].archived).toBe(false);
+  });
   test("keeps the whole long turn across saves and reloads, including its initial prompt", () => {
     const storage = new MemoryStorage();
     const scope = { rootPath: "/tmp/history", workspaceId: "ws-1" };
@@ -66,7 +85,7 @@ describe("agent chat state", () => {
     }
   });
 
-  test("defaults to one full-access provider chat", () => {
+  test("defaults to one read-only provider chat", () => {
     const state = initial();
     expect(state.activeChatId).toBe("chat-codex");
     expect(state.runningChatId).toBeNull();
@@ -74,9 +93,44 @@ describe("agent chat state", () => {
       id: "chat-codex",
       provider: "codex",
       model: "gpt-5.5",
-      permissionMode: "full",
+      permissionMode: "plan",
       entries: [],
     });
+  });
+
+  test("keeps every conversation and complete text across repeated reloads", () => {
+    const storage = new MemoryStorage();
+    const scope = { rootPath: "/tmp/full-history", workspaceId: "workspace" };
+    const text = "Complete transcript ".repeat(20_000);
+    let state = initial();
+    state.chats[0].entries = [
+      { id: 1, kind: "user", at: 1, text },
+      { id: 2, kind: "assistant", at: 2, text },
+      { id: 3, kind: "tool", at: 3, tool: { id: "tool", name: "Bash", summary: text, status: "complete" } },
+    ];
+    for (let i = 1; i < 80; i++) state = reduceAgentChat(state, {
+      type: "new-chat", chatId: `chat-${i}`, provider: "codex", model: "default", now: i,
+    });
+    expect(state.chats).toHaveLength(80);
+    for (let i = 0; i < 2; i++) {
+      expect(saveAgentChats(storage, scope, state)).toBe(true);
+      state = loadAgentChats(storage, scope, { chatId: "fallback", provider: "codex", model: "default", now: 100 });
+      expect(state.chats).toHaveLength(80);
+      expect(state.chats[0].entries.map((entry) => entry.text ?? entry.tool?.summary)).toEqual([text, text, text]);
+    }
+  });
+
+  test("retains the legacy source if migration cannot save its replacement", () => {
+    const storage = new MemoryStorage();
+    const key = "ralphy-media:claude-chat:%2Ftmp%2Fquota";
+    const raw = JSON.stringify({ version: 1, entries: [{ id: 1, kind: "user", text: "Keep this" }] });
+    storage.setItem(key, raw);
+    storage.setItem = () => { throw new Error("Quota exceeded"); };
+    const state = loadAgentChats(storage, { rootPath: "/tmp/quota", workspaceId: "workspace" }, {
+      chatId: "migrated", provider: "codex", model: "default", now: 0,
+    });
+    expect(state.chats[0].entries[0].text).toBe("Keep this");
+    expect(storage.getItem(key)).toBe(raw);
   });
 
   test("switches chats while events continue updating the originating chat", () => {

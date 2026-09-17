@@ -104,6 +104,22 @@ function deferred<T>() {
 }
 
 describe("Marketplace controller", () => {
+  test("retains a saved bookmark when an older catalog refresh finishes", async () => {
+    const service = api();
+    const controller = createMarketplaceController(service, query());
+    await controller.start();
+    const pending = deferred<MarketplacePublicSnapshotDto>();
+    service.loadMarketplacePublicLibrary = () => pending.promise;
+    const refreshed = controller.refresh();
+    const saved = { schemaVersion: 1 as const, selectedWorkspaceId: "studio", installs: [{ entryId: "skill:editor", workspaceId: "studio", installedAt: 1_700_000_000_000, enabled: true }], warning: null };
+    service.mutateMarketplaceInstalls = async () => saved;
+    await controller.mutateInstall({ action: "install", workspaceId: "studio", entryId: "skill:editor" });
+    pending.resolve(publicSnapshot());
+    await refreshed;
+    expect(controller.getSnapshot()).toMatchObject({ status: "ready", installs: saved });
+    controller.dispose();
+  });
+
   test("starts once and makes one combined bounded model request with the shared query state", async () => {
     const loadMarketplacePublicLibrary = vi.fn(async () => publicSnapshot());
     const searchLocalModels = vi.fn(async () => catalog());

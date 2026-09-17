@@ -5,8 +5,8 @@
  * Each takes what it draws and reports a choice upward. None of them reads the search needle: the
  * card filters its lists before handing them over, so a list never has to know why it is short.
  */
-import { Compass } from "@/shared/ui/icons";
-import { useId, type CSSProperties } from "react";
+import { Archive, Check, Compass, Pencil, RotateCcw, X } from "@/shared/ui/icons";
+import { useEffect, useId, useState, type CSSProperties } from "react";
 
 import type { WorkspaceSummary } from "@/shared/api/ipc";
 import { WORKSPACE_PAGE_LABELS, type WorkspacePage } from "@/shared/model/workbench";
@@ -103,35 +103,57 @@ export function WorkspacePagesNav({ pages, page, pageActive, workspace, onOpenPa
   </>;
 }
 
-export function SidebarChats({ chats, activeChatId, now, onSelectChat }: {
+export function SidebarChats({ chats, query = "", activeChatId, now, onSelectChat, onRenameChat, onArchiveChat }: {
   chats: readonly SidebarChat[];
+  query?: string;
   activeChatId: string | null;
   now: number;
   onSelectChat?(chatId: string): void;
+  onRenameChat?(chatId: string, title: string): void;
+  onArchiveChat?(chatId: string, archived: boolean): void;
 }) {
+  const [archived, setArchived] = useState(false);
+  const [editing, setEditing] = useState<{ id: string; title: string } | null>(null);
+  const activeArchived = Boolean(chats.find((chat) => chat.id === activeChatId)?.archived);
+  useEffect(() => { setArchived(activeArchived); setEditing(null); }, [activeChatId, activeArchived]);
+  const needle = query.trim().toLocaleLowerCase();
+  const visible = chats.filter((chat) => Boolean(chat.archived) === archived && (!needle || chat.title.toLocaleLowerCase().includes(needle) || chat.entries?.some((entry) => (entry.kind === "user" || entry.kind === "assistant") && entry.text?.toLocaleLowerCase().includes(needle))));
+  const control = "grid size-6 shrink-0 place-items-center rounded-field text-muted hover:bg-field hover:text-ink focus-visible:outline-2 focus-visible:outline-ink";
   return <section className="sidebar-chats">
-    {/* No `+` here: the filled New chat control stands directly above this label. */}
+    <div className="mx-3 mb-2 flex gap-1 rounded-control bg-field p-1" role="group" aria-label="Conversation list">
+      {[false, true].map((value) => <button key={String(value)} type="button" className={`min-w-0 flex-1 rounded-control px-2 py-1.5 type-xs ${value === archived ? "bg-card text-ink" : "text-muted"}`} aria-pressed={value === archived} onClick={() => { setArchived(value); setEditing(null); }}>{value ? "Archived" : "Chats"} · {chats.filter((chat) => Boolean(chat.archived) === value).length}</button>)}
+    </div>
     <div className={SECTION_LABEL}>
-      <span>CHATS</span>
-      <small className="font-display type-sm leading-none font-extrabold">{chats.length}</small>
+      <span>{archived ? "ARCHIVED" : needle ? "MATCHING CHATS" : "CHATS"}</span>
+      <small className="font-display type-sm leading-none font-extrabold">{visible.length}</small>
     </div>
     <nav className="sidebar-nav flex shrink-0 flex-col gap-0.25 px-3" aria-label="Chats">
-      {chats.map((item) => {
+      {visible.map((item) => {
         const active = item.id === activeChatId;
-        return <button
-          className={`${CHAT_ROW} ${active ? SELECTED : CHAT_UNSELECTED}`}
+        if (editing?.id === item.id) return <form key={item.id} className="flex min-w-0 items-center gap-1 rounded-row bg-field p-2" onSubmit={(event) => { event.preventDefault(); if (!editing.title.trim()) return; onRenameChat?.(item.id, editing.title); setEditing(null); }}>
+          <input type="text" className="min-w-0 flex-1 bg-transparent type-sm text-ink" aria-label="Conversation title" value={editing.title} maxLength={80} autoFocus onChange={(event) => setEditing({ id: item.id, title: event.target.value })} onKeyDown={(event) => { if (event.key === "Escape") setEditing(null); }} />
+          <button className={control} type="submit" aria-label="Save conversation title" disabled={!editing.title.trim()}><Check size={13} /></button>
+          <button className={control} type="button" aria-label="Cancel rename" onClick={() => setEditing(null)}><X size={13} /></button>
+        </form>;
+        return <div key={item.id} className={`flex min-w-0 items-center rounded-row ${active ? SELECTED : CHAT_UNSELECTED}`}>
+        <button
+          className={`${CHAT_ROW} min-w-0 flex-1`}
           type="button"
-          key={item.id}
           aria-current={active ? "true" : undefined}
           onClick={() => onSelectChat?.(item.id)}
         >
           <i className={`sidebar-chat-dot size-1.75 rounded-full bg-current ${item.busy ? "is-busy opacity-100 animate-sidebar-chat-pulse motion-reduce:animate-none" : "opacity-45"}`} aria-hidden="true" />
           <span className="min-w-0 truncate type-ui">{item.title}</span>
           <small className="col-start-2 min-w-0 truncate font-code type-mono-xs tracking-mono uppercase opacity-70">{chatDetail(item, now)}</small>
-        </button>;
+        </button>
+        <div className="flex shrink-0 flex-col pr-1">
+          {onRenameChat && <button className={control} type="button" title="Rename chat" aria-label={`Rename ${item.title}`} onClick={() => setEditing({ id: item.id, title: item.title })}><Pencil size={12} /></button>}
+          {onArchiveChat && <button className={control} type="button" title={item.archived ? "Restore chat" : "Archive chat · keeps history and running work"} aria-label={`${item.archived ? "Restore" : "Archive"} ${item.title}`} onClick={() => { onArchiveChat(item.id, !item.archived); if (active) setArchived(!item.archived); }}>{item.archived ? <RotateCcw size={12} /> : <Archive size={12} />}</button>}
+        </div></div>;
       })}
     </nav>
-    {chats.length === 0 && <p className="m-0 px-4 py-2 type-sm text-muted">No conversations in this workspace yet.</p>}
+    {visible.length === 0 && <p className="m-0 px-4 py-2 type-sm text-muted">{needle ? "No conversations match this search." : archived ? "No archived conversations." : "No conversations in this workspace yet."}</p>}
+    {archived && <p className="m-0 px-4 py-2 type-xs text-muted">Archived chats keep their history and running work. Sending a message restores the chat.</p>}
   </section>;
 }
 

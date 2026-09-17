@@ -172,3 +172,12 @@
 .agent-tag-glyph {
   vertical-align: -1.5px;
 }
+
+/* The app switch supplements the system accessibility preference. */
+:root[data-reduce-motion="true"] *,
+:root[data-reduce-motion="true"] *::before,
+:root[data-reduce-motion="true"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}

@@ -15,8 +15,10 @@ export type CalendarRangeInput = { from: string; to: string; timezone: string };
 export type CalendarMutation =
   | { action: "create"; unitRevisionId: string; at: number | null; draftAt: number; timezone: string; channels: CalendarChannelInput[] }
   | { action: "submit" | "reschedule"; eventId: string; expectedRowVersion: number; at: number }
-  | { action: "remove" | "retry"; eventId: string; expectedRowVersion: number };
+  | { action: "remove" | "retry" | "reconcile"; eventId: string; expectedRowVersion: number };
 export type CalendarReconnectInput = { accountId: string; expectedRowVersion: number; credential: string };
+export type CalendarConnectResult = { imported: number; skipped: number };
+type Connect = (workspaceId: string, credential: string, account?: { accountId: string; expectedRowVersion: number }) => Promise<CalendarConnectResult>;
 
 const EVENT_STATUSES = new Set(["draft", "scheduled", "uploading", "published", "partial", "failed"]);
 const CHANNEL_STATUSES = new Set(["draft", "scheduled", "uploading", "published", "failed", "disconnected"]);
@@ -68,9 +70,10 @@ function event(value: unknown): value is CalendarEventDto {
     && nullableInteger(input.unitSelectedRevision) && EVENT_STATUSES.has(input.status as string)
     && Array.isArray(input.channels) && input.channels.every((channel) => {
       const item = record(channel);
-      return !!item && exact(item, ["id", "platform", "accountId", "account", "status", "at", "postUrl", "error", "settings"])
+      return !!item && exact(item, ["id", "platform", "accountId", "account", "status", "at", "postUrl", "error", "settings", ...(Object.hasOwn(item, "needsReconciliation") ? ["needsReconciliation"] : [])])
         && nullableId(item.id) && typeof item.platform === "string" && nullableId(item.accountId)
         && typeof item.account === "string" && CHANNEL_STATUSES.has(item.status as string)
+        && (!Object.hasOwn(item, "needsReconciliation") || typeof item.needsReconciliation === "boolean")
         && nullableInteger(item.at) && (item.postUrl === null || typeof item.postUrl === "string")
         && (item.error === null || typeof item.error === "string") && json(item.settings);
     })
@@ -138,7 +141,7 @@ function parseRange(value: CalendarRangeInput): CalendarRangeInput {
 
 function parseMutation(value: CalendarMutation): CalendarMutation {
   const input = record(value);
-  if (!input || !["create", "submit", "reschedule", "remove", "retry"].includes(input.action as string)) throw new Error("Invalid Calendar mutation");
+  if (!input || !["create", "submit", "reschedule", "remove", "retry", "reconcile"].includes(input.action as string)) throw new Error("Invalid Calendar mutation");
   if (input.action === "create") {
     if (!exact(input, ["action", "unitRevisionId", "at", "draftAt", "timezone", "channels"]) || !id(input.unitRevisionId)
       || !nullableInteger(input.at) || !integer(input.draftAt) || typeof input.timezone !== "string" || !Array.isArray(input.channels) || input.channels.length < 1 || input.channels.length > 20
@@ -154,7 +157,7 @@ function parseMutation(value: CalendarMutation): CalendarMutation {
   return value;
 }
 
-export function createCalendarReader({ request, mint }: { request: Request; mint?: Mint }) {
+export function createCalendarReader({ request, mint, connect }: { request: Request; mint?: Mint; connect?: Connect }) {
   const context = (workspaceId: string, projectId?: string | null) => {
     if (!id(workspaceId)) throw new Error("Invalid Workspace identifier");
     if (projectId !== undefined && projectId !== null && !id(projectId)) throw new Error("Invalid Project identifier");
@@ -169,16 +172,21 @@ export function createCalendarReader({ request, mint }: { request: Request; mint
       const { action, ...params } = input;
       return validateCalendarEvent(await request(`calendar.${action}`, { context: context(workspaceId), ...params } as never));
     },
+    async connect(workspaceId: string, credential: string) {
+      context(workspaceId);
+      if (typeof credential !== "string" || credential.trim().length < 8 || credential.length > 4096 || /[\u0000-\u001f\u007f]/u.test(credential)) throw new Error("Invalid Postiz API key");
+      if (!connect) throw new Error("Postiz connection is unavailable. Update the desktop runtime.");
+      return connect(workspaceId, credential.trim());
+    },
     async reconnect(workspaceId: string, value: CalendarReconnectInput) {
       const input = record(value);
       if (!input || !exact(input, ["accountId", "expectedRowVersion", "credential"]) || !id(input.accountId)
         || !integer(input.expectedRowVersion, 1) || typeof input.credential !== "string" || input.credential.trim().length < 8 || input.credential.length > 4096) {
         throw new Error("Invalid Calendar reconnect request");
       }
-      await request("agent.credential.set", {
-        context: context(workspaceId), provider: "postiz", value: input.credential,
-        accountId: input.accountId, expectedRowVersion: input.expectedRowVersion,
-      });
+      context(workspaceId);
+      if (!connect) throw new Error("Postiz connection is unavailable. Update the desktop runtime.");
+      await connect(workspaceId, input.credential.trim(), { accountId: input.accountId, expectedRowVersion: input.expectedRowVersion });
     },
     async resolvePreview(workspaceId: string, projectId: string | null, ref: { type: "artifact-revision"; id: string }) {
       const scoped = context(workspaceId, projectId);

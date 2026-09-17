@@ -1,3 +1,4 @@
+import { calendarPostizAdapter } from "../calendar/connection.js";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -5,6 +6,7 @@ import { reviseCompositionCheckout, runCompositionBuild } from "../composition-b
 import {
   createCalendarEvent,
   getCalendarWorkspace,
+  reconcileCalendarEvent,
   removeCalendarEvent,
   rescheduleCalendarEvent,
   retryCalendarEvent,
@@ -141,6 +143,7 @@ import {
 import { resolveQueryContext, type QueryContext } from "../store/scope-context.js";
 import { getStoreIdentity } from "../store/sessions.js";
 import { exportWorkspacePackage, importWorkspacePackage } from "../store/portable.js";
+import { saveUnitMedia, type SaveUnitMediaInput } from "../store/unit-media.js";
 import { getObjectRow, resolveObjectPath } from "../store/internal-objects.js";
 import { createSecretStore, type KeyProvider } from "../store/secrets.js";
 import {
@@ -912,6 +915,11 @@ export function createBridgeMethods(input: {
       compositionId: optionalString(value.compositionId),
     });
   });
+  add("unit.saveMedia", "mutation", (params) => {
+    const value = object(params, "unit.saveMedia");
+    exactKeys(value, ["context", "key", "kind", "file", "references", "provenance", ...["unitId", "expectedLatestRevisionId", "name"].filter((key) => Object.hasOwn(value, key))], "unit.saveMedia");
+    return saveUnitMedia({ ...value, context: scopedContext(value), provenance: jsonValue(value.provenance) } as SaveUnitMediaInput);
+  });
   add("unit.list", "read", (params) => {
     const value = object(params, "unit.list");
     return listUnits({ context: scopedContext(value), after: optionalString(value.after), limit: limit(value.limit) });
@@ -956,7 +964,7 @@ export function createBridgeMethods(input: {
       unitId: string(value.unitId, "unitId"),
       expectedLatestRevisionId: value.expectedLatestRevisionId === null ? null : string(value.expectedLatestRevisionId, "expectedLatestRevisionId"),
       compositionRevisionId: optionalString(value.compositionRevisionId),
-      parentRevisionId: optionalString(value.parentRevisionId),
+      ...(Object.hasOwn(value, "parentRevisionId") ? { parentRevisionId: value.parentRevisionId === null ? null : string(value.parentRevisionId, "parentRevisionId") } : {}),
       iterationId: optionalString(value.iterationId),
       note: optionalString(value.note),
       metadata: value.metadata === undefined ? undefined : jsonValue(value.metadata),
@@ -1080,15 +1088,24 @@ export function createBridgeMethods(input: {
     const value = object(params, "calendar.list");
     return listCalendarEntries({ context: scopedContext(value), from: optionalString(value.from), to: optionalString(value.to), after: optionalString(value.after), limit: limit(value.limit) });
   });
-  add("calendar.overview", "read", (params) => {
+  add("calendar.overview", "read", async (params) => {
     const value = object(params, "calendar.overview");
     exactKeys(value, ["context", "from", "to", "timezone"], "calendar.overview");
-    return getCalendarWorkspace({
+    const overview = getCalendarWorkspace({
       context: scopedContext(value),
       from: string(value.from, "from"),
       to: string(value.to, "to"),
       timezone: string(value.timezone, "timezone"),
     });
+    const scope = resolveScope(scopedContext(value));
+    const resolver = createCredentialResolver({ dataRoot: input.dataRoot, context: { kind: "scope", workspaceId: scope.workspaceId } });
+    overview.postiz.available = (await resolver.status("postiz")).configured;
+    if (!overview.postiz.available) {
+      for (const account of overview.accounts) {
+        if ((await resolver.status("postiz", { accountId: account.id })).configured) { overview.postiz.available = true; break; }
+      }
+    }
+    return overview;
   });
   add("calendar.create", "mutation", (params) => {
     const value = object(params, "calendar.create");
@@ -1110,7 +1127,7 @@ export function createBridgeMethods(input: {
       eventId: string(value.eventId, "eventId"),
       expectedRowVersion: positiveInteger(value.expectedRowVersion, "expectedRowVersion"),
       at: integer(value.at, "at"),
-    });
+    }, calendarPostizAdapter(input.dataRoot, scopedContext(value), resolveScope(scopedContext(value)).workspaceId));
   });
   add("calendar.reschedule", "mutation", (params) => {
     const value = object(params, "calendar.reschedule");
@@ -1120,7 +1137,7 @@ export function createBridgeMethods(input: {
       eventId: string(value.eventId, "eventId"),
       expectedRowVersion: positiveInteger(value.expectedRowVersion, "expectedRowVersion"),
       at: integer(value.at, "at"),
-    });
+    }, calendarPostizAdapter(input.dataRoot, scopedContext(value), resolveScope(scopedContext(value)).workspaceId));
   });
   add("calendar.remove", "mutation", (params) => {
     const value = object(params, "calendar.remove");
@@ -1129,7 +1146,7 @@ export function createBridgeMethods(input: {
       context: scopedContext(value),
       eventId: string(value.eventId, "eventId"),
       expectedRowVersion: positiveInteger(value.expectedRowVersion, "expectedRowVersion"),
-    });
+    }, calendarPostizAdapter(input.dataRoot, scopedContext(value), resolveScope(scopedContext(value)).workspaceId));
   });
   add("calendar.retry", "mutation", (params) => {
     const value = object(params, "calendar.retry");
@@ -1138,7 +1155,16 @@ export function createBridgeMethods(input: {
       context: scopedContext(value),
       eventId: string(value.eventId, "eventId"),
       expectedRowVersion: positiveInteger(value.expectedRowVersion, "expectedRowVersion"),
-    });
+    }, calendarPostizAdapter(input.dataRoot, scopedContext(value), resolveScope(scopedContext(value)).workspaceId));
+  });
+  add("calendar.reconcile", "mutation", (params) => {
+    const value = object(params, "calendar.reconcile");
+    exactKeys(value, ["context", "eventId", "expectedRowVersion"], "calendar.reconcile");
+    return reconcileCalendarEvent({
+      context: scopedContext(value),
+      eventId: string(value.eventId, "eventId"),
+      expectedRowVersion: positiveInteger(value.expectedRowVersion, "expectedRowVersion"),
+    }, calendarPostizAdapter(input.dataRoot, scopedContext(value), resolveScope(scopedContext(value)).workspaceId));
   });
   add("calendar.update", "mutation", (params) => {
     const value = object(params, "calendar.update");

@@ -19,6 +19,7 @@ import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs/promises";
 import crypto from "node:crypto";
+import { assertSupportedBun } from "../cli/lib/bun-runtime.js";
 
 type Target = {
   /** Bun --target string */
@@ -134,6 +135,9 @@ function smoke(distDir: string): void {
 }
 
 async function main() {
+  const runtime = spawnSync("bun", ["--version"], { encoding: "utf8" });
+  if (runtime.error || runtime.status !== 0) throw new Error("Bun is required to build Ralphy binaries");
+  assertSupportedBun(runtime.stdout.trim());
   const args = process.argv.slice(2);
   const onlyCurrent = args.includes("--current");
   const noBytecode = args.includes("--no-bytecode");

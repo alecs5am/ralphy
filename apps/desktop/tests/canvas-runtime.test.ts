@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCanvasRuntime, type RuntimeDependencies } from "../electron/canvas/runtime";
-import { importCanvasFile, readCanvasRuns, validateCanvasAsset } from "../electron/canvas/runtime-files";
+import { importCanvasFile, readCanvasRuns, validateCanvasAsset, writeCanvasRun } from "../electron/canvas/runtime-files";
 import { saveCanvas } from "../electron/canvas/store";
 import type { WorkflowCanvas } from "../shared/workflow-canvas";
 import { registerCanvasRuntimeIpc } from "../electron/canvas/runtime-ipc";
@@ -18,9 +18,9 @@ const graph = (): WorkflowCanvas => ({ version: 2, id: "workflow", name: "Test",
 async function setup() {
   const root = await mkdtemp(join(tmpdir(), "canvas-runtime-")); roots.push(root);
   const saved = await saveCanvas(root, "workspace", graph(), null);
-  const deps: RuntimeDependencies = { root, workspaceId: "workspace", cli: vi.fn(), request: vi.fn(), mint: async () => ({ url: "ralphy-media://asset/guarded" }), text: vi.fn(), assertCurrent() {} };
+  const deps: RuntimeDependencies = { root, workspaceId: "workspace", cli: vi.fn(), request: vi.fn(), mint: async () => ({ url: "ralphy-media://asset/guarded" }), assertCurrent() {} };
   const runtime = createCanvasRuntime(deps);
-  const finished = async () => { for (let i = 0; i < 100; i++) { const runs = await runtime.list("workflow"); if (runs[0] && ["succeeded", "failed", "cancelled"].includes(runs[0].status)) return runs[0]; await new Promise((resolve) => setTimeout(resolve, 10)); } throw new Error("Run did not finish"); };
+  const finished = async () => { for (let i = 0; i < 100; i++) { const { items: runs } = await runtime.list("workflow"); if (runs[0] && ["succeeded", "failed", "cancelled"].includes(runs[0].status)) return runs[0]; await new Promise((resolve) => setTimeout(resolve, 10)); } throw new Error("Run did not finish"); };
   return { root, saved, deps, runtime, finished };
 }
 test("preview uses real dry-run flags and persists cost without invented generated assets", async () => {
@@ -40,10 +40,69 @@ test("native execution saves real outputs, rehydrates guarded previews, and pres
   await runtime.start("workflow", { mode: "execute", expectedRevision: saved.revision });
   const run = await finished();
   expect(run.status).toBe("succeeded"); expect(run.nodes[1].results).toHaveLength(2);
+  for (const [args] of vi.mocked(deps.cli).mock.calls) expect(args).toContain("--no-retry");
   expect(run.nodes[2].results[0].previewUrl).toBe("ralphy-media://asset/guarded");
   const durable = await readCanvasRuns(root, "workspace", "workflow");
-  expect(durable[0].nodes[2].results[0].previewUrl).toBeUndefined();
+  expect(durable.items[0].nodes[2].results[0].previewUrl).toBeUndefined();
   expect(JSON.parse(await readFile(saved.path, "utf8"))).toEqual(graph());
+});
+test("generation receipts resolve the scoped immutable object without a legacy file path", async () => {
+  const { root, deps, runtime, saved, finished } = await setup();
+  const path = join(root, "sound.mp3"); await writeFile(path, "ID3generated sound");
+  const next = graph(); next.nodes[1].config = { modality: "audio", provider: "elevenlabs", operation: "sfx", modelId: "elevenlabs-sfx", variants: 1 };
+  const updated = await saveCanvas(root, "workspace", next, saved.revision);
+  deps.cli = vi.fn(async () => ({ artifactId: "art-sound", revisionId: "arev-sound", runId: "run-core-sound" }));
+  deps.request = vi.fn(async (method) => method === "media.revision.show" ? { id: "arev-sound", objectId: "obj-sound" } : { absolutePath: path, mime: "audio/mpeg", bytes: 18 }) as RuntimeDependencies["request"];
+  await runtime.start("workflow", { mode: "execute", expectedRevision: updated.revision });
+  const run = await finished();
+  expect(run.status).toBe("succeeded");
+  expect(run.nodes[1].results[0]).toMatchObject({ kind: "audio", previewUrl: "ralphy-media://asset/guarded" });
+  expect(await readFile(run.nodes[1].results[0].asset!.path, "utf8")).toBe("ID3generated sound");
+  expect(deps.request).toHaveBeenCalledWith("media.revision.show", { context: { workspaceId: "workspace" }, revisionId: "arev-sound" });
+  expect(deps.request).toHaveBeenCalledWith("locator.resolve", { context: { workspaceId: "workspace" }, target: { type: "object", id: "obj-sound" }, purpose: "preview" });
+});
+test("SFX preview validates the graph with unknown cost and never submits a paid request", async () => {
+  const { deps, runtime, saved, root, finished } = await setup();
+  const next = graph(); next.nodes[1].config = { modality: "audio", provider: "elevenlabs", operation: "sfx", modelId: "elevenlabs-sfx" };
+  const updated = await saveCanvas(root, "workspace", next, saved.revision);
+  await runtime.start("workflow", { mode: "preview", expectedRevision: updated.revision });
+  const run = await finished();
+  expect(run.status).toBe("succeeded");
+  expect(run.nodes[1].estimatedCostUsd).toBeNull();
+  expect(deps.cli).not.toHaveBeenCalled();
+});
+test("text generation uses the workspace CLI route and stdin, then persists its output", async () => {
+  const { root, deps, runtime, saved, finished } = await setup();
+  const next = graph(); next.nodes[1].config = { modality: "text", provider: "openrouter", modelId: "test/text" };
+  const updated = await saveCanvas(root, "workspace", next, saved.revision);
+  deps.cli = vi.fn(async () => ({ text: "Generated script", runId: "run-text" }));
+  await runtime.start("workflow", { mode: "execute", expectedRevision: updated.revision });
+  const run = await finished();
+  expect(run.status).toBe("succeeded");
+  expect(deps.cli).toHaveBeenCalledWith(["generate", "text", "--model", "test/text", "--provider", "openrouter", "--stdin", "--no-retry"], expect.any(AbortSignal), "A quiet forest");
+  expect(run.nodes[1].results[0].text).toBe("Generated script");
+  expect(await readFile(run.nodes[1].results[0].asset!.path, "utf8")).toBe("Generated script");
+});
+test("restart recovery closes each interrupted node and preserves completed variants without replaying", async () => {
+  const { root, deps, runtime, saved, finished } = await setup();
+  const path = join(root, "partial.png"); await writeFile(path, "first variant");
+  deps.cli = vi.fn().mockResolvedValueOnce({ path }).mockRejectedValueOnce(new Error("Provider response lost"));
+  await runtime.start("workflow", { mode: "execute", expectedRevision: saved.revision });
+  const failed = await finished();
+  expect(failed.status).toBe("failed"); expect(failed.nodes[1].results).toHaveLength(1);
+  expect(failed.error).toContain("No automatic resubmission was made");
+  expect(deps.cli).toHaveBeenCalledTimes(2);
+  failed.status = "running"; failed.endedAt = null;
+  failed.nodes[1].status = "running"; failed.nodes[1].endedAt = null;
+  failed.nodes[2].status = "pending"; failed.nodes[2].endedAt = null;
+  await writeCanvasRun(root, failed);
+  const recovered = (await runtime.list("workflow")).items[0];
+  expect(recovered.status).toBe("failed");
+  expect(recovered.nodes.map((node) => node.status)).toEqual(["succeeded", "failed", "cancelled"]);
+  expect(recovered.nodes[1].results).toHaveLength(1);
+  expect(recovered.nodes[1].error).toContain("outcome may be unknown");
+  expect((await readCanvasRuns(root, "workspace", "workflow")).items[0].nodes.map((node) => node.status)).toEqual(["succeeded", "failed", "cancelled"]);
+  expect(deps.cli).toHaveBeenCalledTimes(2);
 });
 test("concurrent starts reserve the canvas once, stale runs reject, and cancellation is terminal", async () => {
   const { deps, runtime, saved, finished } = await setup();

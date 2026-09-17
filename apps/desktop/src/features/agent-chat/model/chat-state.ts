@@ -6,7 +6,7 @@
  * of deltas is folded into the entry it belongs to rather than appended, so a re-render never
  * shows a half-written turn twice.
  *
- * Stored records validate ids and bound individual text fields. A conversation's entries stay
+ * Stored records validate ids and preserve complete text fields. A conversation's entries stay
  * intact: tool-heavy turns can contain hundreds of records before their first answer.
  */
 import type {
@@ -16,8 +16,6 @@ import type {
   ClaudeAuthMethod,
 } from "@/shared/api/ipc";
 
-export const MAX_PERSISTED_CHATS = 30;
-export const MAX_ENTRY_TEXT = 128 * 1024;
 export const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const MODEL_ID = /^[~a-zA-Z0-9][a-zA-Z0-9._~:/-]{0,255}$/;
 
@@ -44,7 +42,7 @@ export interface AgentChatEntry {
   tool?: AgentChatTool;
   /* A `result` entry: the turn's end, as the provider reported it. It is what the transcript's
      "worked for" row reads, and the only place a duration or a cost is a fact rather than a guess. */
-  run?: { durationMs: number; costUsd: number };
+  run?: { durationMs: number; costUsd: number; outcome?: "completed" | "cancelled" | "failed" };
 }
 
 export interface AgentConversation {
@@ -53,6 +51,8 @@ export interface AgentConversation {
   /* Whether the title is the chat's own name or still the first prompt wearing one. A generated
      name is asked for once, and the flag is what stops a reload from asking again. */
   titled: boolean;
+  manualTitle?: boolean;
+  archived?: boolean;
   provider: AgentProvider;
   model: string;
   entries: AgentChatEntry[];
@@ -87,6 +87,7 @@ export interface CreateAgentChatOptions {
   provider: AgentProvider;
   model: string;
   now: number;
+  permissionMode?: AgentPermissionMode;
 }
 
 export type AgentChatAction =
@@ -97,6 +98,8 @@ export type AgentChatAction =
   | { type: "select-chat"; chatId: string }
   | { type: "set-model"; model: string; now: number }
   | { type: "set-title"; chatId: string; title: string; now: number }
+  | { type: "rename-chat"; chatId: string; title: string }
+  | { type: "archive-chat"; chatId: string; archived: boolean }
   | { type: "set-auth"; method: ClaudeAuthMethod; now: number }
   | { type: "set-permission"; mode: AgentPermissionMode; now: number }
   | { type: "recover-history"; chatId: string; sessionId: string; beforeId: number; entries: AgentChatEntry[] }
@@ -121,7 +124,7 @@ export function createConversation(options: CreateAgentChatOptions): AgentConver
     busy: false,
     streamingAssistantId: null,
     claudeAuthMethod: "subscription",
-    permissionMode: "full",
+    permissionMode: options.permissionMode ?? "plan",
     lastCostUsd: null,
     usage: null,
     updatedAt: options.now,
@@ -206,7 +209,7 @@ function reduceEvent(
       ...appendEntry(chat, {
         kind: "result",
         at: now,
-        run: { durationMs: event.durationMs, costUsd: event.costUsd },
+        run: { durationMs: event.durationMs, costUsd: event.costUsd, outcome: event.cancelled ? "cancelled" : event.ok ? "completed" : "failed" },
       }),
       busy: false,
       streamingAssistantId: null,
@@ -263,7 +266,7 @@ export function reduceAgentChat(
     const chat = createConversation(action);
     return {
       ...state,
-      chats: [...state.chats.filter(({ id }) => id !== chat.id), chat].slice(-MAX_PERSISTED_CHATS),
+      chats: [...state.chats.filter(({ id }) => id !== chat.id), chat],
       activeChatId: chat.id,
     };
   }
@@ -274,8 +277,8 @@ export function reduceAgentChat(
     }
     return updateChat(state, active.id, (chat) => ({
       ...chat,
-      title: "New chat",
-    titled: false,
+      title: chat.manualTitle ? chat.title : "New chat",
+      titled: chat.manualTitle === true,
       provider: action.provider,
       model: action.model,
       sessionId: null,
@@ -289,8 +292,15 @@ export function reduceAgentChat(
   if (action.type === "set-title") {
     const title = action.title.trim().slice(0, 80);
     return title
-      ? updateChat(state, action.chatId, (chat) => ({ ...chat, title, titled: true, updatedAt: chat.updatedAt }))
+      ? updateChat(state, action.chatId, (chat) => chat.manualTitle ? chat : ({ ...chat, title, titled: true, updatedAt: chat.updatedAt }))
       : state;
+  }
+  if (action.type === "rename-chat") {
+    const title = action.title.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 80);
+    return title ? updateChat(state, action.chatId, (chat) => ({ ...chat, title, titled: true, manualTitle: true })) : state;
+  }
+  if (action.type === "archive-chat") {
+    return updateChat(state, action.chatId, (chat) => ({ ...chat, archived: action.archived }));
   }
   if (action.type === "set-model") {
     if (!MODEL_ID.test(action.model)) return state;
@@ -325,6 +335,7 @@ export function reduceAgentChat(
         ...appendEntry(chat, { kind: "user", at: action.now, text }),
         title: chat.entries.length === 0 && !chat.titled ? text.slice(0, 52) : chat.title,
         busy: true,
+        archived: false,
         streamingAssistantId: null,
         lastCostUsd: null,
         updatedAt: action.now,

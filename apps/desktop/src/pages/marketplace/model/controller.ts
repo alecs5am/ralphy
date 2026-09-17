@@ -46,6 +46,7 @@ export function createMarketplaceController(
   let started = false;
   let disposed = false;
   let activeRequest = 0;
+  let installRevision = 0;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let lastPublic: Awaited<ReturnType<MarketplaceApi["loadMarketplacePublicLibrary"]>> | null = null;
   let lastPack: Awaited<ReturnType<MarketplaceApi["loadMarketplacePackCatalog"]>> | null = null;
@@ -73,6 +74,7 @@ export function createMarketplaceController(
     if (disposed) return;
     clearScheduledSearch();
     const requestId = ++activeRequest;
+    const requestInstallRevision = installRevision;
     const requestQuery = query;
     const requestProvider = modelProviderRequest(requestQuery);
     if (snapshot.status === "ready") emit({ ...snapshot, query: requestQuery, refreshing: true });
@@ -136,9 +138,9 @@ export function createMarketplaceController(
     }
     lastPublic = library.status === "fulfilled" ? library.value : null;
     lastPack = packCatalog;
-    /* A record this machine could not read is an empty shelf, not a failed
-       screen: the catalog is still true, only the choices are missing. */
-    lastInstalls = installs.status === "fulfilled" ? installs.value : null;
+    if (requestInstallRevision === installRevision) lastInstalls = installs.status === "fulfilled" ? installs.value : {
+      schemaVersion: 1, selectedWorkspaceId: null, installs: [], warning: "Saved items could not be loaded. Please refresh the catalog.",
+    };
     lastModels = models.status === "fulfilled" ? { provider: requestProvider, value: models.value } : null;
     emit(presentMarketplaceSources(lastPublic, retainedModels(resultQuery), resultQuery, sourceErrors, sourceHealth, lastPack, lastInstalls));
   };
@@ -193,8 +195,14 @@ export function createMarketplaceController(
        state locally and hoping the two agree. */
     async mutateInstall(mutation) {
       if (disposed) return;
-      const next = await api.mutateMarketplaceInstalls(mutation).catch(() => null);
-      if (disposed || next === null) return;
+      const next = await api.mutateMarketplaceInstalls(mutation).catch(() => ({
+        schemaVersion: 1 as const,
+        selectedWorkspaceId: lastInstalls?.selectedWorkspaceId ?? null,
+        installs: lastInstalls?.installs ?? [],
+        warning: "Your change could not be saved. Please try again.",
+      }));
+      if (disposed) return;
+      installRevision += 1;
       lastInstalls = next;
       if (snapshot.status !== "ready") return;
       emit(presentMarketplaceSources(

@@ -11,7 +11,7 @@
  * it is still the newest of its kind and that the thing it was asked about is still selected.
  */
 import type { ActivityDto } from "../../../../electron/ralphy/types";
-import type { ProjectSummary, ProjectTab } from "../../../../electron/media/types";
+import type { ProjectReference, ProjectTab } from "../../../../electron/media/types";
 import type { DomainRow } from "@/entities/project";
 
 import { createCompositionSection } from "./composition-section";
@@ -35,7 +35,7 @@ export type {
 
 export function createProjectScreenController(
   api: ProjectScreenApi,
-  project: ProjectSummary,
+  project: ProjectReference,
   initialActivitySequence = 0,
 ): ProjectScreenController {
   const store = createProjectScreenStore(api, project);
@@ -140,10 +140,12 @@ export function createProjectScreenController(
       if (store.disposed || sequence <= coveredActivitySequence || sequence < highestActivityAnnouncement
         || (sequence === highestActivityAnnouncement && activityCatchupInFlight)) return;
       if (sequence > highestActivityAnnouncement) highestActivityAnnouncement = sequence;
+      if (project.projectId === null) { coveredActivitySequence = sequence; await units.refresh(); return; }
       const activeTab = store.snapshot.activeTab;
       await Promise.all([
         loadOverview(),
         catchUpActivity(sequence),
+        units.refresh(),
         ...(activeTab === "activity" ? [] : [loadPage(activeTab)]),
       ]);
     },

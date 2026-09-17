@@ -24,7 +24,6 @@ describe("shallow library catalog", () => {
   test("resolves a chat's database project without requiring a filesystem bucket", async () => {
     fixture = await makeLibraryFixture();
     await writeFile(join(fixture.rootPath, "ralphy.db"), "SQLite format 3\0");
-    await mkdir(join(fixture.rootPath, "buckets"));
     const request = vi.fn().mockResolvedValue({ id: "prj_one", workspaceId: "ws_one" });
     await expect(resolveProjectPath(fixture.rootPath, "ws_one", "prj_one", { request } as never)).resolves.toBeUndefined();
     expect(request).toHaveBeenCalledWith("project.show", { context: { workspaceId: "ws_one" }, projectId: "prj_one" });
@@ -35,9 +34,13 @@ describe("shallow library catalog", () => {
     fixture = await makeLibraryFixture();
     await rm(join(fixture.rootPath, "workspaces"), { recursive: true });
     await writeFile(join(fixture.rootPath, "ralphy.db"), "SQLite format 3\0");
-    await mkdir(join(fixture.rootPath, "buckets"), { recursive: true });
     const client = {
       request: vi.fn(async (method: string, input: { context?: { projectId?: string }; after?: string }) => {
+        if (method === "media.list") return {
+          items: [{ ref: { type: "artifact", id: input.after ? "shared-two" : "shared-one" }, workspaceId: "ws_one", projectId: null },
+            { ref: { type: "artifact", id: "project-only" }, workspaceId: "ws_one", projectId: "prj_one" }],
+          nextCursor: input.after ? null : "shared-next",
+        };
         if (method === "unit.list") return {
           items: input.context?.projectId
             ? [{ workspaceId: "ws_one", projectId: null }, { workspaceId: "ws_one", projectId: "prj_one" }]
@@ -60,8 +63,8 @@ describe("shallow library catalog", () => {
 
     expect(result).toMatchObject({
       generation: 9,
-      workspaces: [{ id: "ws_one", name: "Studio", projectCount: 1, unitCount: 3 }],
-      projects: [{ workspaceId: "ws_one", projectId: "prj_one", name: "Launch", status: "active", unitCount: 2 }],
+      workspaces: [{ id: "ws_one", name: "Studio", projectCount: 1, unitCount: 3, sharedCount: 2 }],
+      projects: [{ workspaceId: "ws_one", projectId: "prj_one", name: "Launch", status: "active", unitCount: 2, sharedCount: 2 }],
     });
     await expect(realpath(join(fixture.rootPath, "buckets", "ws_one", "projects", "prj_one"))).rejects.toThrow();
   });
@@ -94,6 +97,7 @@ describe("shallow library catalog", () => {
     }));
     const client = {
       request: vi.fn(async (method: string, input: { workspaceId?: string }) => {
+        if (method === "media.list") return { items: [], nextCursor: null };
         if (method === "unit.list") return { items: [], nextCursor: null };
         if (method === "workspace.list") return { items: workspaces, nextCursor: null };
         if (method === "project.list") return {

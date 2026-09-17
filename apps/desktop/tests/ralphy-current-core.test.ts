@@ -25,7 +25,7 @@ const currentCoreCapabilities = [
   "agent.auth.status", "agent.credential.clear", "agent.credential.set",
   "agent.credential.status", "agent.providers", "agent.turn.resume", "agent.turn.start", "agent.turn.status", "agent.turn.stop",
   "build.outputs", "build.show", "calendar.create", "calendar.list", "calendar.overview",
-  "calendar.remove", "calendar.reschedule", "calendar.retry", "calendar.submit", "calendar.update",
+  "calendar.reconcile", "calendar.remove", "calendar.reschedule", "calendar.retry", "calendar.submit", "calendar.update",
   "campaign.list", "campaign.show", "campaign.update", "composition.build",
   "composition.builds", "composition.inputs", "composition.list", "composition.revise", "composition.revision.show",
   "composition.revisions", "composition.select", "composition.show", "composition.sources",
@@ -45,7 +45,7 @@ const currentCoreCapabilities = [
   "publication.refresh", "repair.start", "run.attempts", "run.cancel", "run.list", "run.objects", "run.results", "run.show",
   "session.end", "session.list", "session.show", "session.start", "system.hello",
   "transcription.start", "transform.start", "unit.create", "unit.items", "unit.list", "unit.presentations",
-  "unit.preview", "unit.revise", "unit.revision.show", "unit.revisions", "unit.select",
+  "unit.preview", "unit.revise", "unit.revision.show", "unit.revisions", "unit.saveMedia", "unit.select",
   "unit.show", "workspace.account.list", "workspace.account.upsert", "workspace.export",
   "workspace.import", "workspace.list", "workspace.overview", "workspace.show", "workspace.update",
 ] as const;

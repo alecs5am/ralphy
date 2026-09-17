@@ -32,6 +32,7 @@ export const INSTRUMENT_OVERLAYS = {
 } as const satisfies Record<string, { kind: InstrumentOverlayKind }>;
 
 export const SHARED_SELECT_OVERLAY_OWNERS = {
+  "generation.unit-save": { module: "src/entities/generation/ui/SaveGenerationToUnit.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.generation", "workspace.canvas"] } },
   "generation.parameters": { module: "src/entities/generation/ui/GenerationControls.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.generation", "workspace.canvas"] } },
   "canvas.parameters": { module: "src/features/workflow-canvas/ui/CanvasNodeChoices.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.canvas"] } },
   "canvas.switcher": { module: "src/features/workflow-canvas/ui/CanvasScreen.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.canvas"] } },

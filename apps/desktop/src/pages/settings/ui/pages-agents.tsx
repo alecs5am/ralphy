@@ -12,7 +12,6 @@ import { ArrowUpRight } from "@/shared/ui/icons";
 import type { HarnessRow } from "../lib/harnesses";
 import {
   action,
-  DesignTarget,
   Dot,
   FIELD_WIDE,
   NOTE,
@@ -24,7 +23,6 @@ import {
   Section,
   SettingsSelect,
   Status,
-  statusText,
   type StatusTone,
   WIDGET_LIGHT,
 } from "./rows";
@@ -41,10 +39,10 @@ export function AgentsPage({ ctx }: { ctx: SettingsContext }) {
   const { values, set } = ctx.preferences;
   const { rows, state } = ctx.harnesses;
   return <>
-    <Section title="HARNESSES · THEY DRIVE THE APP, ITS FILES AND ITS TOOLS">
+    <Section title="CHAT AGENTS">
       <Plate>
-        {state === "loading" && <Row title="Reading harnesses" description="Asking the bridge which adapters are installed." target><DesignTarget /></Row>}
-        {state === "unavailable" && <Row title="Harness discovery unavailable" description="The bridge did not answer. Nothing is inferred about the adapters on this machine." target><DesignTarget /></Row>}
+        {state === "loading" && <Row title="Checking available agents" description="Reading installed apps and account connections." />}
+        {state === "unavailable" && <Row title="Agents could not be checked" description="Try again to check your installed agents."><button className={action()} onClick={() => void ctx.harnesses.refresh()}>Retry</button></Row>}
         {rows.map((harness) => <div className={`${SERVICE_ROW} hover:bg-row-hover`} key={harness.id}>
           <Dot tone={harness.tone} />
           <span className={`w-settings-service ${SERVICE_NAME}`}>
@@ -67,9 +65,9 @@ export function AgentsPage({ ctx }: { ctx: SettingsContext }) {
 
     <Section title="DEFAULTS">
       <Plate>
-        <Row title="Default harness for new chats" description="Existing sessions keep their provider and model until they are explicitly forked." id="agents.default">
+        <Row title="Default agent for new chats" description="Existing conversations keep their provider and model." id="agents.default">
           <SettingsSelect
-            label="Default harness for new chats"
+            label="Default agent for new chats"
             value={values["agents.defaultHarness"]}
             options={rows.length
               ? rows.map((harness) => ({ value: harness.id, label: harness.name, meta: harness.status }))
@@ -77,14 +75,18 @@ export function AgentsPage({ ctx }: { ctx: SettingsContext }) {
             onChange={(next) => set("agents.defaultHarness", next)}
           />
         </Row>
-        <Row title="Approval posture for new chats" description="The shared rule. Actual rights come from the adapter — read the receipt on the harness page.">
-          <button className={action({ size: "sm" })} type="button" onClick={() => ctx.goTo("permissions", "permissions.posture")}>
-            {values["permissions.posture"]}
+        <Row title="Access for new chats" description="Choose the default access level. Existing chats keep their own setting.">
+          <button className={action({ size: "sm" })} type="button" onClick={() => ctx.goTo("permissions", "permissions.mode")}>
+            {{ plan: "Read-only files", auto: "Workspace access", full: "Full access" }[values["permissions.mode"]] ?? "Read-only files"}
             <ArrowUpRight size={12} strokeWidth={1.8} aria-hidden="true" />
           </button>
         </Row>
       </Plate>
     </Section>
+    <Section title="TOOLS AND GENERATION"><Plate>
+      <Row title="Image, video and audio services" description="Create, Canvas and agent tool calls use your generation connections."><button className={action()} onClick={() => ctx.goTo("providers")}>Generation providers</button></Row>
+      <Row title="MCP tools" description="Codex and Claude use the MCP connections configured in their own apps. Configure a tool there, then start a new chat here to use it. Connections and access may differ between agents." />
+    </Plate></Section>
   </>;
 }
 
@@ -94,6 +96,7 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
   const [draft, setDraft] = useState("");
   const [state, setState] = useState<CredentialState>("idle");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const keyField = useRef<HTMLInputElement>(null);
   // Two ways in, and the row may offer both: the provider's own login, or a key we store.
   const signIn = !harness.connected && harness.login;
@@ -101,20 +104,22 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
 
   const saveKey = async () => {
     if (!draft.trim()) { setState("empty"); return; }
-    setState("testing");
+    setState("testing"); setError(null);
     try {
       await ctx.harnesses.saveKey(harness.id, draft.trim());
       setState("connected");
-    } catch {
+      setDraft("");
+    } catch (cause) {
       setState("failed");
+      setError(cause instanceof Error ? cause.message : "The key could not be saved.");
     }
   };
 
   const credentialLabel = state === "connected"
-    ? "CONNECTED · KEY STORED BY THE OS KEYCHAIN"
-    : state === "failed" ? "SAVE FAILED · THE PROVIDER REJECTED THE KEY"
+    ? "KEY SAVED SECURELY · NOT AN AUTHENTICATION CHECK"
+    : state === "failed" ? "KEY COULD NOT BE SAVED"
     : state === "empty" ? "KEY IS REQUIRED"
-    : state === "testing" ? "TESTING KEY…"
+    : state === "testing" ? "SAVING KEY…"
     : harness.auth === "KEYCHAIN" ? "A KEY IS STORED · PASTE A NEW ONE TO REPLACE IT"
     : "PASTE API KEY · NEVER SHOWN AGAIN AFTER SAVE";
   const credentialTone: StatusTone = state === "connected" ? "ok" : state === "failed" || state === "empty" ? "bad" : "warn";
@@ -131,32 +136,26 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
           <button
             className={action({ size: "lg", tone: "primary" })}
             type="button"
-            disabled={busy || !(harness.login || harness.apiKey)}
+            disabled={busy}
             onClick={async () => {
               if (needsKey) { keyField.current?.focus(); return; }
-              setBusy(true);
+              setBusy(true); setError(null);
               try {
-                if (signIn) await ctx.harnesses.signIn(harness.id);
+                if (signIn && harness.installed) await ctx.harnesses.signIn(harness.id);
                 else await ctx.harnesses.refresh();
+              } catch (cause) {
+                setError(cause instanceof Error ? cause.message : "The connection could not be checked.");
               } finally {
                 setBusy(false);
               }
             }}
-          >{signIn ? "Sign in" : needsKey ? "Add key" : "Test connection"}</button>
+          >{busy ? "Checking…" : !harness.installed ? "Check installation" : signIn ? "Sign in" : needsKey ? "Add key" : "Refresh status"}</button>
         </div>
-        <Row title="Default model" description="The list comes from the adapter, not from our catalogue." id="harness.model">
-          {harness.models.length
-            ? <SettingsSelect
-              label="Default model"
-              mono
-              value={harness.model}
-              options={harness.models}
-              onChange={() => ctx.harnesses.refresh()}
-            />
-            : <DesignTarget />}
-        </Row>
+        <Row title="Model" description="Choose a model in the chat composer. Existing conversations keep the model they started with." id="harness.model"><Status>{harness.model}</Status></Row>
       </Plate>
     </Section>
+    {!harness.installed && <p className={NOTE}>Install {harness.name} on this Mac, then check its status again. Ralphy does not bundle third-party agent apps.</p>}
+    {error && <p role="alert" className={NOTE_ALERT}>{error}</p>}
 
     <Section title="CREDENTIAL · SECURE">
       {harness.apiKey
@@ -165,6 +164,7 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
           <div className="flex items-center gap-2 @max-settings-column/settings-main:flex-wrap">
             <input
               ref={keyField}
+              type="password"
               className={state === "failed" || state === "empty" ? `${FIELD_WIDE} bg-error-surface` : FIELD_WIDE}
               value={draft}
               placeholder="Paste the provider key"
@@ -174,14 +174,13 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
               onChange={(event) => { setDraft(event.target.value); setState("idle"); }}
             />
             <button className={action({ size: "lg", tone: "primary" })} type="button" disabled={state === "testing"} onClick={() => void saveKey()}>
-              {state === "testing" ? "Testing…" : state === "connected" ? "Saved" : "Save key"}
+              {state === "testing" ? "Saving…" : state === "connected" ? "Saved" : "Save key"}
             </button>
-            <button className={action({ size: "lg" })} type="button" disabled={state === "testing"} onClick={() => void saveKey()}>Test connection</button>
           </div>
           <p className={state === "failed" ? NOTE_ALERT : NOTE}>
             {state === "failed"
-              ? "THE KEY WAS NOT ACCEPTED. THE TYPED VALUE IS KEPT — CORRECT IT AND SAVE AGAIN"
-              : "THE KEY GOES TO THE OS KEYCHAIN, NEVER INTO PREFERENCES, AND IS NEVER RETURNED TO THE RENDERER IN FULL"}
+              ? "The key was not saved. Correct it and try again."
+              : "Your key is encrypted on this Mac. It is never stored in preferences or shown again after saving."}
           </p>
           {/* A key is billed per token; the login uses the plan the operator already pays for.
               Saying so here is what tells them the field above is optional. */}
@@ -190,40 +189,24 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
         : <Plate>
           <Row
             title="Credential"
-            description="This harness authenticates through its own provider login, so there is no key to store here."
-            target
-          ><DesignTarget /></Row>
+            description="Codex uses the account signed in to its app or CLI. There is no separate key to store in Ralphy."
+          />
         </Plate>}
     </Section>
 
-    <Section title="EFFECTIVE CAPABILITY RECEIPT · WHAT THE ADAPTER ACTUALLY GRANTS">
-      <Plate>
-        {["Filesystem", "Shell", "Network", "Approvals", "Concurrency", "Scheduling"].map((capability) => <Row
-          title={capability}
-          flat
-          target
-          key={capability}
-        ><span className={statusText("off")}>NOT REPORTED</span></Row>)}
-      </Plate>
-      <p className={NOTE}>THE SAME FRIENDLY NAME MEANS DIFFERENT THINGS PER PROVIDER, SO NOTHING IS ASSUMED UNTIL THE ADAPTER REPORTS IT</p>
-    </Section>
-
-    <Section title="MAINTENANCE">
+    {harness.apiKey && <Section title="MAINTENANCE">
       <Plate single>
         <span className={ROW_COPY}>
-          <strong className={ROW_TITLE}>Disconnect harness</strong>
-          <small className="type-label leading-row text-muted">The stored credential is removed. Settings without secrets stay until you reconnect.</small>
+          <strong className={ROW_TITLE}>Remove saved API key</strong>
+          <small className="type-label leading-row text-muted">Removes the key stored by Ralphy. Provider login and environment credentials remain managed outside this app.</small>
         </span>
         <button
           className={action({ tone: "danger" })}
           type="button"
           disabled={!harness.apiKey}
-          onClick={() => void ctx.harnesses.clearKey(harness.id)}
-        >Disconnect…</button>
+          onClick={() => { setError(null); void ctx.harnesses.clearKey(harness.id).then(() => setState("idle")).catch(() => setError("The saved key could not be removed.")); }}
+        >Remove saved key</button>
       </Plate>
-    </Section>
+    </Section>}
   </>;
 }
-
-/** The generation services Ralphy renders with. Discovery and credential storage for them
- *  is not part of the bridge contract yet, so every row states that rather than guessing. */

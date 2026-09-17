@@ -8,7 +8,7 @@
  */
 import { createProjectDomainState, projectDomainReducer } from "@/entities/project";
 
-import type { ProjectSummary } from "../../../../electron/media/types";
+import type { ProjectReference } from "../../../../electron/media/types";
 import { idleDocument, idleUnitLoad, idleUnitPage, type ProjectScreenApi, type ProjectScreenSnapshot } from "./screen-state";
 
 export interface ProjectScreenStore {
@@ -21,7 +21,7 @@ export interface ProjectScreenStore {
   dispose(): void;
 }
 
-export function createProjectScreenStore(api: ProjectScreenApi, project: ProjectSummary): ProjectScreenStore {
+export function createProjectScreenStore(api: ProjectScreenApi, project: ProjectReference): ProjectScreenStore {
   let snapshot: ProjectScreenSnapshot = {
     domain: createProjectDomainState({ workspaceId: project.workspaceId, projectId: project.projectId }),
     activeTab: "units",

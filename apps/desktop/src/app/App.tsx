@@ -1,3 +1,4 @@
+import { useInterfaceMotion } from "./model/use-interface-motion";
 import { useMemo, useState, type CSSProperties } from "react";
 import { LayoutGroup, MotionConfig, motion } from "motion/react";
 import { AgentChatPanel } from "@/widgets/utility-panels";
@@ -28,6 +29,7 @@ import { AppSettings } from "./ui/AppSettings";
 import { AppSidebar } from "./ui/AppSidebar";
 import { WorkRoute } from "./ui/WorkRoute";
 export function App() {
+  const reducedMotion = useInterfaceMotion();
   const { preference: theme, resolved: resolvedTheme, setPreference: setTheme } = useTheme();
   const {
     initialPreferences,
@@ -112,8 +114,7 @@ export function App() {
   });
   const sidebarChats = useMemo(
     () => [...(agentChat.state?.chats ?? [])]
-      .sort((left, right) => right.updatedAt - left.updatedAt)
-      .map(({ id, title, busy, updatedAt }) => ({ id, title, busy, updatedAt })),
+      .sort((left, right) => right.updatedAt - left.updatedAt),
     [agentChat.state?.chats],
   );
   const island = useIslandFeed({
@@ -146,7 +147,6 @@ export function App() {
     onNewChat: agentChat.newChat,
     switchAppMode,
   });
-
   const viewChatId = agentChat.activeChat?.id ?? null;
   const {
     viewFrameActive,
@@ -177,7 +177,6 @@ export function App() {
     onOpenWorkspacePage: openWorkspacePage,
     onOpenProject: openProject,
   });
-
   const canvasView = !!selectedWorkspace && marketplace.mode === "work" && (viewFrameActive ? viewTab.type === "canvas" : state.route.kind === "workspace" && workspacePage === "canvas");
   const fillDesk = canvasView || (viewFrameActive && viewTab.type === "unit") || (!!selectedWorkspace && marketplace.mode === "work" && (viewFrameActive ? viewTab.type === "generation" : state.route.kind === "workspace" && workspacePage === "generation"));
   const activeSidebarVisible = marketplace.mode === "work" ? sidebarVisible && !(canvasView && viewExpanded && (!viewFrameActive || viewPanel.open)) : marketplaceSidebarVisible;
@@ -221,7 +220,7 @@ export function App() {
     targetUnitId={targetUnitId} onTargetUnitOpened={clearTargetUnit}
     chat={agentChat.activeChat ?? null}
     onRetryLibrary={() => void restoreHomeLibrary()}
-    onOpenWorkspace={openWorkspace}
+    onOpenWorkspace={openWorkspace} onOpenUnitView={(reference, unitId, label, revisionId) => openView(unitViewRequest(reference, unitId, label, revisionId))}
     onOpenProject={(project, unitId) => viewFrameActive ? openView(unitId ? unitViewRequest(project, unitId, "Unit") : { type: "project", targetId: project.projectId, label: project.name }) : openProject(project, unitId)}
     onOpenWorkspacePage={openWorkspacePage}
     onNavigateFromOverview={navigateFromOverview}
@@ -247,8 +246,8 @@ export function App() {
   }
 
   if (canvasView && selectedWorkspace) {
-    workContent = <AppCanvas embedded={viewFrameActive} expanded={viewExpanded} onToggleExpanded={toggleViewExpanded} key={`${rootIdentity?.storeId}:${selectedWorkspace.id}`} workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name} storageScope={rootIdentity?.storeId ?? "local"} agentBusy={!!agentChat.state.runningChatId}
-      onOpenProviders={() => openSettings("providers")}
+    workContent = <AppCanvas onOpenUnit={(reference, unitId, label, revisionId) => openView(unitViewRequest(reference, unitId, label, revisionId))} embedded={viewFrameActive} expanded={viewExpanded} onToggleExpanded={toggleViewExpanded} key={`${rootIdentity?.storeId}:${selectedWorkspace.id}`} workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name} storageScope={rootIdentity?.storeId ?? "local"} agentBusy={!!agentChat.state.runningChatId}
+      onOpenProviders={() => openSettings("providers")} onOpenAgents={() => openSettings("agents")}
       onRequestAgent={(request) => { revealCanvasChat(); setCanvasRequest({ ...request, id: crypto.randomUUID(), chatId: viewChatId }); }} />;
   }
 
@@ -264,7 +263,7 @@ export function App() {
   const { canGoBack, canGoForward } = historyEdges(marketplace, state);
   const scrollKey = canvasView ? `canvas:${selectedWorkspace!.id}` : routeScrollKey(marketplace, state, workspacePage);
   return (
-    <MotionConfig reducedMotion="user">
+    <MotionConfig reducedMotion={reducedMotion}>
       <LayoutGroup id="asset-workbench">
         <motion.div
           className="workbench instrument-shell-frame"
@@ -345,11 +344,11 @@ export function App() {
             viewWidth={viewWidth}
             onViewWidthChange={(width) => updateChatPanel((panel) => ({ ...panel, width }))}
             viewPanelFrame={viewFrameActive
-              ? (page) => <ViewPanel
+              ? (page, compact) => <ViewPanel
                 set={tabSet}
                 width={viewWidth}
-                expanded={viewExpanded}
-                onToggleExpanded={toggleViewExpanded}
+                expanded={viewExpanded || compact} compact={compact}
+                onToggleExpanded={compact ? toggleViewPanel : toggleViewExpanded}
                 chords={viewChords}
                 onSelect={selectView}
                 onClose={closeView}
@@ -385,6 +384,7 @@ export function App() {
           {/* No exit animation: the overlay lives in a portal, so AnimatePresence never sees
               the nested motion element finish and leaves an invisible surface over the app. */}
           {settingsVisible && <AppSettings
+            workspace={selectedWorkspace}
             rootPath={rootIdentity?.storeId ?? null}
             theme={theme}
             resolvedTheme={resolvedTheme}

@@ -2,16 +2,17 @@ import { PageHeader, PAGE_HEADER_BUTTON } from "@/shared/ui/PageHeader";
 import { FileText, Film, Images, Layers3, LayoutGrid, List, Search } from "@/shared/ui/icons";
 import { useEffect, useState } from "react";
 
-import type { OverviewPublicationDto, ProjectOverviewDto, UnitDto } from "../../../../electron/ralphy/types";
+import type { OverviewPublicationDto, UnitDto } from "../../../../electron/ralphy/types";
 import { entityDragProps } from "@/features/agent-chat";
 import { unitPreviewKind } from "@/entities/unit";
 import { projectGlyphVars } from "@/shared/lib/project-glyph";
-import { bridge, type ProjectSummary } from "@/shared/api/ipc";
+import { bridge, type ProjectReference, type ProjectSummary } from "@/shared/api/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
 import { WORKSPACE_PAGE_LABELS } from "@/shared/model/workbench";
-import { STATE_BOX, STATE_COLUMN, STATE_INK, STATE_PAD } from "@/shared/ui/route-chrome";
+import { COMMAND_BUTTON, STATE_BOX, STATE_COLUMN, STATE_INK, STATE_PAD } from "@/shared/ui/route-chrome";
 import { SelectMenu } from "@/shared/ui/SelectMenu";
 import { Window, WindowBody, WindowTitlebar } from "@/shared/ui/Window";
+import { loadWorkspaceUnits } from "../api/load-workspace-units";
 
 export const workspaceUnitsInstrumentStates = defineInstrumentScreenStates({
   routeKey: "workspace.units",
@@ -20,13 +21,9 @@ export const workspaceUnitsInstrumentStates = defineInstrumentScreenStates({
   landmarks: ["Units", "All units"],
 } as const);
 
-/* A Unit and the project it belongs to. The workspace has no Unit query of its own -- in Core a
-   workspace-scoped `unit.list` means "Units owned by the workspace itself", which is
-   `project_id IS NULL` and not what the sidebar counts -- so the page is the fan-out over the
-   workspace's projects, which is what the count has always been. */
 interface WorkspaceUnit {
   unit: UnitDto;
-  project: ProjectSummary;
+  project: ProjectSummary | null;
   published: Publication;
 }
 
@@ -47,7 +44,7 @@ export function publicationOf(unit: UnitDto, publications: readonly OverviewPubl
 type Load =
   | { state: "loading" }
   | { state: "error"; message: string }
-  | { state: "ready"; units: WorkspaceUnit[]; missing: number };
+  | { state: "ready"; units: UnitDto[]; publications: OverviewPublicationDto[]; warning: string | null };
 
 /* The app has no green: a publication state is told the way the calendar tells it, in ink for what
    has happened and a quiet plate for what is only planned. `bg-ok`/`bg-warn` named colours that do
@@ -66,63 +63,46 @@ export function matchesWorkspaceUnit(unit: Pick<UnitDto, "slug" | "format">, pro
     && `${unit.slug} ${projectName} ${unit.format}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
 }
 
-async function readProject(project: ProjectSummary): Promise<{ units: UnitDto[]; publications: OverviewPublicationDto[] } | null> {
-  /* Two calls per project, and the overview is the one that knows a Unit's publication state --
-     the same pair the project's own Units panel makes. A project that answers neither is reported
-     as missing rather than as having no Units. */
-  const [page, overview] = await Promise.all([
-    bridge.loadProjectPage({ tab: "units", project: { workspaceId: project.workspaceId, projectId: project.projectId } }),
-    bridge.loadProjectOverview({ workspaceId: project.workspaceId, projectId: project.projectId })
-      .catch((): ProjectOverviewDto | null => null),
-  ]);
-  return { units: page.items as UnitDto[], publications: overview?.publications?.items ?? [] };
-}
-
-export function WorkspaceUnitsScreen({ workspaceName, projects, rootEpoch, onOpenUnit }: {
+export function WorkspaceUnitsScreen({ workspaceId, workspaceName, projects, rootEpoch, activitySequence = 0, onOpenUnit }: {
+  workspaceId: string;
   workspaceName: string;
   projects: ProjectSummary[];
   rootEpoch: number;
-  onOpenUnit(project: ProjectSummary, unitId: string): void;
+  activitySequence?: number;
+  onOpenUnit(reference: ProjectReference, unitId: string, label: string): void;
 }) {
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [query, setQuery] = useState("");
   const [format, setFormat] = useState("");
   const [view, setView] = useState<"gallery" | "list">("gallery");
-  const key = `${rootEpoch}:${projects.map(({ projectId }) => projectId).join(",")}`;
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     let live = true;
     setLoad({ state: "loading" });
-    void (async () => {
-      const results = await Promise.all(projects.map(async (project) => {
-        const read = await readProject(project).catch(() => null);
-        return read && { project, ...read };
-      }));
+    void loadWorkspaceUnits(workspaceId, bridge.loadWorkspaceUnitPage, () => live).then((result) => {
       if (!live) return;
-      const answered = results.filter((entry): entry is NonNullable<typeof entry> => entry !== null);
-      if (projects.length > 0 && answered.length === 0) {
-        setLoad({ state: "error", message: "The library did not answer for any project in this workspace." });
+      if (result.warning && result.units.length === 0) {
+        setLoad({ state: "error", message: result.warning });
         return;
       }
-      const units = answered
-        .flatMap(({ project, units: rows, publications }) => rows.map((unit) => ({
-          unit,
-          project,
-          published: publicationOf(unit, publications),
-        })))
-        .sort((left, right) => right.unit.updatedAt - left.unit.updatedAt);
-      setLoad({ state: "ready", units, missing: projects.length - answered.length });
-    })();
+      setLoad({ state: "ready", ...result });
+    });
     return () => { live = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` is the identity of this fetch
-  }, [key]);
+  }, [workspaceId, rootEpoch, activitySequence, retry]);
 
   const state = load.state === "ready"
-    ? load.units.length === 0 ? "empty" : load.missing > 0 ? "partial" : "ready"
+    ? load.warning ? "partial" : load.units.length === 0 ? "empty" : "ready"
     : load.state;
-  const units = load.state === "ready" ? load.units : [];
+  const owners = new Map(projects.map((project) => [project.projectId, project]));
+  const units: WorkspaceUnit[] = load.state === "ready" ? load.units.map((unit) => ({
+    unit, project: unit.projectId ? owners.get(unit.projectId) ?? null : null,
+    published: publicationOf(unit, load.publications),
+  })).sort((a, b) => b.unit.updatedAt - a.unit.updatedAt) : [];
   const formats = [...new Set(units.map(({ unit }) => unit.format))].sort();
-  const visible = units.filter(({ unit, project }) => matchesWorkspaceUnit(unit, project.name, query, format));
+  const ownerName = ({ unit, project }: WorkspaceUnit) => project?.name ?? (unit.projectId ? "Project unavailable" : "Workspace-owned");
+  const visible = units.filter((row) => matchesWorkspaceUnit(row.unit, ownerName(row), query, format));
+  const retryButton = <button type="button" className={COMMAND_BUTTON} onClick={() => setRetry((value) => value + 1)}>Retry</button>;
 
   return (
     <InstrumentScreenRoot descriptor={workspaceUnitsInstrumentStates} state={state}>
@@ -137,13 +117,13 @@ export function WorkspaceUnitsScreen({ workspaceName, projects, rootEpoch, onOpe
         <div className="flex items-center justify-between gap-2 px-1 py-1"><SelectMenu overlayOwner="workspace.units" ariaLabel="Filter by format" value={format ? `format:${format}` : "all"} options={[{ value: "all", label: "All formats" }, ...formats.map((item) => ({ value: `format:${item}`, label: item }))]} onValueChange={(value) => setFormat(value === "all" ? "" : value.slice("format:".length))} />{load.state === "ready" && <span className={META} role="status">{visible.length}{query || format ? ` / ${units.length}` : ""} UNITS · {projects.length} PROJECTS · RECENTLY UPDATED</span>}</div>
 
         <section className="content-section m-0 grid min-h-48 w-full min-w-0 max-w-none content-start gap-3 rounded-panel bg-transparent p-0" aria-label="All units">
-          {load.state === "loading" && <div className={`${STATE_BOX} ${STATE_PAD} ${STATE_INK}`}>Reading the workspace's projects</div>}
-          {load.state === "error" && <div className={`${STATE_BOX} ${STATE_COLUMN} ${STATE_PAD} ${STATE_INK}`}>{load.message}</div>}
+          {load.state === "loading" && <div className={`${STATE_BOX} ${STATE_PAD} ${STATE_INK}`} role="status">Reading workspace Units…</div>}
+          {load.state === "error" && <div className={`${STATE_BOX} ${STATE_COLUMN} ${STATE_PAD} ${STATE_INK}`} role="alert">{load.message}{retryButton}</div>}
           {load.state === "ready" && load.units.length === 0 && <div className={`${STATE_BOX} ${STATE_PAD} ${STATE_INK}`}>
             <div className="grid justify-items-center gap-3 py-6 text-center"><Layers3 className="size-8 text-muted" aria-hidden="true" /><strong className="type-lg font-medium">Your next idea starts here</strong><span>{projects.length === 0 ? "Create a project to start your content library." : "Open a project and create its first Unit."}</span></div>
           </div>}
-          {load.state === "ready" && load.missing > 0 && <div className={`${STATE_BOX} ${STATE_PAD} ${STATE_INK}`}>
-            {load.missing} {load.missing === 1 ? "project" : "projects"} did not answer, so their Units are not listed.
+          {load.state === "ready" && load.warning && <div className={`${STATE_BOX} ${STATE_PAD} ${STATE_INK}`} role="alert">
+            Some Units or publication statuses could not be read. {load.warning} {retryButton}
           </div>}
           {load.state === "ready" && units.length > 0 && visible.length === 0 && <div className={`${STATE_BOX} ${STATE_PAD} ${STATE_INK}`}>No units match. Try another search or format.</div>}
           <div className={view === "gallery" ? "workspace-unit-gallery grid grid-cols-(--workspace-unit-gallery-columns) gap-2" : "grid gap-2"}>
@@ -152,13 +132,15 @@ export function WorkspaceUnitsScreen({ workspaceName, projects, rootEpoch, onOpe
                ratchet as a hardcoded arbitrary value. */
             const chip = published && CHIP[published];
             const Icon = FORMAT_ICON[unitPreviewKind(unit.format)];
-            if (view === "gallery") return <button key={unit.id} {...entityDragProps({ kind: "unit", ref: unit.slug, label: unit.slug })} type="button" className="workspace-unit-card group min-w-0 rounded-window bg-transparent p-0 text-left text-ink focus-visible:outline-2 focus-visible:outline-ink" onClick={() => onOpenUnit(project, unit.id)}>
+            const name = ownerName({ unit, project, published });
+            const reference = { workspaceId: unit.workspaceId, projectId: unit.projectId };
+            if (view === "gallery") return <button key={unit.id} {...entityDragProps({ kind: "unit", ref: unit.slug, label: unit.slug })} type="button" className="workspace-unit-card group min-w-0 rounded-window bg-transparent p-0 text-left text-ink focus-visible:outline-2 focus-visible:outline-ink" onClick={() => onOpenUnit(reference, unit.id, unit.slug)}>
               <Window className="h-full">
                 <WindowBody className="gap-2 p-3 group-hover:bg-row-hover">
-                  <div className="flex items-center gap-3"><span className="workspace-unit-art flex size-10 shrink-0 items-center justify-center rounded-field text-(--glyph-color) [background:color-mix(in_srgb,var(--glyph-color)_12%,var(--instrument-widget-light-sunken))]" style={projectGlyphVars(project.name)} aria-hidden="true"><Icon className="size-5" strokeWidth={1.4} /></span><span className="min-w-0 flex-1"><strong className="block truncate type-sm font-medium">{unit.slug}</strong><span className={`${META} uppercase`}>{unit.format}</span></span></div>
+                  <div className="flex items-center gap-3"><span className="workspace-unit-art flex size-10 shrink-0 items-center justify-center rounded-field text-(--glyph-color) [background:color-mix(in_srgb,var(--glyph-color)_12%,var(--instrument-widget-light-sunken))]" style={projectGlyphVars(name)} aria-hidden="true"><Icon className="size-5" strokeWidth={1.4} /></span><span className="min-w-0 flex-1"><strong className="block truncate type-sm font-medium">{unit.slug}</strong><span className={`${META} uppercase`}>{unit.format}</span></span></div>
                   {chip && <span className={`inline-flex self-start rounded-control px-2 py-0.5 type-xs ${chip.skin}`}>{chip.label}</span>}
                 </WindowBody>
-                <WindowTitlebar><span className="min-w-0 flex-1 truncate type-xs text-muted">{project.name}</span><time className={META} dateTime={new Date(unit.updatedAt).toISOString()}>{new Date(unit.updatedAt).toLocaleDateString([], { day: "2-digit", month: "short" })}</time></WindowTitlebar>
+                <WindowTitlebar><span className="min-w-0 flex-1 truncate type-xs text-muted">{name}</span><time className={META} dateTime={new Date(unit.updatedAt).toISOString()}>{new Date(unit.updatedAt).toLocaleDateString([], { day: "2-digit", month: "short" })}</time></WindowTitlebar>
               </Window>
             </button>;
             return <button
@@ -166,15 +148,15 @@ export function WorkspaceUnitsScreen({ workspaceName, projects, rootEpoch, onOpe
               className={ROW}
               type="button"
               key={unit.id}
-              onClick={() => onOpenUnit(project, unit.id)}
+              onClick={() => onOpenUnit(reference, unit.id, unit.slug)}
             >
-              <span className="flex-none text-muted" style={projectGlyphVars(project.name)} aria-hidden="true"><Icon className="size-4" strokeWidth={1.4} /></span>
+              <span className="flex-none text-muted" style={projectGlyphVars(name)} aria-hidden="true"><Icon className="size-4" strokeWidth={1.4} /></span>
               <span className="min-w-0 max-w-full truncate type-md font-medium text-ink">{unit.slug}</span>
               <span className={`${META} uppercase`}>{unit.format}</span>
               {chip
                 ? <span className={`inline-flex h-6 flex-none items-center rounded-full px-2.5 type-label ${chip.skin}`}>{chip.label}</span>
                 : <span aria-hidden="true" />}
-              <span className="min-w-0 truncate type-sm text-muted">{project.name}</span>
+              <span className="min-w-0 truncate type-sm text-muted">{name}</span>
               <time className={META} dateTime={new Date(unit.updatedAt).toISOString()}>
                 {new Date(unit.updatedAt).toLocaleDateString([], { day: "2-digit", month: "short" })}
               </time>

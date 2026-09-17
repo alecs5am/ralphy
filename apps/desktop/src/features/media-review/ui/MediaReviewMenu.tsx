@@ -7,6 +7,7 @@ import { MODAL_ACTION_GHOST, MODAL_ACTION_PRIMARY } from "@/shared/ui/Modal";
 import { WINDOW_BODY } from "@/shared/ui/Window";
 import { MEDIA_REVIEW_UNSUPPORTED_REASON, productionMediaReviewStatus, type MediaReviewVerdict } from "../lib/presentation";
 import { createMockReviewSession, reduceMockReviewSession, type MockReviewAction } from "../model/mock-review";
+import { useDurableReview } from "../model/use-durable-review";
 
 /**
  * Review, as a section of the media grid's own context menu.
@@ -16,9 +17,8 @@ import { createMockReviewSession, reduceMockReviewSession, type MockReviewAction
  * verdicts belong to the asset, so they hang off the asset: right-click gives the three of them
  * and the status the asset actually reports, and a double-click opens the modal.
  *
- * Availability stays honest in both directions. Core 0.3.0 exposes no review mutation, so the
- * three rows are disabled and say why; the UX Testing Lab's renderer-only session is the one
- * place they act, and it says in the row group that nothing is saved.
+ * Production verdicts use the durable review contract. The explicitly enabled
+ * UX Testing Lab keeps its isolated renderer-only feedback session.
  */
 
 const VERDICT_LABELS: Record<MediaReviewVerdict, string> = {
@@ -53,10 +53,11 @@ const FORM = `mock-needs-work gap-4.5 p-5 ${WINDOW_BODY}`;
 const FORM_EYEBROW = "font-code type-mono-sm tracking-mono text-muted uppercase";
 const FIELD = "min-h-27.5 resize-y rounded-field bg-surface-sunken p-3 type-sm text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
 
-export function useMediaReview({ workspaceName, project, rootEpoch }: {
+export function useMediaReview({ workspaceName, project, rootEpoch, onSaved }: {
   workspaceName: string | null;
   project: ProjectSummary;
   rootEpoch: number;
+  onSaved?: () => void;
 }): MediaReview {
   const mocked = import.meta.env.VITE_RALPHY_ENABLE_MOCKS === "true" && workspaceName === "UX Testing Lab";
   const context = useMemo(
@@ -69,6 +70,8 @@ export function useMediaReview({ workspaceName, project, rootEpoch }: {
   const dispatch = (action: MockReviewAction) => setSession((current) => reduceMockReviewSession(current, action));
 
   const reviewOf = (card: MediaCardDto) => mocked && card.ref.type === "artifact" ? session.reviews[card.ref.id] ?? null : null;
+  const durable = useDurableReview(project, rootEpoch, onSaved);
+  if (!mocked) return durable;
 
   return {
     note: mocked ? "TEST REVIEW SESSION · NOT SAVED" : MEDIA_REVIEW_UNSUPPORTED_REASON,

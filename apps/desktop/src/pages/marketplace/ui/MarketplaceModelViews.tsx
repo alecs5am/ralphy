@@ -189,16 +189,14 @@ export function MarketplaceModelDetail({ reference, onBack, onReviewDownload }: 
       <h2 className={DETAIL_TITLE} id="marketplace-model-title">{detail.name}</h2>
       <p className={DETAIL_LEAD}>{detail.author} · <code className="font-mono wrap-anywhere">{detail.id}</code></p>
       <div className={`marketplace-model-actions ${DETAIL_ACTIONS}`}>
-        <button
+        {onReviewDownload && <button
           className={HERO_ACTION_PRIMARY}
           type="button"
-          aria-disabled={onReviewDownload ? undefined : true}
-          aria-describedby={onReviewDownload ? undefined : "marketplace-model-review-unavailable"}
-          onClick={onReviewDownload ? () => onReviewDownload(detail) : undefined}
-        >Review download</button>
-        <button className={HERO_ACTION_SECONDARY} type="button" onClick={() => { void openProvider(); }}>Open on {provider}<ExternalLink className={HERO_ACTION_GLYPH} aria-hidden="true" /></button>
+          onClick={() => onReviewDownload(detail)}
+        >Review download</button>}
+        <button className={onReviewDownload ? HERO_ACTION_SECONDARY : HERO_ACTION_PRIMARY} type="button" onClick={() => { void openProvider(); }}>Open on {provider}<ExternalLink className={HERO_ACTION_GLYPH} aria-hidden="true" /></button>
       </div>
-      {!onReviewDownload && <p id="marketplace-model-review-unavailable" className={`marketplace-model-action-state ${HERO_STATE}`}>Download and installation are unavailable in the current Desktop contract.</p>}
+      {!onReviewDownload && <p id="marketplace-model-review-unavailable" className={`marketplace-model-action-state ${HERO_STATE}`}>Open the provider page for download and installation instructions.</p>}
       {providerError?.key === referenceKey && <p className={HERO_STATE} role="alert">{providerError.message}</p>}
       <MarketplaceCategorySignature category="models" />
     </header>

@@ -141,7 +141,8 @@ describe("instrument scenario contract", () => {
       fixtureId: "instrument-test-fixture:project.media:ready:media.ready:-:-",
     });
     expect(ids).toEqual(canonicalScenarioIds);
-    expect(ids).toHaveLength(417);
+    expect(ids).toHaveLength(423);
+    for (const routeKey of ["workspace.generation", "workspace.canvas"]) expect(INSTRUMENT_SCENARIOS.find(({ id }) => id === `overlay.shared-select-menu.generation.unit-save.${routeKey}`)).toMatchObject({ routeKey, overlay: "shared-select-menu", overlayOwner: "generation.unit-save" });
     expect(INSTRUMENT_SCENARIOS.find(({ id }) => id === "overlay.shared-select-menu.generation.parameters.workspace.generation")).toMatchObject({
       routeKey: "workspace.generation", overlay: "shared-select-menu", overlayOwner: "generation.parameters", landmarks: ["Create studio"],
     });
@@ -168,13 +169,16 @@ describe("instrument scenario contract", () => {
   test("expands the exact production-derived scenario/theme/viewport case set", () => {
     expect(expandInstrumentScenarioCases(INSTRUMENT_SCENARIOS).map(({ key: caseKey }) => caseKey))
       .toEqual(canonicalCaseKeys);
-    expect(canonicalCaseKeys).toHaveLength(2_498);
+    expect(canonicalCaseKeys).toHaveLength(2_534);
   });
 
   test("binds every stable scenario ID to one frozen semantic record", () => {
     // Canvas result preview and parameter menus are scoped alongside Create popovers,
     // each covered across all six theme/viewport pairs.
-    expect(semanticDigest(INSTRUMENT_SCENARIOS)).toBe("b3cd300fa1457b4f8e7c8263ca00b6105580b6d496caea3fdb151e3b8d83fc27");
+    // Saved now has loading, error, empty and ready states in addition to unavailable.
+    // Providers also exposes workspace publishing connections.
+    // Save to Unit destination menus belong to both Create and Canvas.
+    expect(semanticDigest(INSTRUMENT_SCENARIOS)).toBe("ad9f86ee11887ff24fa9e5aaa872ae8383ec1f33afe22326419945120d6813c1");
   });
 
   test("rejects set-preserving route, state, overlay, and owner swaps across stable IDs", () => {

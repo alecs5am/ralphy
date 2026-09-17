@@ -34,7 +34,7 @@ function page(items: ArtifactMediaCardDto[], nextCursor: string | null = null): 
 }
 
 describe("Shared Library presentation", () => {
-  test("maps only current Core media fields and marks every absent capability unavailable", () => {
+  test("uses the returned name and fields while retaining explicit missing metadata", () => {
     const card = presentSharedArtifact(artifact());
 
     expect(card).toMatchObject({
@@ -53,8 +53,8 @@ describe("Shared Library presentation", () => {
       referencedAs: ["opening hook"],
       preview: "available",
     });
-    expect(card.title).toEqual({ status: "unavailable", reason: expect.stringContaining("Core") });
-    expect(card.semanticRoles).toEqual({ status: "unavailable", reason: expect.stringContaining("Core") });
+    expect(card.title).toEqual({ status: "ready", value: "opening-audio" });
+    expect(card.semanticRoles).toEqual({ status: "unavailable", reason: expect.stringContaining("unavailable") });
     expect(card.tags.status).toBe("unavailable");
     expect(card.entities.status).toBe("unavailable");
     expect(card.canonicalStatus.status).toBe("unavailable");
@@ -115,8 +115,8 @@ describe("Shared Library presentation", () => {
     expect(bounded).toMatchObject({
       selectedArtifactId: "artifact-a",
       nextCursor: "next-page",
-      totalCount: { status: "partial", value: 1, reason: "Showing 1 loaded artifacts; more are available from Core." },
-      totalSelectedBytes: { status: "partial", value: 120, reason: "Showing 1 loaded artifacts; more are available from Core." },
+      totalCount: { status: "partial", value: 1, reason: "Showing 1 loaded artifacts; more are available in this library." },
+      totalSelectedBytes: { status: "partial", value: 120, reason: "Showing 1 loaded artifacts; more are available in this library." },
     });
     expect(presentSharedLibrary(page([]), null, DEFAULT_SHARED_LIBRARY_QUERY)).toMatchObject({
       totalCount: { status: "ready", value: 0 },

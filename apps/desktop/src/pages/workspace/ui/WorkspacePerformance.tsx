@@ -56,12 +56,6 @@ function health(account: AccountPresentation): string {
   return "Connected";
 }
 
-function availabilityReason(value: Availability<unknown>, fallback: string): string {
-  return value.status === "ready" ? fallback : value.reason;
-}
-
-
-
 function UnavailablePanel({ title, reason }: { title: string; reason: string }) {
   return <div className={PLATE} role="note">
     <strong className={PLATE_TITLE}>{title}</strong>
@@ -98,7 +92,6 @@ export function WorkspaceMomentum({ value }: { value: WorkspaceMomentumPresentat
     <WorkspaceEngagement totals={value.totals} />
     </div>
     {value.trend.status === "partial" && <UnavailablePanel title="Partial trend data" reason={value.trend.reason} />}
-    {(value.trend.status === "empty" || value.trend.status === "unavailable") && <details className="px-2 py-1 type-sm text-muted"><summary className="cursor-pointer">Trend unavailable · reporting history not connected</summary><p className="mt-2 type-xs">{value.trend.reason}</p></details>}
   </Window>;
 }
 
@@ -111,16 +104,19 @@ function publicationCount(value: Availability<number>): string {
 export function AccountPortfolio({
   value,
   onSelect,
+  onConnect,
 }: {
   value: Availability<AccountPresentation[]>;
   onSelect(account: AccountPresentation): void;
+  onConnect?(): void;
 }) {
   const accounts = value.status === "ready" || value.status === "partial" ? value.value : [];
   return <section className={`${SECTION} workspace-accounts`} aria-labelledby="workspace-accounts-title">
     <OverviewHeading id="workspace-accounts-title" title="Accounts" icon={Radio} meta={accounts.length ? `${accounts.length} channels` : undefined} />
     {value.status === "partial" && <UnavailablePanel title="Partial account data" reason={value.reason} />}
     {(value.status === "empty" || value.status === "unavailable") && <UnavailablePanel title="Accounts unavailable" reason={value.reason} />}
-    {value.status === "ready" && accounts.length === 0 && <UnavailablePanel title="No connected accounts" reason="No connected accounts were returned by Core." />}
+    {value.status === "ready" && accounts.length === 0 && <UnavailablePanel title="No connected accounts" reason="Connect a publishing account to schedule and share your content." />}
+    {onConnect && <button id="workspace-connect-account" type="button" className={DRAWER_ACTION} onClick={onConnect}><Radio className={DRAWER_GLYPH} aria-hidden="true" />Connect an account</button>}
     {accounts.length > 0 && <WorkspaceAccountHealth accounts={accounts} />}
     {accounts.length > 0 && <div className="account-portfolio-wrap @container/account-portfolio">
       {/* Four accounts across, then two, then one. The count is read against the portfolio's
@@ -143,14 +139,6 @@ export function AccountPortfolio({
         })}
       </div>
     </div>}
-    {accounts.some((account) => account.metrics.status === "unavailable") && <details className="px-2 py-1 type-xs text-muted"><summary className="cursor-pointer">About channel analytics</summary><p className="mt-2">Account metrics are not available from the current Core contract.</p></details>}
-  </section>;
-}
-
-function DetailUnavailable({ title, reason }: { title: string; reason: string }) {
-  return <section className={DRAWER_CELL}>
-    <h3 className={DRAWER_CELL_TITLE}>{title}</h3>
-    <UnavailablePanel title="Unavailable" reason={reason} />
   </section>;
 }
 
@@ -176,27 +164,27 @@ export function AccountDetailDialog({
           accountId: account.id,
           accountLabel: account.username ? handle(account.username) : account.displayName ?? "Handle unavailable",
         }, `workspace-account-${account.id}`)}><CalendarDays className={DRAWER_GLYPH} aria-hidden="true" />Open Calendar</button>
-        <small className={DRAWER_FOOTER_NOTE}>Opens the workspace Calendar; filtering by account is not available yet.</small>
+        <small className={DRAWER_FOOTER_NOTE}>Browse scheduled and published content.</small>
       </span>
       <span className={DRAWER_FOOTER_ROW}>
-        <button type="button" className={DRAWER_ACTION} disabled><Settings className={DRAWER_GLYPH} aria-hidden="true" />{account.relinkRequired ? "Relink account" : "Manage account"}</button>
-        <small className={DRAWER_FOOTER_NOTE}>Account management is not available from the current desktop contract.</small>
+        <button type="button" className={DRAWER_ACTION} onClick={() => onOpenCalendar({
+          label: account.displayName ?? handle(account.username), accountId: account.id,
+          accountLabel: account.username ? handle(account.username) : account.displayName ?? account.platform,
+          accountAction: "manage",
+        }, `workspace-account-${account.id}`)}><Settings className={DRAWER_GLYPH} aria-hidden="true" />{account.relinkRequired ? "Relink account" : "Manage account"}</button>
+        <small className={DRAWER_FOOTER_NOTE}>Manage this account’s publishing connection.</small>
       </span>
     </>}
     onOpenChange={onOpenChange}
   >
     {account && <>
-      <DetailUnavailable title="Performance" reason={availabilityReason(account.metrics, "No provider metrics were returned by Core.")} />
-      <DetailUnavailable title="Top Units" reason="Top Units are not available from the current Core contract." />
-      <DetailUnavailable title="Upcoming" reason="Upcoming content is not available by account from the current Core contract." />
-      <DetailUnavailable title="Recent publication failures" reason="Publication failures are not available by account from the current Core contract." />
       <section className={DRAWER_CELL}>
         <h3 className={DRAWER_CELL_TITLE}>Health</h3>
         <dl className="account-health-list m-0">
           {([
             ["Handle", handle(account.username)],
             ["Link status", health(account)],
-            ["Credentials", account.credentialConfigured ? "Configured" : "Not configured"],
+            ["Publishing access", account.credentialConfigured ? "Connected" : "Needs setup"],
             ["Publications", publicationCount(account.publicationCount)],
           ] as const).map(([label, fact]) => <div className="flex justify-between gap-4 py-2 type-xs" key={label}>
             <dt className="text-muted">{label}</dt><dd className="m-0 font-code text-right text-muted">{fact}</dd>
@@ -205,8 +193,7 @@ export function AccountDetailDialog({
       </section>
       <section className={DRAWER_CELL}>
         <h3 className={DRAWER_CELL_TITLE}>Data freshness</h3>
-        <p className={DRAWER_CELL_COPY}>Core account record updated <time dateTime={new Date(timestampMs(account.updatedAt)).toISOString()}>{new Date(timestampMs(account.updatedAt)).toLocaleString()}</time>.</p>
-        <p className={DRAWER_CELL_COPY}>Provider analytics freshness is unavailable from the current Core contract.</p>
+        <p className={DRAWER_CELL_COPY}>Account last updated <time dateTime={new Date(timestampMs(account.updatedAt)).toISOString()}>{new Date(timestampMs(account.updatedAt)).toLocaleString()}</time>.</p>
       </section>
     </>}
   </DetailDialog>;
@@ -219,10 +206,12 @@ export function WorkspacePerformance({
   value: Pick<WorkspaceOverviewPresentation, "momentum" | "accounts">;
   onOpenCalendar(context: WorkspaceCalendarNavigationContext, returnFocusId: string): void;
 }) {
-  const [selectedAccount, setSelectedAccount] = useState<AccountPresentation | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const accounts = value.accounts.status === "ready" || value.accounts.status === "partial" ? value.accounts.value : [];
+  const selectedAccount = accounts.find(({ id }) => id === selectedAccountId) ?? null;
   return <>
     <WorkspaceMomentum value={value.momentum} />
-    <AccountPortfolio value={value.accounts} onSelect={setSelectedAccount} />
-    <AccountDetailDialog account={selectedAccount} onOpenChange={(open) => { if (!open) setSelectedAccount(null); }} onOpenCalendar={onOpenCalendar} />
+    <AccountPortfolio value={value.accounts} onSelect={(account) => setSelectedAccountId(account.id)} onConnect={() => onOpenCalendar({ label: "Connect an account", accountAction: "connect" }, "workspace-connect-account")} />
+    <AccountDetailDialog account={selectedAccount} onOpenChange={(open) => { if (!open) setSelectedAccountId(null); }} onOpenCalendar={onOpenCalendar} />
   </>;
 }

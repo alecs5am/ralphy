@@ -19,6 +19,8 @@ export type CanvasNodeData = {
   onSelectResult?(id: string, resultId: string): void;
   onStop?(): void;
   onShowLog?(): void;
+  onOpenProviders?(): void;
+  onOpenAgents?(): void;
   inputs?: { port: string; source: string; preview: string; previewUrl?: string; kind?: CanvasRunResult["kind"] }[];
   mediaUrl?: string;
   posterUrl?: string;

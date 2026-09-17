@@ -1,4 +1,5 @@
-import type { CatalogResult, ProjectReference } from "../../../electron/media/types";
+import type { CatalogResult, ProjectReference as ScopeReference } from "../../../electron/media/types";
+type ProjectReference = ScopeReference & { projectId: string };
 import type { ThemePreference } from "../instrument/types";
 import type { WorkspacePage, WorkspaceView } from "./workspace-pages";
 import { mostRecentWorkspaceId } from "./workbench-sorting";
@@ -24,6 +25,7 @@ export interface WorkspaceCalendarNavigationContext {
   unitId?: string;
   accountId?: string;
   accountLabel?: string;
+  accountAction?: "manage" | "connect";
 }
 
 export type WorkspaceDestination = (
@@ -252,4 +254,3 @@ export function workbenchReducer(
       };
   }
 }
-

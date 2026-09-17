@@ -7,7 +7,7 @@
 import type { RalphyBridge } from "./ipc";
 import { mockProjects } from "./mock-fixtures";
 
-export function mockProjectSurfaces(): Pick<RalphyBridge, "loadProjectOverview" | "loadProjectPage" | "loadProjectActivityRun" | "loadProjectMediaCard" | "loadProjectGeneration" | "loadProjectMediaRevisions" | "selectProjectMediaRevision" | "performProjectMediaAction" | "loadDocumentPreview" | "searchProjectDocuments" | "showProjectDocument" | "reviseProjectDocument" | "resolveProjectPreview" | "loadProjectComposition" | "loadProjectCompositionRevision" | "loadProjectCompositionBuild" | "loadProjectCompositionPage" | "reviseProjectComposition" | "selectProjectCompositionRevision" | "buildProjectComposition" | "resolveCompositionOutputPreview" | "loadProjectUnit" | "loadProjectUnitRevision" | "loadProjectUnitPage" | "loadProjectUnitPreview" | "selectProjectUnitRevision"> {
+export function mockProjectSurfaces(): Pick<RalphyBridge, "loadProjectOverview" | "loadProjectPage" | "loadProjectActivityRun" | "loadProjectMediaCard" | "loadProjectGeneration" | "loadProjectMediaRevisions" | "selectProjectMediaRevision" | "reviewProjectMedia" | "performProjectMediaAction" | "loadDocumentPreview" | "searchProjectDocuments" | "showProjectDocument" | "createProjectDocument" | "reviseProjectDocument" | "resolveProjectPreview" | "loadProjectComposition" | "loadProjectCompositionRevision" | "loadProjectCompositionBuild" | "loadProjectCompositionPage" | "reviseProjectComposition" | "selectProjectCompositionRevision" | "buildProjectComposition" | "resolveCompositionOutputPreview" | "loadProjectUnit" | "loadProjectUnitRevision" | "loadProjectUnitPage" | "loadProjectUnitPreview" | "selectProjectUnitRevision"> {
   return {
     /* The project route is the one place the mock bridge has to answer rather than refuse: the view
        panel opens a project tab whenever the route lands on one, so a refusal here is not a missing
@@ -48,6 +48,9 @@ export function mockProjectSurfaces(): Pick<RalphyBridge, "loadProjectOverview" 
     async selectProjectMediaRevision() {
       throw new Error("Project domain reader is unavailable in mock mode");
     },
+    async reviewProjectMedia() {
+      throw new Error("Saved reviews are unavailable in mock mode");
+    },
     async performProjectMediaAction() {
       throw new Error("Project media actions are unavailable in mock mode");
     },
@@ -59,6 +62,9 @@ export function mockProjectSurfaces(): Pick<RalphyBridge, "loadProjectOverview" 
     },
     async showProjectDocument() {
       throw new Error("Project domain reader is unavailable in mock mode");
+    },
+    async createProjectDocument() {
+      throw new Error("Document creation is unavailable in mock mode");
     },
     async reviseProjectDocument() {
       throw new Error("Project domain reader is unavailable in mock mode");

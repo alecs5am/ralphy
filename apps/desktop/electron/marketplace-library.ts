@@ -398,7 +398,9 @@ export async function loadMarketplacePublicLibrary(
     if (
       response.status !== 200
       || response.redirected
-      || response.url !== PUBLIC_LIBRARY_URL
+      // Electron net.fetch leaves response.url empty. The request URL is fixed
+      // above and redirect:error still prevents following another destination.
+      || (response.url !== "" && response.url !== PUBLIC_LIBRARY_URL)
     ) throw new Error("Invalid Marketplace catalog response");
     const contentType = boundedHeader(response.headers, "content-type");
     if (!contentType || !/^application\/json(?:\s*;|$)/i.test(contentType)) {

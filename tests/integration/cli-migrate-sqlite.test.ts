@@ -350,8 +350,8 @@ describe("resumable SQLite migration controller", () => {
       verificationId: verified.id,
       verificationDir: fixture.verificationDir,
     });
-    if (publicationCrash.exitCode !== 86) {
-      throw new Error(`prepared cutover crash exited ${publicationCrash.exitCode}:\n${publicationCrash.stderr}`);
+    if (publicationCrash.signalCode !== "SIGKILL") {
+      throw new Error(`prepared cutover crash signal ${publicationCrash.signalCode}:\n${publicationCrash.stderr}`);
     }
     const journal = readCutoverJournal(migrationCutoverPaths(fixture.source, started.runId).journalPath);
     expect(journal.state).toBe("prepared");
@@ -561,8 +561,9 @@ describe("resumable SQLite migration controller", () => {
 
     for (const phase of phases) {
       const fixture = migrationFixture(`phase-crash-${phase}`);
+      quietProcessTools(fixture.source);
       const crashed = runHardCrashMigration(fixture, phase);
-      if (crashed.exitCode !== 86) throw new Error(`phase=${phase}\n${crashed.stderr}`);
+      if (crashed.signalCode !== "SIGKILL") throw new Error(`phase=${phase}\n${crashed.stderr}`);
       const started = JSON.parse(fs.readFileSync(crashed.resultPath, "utf8")) as {
         runId: string;
         storeRoot: string;
@@ -652,8 +653,9 @@ describe("resumable SQLite migration controller", () => {
     for (const suffix of ["-wal", "-shm"] as const) {
       for (const kind of ["symlink", "hardlink"] as const) {
         const fixture = migrationFixture(`sidecar-${suffix.slice(1)}-${kind}`);
+        quietProcessTools(fixture.source);
         const crashed = runHardCrashMigration(fixture, "inventory");
-        expect(crashed.exitCode).toBe(86);
+        expect(crashed.signalCode).toBe("SIGKILL");
         const started = JSON.parse(fs.readFileSync(crashed.resultPath, "utf8")) as {
           runId: string;
           storeRoot: string;
@@ -896,7 +898,7 @@ function runCli(cwd: string, args: string[]): { exitCode: number; stdout: string
 function runHardCrashMigration(
   fixture: ReturnType<typeof migrationFixture>,
   phase: string,
-): { exitCode: number; stdout: string; stderr: string; resultPath: string } {
+): { signalCode: string | null; stdout: string; stderr: string; resultPath: string } {
   const serviceUrl = new URL("../../cli/lib/migration/service.ts", import.meta.url).href;
   const resultPath = path.join(fixture.parent, `hard-crash-${phase}.json`);
   const program = `
@@ -909,7 +911,8 @@ function runHardCrashMigration(
         sourceRoots: ${JSON.stringify(fixture.sourceRoots)},
         lock: started.lock,
         afterStepForTesting: (completed) => {
-          if (completed === ${JSON.stringify(phase)}) process.exit(86);
+          // process.exit now checkpoints SQLite in Bun; a crash must bypass cleanup.
+          if (completed === ${JSON.stringify(phase)}) process.kill(process.pid, "SIGKILL");
         },
       });
     process.stderr.write("hard-crash seam was not reached\\n");
@@ -922,7 +925,7 @@ function runHardCrashMigration(
     env: process.env,
   });
   return {
-    exitCode: result.exitCode,
+    signalCode: result.signalCode ?? null,
     stdout: result.stdout.toString("utf8"),
     stderr: result.stderr.toString("utf8"),
     resultPath,
@@ -934,7 +937,7 @@ function createHardCrashPreparedCutover(input: {
   runId: string;
   verificationId: string;
   verificationDir: string;
-}): { exitCode: number; stderr: string } {
+}): { signalCode: string | null; stderr: string } {
   const serviceUrl = new URL("../../cli/lib/migration/service.ts", import.meta.url).href;
   const program = `
     import { cutoverMigration } from ${JSON.stringify(serviceUrl)};
@@ -943,7 +946,7 @@ function createHardCrashPreparedCutover(input: {
       runId: ${JSON.stringify(input.runId)},
       verificationId: ${JSON.stringify(input.verificationId)},
       verificationDir: ${JSON.stringify(input.verificationDir)},
-      afterJournalPublishedForTesting: () => process.exit(86),
+      afterJournalPublishedForTesting: () => process.kill(process.pid, "SIGKILL"),
     });
   `;
   const result = Bun.spawnSync(bunWithProcessTools(["-e", program]), {
@@ -952,7 +955,7 @@ function createHardCrashPreparedCutover(input: {
     stderr: "pipe",
     env: process.env,
   });
-  return { exitCode: result.exitCode, stderr: result.stderr.toString("utf8") };
+  return { signalCode: result.signalCode ?? null, stderr: result.stderr.toString("utf8") };
 }
 
 function quietProcessTools(source: string): void {

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { openComposition, type Composition, type EditOp } from "@hyperframes/sdk";
+import { type Composition, type EditOp } from "@hyperframes/sdk";
 import { bridge } from "@/shared/api/ipc";
-import { videoHtml, type VideoWorkspaceRef, type VideoWorkspaceLoad, type VideoWorkspaceAsset } from "../../../../shared/video-workspace";
+import { videoHtml, VIDEO_HISTORY_LIMIT, type VideoWorkspaceVersion, type VideoWorkspaceRef, type VideoWorkspaceLoad, type VideoWorkspaceAsset } from "../../../../shared/video-workspace";
+import { frameRate, openVideoComposition, setFrameRate } from "../lib/frame-rate";
 import { addClip, compositionInfo, duplicateClip, splitClip, timelineElements } from "../lib/composition";
 import { videoAssetMetadata } from "../lib/media";
 
@@ -10,6 +11,7 @@ export function useVideoWorkspace(ref: VideoWorkspaceRef) {
   const [loaded, setLoaded] = useState<VideoWorkspaceLoad | null>(null);
   const [tick, setTick] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [renderError, setRenderError] = useState(false);
   const [saving, setSaving] = useState(false), [rendering, setRendering] = useState(false);
   const [fps, setFps] = useState(30), [assets, setAssets] = useState<VideoWorkspaceAsset[]>([]);
   const [savedHtml, setSavedHtml] = useState("");
@@ -29,21 +31,21 @@ export function useVideoWorkspace(ref: VideoWorkspaceRef) {
   useEffect(() => {
     active.current = true;
     let current = true, session: Composition | null = null;
-    setError(null); setComp(null); setLoaded(null);
+    setError(null); setRenderError(false); setComp(null); setLoaded(null);
     void bridge.loadVideoWorkspace(ref).then(async (value) => {
       if (!current) return;
       backupKey.current = `ralphy.video-draft:${value.draftPath ?? JSON.stringify(ref)}`;
       let recovered: { html: string; fps: number; revision: string } | null = null;
       try { const raw = localStorage.getItem(backupKey.current); if (raw) { const next = JSON.parse(raw); videoHtml(next.html); if ([24, 25, 30, 60].includes(next.fps)) recovered = next; } } catch { setError("The local recovery copy could not be read. The saved video is unchanged."); }
-      session = await openComposition(value.draft.html, { coalesceMs: 350 });
+      session = await openVideoComposition(value.draft.html, value.draft.fps);
       if (!current) { session.dispose(); return; }
       // Persist SDK identifiers too: agent selection references must exist in the saved source.
       const html = value.draft.html;
       if (recovered && (recovered.html !== html || recovered.fps !== value.draft.fps)) {
-        session.dispose(); session = await openComposition(recovered.html, { coalesceMs: 350 });
+        session.dispose(); session = await openVideoComposition(recovered.html, recovered.fps);
         if (!current) { session.dispose(); return; }
         if (recovered.revision !== value.revision) {
-          value.versions = [{ id: value.revision ?? "saved-source", html: value.draft.html, savedAt: value.draft.updatedAt }, ...value.versions].slice(0, 8);
+          value.versions = [{ id: value.revision ?? "saved-source", html: value.draft.html, fps: value.draft.fps, savedAt: value.draft.updatedAt }, ...value.versions].slice(0, VIDEO_HISTORY_LIMIT);
           setError("Recovered your local edits. The saved video also changed; review both in Versions before saving, or reload to use the saved video.");
         }
       }
@@ -52,15 +54,15 @@ export function useVideoWorkspace(ref: VideoWorkspaceRef) {
         const asset = value.draft.assets.find((asset) => asset.src === original.attributes.src);
         const metadata = asset && await videoAssetMetadata(asset);
         if (!current) { session.dispose(); return; }
-        if (!metadata) throw new Error("The original video’s duration could not be read. Check that its media file is available and supported.");
-        const root = compositionInfo(session).root!;
-        session.batch(() => {
+        if (!metadata) setError("The original video is unavailable or unsupported. Replace its source to restore the preview.");
+        else session.batch(() => {
+          const root = compositionInfo(session!).root!;
           session!.dispatch({ type: "setCompositionMetadata", duration: metadata.duration, width: metadata.width || 1080, height: metadata.height || 1920 });
           session!.setStyle(root.scopedId, { width: `${metadata.width || 1080}px`, height: `${metadata.height || 1920}px` });
           session!.setTiming(original.scopedId, { duration: metadata.duration }); session!.setAttribute(original.scopedId, "data-editor-probe", null);
         });
       }
-      session.on("change", () => { backup(); setTick((value) => value + 1); });
+      session.on("change", () => { currentFps.current = frameRate(session!, value.draft.fps); setFps(currentFps.current); backup(); setTick((value) => value + 1); });
       session.on("selectionchange", () => setTick((value) => value + 1));
       currentComp.current = session;
       revision.current = value.revision;
@@ -70,7 +72,7 @@ export function useVideoWorkspace(ref: VideoWorkspaceRef) {
     return () => { current = false; active.current = false; currentComp.current?.dispose(); session?.dispose(); };
   }, [ref.workspaceId, ref.projectId, ref.unitId, loadAttempt]);
 
-  const fail = useCallback((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)), []);
+  const fail = useCallback((cause: unknown) => { setRenderError(false); setError(cause instanceof Error ? cause.message : String(cause)); }, []);
   const html = comp?.serialize() ?? "";
   const missingMedia = comp?.getElements().filter((item) => ["img", "video", "audio"].includes(item.tag) && item.attributes.src && !item.attributes.src.startsWith("data:") && !assets.some((asset) => !asset.missing && asset.src.replace(/^\.\//, "") === item.attributes.src.replace(/^\.\//, ""))) ?? [];
   const dirty = !!comp && (html !== savedHtml || fps !== loaded?.draft.fps);
@@ -124,31 +126,33 @@ export function useVideoWorkspace(ref: VideoWorkspaceRef) {
   const render = async () => {
     if (renderFlight.current || !comp) return;
     renderFlight.current = true;
-    setRendering(true);
+    setRendering(true); setError(null); setRenderError(false);
     try {
       const expected = await save();
       if (!expected) return;
       const result = await bridge.renderVideoWorkspace(ref, expected);
       const latest = await bridge.loadVideoWorkspace(ref);
-      if (active.current) { revision.current = latest.revision; setLoaded({ ...latest, render: result }); }
+      if (active.current) { revision.current = latest.revision; setLoaded({ ...latest, render: result }); setError(result.error ?? null); setRenderError(Boolean(result.error)); }
     } catch (cause) {
-      fail(cause);
+      fail(cause); setRenderError(true);
       // A failed render may already have sealed its source. Refresh metadata, keeping local edits.
       try { const latest = await bridge.loadVideoWorkspace(ref); if (active.current) { revision.current = latest.revision; setLoaded(latest); } } catch { /* Keep the actionable render error. */ }
     } finally { renderFlight.current = false; if (active.current) setRendering(false); }
   };
-  const restore = async (html: string) => {
+  const restore = async (version: VideoWorkspaceVersion) => {
     if (!await save()) return;
     try {
-      const next = await openComposition(html, { coalesceMs: 350 });
+      const next = await openVideoComposition(version.html, version.fps ?? currentFps.current);
       if (!active.current) { next.dispose(); return; }
-      next.on("change", () => { backup(); setTick((value) => value + 1); });
+      next.on("change", () => { currentFps.current = frameRate(next, currentFps.current); setFps(currentFps.current); backup(); setTick((value) => value + 1); });
       next.on("selectionchange", () => setTick((value) => value + 1));
-      currentComp.current?.dispose(); currentComp.current = next; backup(); setComp(next); setError(null);
+      currentComp.current?.dispose(); currentComp.current = next;
+      currentFps.current = frameRate(next, currentFps.current); setFps(currentFps.current);
+      backup(); setComp(next); setError(null);
     } catch (cause) { fail(cause); }
   };
   return {
-    comp, loaded, assets, missingMedia, fps, setFps, tick, html, dirty, error, saving, rendering, save, render, restore, fail, attempt, edit, select, importAsset, insert,
+    comp, loaded, assets, missingMedia, fps, setFps: (value: number) => attempt(() => { if (comp) setFrameRate(comp, value); }), tick, html, dirty, error, renderError, saving, rendering, save, render, restore, fail, attempt, edit, select, importAsset, insert,
     retry: () => { try { if (backupKey.current) localStorage.removeItem(backupKey.current); } catch { /* The saved source can still be opened. */ } setLoadAttempt((value) => value + 1); },
     selection: comp?.getSelection() ?? [], elements: comp ? timelineElements(comp) : [], info: comp ? compositionInfo(comp) : null,
     duplicate: () => attempt(() => { if (comp) comp.batch(() => { const ids = comp.getSelection().map((id) => duplicateClip(comp, id)).filter((id): id is string => !!id); comp.setSelection(ids); }); }),

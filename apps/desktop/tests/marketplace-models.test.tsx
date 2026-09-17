@@ -239,7 +239,7 @@ describe("Marketplace model routes", () => {
       expect(text).toContain("Comfortable here");
       expect(text).toContain("Ollama 0.6.2 detected");
       expect(text).toContain("Executable checkpoint format");
-      expect(text).toContain("Download and installation are unavailable in the current Desktop contract");
+      expect(text).toContain("Open the provider page for download and installation instructions");
       expect(text).not.toMatch(/downloads|likes|trending|1,?280,?000|4,?200/i);
 
       const preview = host.container.querySelector(".marketplace-model-preview img")!;
@@ -419,7 +419,7 @@ describe("Marketplace model routes", () => {
     }
   });
 
-  test("opens the Task 8 download review while keeping the final action focusable and inert", async () => {
+  test("offers the real provider action without opening an unavailable download review", async () => {
     vi.spyOn(bridge, "loadLocalModelDetail").mockResolvedValue(modelA);
     const openProvider = vi.spyOn(bridge, "openLocalModelProvider").mockResolvedValue();
     const onBack = vi.fn();
@@ -435,20 +435,11 @@ describe("Marketplace model routes", () => {
     };
     try {
       await act(async () => { root.render(<MarketplaceScreenView catalog={null} location={detailLocation} sidebarVisible snapshot={snapshot()} onBack={onBack} onNavigate={navigate} onRememberLocation={() => undefined} onRetry={() => undefined} />); await settle(); });
-      const review = button(host.container, "Review download");
-      expect(review.disabled).toBe(false);
-      expect(review.getAttribute("aria-disabled")).toBeNull();
-      review.focus();
-      expect(document.activeElement).toBe(review);
-      await act(async () => { review.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
-      const dialog = (document.body as unknown as HostNode).querySelector("[role=dialog]")!;
-      expect(dialog.textContent).toContain("Compatibility preflight");
-      expect(dialog.textContent).toContain("Computer and runtime targets cannot be enumerated");
-      const final = button(dialog, "Download unavailable");
-      expect(final.disabled).toBe(false);
-      expect(final.getAttribute("aria-disabled")).toBe("true");
-      await act(async () => { final.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
-      expect(openProvider).not.toHaveBeenCalled();
+      expect(host.container.textContent).not.toContain("Review download");
+      const provider = button(host.container, "Open on Hugging Face");
+      await act(async () => { provider.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(openProvider).toHaveBeenCalledWith(modelA.providerUrl);
+      expect((document.body as unknown as HostNode).querySelector("[role=dialog]")).toBeNull();
       expect(onBack).not.toHaveBeenCalled();
       expect(navigate).not.toHaveBeenCalled();
     } finally {

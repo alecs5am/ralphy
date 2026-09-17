@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough, Writable } from "node:stream";
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import {
   RalphyBridgeClient,
@@ -802,16 +802,15 @@ describe("RalphyBridgeClient", () => {
   test("bounds close when the bridge ignores stdin EOF and SIGTERM", async () => {
     const client = new RalphyBridgeClient({ bin: fixtureBin, root: "/stubborn-close" });
     await client.start();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const closing = client.close();
 
     try {
-      const outcome = await Promise.race([
-        closing.then(() => "closed"),
-        new Promise((resolve) => setTimeout(() => resolve("timeout"), 2500)),
-      ]);
-      expect(outcome).toBe("closed");
+      await vi.advanceTimersByTimeAsync(2_000);
+      await expect(closing).resolves.toBeUndefined();
     } finally {
-      await closing;
+      await vi.runOnlyPendingTimersAsync();
+      vi.useRealTimers();
     }
   });
 

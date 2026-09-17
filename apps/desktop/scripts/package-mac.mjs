@@ -26,6 +26,14 @@ const contents = join(output, "Contents");
 const resources = join(contents, "Resources");
 const application = join(resources, "app");
 const repository = resolve(root, "../..");
+const metadata = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+const version = metadata.version;
+if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(version)) throw new Error("Desktop package version must be semantic");
+const buildVersion = process.env.RALPHY_BUILD_NUMBER || version.split("-")[0];
+if (!/^\d+(?:\.\d+){0,2}$/.test(buildVersion)) throw new Error("RALPHY_BUILD_NUMBER must contain one to three numeric components");
+const signingIdentity = process.env.RALPHY_SIGNING_IDENTITY || "-";
+const notaryProfile = process.env.RALPHY_NOTARY_PROFILE;
+if (notaryProfile && signingIdentity === "-") throw new Error("Notarization requires a Developer ID signing identity");
 if (!process.env.RALPHY_CORE_BIN) {
   execFileSync("bun", ["scripts/build-binaries.ts", "--current", "--smoke"], { cwd: repository, stdio: "inherit" });
 }
@@ -52,7 +60,7 @@ await writeFile(
   join(application, "package.json"),
   JSON.stringify({
     name: "ralphy-media",
-    version: "0.1.0",
+    version,
     private: true,
     main: "dist-electron/main.cjs",
   }, null, 2),
@@ -98,10 +106,23 @@ replace("CFBundleDisplayName", "string", "Ralphy Media");
 replace("CFBundleName", "string", "Ralphy Media");
 replace("CFBundleExecutable", "string", "Ralphy Media");
 replace("CFBundleIdentifier", "string", "dev.ralphy.media");
-replace("CFBundleShortVersionString", "string", "0.1.0");
-replace("CFBundleVersion", "string", "1");
+replace("CFBundleShortVersionString", "string", version.split("-")[0]);
+replace("CFBundleVersion", "string", buildVersion);
 replace("CFBundleIconFile", "string", "RalphyMedia.icns");
-execFileSync("codesign", ["--force", "--deep", "--sign", "-", output], {
+execFileSync("codesign", ["--force", "--deep", "--sign", signingIdentity,
+  ...(signingIdentity === "-" ? [] : ["--options", "runtime", "--timestamp", "--entitlements", join(root, "scripts/entitlements.mac.plist")]), output], {
   stdio: "inherit",
 });
+execFileSync("codesign", ["--verify", "--deep", "--strict", output], { stdio: "inherit" });
+if (notaryProfile) {
+  const archive = `${output}.notarization.zip`;
+  try {
+    execFileSync("ditto", ["-c", "-k", "--keepParent", output, archive]);
+    execFileSync("xcrun", ["notarytool", "submit", archive, "--keychain-profile", notaryProfile, "--wait"], { stdio: "inherit" });
+    execFileSync("xcrun", ["stapler", "staple", output], { stdio: "inherit" });
+    execFileSync("spctl", ["--assess", "--type", "execute", "--verbose", output], { stdio: "inherit" });
+  } finally { await rm(archive, { force: true }); }
+} else {
+  console.warn("Development build: not notarized. Use Developer ID signing and notarization before public distribution.");
+}
 console.log(output);

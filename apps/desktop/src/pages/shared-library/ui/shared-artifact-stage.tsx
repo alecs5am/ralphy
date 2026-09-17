@@ -53,7 +53,7 @@ export const errorMessage = (error: unknown) => error instanceof Error ? error.m
 export const isConflict = (error: unknown) => error !== null && typeof error === "object" && (error as { code?: unknown }).code === "E_CONFLICT";
 export const titleText = (artifact: SharedArtifactPresentation) => artifact.title.status === "ready" || artifact.title.status === "partial"
   ? artifact.title.value
-  : "Title unavailable — Core does not return artifact titles";
+  : artifact.slug;
 export const formatBytes = (bytes: number | null) => bytes === null
   ? "Size unavailable"
   : bytes < 1024
@@ -137,19 +137,19 @@ export function ViewerStage({ artifact, preview, kind, onPreviewError }: {
   onPreviewError(): void;
 }) {
   if (artifact.preview === "no-target") return <div className={`shared-viewer-preview-state ${STATE}`}>
-    <ImageOff aria-hidden="true" /><strong className={STATE_TITLE}>Preview unavailable</strong><span className={STATE_LINE}>No preview target · Core returned no selected preview target.</span>
+    <ImageOff aria-hidden="true" /><strong className={STATE_TITLE}>Preview unavailable</strong><span className={STATE_LINE}>No file is selected for preview.</span>
   </div>;
   if (kind === "unsupported") return <div className={STATE}>
     <FileText aria-hidden="true" />
     <strong className={STATE_TITLE}>In-place preview unavailable</strong>
-    <span className={STATE_LINE}>{artifact.mime ?? "MIME unavailable"} · {formatBytes(artifact.bytes)}</span>
-    <p className="mt-0.75 mb-0 type-label leading-normal text-muted">The current Desktop contract exposes no bounded safe read for this content. Use Open original.</p>
+    <span className={STATE_LINE}>{artifact.mime ?? "Unknown file type"} · {formatBytes(artifact.bytes)}</span>
+    <p className="mt-0.75 mb-0 type-label leading-normal text-muted">Use Open original to view this file in its default app.</p>
   </div>;
   if (preview.status === "loading") return <div className={`shared-viewer-preview-state ${STATE}`} role="status">Loading preview…</div>;
   if (preview.status === "unavailable") return <div className={`shared-viewer-preview-state ${STATE}`} title={preview.reason}>
     <ImageOff aria-hidden="true" /><strong className={STATE_TITLE}>Preview unavailable</strong><span className={STATE_LINE}>{preview.reason}</span>
   </div>;
-  const name = `Slug identity: ${artifact.slug}`;
+  const name = `Asset: ${artifact.slug}`;
   if (kind === "image" || kind === "vector") return <div className={`absolute inset-0 grid place-items-center [&>.image-viewport]:size-full ${kind === "vector" ? "shared-viewer-vector-stage bg-ghost" : "shared-viewer-image-stage"}`}>
     <ImageViewport src={preview.url} name={name} tone="instrument" onError={onPreviewError} />
     <span className="pointer-events-none absolute bottom-3 left-3 h-5.5 rounded-chip bg-media-plate px-2 py-1.25 font-code type-mono-sm tracking-label text-on-instrument">FIT</span>

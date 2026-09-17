@@ -10,8 +10,6 @@ import {
   createAgentChatState,
   createConversation,
   reduceAgentChat,
-  MAX_PERSISTED_CHATS,
-  MAX_ENTRY_TEXT,
   MODEL_ID,
   SESSION_ID,
   validLocalId,
@@ -46,9 +44,9 @@ function legacyStorageKey(rootPath: string): string {
   return `ralphy-media:claude-chat:${encodeURIComponent(rootPath)}`;
 }
 
-function boundedText(value: unknown): string | undefined {
-  if (typeof value !== "string" || !value) return undefined;
-  return value.length <= MAX_ENTRY_TEXT ? value : value.slice(0, MAX_ENTRY_TEXT);
+function storedText(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  return value;
 }
 
 function parseEntry(value: unknown): AgentChatEntry | null {
@@ -71,7 +69,8 @@ function parseEntry(value: unknown): AgentChatEntry | null {
       typeof item.durationMs !== "number" || !Number.isFinite(item.durationMs)
       || typeof item.costUsd !== "number" || !Number.isFinite(item.costUsd)
     ) return null;
-    return { id: row.id, kind, at, run: { durationMs: item.durationMs, costUsd: item.costUsd } };
+    const outcome = item.outcome === "completed" || item.outcome === "cancelled" || item.outcome === "failed" ? item.outcome : undefined;
+    return { id: row.id, kind, at, run: { durationMs: item.durationMs, costUsd: item.costUsd, ...(outcome ? { outcome } : {}) } };
   }
   if (kind === "tool") {
     const tool = row.tool;
@@ -87,17 +86,17 @@ function parseEntry(value: unknown): AgentChatEntry | null {
       kind,
       at,
       tool: {
-        id: item.id.slice(0, 128),
-        name: item.name.slice(0, 128),
-        summary: boundedText(item.summary) ?? "",
+        id: item.id,
+        name: item.name,
+        summary: storedText(item.summary) ?? "",
         status: item.status === "running"
           ? "failed"
           : item.status as AgentChatTool["status"],
       },
     };
   }
-  const text = boundedText(row.text);
-  return text ? { id: row.id, kind, at, text } : null;
+  const text = storedText(row.text);
+  return text !== undefined ? { id: row.id, kind, at, text } : null;
 }
 
 function provider(value: unknown): AgentProvider | null {
@@ -118,11 +117,14 @@ function parseConversation(value: unknown): AgentConversation | null {
   const entries = Array.isArray(row.entries)
     ? row.entries.map(parseEntry).filter((entry): entry is AgentChatEntry => entry !== null)
     : [];
+  if (!Array.isArray(row.entries) || entries.length !== row.entries.length) return null;
   const highestId = entries.reduce((highest, entry) => Math.max(highest, entry.id), 0);
   return {
     id: row.id,
-    title: entries.length === 0 ? "New chat" : boundedText(row.title)?.slice(0, 80) ?? "New chat",
-    titled: row.titled === true && entries.length > 0,
+    title: entries.length === 0 && row.manualTitle !== true ? "New chat" : storedText(row.title) ?? "New chat",
+    titled: row.titled === true && (entries.length > 0 || row.manualTitle === true),
+    ...(row.manualTitle === true ? { manualTitle: true } : {}),
+    ...(typeof row.archived === "boolean" ? { archived: row.archived } : {}),
     provider: parsedProvider,
     model: row.model,
     entries,
@@ -134,7 +136,7 @@ function parseConversation(value: unknown): AgentConversation | null {
     streamingAssistantId: null,
     claudeAuthMethod: row.claudeAuthMethod === "api-key" ? "api-key" : "subscription",
     permissionMode: row.permissionMode === "auto" || row.permissionMode === "plan"
-      || row.permissionMode === "full" ? row.permissionMode : "full",
+      || row.permissionMode === "full" ? row.permissionMode : "plan",
     lastCostUsd: typeof row.lastCostUsd === "number" && Number.isFinite(row.lastCostUsd)
       ? row.lastCostUsd
       : null,
@@ -151,6 +153,7 @@ function migrateLegacy(value: unknown, fallback: CreateAgentChatOptions): AgentC
   const entries = Array.isArray(row.entries)
     ? row.entries.map(parseEntry).filter((entry): entry is AgentChatEntry => entry !== null)
     : [];
+  if (row.version !== 1 || !Array.isArray(row.entries) || entries.length !== row.entries.length) return null;
   const highestId = entries.reduce((highest, entry) => Math.max(highest, entry.id), 0);
   const chat: AgentConversation = {
     ...createConversation({ ...fallback, provider: "claude", model: "sonnet" }),
@@ -164,7 +167,7 @@ function migrateLegacy(value: unknown, fallback: CreateAgentChatOptions): AgentC
     claudeAuthMethod: row.authMethod === "api-key" ? "api-key" : "subscription",
     permissionMode: row.version === 1 && (
       row.permissionMode === "auto" || row.permissionMode === "plan" || row.permissionMode === "full"
-    ) ? row.permissionMode : "full",
+    ) ? row.permissionMode : "plan",
     lastCostUsd: typeof row.lastCostUsd === "number" && Number.isFinite(row.lastCostUsd)
       ? row.lastCostUsd
       : null,
@@ -178,21 +181,49 @@ export function saveAgentChats(
   state: AgentChatState,
 ): boolean {
   if (!scope.rootPath) return false;
-  const chats = state.chats.slice(-MAX_PERSISTED_CHATS).map((chat) => ({
-    ...chat,
-    busy: undefined,
-    streamingAssistantId: undefined,
-  }));
   try {
-    storage.setItem(storageKey(scope), JSON.stringify({
-      version: 3,
-      chats,
-      activeChatId: state.activeChatId,
-    }));
+    storage.setItem(storageKey(scope), serializeAgentChats(state));
     return true;
   } catch {
     return false;
   }
+}
+
+export function serializeAgentChats(state: AgentChatState): string {
+  const chats = state.chats.map((chat) => ({
+    ...chat,
+    busy: undefined,
+    streamingAssistantId: undefined,
+    usage: undefined,
+  }));
+  return JSON.stringify({ version: 3, chats, activeChatId: state.activeChatId });
+}
+
+export function parseAgentChats(raw: string): AgentChatState {
+  const row = JSON.parse(raw) as Record<string, unknown> | null;
+  if (!row || row.version !== 3 || !Array.isArray(row.chats) || row.chats.length === 0) {
+    throw new Error("This chat history cannot be read. The saved file has been kept unchanged.");
+  }
+  const chats = row.chats.map(parseConversation).filter((chat): chat is AgentConversation => chat !== null);
+  if (chats.length !== row.chats.length || new Set(chats.map(({ id }) => id)).size !== chats.length) {
+    throw new Error("This chat history contains invalid records. The saved file has been kept unchanged.");
+  }
+  const activeChatId = typeof row.activeChatId === "string" && chats.some(({ id }) => id === row.activeChatId)
+    ? row.activeChatId : chats.at(-1)!.id;
+  return { chats, activeChatId, runningChatId: null };
+}
+
+/** Keep the source record until its replacement is confirmed on disk. */
+export function readLocalAgentChats(storage: StorageLike, scope: AgentChatScope, fallback: CreateAgentChatOptions) {
+  const key = storageKey(scope);
+  const raw = storage.getItem(key);
+  if (raw) return { state: parseAgentChats(raw), key, raw };
+  const legacyKey = legacyStorageKey(scope.rootPath);
+  const legacy = storage.getItem(legacyKey);
+  if (!legacy) return null;
+  const state = migrateLegacy(JSON.parse(legacy) as unknown, fallback);
+  if (!state) throw new Error("The previous chat history cannot be read. Its original record has been kept.");
+  return { state, key: legacyKey, raw: legacy };
 }
 
 export function loadAgentChats(
@@ -201,35 +232,10 @@ export function loadAgentChats(
   fallback: CreateAgentChatOptions,
 ): AgentChatState {
   if (!scope.rootPath) return createAgentChatState(fallback);
-  try {
-    const raw = storage.getItem(storageKey(scope));
-    if (raw) {
-      const value = JSON.parse(raw) as unknown;
-      if (value && typeof value === "object" && !Array.isArray(value)) {
-        const row = value as Record<string, unknown>;
-        const chats = Array.isArray(row.chats)
-          ? row.chats.map(parseConversation)
-            .filter((chat): chat is AgentConversation => chat !== null)
-            .slice(-MAX_PERSISTED_CHATS)
-          : [];
-        if (chats.length > 0) {
-          const activeChatId = typeof row.activeChatId === "string"
-            && chats.some(({ id }) => id === row.activeChatId)
-            ? row.activeChatId
-            : chats.at(-1)!.id;
-          return { chats, activeChatId, runningChatId: null };
-        }
-      }
-    }
-    /* The pre-scope record is consumed, not just read: it is keyed by root alone, so leaving it in
-       place would hand the same chat to every workspace the operator opens. */
-    const legacy = storage.getItem(legacyStorageKey(scope.rootPath));
-    if (legacy) {
-      storage.removeItem(legacyStorageKey(scope.rootPath));
-      return migrateLegacy(JSON.parse(legacy) as unknown, fallback) ?? createAgentChatState(fallback);
-    }
-  } catch {
-    return createAgentChatState(fallback);
+  const local = readLocalAgentChats(storage, scope, fallback);
+  if (local) {
+    if (local.key !== storageKey(scope) && saveAgentChats(storage, scope, local.state)) storage.removeItem(local.key);
+    return local.state;
   }
   return createAgentChatState(fallback);
 }

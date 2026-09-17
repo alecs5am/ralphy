@@ -7,15 +7,15 @@ import { useGenerationStudio } from "../model/use-generation-studio";
 import { GENERATION_TABS, generationTab } from "../lib/generation-presentation";
 import { GenerationForm } from "./GenerationForm";
 import { GenerationResults } from "./GenerationResults";
-import { studioSelection, STUDIO_ICON } from "@/entities/generation"
+import { type OpenGeneratedUnit, studioSelection, STUDIO_ICON } from "@/entities/generation"
 
-export interface GenerationScreenProps { workspaceId: string; workspaceName: string; rootEpoch: number; onOpenProviders?(): void }
+export interface GenerationScreenProps { workspaceId: string; workspaceName: string; rootEpoch: number; onOpenProviders?(): void; onOpenUnit?: OpenGeneratedUnit }
 
 export function GenerationScreen(props: GenerationScreenProps) {
   return <GenerationWorkspace key={`${props.workspaceId}:${props.rootEpoch}`} {...props} />;
 }
 
-function GenerationWorkspace({ workspaceId, workspaceName, onOpenProviders }: GenerationScreenProps) {
+function GenerationWorkspace({ workspaceId, workspaceName, onOpenProviders, onOpenUnit }: GenerationScreenProps) {
   const studio = useGenerationStudio(workspaceId);
   const [showModels, setShowModels] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -31,7 +31,7 @@ function GenerationWorkspace({ workspaceId, workspaceName, onOpenProviders }: Ge
     {studio.catalog.errors.length > 0 && <details className="shrink-0 type-xs text-muted"><summary className="cursor-pointer">{studio.catalog.models.length ? "Some model catalogs are unavailable" : "Model discovery needs attention"}</summary><ul className="pl-4 leading-relaxed">{studio.catalog.errors.map((error, index) => <li className="mt-1" key={index}>{error}</li>)}</ul></details>}
     <div className="generation-layout min-h-0 min-w-0 flex-1 gap-2" data-expanded={expanded}>
       {!expanded && <div className="generation-composer-slot"><GenerationForm studio={studio} workspaceId={workspaceId} model={model} showModels={showModels} onShowModels={setShowModels} onOpenProviders={onOpenProviders} /></div>}
-      <div className="generation-results-slot"><GenerationResults lastStartedId={studio.lastStartedId} models={studio.catalog.models} runs={studio.runs} kind={studio.draft.kind} draft={studio.draft} model={model} expanded={expanded} onExpand={() => setExpanded((value) => !value)} onPrompt={(prompt) => { studio.edit({ ...studio.draft, prompt }); setExpanded(false); setShowModels(false); }} onRestore={studio.restore} onCancel={(id) => { void studio.cancel(id); }} onExport={(result) => { void studio.exportResult(result); }} onReference={studio.addReference} /></div>
+      <div className="generation-results-slot"><GenerationResults workspaceId={workspaceId} onOpenUnit={onOpenUnit} hasOlder={studio.hasOlder} loadingOlder={studio.loadingOlder} onLoadOlder={studio.loadOlder} lastStartedId={studio.lastStartedId} models={studio.catalog.models} runs={studio.runs} kind={studio.draft.kind} draft={studio.draft} model={model} expanded={expanded} onExpand={() => setExpanded((value) => !value)} onPrompt={(prompt) => { studio.edit({ ...studio.draft, prompt }); setExpanded(false); setShowModels(false); }} onRestore={studio.restore} onCancel={(id) => { void studio.cancel(id); }} onExport={(result) => { void studio.exportResult(result); }} onReference={studio.addReference} /></div>
     </div>
   </section></InstrumentScreenRoot>;
 }

@@ -1,5 +1,5 @@
 import { act, type HTMLAttributes, type ReactNode } from "react";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import type { WorkspaceOverviewDto } from "../electron/ralphy/types";
 import { bridge } from "@/shared/api/ipc";
 import { createReactHost, type HostNode } from "./react-host";
@@ -15,6 +15,14 @@ vi.mock("motion/react", () => {
 vi.mock("../src/widgets/utility-panels/ui/UtilityPanels", () => ({ AgentChatPanel: () => null, BottomPanel: () => null }));
 vi.mock("../src/widgets/welcome/ui/WelcomeScreen", () => ({ WelcomeScreen: () => <div>Loading Ralphy</div> }));
 vi.mock("../src/features/agent-chat/model/useAgentChat", () => ({ useAgentChat: () => ({}) }));
+
+let App: typeof import("@/app/App")["App"];
+beforeAll(async () => {
+  // Load the application graph before navigation timing and fake timers begin.
+  const host = createReactHost();
+  try { ({ App } = await import("@/app/App")); }
+  finally { host.restore(); }
+});
 
 const scheduledAt = Date.now() + 60 * 60 * 1000;
 const account = {
@@ -102,22 +110,23 @@ async function mountApp({
     timezone: input.timezone, postiz: { available: false, lastSyncedAt: null, error: null },
     events: calendarEvents[workspaceId] ?? [], readyUnits: [], projects: [], accounts: [],
   }));
-  const { App } = await import("@/app/App");
   const { createRoot } = await import("react-dom/client");
   const root = createRoot(host.container as unknown as Element);
-  await act(async () => { root.render(<App />); await settle(); });
-  await act(async () => { vi.advanceTimersByTime(1_500); await settle(); });
-  await act(async () => { await settle(); });
-  return {
-    host, root, loadCalendar,
-    cleanup: async () => {
+  const cleanup = async () => {
       await act(async () => root.unmount());
       restoreLibrary.mockRestore(); loadOverview.mockRestore(); loadCalendar.mockRestore();
       if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage);
       else delete (globalThis as Record<string, unknown>).localStorage;
       host.restore();
       vi.useRealTimers();
-    },
+  };
+  try {
+    await act(async () => { root.render(<App />); await settle(); });
+    await act(async () => { vi.advanceTimersByTime(1_500); await settle(); });
+    await act(async () => { await settle(); });
+  } catch (error) { await cleanup(); throw error; }
+  return {
+    host, root, loadCalendar, cleanup,
   };
 }
 

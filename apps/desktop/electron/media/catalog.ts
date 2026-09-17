@@ -25,7 +25,7 @@ import type {
   WorkspaceSummary,
 } from "./types";
 import type { RalphyBridgeClient } from "../ralphy/client";
-import type { Page, ProjectDto, UnitDto, WorkspaceDto } from "../ralphy/types";
+import type { MediaCardDto, Page, ProjectDto, UnitDto, WorkspaceDto } from "../ralphy/types";
 
 const JSON_LIMIT_BYTES = 1024 * 1024;
 const TEXT_LIMIT_BYTES = 2 * 1024 * 1024;
@@ -34,6 +34,7 @@ const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 type JsonObject = Record<string, unknown>;
 
 export class InvalidLibraryRootError extends Error {
+  readonly code = "E_ROOT_INVALID";
   constructor(message: string) {
     super(message);
     this.name = "InvalidLibraryRootError";
@@ -130,9 +131,13 @@ async function hasFile(path: string): Promise<boolean> {
 async function hasDomainStore(root: string): Promise<boolean> {
   const [database, buckets] = await Promise.all([
     safeStat(join(root, "ralphy.db")),
-    safeStat(join(root, "buckets")),
+    lstat(join(root, "buckets")).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    }),
   ]);
-  return Boolean(database?.isFile() && buckets?.isDirectory());
+  // A new SQLite library has no media buckets until its first file is imported.
+  return Boolean(database?.isFile() && (!buckets || (buckets.isDirectory() && !buckets.isSymbolicLink())));
 }
 
 function projectIdentity(workspaceId: string, projectId: string): string {
@@ -300,6 +305,21 @@ export async function buildDomainCatalog(
     } while (after !== null);
     return count;
   };
+  const countShared = async (workspaceId: string) => {
+    let count = 0;
+    let after: string | null = null;
+    const seen = new Set<string>();
+    do {
+      const page: Page<MediaCardDto> = await client.request("media.list", {
+        context: { workspaceId }, types: ["artifact"], after, limit: 100,
+      });
+      count += page.items.filter((item) => item.ref.type === "artifact" && item.workspaceId === workspaceId && item.projectId === null).length;
+      after = page.nextCursor;
+      if (after && seen.has(after)) throw new Error("Repeated shared media catalog cursor");
+      if (after) seen.add(after);
+    } while (after !== null);
+    return count;
+  };
   for (const workspace of workspaceRows) {
     if (isLegacyCatalogGhost("workspace", workspace)) continue;
     const projectRows: ProjectDto[] = [];
@@ -316,6 +336,7 @@ export async function buildDomainCatalog(
     } while (after !== null);
 
     const visibleProjects = projectRows.filter((project) => !isLegacyCatalogGhost("project", project));
+    const sharedCount = await countShared(workspace.id);
     let workspaceUnitCount = await countUnits(workspace.id, null);
     for (const project of visibleProjects) {
       const unitCount = await countUnits(workspace.id, project.id);
@@ -333,7 +354,7 @@ export async function buildDomainCatalog(
         aspectRatio: null,
         spendUsd: null,
         finalCount: 0,
-        sharedCount: 0,
+        sharedCount,
         unitCount,
         recentActivity: isoTime(project.updatedAt),
       });
@@ -345,7 +366,7 @@ export async function buildDomainCatalog(
       description: "",
       absolutePath: join(root, "buckets", workspace.id),
       projectCount: visibleProjects.length,
-      sharedCount: 0,
+      sharedCount,
       unitCount: workspaceUnitCount,
       finalCount: 0,
       recentActivity: isoTime(workspace.updatedAt),

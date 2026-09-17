@@ -285,7 +285,8 @@ describe("workspace projects navigation", () => {
     expect(markup).toContain("Discover");
     expect(markup).toContain("Components &amp; Effects");
     expect(markup).toContain("MY LIBRARY");
-    expect(markup).toContain("Needs attention");
+    expect(markup).toContain("Saved");
+    expect(markup).not.toContain("Needs attention");
     expect(markup).not.toContain("Launch Studio");
     expect(markup).not.toContain("Local Models");
   });

@@ -45,7 +45,7 @@ export function duplicateClip(comp: Composition, id: string, start?: number): st
   if (item.animationIds.length || item.children.length) throw new Error("Duplicate this animated or nested element with the agent to preserve its animation targets.");
   const attrs = Object.entries(item.attributes).filter(([key]) => key !== "id" && !key.startsWith("data-hf-")).map(([key, value]) => `${key}="${videoEscape(value)}"`).join(" ");
   const styles = Object.entries(item.inlineStyles).map(([key, value]) => `${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}:${value}`).join(";");
-  const element = `<${item.tag} ${attrs} class="${videoEscape(item.classNames.join(" "))}" style="${videoEscape(styles)}">${videoEscape(item.text ?? "")}${item.tag === "img" ? "" : `</${item.tag}>`}`;
+  const element = `<${item.tag} id="clip-${crypto.randomUUID()}" ${attrs} class="${videoEscape(item.classNames.join(" "))}" style="${videoEscape(styles)}">${videoEscape(item.text ?? "")}${item.tag === "img" ? "" : `</${item.tag}>`}`;
   const next = comp.addElement(root.scopedId, root.children.length, element);
   if (start !== undefined) comp.setTiming(next, { start });
   return next;

@@ -11,7 +11,8 @@ export interface VideoWorkspaceDraft {
   sourceWarning?: string;
   assets: VideoWorkspaceAsset[];
 }
-export interface VideoWorkspaceVersion { id: string; savedAt: number; html: string }
+export const VIDEO_HISTORY_LIMIT = 8;
+export interface VideoWorkspaceVersion { id: string; savedAt: number; html: string; fps?: number }
 export interface VideoWorkspaceLoad {
   draftPath?: string;
   draft: VideoWorkspaceDraft; revision: string | null; versions: VideoWorkspaceVersion[];
@@ -24,7 +25,7 @@ export interface VideoAgentRequest {
 export interface VideoWorkspaceRender {
   compositionRevisionId: string; buildId: string; artifactRevisionId: string | null;
   state: "succeeded" | "failed"; sourceRevision: string; createdAt: number;
-  previewUrl?: string; error?: string;
+  previewUrl?: string; error?: string; unitRevisionId?: string;
 }
 export interface VideoWorkspaceBridge {
   loadVideoWorkspace(ref: VideoWorkspaceRef): Promise<VideoWorkspaceLoad>;
@@ -39,13 +40,16 @@ export const VIDEO_CHANNELS = {
   renderVideoWorkspace: "video-workspace:render",
 } as const;
 
+/** Authored recovery messages safe to show across the native boundary. */
+export class VideoWorkspaceError extends Error { readonly code = "E_VALIDATION_FAILED"; }
+
 export function videoRef(value: unknown): VideoWorkspaceRef {
   const ref = value as VideoWorkspaceRef;
-  if (!ref || ![ref.workspaceId, ref.projectId, ref.unitId].every((part) => typeof part === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(part))) throw new Error("Invalid video workspace");
+  if (!ref || ![ref.workspaceId, ref.projectId, ref.unitId].every((part) => typeof part === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(part))) throw new VideoWorkspaceError("Invalid video workspace");
   return { workspaceId: ref.workspaceId, projectId: ref.projectId, unitId: ref.unitId };
 }
 export function videoHtml(value: unknown): string {
-  if (typeof value !== "string" || value.length > 8 * 1024 * 1024 || !value.includes("data-composition-id")) throw new Error("Choose a HyperFrames composition under 8 MB");
+  if (typeof value !== "string" || value.length > 8 * 1024 * 1024 || !value.includes("data-composition-id")) throw new VideoWorkspaceError("Choose a HyperFrames composition under 8 MB");
   return value;
 }
 export const videoEscape = (value: string): string => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]!));

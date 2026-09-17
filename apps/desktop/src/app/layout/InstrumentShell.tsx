@@ -41,7 +41,7 @@ export interface InstrumentShellProps {
    * restoration and the desk container query keep working inside the card. Absent under the desk
    * lens, where the route has no chrome of its own.
    */
-  viewPanelFrame?(page: ReactNode): ReactNode;
+  viewPanelFrame?(page: ReactNode, compact: boolean): ReactNode;
   /** Whether the panel is showing at all. `⌘\` collapses it and the chat takes the width. */
   viewOpen: boolean;
   viewExpanded?: boolean;
@@ -130,14 +130,11 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
     viewWidth: props.viewWidth,
     railDocked: modeRef.current === "docked",
   });
-  /* Under the chat lens the rail *is* the main column, so it is docked whatever the desk
-     minimum says -- the desk is deliberately the narrow one. The view panel is what gives way
-     when both columns cannot fit: the chat takes the whole content area rather than
-     the two columns squeezing each other. Inverting the overlay machinery so the *desk* could
-     portal over the chat is the handoff's own next iteration, not this one. */
+  /* A narrow window uses the existing expanded view; the chat stays mounted for return. */
   const chatLens = props.lens === "chat";
-  const expanded = chatLens && props.viewOpen && props.viewExpanded;
-  const viewPanelVisible = chatLens && props.viewOpen && (viewPanelFits || expanded);
+  const compact = chatLens && !viewPanelFits;
+  const expanded = chatLens && props.viewOpen && (props.viewExpanded || compact);
+  const viewPanelVisible = chatLens && props.viewOpen;
   /* Under the desk lens the chat is not reachable at all -- the lens exists so the desk can have
      the whole content area, and a chat column standing beside it would be the state the lens was
      introduced to replace. The media-review console shares this dock and is not chat, so it keeps
@@ -314,9 +311,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
               onActiveChange={setColumnResizing}
             />}
             <section
-              /* Desk lens: the route takes the elastic column. Chat lens: it becomes the fixed
-                 view panel beside the chat, and disappears entirely once the window is too
-                 narrow to hold both. */
+              /* The view takes the full content area when chat and view cannot fit together. */
               className={`instrument-desk-column relative flex min-h-0 min-w-0 flex-col overflow-hidden ${chatLens && !expanded ? "order-last flex-none" : "flex-1 bg-desk"} ${chatLens && !viewPanelVisible ? "hidden" : ""}`}
               style={chatLens && !expanded ? { width: viewPanelWidth } : undefined}
               data-instrument-view-panel={chatLens || undefined}
@@ -333,7 +328,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
                 aria-hidden={mode === "overlay" || undefined}
               >
                 {props.desk}
-              </div>)}
+              </div>, compact)}
             </section>
             {/* The rail stands beside the desk, inside the content column, so the window's own zone
                 gap is the only inset it needs. The "right" in the class name and the props is

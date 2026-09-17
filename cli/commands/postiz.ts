@@ -4,6 +4,7 @@ import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { DomainError } from "../lib/errors/domain.js";
 import { activeCredentialResolver } from "../lib/providers/credentials.js";
+import { connectPostizWorkspace } from "../lib/calendar/connection.js";
 import { assertCommandWorkspace } from "../lib/context-state.js";
 
 function safeIntegration(row: PostizIntegration) {
@@ -21,7 +22,10 @@ async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) throw new Error("pipe the API key to stdin with --stdin");
   let value = "";
   process.stdin.setEncoding("utf8");
-  for await (const chunk of process.stdin) value += chunk;
+  for await (const chunk of process.stdin) {
+    value += chunk;
+    if (value.length > 4096) throw new Error("Postiz API key is too long");
+  }
   return value.trim();
 }
 
@@ -32,9 +36,11 @@ export function postizCmd() {
 
   cmd
     .command("connect")
-    .description("Import a scoped Postiz key from stdin and verify it")
+    .description("Verify a Postiz key, save it encrypted, and import supported social accounts")
     .requiredOption("--workspace <slug>", "Workspace that owns this Postiz connection")
     .requiredOption("--stdin", "Read the Postiz API key from stdin")
+    .option("--account <id>", "Reconnect one existing account")
+    .option("--expected-row-version <number>", "Required version when reconnecting an account")
     .action(async (opts) => {
       try {
         const apiKey = await readStdin();
@@ -43,21 +49,12 @@ export function postizCmd() {
         assertCommandWorkspace(workspace);
         const resolver = activeCredentialResolver();
         if (!resolver) throw new DomainError("E_MIGRATION_INCOMPLETE");
-        const previous = await resolver.resolve("postiz");
-        await resolver.set("postiz", apiKey);
-        try {
-          const integrations = await postizIntegrations(fetch, workspace);
-          ok(`Connected Postiz to ${workspace} (${integrations.length} integration(s))`);
-          out({
-            workspace,
-            connected: true,
-            integrations: integrations.map(safeIntegration),
-          });
-        } catch (error) {
-          if (previous.value === null) await resolver.clear("postiz");
-          else await resolver.set("postiz", previous.value);
-          throw error;
-        }
+        const result = await connectPostizWorkspace({
+          workspaceId: workspace, credential: apiKey, resolver,
+          accountId: opts.account, expectedRowVersion: opts.expectedRowVersion === undefined ? undefined : Number(opts.expectedRowVersion),
+        });
+        ok(`Connected Postiz to ${workspace} (${result.imported} account(s))`);
+        out({ workspace, ...result });
       } catch (error) {
         raiseError("E_PROVIDER_HTTP", {
           provider: "Postiz",

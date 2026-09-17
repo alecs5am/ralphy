@@ -1,6 +1,7 @@
 import { assertTrustedSender, toIpcResult } from "../ipc-security";
 import { isLegacyCatalogGhost } from "../media/catalog";
 import { MEDIA_CHANNELS } from "../media/types";
+import type { WorkspaceUnitCursors } from "../media/types";
 import type { RalphyBridgeClient } from "./client";
 import type { RalphySession } from "./session";
 import type { BridgeMethod, ParamsFor, ResultFor, WorkspaceOverviewDto } from "./types";
@@ -34,9 +35,29 @@ export function createRootGuardedWorkspaceRequest(
 
 const OVERVIEW_UNITS = 20;
 const OVERVIEW_PUBLICATIONS = 30;
+const UNIT_PAGE_SIZE = 50;
+
+function validateCursors(value: unknown): asserts value is WorkspaceUnitCursors {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid workspace cursors");
+  const entries = Object.entries(value);
+  if (!entries.length || entries.some(([key, cursor]) =>
+    !["units", "publications"].includes(key)
+    || (cursor !== null && (typeof cursor !== "string" || !cursor || cursor.length > 4096)),
+  )) throw new Error("Invalid workspace cursors");
+}
 
 export function createWorkspaceReader({ request }: { request: Request }) {
   return {
+    async loadUnitPage(workspaceId: string, cursors: WorkspaceUnitCursors): Promise<Pick<WorkspaceOverviewDto, "units" | "publications">> {
+      const { units, publications } = await request("workspace.overview", {
+        context: { workspaceId }, workspaceId, include: "tree",
+        sections: {
+          ...(cursors.units !== undefined ? { units: { limit: UNIT_PAGE_SIZE, after: cursors.units } } : {}),
+          ...(cursors.publications !== undefined ? { publications: { limit: UNIT_PAGE_SIZE, after: cursors.publications } } : {}),
+        },
+      });
+      return { units, publications };
+    },
     async loadOverview(workspaceId: string): Promise<WorkspaceOverviewDto> {
       const overview = await request("workspace.overview", {
         context: { workspaceId },
@@ -76,7 +97,7 @@ export function registerWorkspaceOverviewIpc<Root>({
 }: {
   handle(
     channel: string,
-    listener: (event: WorkspaceIpcEvent, workspaceId: unknown) => Promise<unknown>,
+    listener: (event: WorkspaceIpcEvent, workspaceId: unknown, cursors?: unknown) => Promise<unknown>,
   ): void;
   getWindow(): WorkspaceIpcWindow | null;
   captureRoot(): Root;
@@ -98,5 +119,14 @@ export function registerWorkspaceOverviewIpc<Root>({
     return createWorkspaceReader({
       request: createRootGuardedWorkspaceRequest(request, () => assertRoot(root)),
     }).loadOverview(rawWorkspaceId);
+  }));
+  handle(MEDIA_CHANNELS.loadWorkspaceUnitPage, (event, workspaceId, cursors) => toIpcResult(() => {
+    assertTrustedSender(event, getWindow());
+    if (typeof workspaceId !== "string" || !workspaceId || workspaceId.length > 256) throw new Error("Invalid workspace id");
+    validateCursors(cursors);
+    const root = captureRoot();
+    return createWorkspaceReader({
+      request: createRootGuardedWorkspaceRequest(request, () => assertRoot(root)),
+    }).loadUnitPage(workspaceId, cursors);
   }));
 }

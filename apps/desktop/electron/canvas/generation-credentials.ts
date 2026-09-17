@@ -1,10 +1,11 @@
 import { isGenerationProviderId, type GenerationProviderStatus } from "../../shared/generation-studio";
 import { type EncryptedCredentialStore, validateOpenRouterApiKey } from "../claude/credentials";
 import { MEDIA_CHANNELS } from "../media/types";
+import { createHash } from "node:crypto";
 
 type Provider = GenerationProviderStatus["id"];
 const PROVIDERS: { id: Provider; name: string; capabilities: string[]; env: string }[] = [
-  { id: "openrouter", name: "OpenRouter", capabilities: ["image", "video"], env: "OPENROUTER_API_KEY" },
+  { id: "openrouter", name: "OpenRouter", capabilities: ["text", "image", "video"], env: "OPENROUTER_API_KEY" },
   { id: "elevenlabs", name: "ElevenLabs", capabilities: ["voiceover", "music", "sfx"], env: "ELEVENLABS_API_KEY" },
   { id: "fal", name: "fal", capabilities: ["video"], env: "FAL_KEY" },
 ];
@@ -25,17 +26,22 @@ export function validateGenerationProviderKey(provider: Provider, value: unknown
 export function createGenerationCredentials(deps: {
   store(provider: Provider): Pick<EncryptedCredentialStore, "read" | "write" | "clear" | "has">;
   environment(): NodeJS.ProcessEnv;
+  probe?(provider: Provider, key: string): Promise<NonNullable<GenerationProviderStatus["validation"]>["state"]>;
 }) {
   let pending: Promise<unknown> = Promise.resolve();
+  const probes = new Map<Provider, { fingerprint: string; validation: NonNullable<GenerationProviderStatus["validation"]> }>();
+  const fingerprint = (key: string) => createHash("sha256").update(key).digest("hex");
   const inherited = (provider: typeof PROVIDERS[number], env: NodeJS.ProcessEnv) => {
     try { return validateGenerationProviderKey(provider.id, env[provider.env]); } catch { return null; }
   };
   const statuses = async (): Promise<GenerationProviderStatus[]> => {
     const env = deps.environment();
     return Promise.all(PROVIDERS.map(async ({ id, name, capabilities, ...rest }) => {
-      const stored = await deps.store(id).has();
-      const fromEnvironment = inherited({ id, name, capabilities, ...rest }, env) !== null;
-      return { id, name, capabilities: [...capabilities], configured: stored || fromEnvironment, stored, inherited: fromEnvironment };
+      const saved = await deps.store(id).read();
+      const environmentKey = inherited({ id, name, capabilities, ...rest }, env);
+      const key = saved ?? environmentKey, probe = probes.get(id);
+      const validation = key && probe?.fingerprint === fingerprint(key) ? probe.validation : undefined;
+      return { id, name, capabilities: [...capabilities], configured: key !== null, stored: saved !== null, inherited: environmentKey !== null, ...(validation ? { validation } : {}) };
     }));
   };
   // Serialize the three provider stores so removal cannot overtake an in-flight save.
@@ -54,6 +60,17 @@ export function createGenerationCredentials(deps: {
     clear: async (rawProvider: unknown) => {
       const provider = parseProvider(rawProvider);
       return change(() => deps.store(provider).clear());
+    },
+    probe: async (rawProvider: unknown) => {
+      const provider = parseProvider(rawProvider);
+      if (provider !== "openrouter") throw new Error("Authentication checks are currently available for OpenRouter. Other services are checked when used.");
+      return change(async () => {
+        const key = await deps.store(provider).read() ?? inherited(PROVIDERS.find((item) => item.id === provider)!, deps.environment());
+        if (!key) throw new Error("Add an OpenRouter API key before testing the connection.");
+        let state: NonNullable<GenerationProviderStatus["validation"]>["state"] = "unreachable";
+        try { state = await deps.probe?.(provider, key) ?? "untested"; } catch { /* Never expose native errors that could include credentials. */ }
+        probes.set(provider, { fingerprint: fingerprint(key), validation: { state, checkedAt: Date.now() } });
+      });
     },
     capture: async (): Promise<NodeJS.ProcessEnv> => {
       await pending;
@@ -74,4 +91,5 @@ export function registerGenerationCredentialIpc(deps: {
   deps.handle(MEDIA_CHANNELS.loadGenerationProviders, () => deps.credentials.load());
   deps.handle(MEDIA_CHANNELS.setGenerationProviderKey, (provider, key) => deps.credentials.set(provider, key));
   deps.handle(MEDIA_CHANNELS.clearGenerationProviderKey, (provider) => deps.credentials.clear(provider));
+  deps.handle(MEDIA_CHANNELS.probeGenerationProvider, (provider) => deps.credentials.probe(provider));
 }

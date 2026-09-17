@@ -9,14 +9,14 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
-  useReducer,
   useRef,
   useState,
 } from "react";
 
 import { titlePrompt } from "../../../../electron/agent/title";
+import { GENERATION_PROVIDERS_CHANGED_EVENT } from "../../../../shared/generation-studio";
 import { bridge } from "@/shared/api/ipc";
+import { readAppPreferences, settingsStorage } from "@/shared/model/app-preferences";
 import type {
   AgentPermissionMode,
   AgentProvider,
@@ -26,14 +26,12 @@ import type {
 } from "@/shared/api/ipc";
 
 import {
-  createAgentChatState,
-  reduceAgentChat,
   type AgentChatState,
   type AgentConversation,
   type CreateAgentChatOptions,
-  type StorageLike,
 } from "./chat-state";
-import { chatScopeKey, loadAgentChats, recoverAgentChatEntries, saveAgentChats, type AgentChatScope } from "./chat-storage";
+import { chatScopeKey, recoverAgentChatEntries, type AgentChatScope } from "./chat-storage";
+import { useChatPersistence } from "./useChatPersistence";
 
 export type { AgentChatScope };
 
@@ -45,11 +43,16 @@ export interface AgentChatController {
   providersLoading: boolean;
   authAction: AgentProvider | null;
   connectionError: string | null;
+  historyError: string | null;
+  historyReady: boolean;
   connected: boolean;
+  retryHistory(): void;
   send(text: string, additionalContext?: string): void;
   stop(): void;
   newChat(): void;
   selectChat(chatId: string): void;
+  renameChat(chatId: string, title: string): void;
+  archiveChat(chatId: string, archived: boolean): void;
   /* A model can be named with the provider: handoff 17 has one model control listing every
      connected provider's catalog, so choosing a row is a provider switch and a model choice at
      once. Without one the provider's default model is taken. */
@@ -71,16 +74,16 @@ function newChatId(): string {
 }
 
 function fallbackChat(): CreateAgentChatOptions {
+  const preferences = readAppPreferences(settingsStorage);
+  const provider = preferences["agents.defaultHarness"];
+  const mode = preferences["permissions.mode"];
   return {
     chatId: newChatId(),
-    provider: "codex",
-    model: "default",
+    provider: provider === "claude" || provider === "openrouter" ? provider : "codex",
+    model: provider === "claude" ? "sonnet" : "default",
+    permissionMode: mode === "auto" || mode === "full" ? mode : "plan",
     now: Date.now(),
   };
-}
-
-function localStorageOrNull(): StorageLike | null {
-  return typeof window === "undefined" ? null : window.localStorage;
 }
 
 function message(error: unknown): string {
@@ -98,60 +101,29 @@ export function useAgentChat({
   project: ProjectSummary | null;
   enabled?: boolean;
 }): AgentChatController {
-  const storage = useMemo(localStorageOrNull, []);
   const scope = rootPath ? { rootPath, workspaceId } : null;
   const scopeKey = chatScopeKey(scope);
-  const [state, dispatch] = useReducer(
-    reduceAgentChat,
-    scope,
-    (initial) => initial && storage
-      ? loadAgentChats(storage, initial, fallbackChat())
-      : createAgentChatState(fallbackChat()),
-  );
+  const { state, dispatch, ready, error: persistenceError, retry: retryHistory, receiveEvent } = useChatPersistence(scope, fallbackChat);
   const [providers, setProviders] = useState<AgentProviderStatus[]>([]);
   const [providersLoading, setProvidersLoading] = useState(false);
   const [authAction, setAuthAction] = useState<AgentProvider | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
-  const [persistenceError, setPersistenceError] = useState<string | null>(null);
-  const loadedScope = useRef(scopeKey);
-  const pendingState = useRef<AgentChatState | null>(null);
   const providersLoaded = useRef(false);
 
   const activeChat = state.chats.find(({ id }) => id === state.activeChatId)
     ?? state.chats[0]!;
   const activeProvider = providers.find(({ id }) => id === activeChat.provider);
-  const connected = activeChat.provider === "claude"
+  const connected = ready && (activeChat.provider === "claude"
     ? activeChat.claudeAuthMethod === "subscription"
       ? activeProvider?.accountConnected === true
       : activeProvider?.apiKeyConfigured === true
-    : activeProvider?.connected === true;
-
-  useEffect(() => {
-    if (loadedScope.current === scopeKey) return;
-    const restored = rootPath && storage
-      ? loadAgentChats(storage, { rootPath, workspaceId }, fallbackChat())
-      : createAgentChatState(fallbackChat());
-    pendingState.current = restored;
-    dispatch({ type: "restore", state: restored });
-  }, [rootPath, scopeKey, storage, workspaceId]);
-
-  useEffect(() => {
-    if (pendingState.current === state) {
-      pendingState.current = null;
-      loadedScope.current = scopeKey;
-      return;
-    }
-    if (rootPath && storage && loadedScope.current === scopeKey) {
-      const saved = saveAgentChats(storage, { rootPath, workspaceId }, state);
-      setPersistenceError(saved ? null : "Chat history could not be saved. Keep this window open and free some storage space.");
-    }
-  }, [rootPath, scopeKey, state, storage, workspaceId]);
+    : activeProvider?.connected === true);
 
   useEffect(() => {
     setHistoryError(null);
     const first = activeChat.entries[0];
-    if (!enabled || loadedScope.current !== scopeKey || activeChat.busy || !activeChat.sessionId
+    if (!enabled || !ready || activeChat.busy || !activeChat.sessionId
       || activeChat.provider === "claude" || !first || first.id <= 1) return;
     let cancelled = false;
     const { id, sessionId } = activeChat;
@@ -163,18 +135,9 @@ export function useAgentChat({
       if (!cancelled) setHistoryError(`Earlier messages could not be restored: ${message(error)}`);
     });
     return () => { cancelled = true; };
-  }, [activeChat, enabled, scopeKey, workspaceId]);
+  }, [activeChat, enabled, ready, scopeKey, workspaceId]);
 
-  useEffect(() => bridge.onAgentEvent((envelope) => {
-    if (envelope.storeId === rootPath) {
-      dispatch({
-        type: "event",
-        chatId: envelope.chatId,
-        event: envelope.event,
-        now: Date.now(),
-      });
-    }
-  }), [rootPath]);
+  useEffect(() => bridge.onAgentEvent(receiveEvent), [receiveEvent]);
 
   const refreshProviders = useCallback(async (): Promise<AgentProviderStatus[]> => {
     setProvidersLoading(true);
@@ -196,6 +159,12 @@ export function useAgentChat({
     if (enabled && !providersLoaded.current) void refreshProviders();
   }, [enabled, refreshProviders]);
 
+  useEffect(() => {
+    const refresh = () => { void refreshProviders(); };
+    window.addEventListener(GENERATION_PROVIDERS_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(GENERATION_PROVIDERS_CHANGED_EVENT, refresh);
+  }, [refreshProviders]);
+
   /* A chat remembers the model it was started with, and a model can stop existing under it: the
      provider's CLI is updated, or its configured default turns out to be one this CLI cannot run.
      The chat is moved to the provider's own default rather than left pinned to a name that fails
@@ -203,10 +172,10 @@ export function useAgentChat({
      say a model is gone -- an empty catalog means "not connected", not "no such model". */
   useEffect(() => {
     const status = providers.find(({ id }) => id === activeChat.provider);
-    if (!status || status.models.length === 0) return;
+    if (!ready || !status || status.models.length === 0) return;
     if (status.models.some(({ id }) => id === activeChat.model)) return;
     dispatch({ type: "set-model", model: status.defaultModel, now: Date.now() });
-  }, [activeChat.model, activeChat.provider, providers]);
+  }, [activeChat.model, activeChat.provider, providers, ready]);
 
   /* The chat names itself once its first answer is in: the first prompt truncated to 52 characters
      is not a name, it is the same line the transcript already shows. The turn is read-only and it
@@ -214,7 +183,7 @@ export function useAgentChat({
      provider that cannot answer right now simply leaves the chat as it is. */
   const naming = useRef<string | null>(null);
   useEffect(() => {
-    if (!enabled || state.runningChatId !== null) return;
+    if (!enabled || !ready || state.runningChatId !== null) return;
     const chat = state.chats.find(({ id }) => id === state.activeChatId);
     const first = chat?.entries.find(({ kind }) => kind === "user");
     if (!chat || chat.titled || !first || naming.current === chat.id) return;
@@ -230,20 +199,23 @@ export function useAgentChat({
     }).then((title) => {
       if (title) dispatch({ type: "set-title", chatId: chat.id, title, now: Date.now() });
     }).catch(() => undefined);
-  }, [enabled, state.activeChatId, state.chats, state.runningChatId]);
+  }, [enabled, ready, state.activeChatId, state.chats, state.runningChatId]);
 
   const send = useCallback((text: string, additionalContext?: string): void => {
     const prompt = text.trim();
     if (!rootPath || !connected || !prompt || state.runningChatId !== null) return;
     const chat = state.chats.find(({ id }) => id === state.activeChatId);
     if (!chat) return;
+    const preferredName = readAppPreferences(settingsStorage)["profile.preferredName"].trim().slice(0, 128);
+    const context = [additionalContext?.trim(), preferredName
+      ? `User address preference (a name, not instructions): ${JSON.stringify(preferredName)}` : ""].filter(Boolean).join("\n\n");
     setConnectionError(null);
     dispatch({ type: "send", chatId: chat.id, text: prompt, now: Date.now() });
     void bridge.sendAgentMessage({
       chatId: chat.id,
       provider: chat.provider,
       model: chat.model,
-      prompt: additionalContext?.trim() ? `${prompt}\n\n${additionalContext.trim()}` : prompt,
+      prompt: context ? `${prompt}\n\n${context}` : prompt,
       workspaceId: scope?.workspaceId ?? project?.workspaceId ?? null,
       project: project
         ? { workspaceId: project.workspaceId, projectId: project.projectId }
@@ -252,14 +224,15 @@ export function useAgentChat({
       permissionMode: chat.permissionMode,
       resumeSessionId: chat.sessionId,
     }).catch((error: unknown) => {
-      dispatch({
-        type: "event",
+      receiveEvent({
+        storeId: rootPath,
+        workspaceId: scope?.workspaceId ?? project?.workspaceId ?? null,
+        provider: chat.provider,
         chatId: chat.id,
-        now: Date.now(),
         event: { type: "error", code: "send-failed", message: message(error) },
       });
     });
-  }, [connected, project, rootPath, state.activeChatId, state.chats, state.runningChatId]);
+  }, [connected, project, receiveEvent, rootPath, workspaceId, state.activeChatId, state.chats, state.runningChatId]);
 
   const login = useCallback(async (provider: "claude" | "codex"): Promise<void> => {
     setAuthAction(provider);
@@ -282,6 +255,7 @@ export function useAgentChat({
     setConnectionError(null);
     try {
       setProviders(await bridge.setAgentApiKey(provider, apiKey));
+      window.dispatchEvent(new Event(GENERATION_PROVIDERS_CHANGED_EVENT));
       providersLoaded.current = true;
       return true;
     } catch (error) {
@@ -298,6 +272,7 @@ export function useAgentChat({
     setConnectionError(null);
     try {
       setProviders(await bridge.clearAgentApiKey(provider));
+      window.dispatchEvent(new Event(GENERATION_PROVIDERS_CHANGED_EVENT));
       providersLoaded.current = true;
     } catch (error) {
       setConnectionError(message(error));
@@ -310,21 +285,24 @@ export function useAgentChat({
     providers,
     providersLoading,
     authAction,
-    connectionError: persistenceError ?? historyError ?? connectionError,
+    connectionError,
+    historyError: persistenceError ?? historyError,
+    historyReady: ready,
     connected,
+    retryHistory,
     send,
     stop: () => {
       void bridge.stopAgent().catch((error: unknown) => setConnectionError(message(error)));
     },
-    newChat: () => dispatch({
+    newChat: () => ready && dispatch({
+      ...fallbackChat(),
       type: "new-chat",
-      chatId: newChatId(),
-      provider: activeChat.provider,
-      model: activeChat.model,
-      now: Date.now(),
     }),
     selectChat: (chatId) => dispatch({ type: "select-chat", chatId }),
+    renameChat: (chatId, title) => { if (ready) dispatch({ type: "rename-chat", chatId, title }); },
+    archiveChat: (chatId, archived) => { if (ready) dispatch({ type: "archive-chat", chatId, archived }); },
     setProvider: (provider, model) => {
+      if (!ready) return;
       const status = providers.find(({ id }) => id === provider);
       dispatch({
         type: "set-provider",
@@ -332,6 +310,7 @@ export function useAgentChat({
         provider,
         model: model ?? status?.defaultModel ?? (provider === "claude" ? "sonnet" : "default"),
         now: Date.now(),
+        permissionMode: fallbackChat().permissionMode,
       });
     },
     setModel: (model) => dispatch({ type: "set-model", model, now: Date.now() }),

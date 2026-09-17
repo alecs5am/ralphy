@@ -29,7 +29,7 @@ test("provider IPC keeps secrets encrypted, returns only presence, and shares st
   registerGenerationCredentialIpc({ handle: (channel, handler) => handlers.set(channel, handler), credentials });
   const invoke = async (channel: string, ...args: unknown[]) => await handlers.get(channel)!(...args);
   expect(await invoke(MEDIA_CHANNELS.loadGenerationProviders)).toEqual([
-    { id: "openrouter", name: "OpenRouter", capabilities: ["image", "video"], configured: true, stored: false, inherited: true },
+    { id: "openrouter", name: "OpenRouter", capabilities: ["text", "image", "video"], configured: true, stored: false, inherited: true },
     { id: "elevenlabs", name: "ElevenLabs", capabilities: ["voiceover", "music", "sfx"], configured: false, stored: false, inherited: false },
     { id: "fal", name: "fal", capabilities: ["video"], configured: true, stored: false, inherited: true },
   ]);
@@ -51,6 +51,29 @@ test("provider IPC keeps secrets encrypted, returns only presence, and shares st
   for (const value of ["short", "x".repeat(513), "valid-key-123456789\n", "valid-key-123456789\u0000", 42]) {
     await expect(invoke(MEDIA_CHANNELS.setGenerationProviderKey, "fal", value)).rejects.toThrow("API key");
   }
+});
+
+test("auth checks use the effective key, redact failures, and invalidate results after replacement", async () => {
+  let saved: string | null = "sk-or-stored-nonfunctional-key";
+  let received = "";
+  let fail = false;
+  const credentials = createGenerationCredentials({ environment: () => ({ OPENROUTER_API_KEY: "sk-or-env-nonfunctional-key" }), store: () => ({
+    read: async () => saved, has: async () => saved !== null, write: async (key) => { saved = key; }, clear: async () => { saved = null; },
+  }), probe: async (_provider, key) => { received = key; if (fail) throw new Error(key); return "valid"; } });
+  expect((await credentials.load())[0]?.validation).toBeUndefined();
+  const tested = await credentials.probe("openrouter");
+  expect(received).toBe(saved);
+  expect(tested[0]?.validation?.state).toBe("valid");
+  expect(JSON.stringify(tested)).not.toContain(saved);
+  await credentials.set("openrouter", "sk-or-replacement-nonfunctional-key");
+  expect((await credentials.load())[0]?.validation).toBeUndefined();
+  fail = true;
+  expect((await credentials.probe("openrouter"))[0]?.validation?.state).toBe("unreachable");
+  await credentials.clear("openrouter");
+  expect((await credentials.load())[0]?.validation).toBeUndefined();
+  await credentials.probe("openrouter");
+  expect(received).toBe("sk-or-env-nonfunctional-key");
+  await expect(credentials.probe("fal")).rejects.toThrow("OpenRouter");
 });
 
 test("queued credential mutations finish before status and runtime reads", async () => {

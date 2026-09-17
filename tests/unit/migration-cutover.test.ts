@@ -1023,10 +1023,11 @@ describe("cutover path and crash invariants", () => {
       process.execPath,
       "--eval",
       `import { executeCutover, setCutoverJournalFaultForTesting } from ${JSON.stringify(moduleUrl)};
-       setCutoverJournalFaultForTesting((point) => { if (point === "reconcile-commit") process.exit(86); });
+       // A real crash must bypass Bun's normal SQLite close/checkpoint on exit.
+       setCutoverJournalFaultForTesting((point) => { if (point === "reconcile-commit") process.kill(process.pid, "SIGKILL"); });
        executeCutover(${JSON.stringify(fixture.journal)});`,
     ], { cwd: process.cwd(), env: { ...process.env, NODE_ENV: "test" }, stdout: "pipe", stderr: "pipe" });
-    expect(child.exitCode).toBe(86);
+    expect(child.signalCode).toBe("SIGKILL");
     expect(fs.statSync(path.join(fixture.source, "ralphy.db-wal")).size).toBeGreaterThan(0);
     expect(fs.existsSync(path.join(fixture.parent, ".ralphy-migration.lock"))).toBe(true);
     const installed = api.recoverCutover(fixture.journal) as cutoverJournal.CutoverJournal & {

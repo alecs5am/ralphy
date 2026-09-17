@@ -15,6 +15,7 @@ export function parseCanvasRun(value: unknown, id: string, workspaceId: string, 
     for (const result of node.results) {
       if (!result || !string(result.id, 256) || result.nodeId !== node.nodeId || !["text", "image", "video", "audio"].includes(result.kind) || !string(result.label, 2000) || !(result.text === undefined || string(result.text)) || result.asset && (!string(result.asset.path, 4096) || !string(result.asset.name, 2000) || result.asset.kind !== result.kind)) throw new Error("Invalid canvas result record");
       delete result.previewUrl;
+      delete result.unavailableReason;
       delete result.coreRef;
     }
   }

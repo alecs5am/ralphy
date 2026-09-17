@@ -6,7 +6,9 @@ import { dlopen } from "bun:ffi";
 const request = JSON.parse(process.argv[1]);
 const libc = dlopen(request.library, { fchdir: { args: ["i32"], returns: "i32" } });
 if (libc.symbols.fchdir(3) !== 0) process.exit(126);
-const child = Bun.spawn(request.argv, { cwd: ".", stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+const env = { ...process.env };
+delete env.BUN_BE_BUN;
+const child = Bun.spawn(request.argv, { cwd: ".", env, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
 const [stdout, stderr, exitCode] = await Promise.all([new Response(child.stdout).arrayBuffer(), new Response(child.stderr).arrayBuffer(), child.exited]);
 await Bun.write(Bun.stdout, stdout);
 await Bun.write(Bun.stderr, stderr);
@@ -16,7 +18,7 @@ process.exit(exitCode);
 export function spawnSyncInDirectory(directoryFd: number, argv: readonly string[]) {
   return spawnSync(process.execPath, ["-e", shim, JSON.stringify({ library, argv })], {
     encoding: "utf8",
-    env: process.env,
+    env: { ...process.env, BUN_BE_BUN: "1" },
     stdio: ["ignore", "pipe", "pipe", directoryFd],
   });
 }
@@ -24,10 +26,12 @@ export function spawnSyncInDirectory(directoryFd: number, argv: readonly string[
 export async function spawnInDirectory(directoryFd: number, argv: readonly string[]) {
   return new Promise<{ exitCode: number; stderr: string }>((resolve) => {
     const child = spawn(process.execPath, ["-e", shim, JSON.stringify({ library, argv })], {
-      env: process.env,
-      stdio: ["ignore", "inherit", "pipe", directoryFd],
+      env: { ...process.env, BUN_BE_BUN: "1" },
+      stdio: ["ignore", "pipe", "pipe", directoryFd],
     });
     let stderr = "";
+    // Engine progress must not corrupt the caller's JSON response on stdout.
+    child.stdout!.on("data", (chunk) => process.stderr.write(chunk));
     child.stderr!.on("data", (chunk) => {
       stderr += chunk.toString();
       process.stderr.write(chunk);

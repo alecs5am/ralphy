@@ -78,7 +78,7 @@ export function makeOpenAiCompatibleConnector(entry: ProviderConfigEntry): Ralph
       async (attempt) => {
         const t0 = Date.now();
         const resp = await withConcurrency(id, model, "text", () =>
-          fetch(url, { method: "POST", headers, body: JSON.stringify(body) }),
+          fetch(url, { method: "POST", headers, body: JSON.stringify(body), signal: opts.signal }),
         );
         const latencyMs = Date.now() - t0;
 

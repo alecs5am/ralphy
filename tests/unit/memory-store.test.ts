@@ -1,14 +1,5 @@
-// Unit tests for the memory core store (#112) — tiered markdown memory.
-//
-// Pins the invariants the issue locks in:
-//   • two tiers (global .ralphy/memory/ + workspace memory/), tier resolution
-//   • append-only versioning: re-noting a slug writes <slug>.v2.md, the prior
-//     file is byte-identical afterwards; --force-overwrite is the escape hatch
-//   • approve/reject are MOVES (proposed/ → active | rejected/), never unlinks
-//   • recall merges global + workspace with workspace winning on slug
-//     collision, caps at RECALL_CAP, and carries the injection-hygiene note
-//   • the active-entry cap refuses NEW slugs with a coded error (curation
-//     forcing-function — hermes-agent pattern)
+// Both memory tiers use SQLite identities and immutable document revisions.
+// Preserve tier isolation, historical bodies, lifecycle transitions, recall and caps.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import path from "node:path";
@@ -19,6 +10,7 @@ import { setRoot } from "../../cli/lib/paths.js";
 import {
   writeEntry,
   listEntries,
+  listEntryHistory,
   getEntry,
   findEntry,
   searchEntries,
@@ -26,10 +18,9 @@ import {
   approveAll,
   rejectEntry,
   recall,
-  memoryDir,
-  indexPath,
   scaffoldBody,
   parseEntry,
+  serializeEntry,
   ACTIVE_ENTRY_CAP,
   RECALL_CAP,
   RECALL_NOTE,
@@ -64,19 +55,19 @@ afterEach(() => {
 });
 
 describe("memory store tiers (#112)", () => {
-  test("note lands in the right tier dir and the index is generated", async () => {
+  test("notes persist in distinct durable tiers without filesystem locators", async () => {
     const g = await writeEntry({ text: "Always ban music in Kling prompts.", ref: GLOBAL, status: "active", type: "craft", slug: "kling-no-music" });
     const w = await writeEntry({ text: "Client rejects neon grades.", ref: WS, status: "active", type: "client", slug: "no-neon" });
 
-    expect(g.entry.path).toBe(path.join(tmpRoot, ".ralphy", "memory", "kling-no-music.md"));
-    expect(w.entry).not.toHaveProperty("file");
-    expect(w.entry).not.toHaveProperty("path");
-    expect(w.entry.id).toStartWith("mentry_");
-    expect(w.entry.revisionId).toStartWith("mrev_");
-
-    const idx = fs.readFileSync(indexPath(GLOBAL), "utf-8");
-    expect(idx).toContain("(kling-no-music.md)");
-    expect(idx).not.toContain("no-neon");
+    for (const entry of [g.entry, w.entry]) {
+      expect(entry).not.toHaveProperty("file");
+      expect(entry).not.toHaveProperty("path");
+      expect(entry.id).toStartWith("mentry_");
+      expect(entry.revisionId).toStartWith("mrev_");
+    }
+    closeDomainDb();
+    expect((await listEntries(GLOBAL)).map((entry) => entry.slug)).toEqual(["kling-no-music"]);
+    expect((await listEntries(WS)).map((entry) => entry.slug)).toEqual(["no-neon"]);
   });
 
   test("show search order: workspace tier wins, then global", async () => {
@@ -91,17 +82,14 @@ describe("memory store tiers (#112)", () => {
 describe("append-only versioning", () => {
   test("re-noting an existing slug writes v2 and leaves v1 untouched", async () => {
     const v1 = await writeEntry({ text: "First version.", ref: GLOBAL, status: "active", slug: "rule" });
-    const v1Bytes = fs.readFileSync(v1.entry.path, "utf-8");
 
     const v2 = await writeEntry({ text: "Second version.", ref: GLOBAL, status: "active", slug: "rule" });
     expect(v2.versioned).toBe(true);
-    expect(v2.entry.file).toBe("rule.v2.md");
-    expect(fs.readFileSync(v1.entry.path, "utf-8")).toBe(v1Bytes);
-
-    // Index points at the newest version only.
-    const idx = fs.readFileSync(indexPath(GLOBAL), "utf-8");
-    expect(idx).toContain("(rule.v2.md)");
-    expect(idx).not.toContain("(rule.md)");
+    expect(v2.entry.id).toBe(v1.entry.id);
+    expect(v2.entry.revisionId).not.toBe(v1.entry.revisionId);
+    const history = await listEntryHistory(v1.entry.id!);
+    expect(history).toHaveLength(2);
+    expect(history[1]).toMatchObject({ revisionId: v1.entry.revisionId, body: v1.entry.body, version: 1 });
 
     // list returns the newest version per slug.
     const entries = await listEntries(GLOBAL, "active");
@@ -109,35 +97,35 @@ describe("append-only versioning", () => {
     expect(entries[0]!.version).toBe(2);
   });
 
-  test("--force-overwrite replaces the newest version in place", async () => {
-    await writeEntry({ text: "First.", ref: GLOBAL, status: "active", slug: "rule" });
+  test("legacy force-overwrite updates the head while retaining immutable history", async () => {
+    const first = await writeEntry({ text: "First.", ref: GLOBAL, status: "active", slug: "rule" });
     const r = await writeEntry({ text: "Replaced.", ref: GLOBAL, status: "active", slug: "rule", forceOverwrite: true });
     expect(r.overwritten).toBe(true);
-    expect(r.entry.file).toBe("rule.md");
+    expect(r.entry.version).toBe(2);
+    expect((await listEntryHistory(first.entry.id!))[1]?.body).toBe(first.entry.body);
     expect((await listEntries(GLOBAL, "active")).length).toBe(1);
     expect((await getEntry("rule", GLOBAL))?.body).toContain("Replaced.");
   });
 });
 
-describe("approve / reject move semantics", () => {
-  test("approve MOVES proposed → active and indexes it", async () => {
+describe("approve / reject lifecycle transitions", () => {
+  test("approve selects the proposal without changing its identity or content", async () => {
     const p = await writeEntry({ text: "Candidate rule.", ref: GLOBAL, status: "proposed", slug: "candidate" });
     const r = await approveEntry("candidate", GLOBAL);
     expect(r).not.toBeNull();
-    expect(fs.existsSync(p.entry.path)).toBe(false); // moved out of proposed/
-    expect(fs.existsSync(r!.to)).toBe(true);
+    expect(r).toMatchObject({ entryId: p.entry.id, revisionId: p.entry.revisionId });
+    expect(await listEntries(GLOBAL, "proposed")).toEqual([]);
     expect((await getEntry("candidate", GLOBAL))?.status).toBe("active");
-    expect(fs.readFileSync(indexPath(GLOBAL), "utf-8")).toContain("candidate");
+    expect((await getEntry("candidate", GLOBAL))?.body).toBe(p.entry.body);
   });
 
-  test("approve onto an existing active slug versions up, prior file untouched", async () => {
+  test("approve selects the revised proposal and preserves the previous active body", async () => {
     const active = await writeEntry({ text: "Active v1.", ref: GLOBAL, status: "active", slug: "dup" });
-    const bytes = fs.readFileSync(active.entry.path, "utf-8");
-    await writeEntry({ text: "Proposed update.", ref: GLOBAL, status: "proposed", slug: "dup" });
+    const proposal = await writeEntry({ text: "Proposed update.", ref: GLOBAL, status: "proposed", slug: "dup" });
     const r = await approveEntry("dup", GLOBAL);
-    expect(r!.versioned).toBe(true);
-    expect(path.basename(r!.to)).toBe("dup.v2.md");
-    expect(fs.readFileSync(active.entry.path, "utf-8")).toBe(bytes);
+    expect(r).toMatchObject({ entryId: active.entry.id, revisionId: proposal.entry.revisionId });
+    expect((await getEntry("dup", GLOBAL))?.version).toBe(2);
+    expect((await listEntryHistory(active.entry.id!))[1]).toMatchObject({ body: active.entry.body, status: "archived" });
   });
 
   test("reject MOVES proposed → rejected/, never unlinks", async () => {
@@ -191,17 +179,10 @@ describe("recall merge", () => {
 
 describe("active-entry cap (curation forcing-function)", () => {
   test("a NEW slug beyond the cap throws the coded error; existing slugs still version", async () => {
-    // The store guards on count, not bytes — synthesize cap entries directly
-    // so the test stays fast.
-    const dir = memoryDir(GLOBAL);
-    fs.mkdirSync(dir, { recursive: true });
     for (let i = 0; i < ACTIVE_ENTRY_CAP; i++) {
-      fs.writeFileSync(
-        path.join(dir, `filler-${String(i).padStart(3, "0")}.md`),
-        `---\nname: "f${i}"\ndescription: "filler"\ntype: craft\nfiled: 2026-06-11\nsource: "test"\n---\n\nFiller ${i}.\n`,
-      );
+      await writeEntry({ ref: GLOBAL, status: "active", slug: `filler-${String(i).padStart(3, "0")}`, text: `Filler ${i}.` });
     }
-    expect(writeEntry({ text: "One too many.", ref: GLOBAL, status: "active", slug: "overflow" })).rejects.toThrow(MemoryCapError);
+    await expect(writeEntry({ text: "One too many.", ref: GLOBAL, status: "active", slug: "overflow" })).rejects.toThrow(MemoryCapError);
     // Existing slug versions up fine at the cap (consolidation stays possible).
     const r = await writeEntry({ text: "Merged survivor.", ref: GLOBAL, status: "active", slug: "filler-000" });
     expect(r.versioned).toBe(true);
@@ -209,7 +190,7 @@ describe("active-entry cap (curation forcing-function)", () => {
     const p = await writeEntry({ text: "Staged anyway.", ref: GLOBAL, status: "proposed", slug: "staged" });
     expect(p.entry.status).toBe("proposed");
     // approve of a NEW slug at the cap refuses with the same coded error.
-    expect(approveEntry("staged", GLOBAL)).rejects.toThrow(MemoryCapError);
+    await expect(approveEntry("staged", GLOBAL)).rejects.toThrow(MemoryCapError);
   });
 });
 
@@ -224,15 +205,15 @@ describe("entry body discipline", () => {
     expect(scaffoldBody(structured)).toBe(structured);
   });
 
-  test("frontmatter round-trips and hand-edited bodies survive a parse", async () => {
+  test("portable frontmatter round-trips and edited bodies persist as a new revision", async () => {
     const w = await writeEntry({ text: "Round trip.", ref: GLOBAL, status: "active", slug: "rt", type: "tooling" });
-    // Hand-edit the body (memory files are user-editable markdown by design).
-    const raw = fs.readFileSync(w.entry.path, "utf-8");
-    fs.writeFileSync(w.entry.path, raw + "\nHand-written addendum.\n");
-    const { fm, body } = parseEntry(fs.readFileSync(w.entry.path, "utf-8"));
+    const raw = serializeEntry(w.entry, w.entry.body);
+    const { fm, body } = parseEntry(raw + "\nHand-written addendum.\n");
     expect(fm.type).toBe("tooling");
     expect(body).toContain("Hand-written addendum.");
+    await writeEntry({ text: body, ref: GLOBAL, status: "active", slug: "rt", type: fm.type, expectedRevisionId: w.entry.revisionId });
     expect((await getEntry("rt", GLOBAL))?.body).toContain("Hand-written addendum.");
+    expect((await listEntryHistory(w.entry.id!))[1]?.body).toBe(w.entry.body);
   });
 
   test("search hits frontmatter and body across both tiers", async () => {

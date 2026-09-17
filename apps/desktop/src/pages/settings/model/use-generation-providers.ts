@@ -27,20 +27,20 @@ export function useGenerationProviders(enabled: boolean) {
   }, [enabled, refresh]);
   useEffect(() => () => { version.current++; }, []);
 
-  const update = async (provider: ProviderId, key?: string) => {
+  const update = async (provider: ProviderId, key?: string, probe = false) => {
     if (pending.current) return false;
     pending.current = true;
     const request = ++version.current;
     setBusy(provider); setError(null); setNotice(null);
     try {
-      const next = key === undefined
+      const next = probe ? await bridge.probeGenerationProvider(provider) : key === undefined
         ? await bridge.clearGenerationProviderKey(provider)
         : await bridge.setGenerationProviderKey(provider, key);
       window.dispatchEvent(new Event(GENERATION_PROVIDERS_CHANGED_EVENT));
       if (request === version.current) {
         setProviders(next);
         const saved = next.find((item) => item.id === provider);
-        setNotice(key === undefined
+        setNotice(probe ? `${saved?.name ?? provider}: authentication check finished. No generation was submitted.` : key === undefined
           ? `${saved?.name ?? provider}: saved key removed.${saved?.inherited ? " An environment key remains available." : ""}`
           : `${saved?.name ?? provider}: key saved. Provider access has not been tested.`);
       }
@@ -53,5 +53,5 @@ export function useGenerationProviders(enabled: boolean) {
       if (request === version.current) setBusy(null);
     }
   };
-  return { providers, loading, busy, error, notice, refresh, save: (provider: ProviderId, key: string) => update(provider, key), clear: (provider: ProviderId) => update(provider) };
+  return { providers, loading, busy, error, notice, refresh, save: (provider: ProviderId, key: string) => update(provider, key), clear: (provider: ProviderId) => update(provider), probe: (provider: ProviderId) => update(provider, undefined, true) };
 }

@@ -128,13 +128,10 @@ function MarketplaceItemMetadata({ item }: { item: MarketplaceItemPresentation }
   return <>{lines.map((line, index) => <small className="truncate font-mono type-mono-xs text-muted" key={index}>{line}</small>)}</>;
 }
 
-/* An installed row says so on the shelf, and an installed-but-off row says that
-   too -- otherwise "installed" and "in use" look identical from here. */
+/* The legacy install record is a bookmark, not an agent capability switch. */
 function MarketplaceInstallBadge({ item }: { item: MarketplaceItemPresentation }) {
   if (item.origin !== "pack" || item.install.status !== "installed") return null;
-  return item.install.enabled
-    ? <span className="marketplace-result-installed rounded-control bg-instrument px-1.5 py-0.5 text-on-instrument">Installed</span>
-    : <span className="marketplace-result-installed rounded-control bg-surface-sunken px-1.5 py-0.5 text-muted">Installed · off</span>;
+  return <span className="marketplace-result-installed rounded-control bg-instrument px-1.5 py-0.5 text-on-instrument">Saved</span>;
 }
 
 function resultOrderLabel(query: MarketplaceQueryState): string {

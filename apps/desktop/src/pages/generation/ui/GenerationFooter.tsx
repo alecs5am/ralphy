@@ -15,7 +15,7 @@ export function GenerationFooter({ studio, model, provider, problem, canSubmit, 
   const cost = generationCost(estimate);
   const expensive = cost !== null && cost > threshold;
   const estimating = estimate && running(estimate);
-  const basis = [String(studio.draft.variants), studio.draft.parameters.duration ? `× ${studio.draft.parameters.duration}s` : studio.draft.variants === 1 ? "output" : "outputs", studio.draft.parameters.resolution, `Reported by ${provider}`].filter(Boolean).join(" · ").replace(" · ×", " ×");
+  const basis = [String(studio.draft.variants), studio.draft.parameters.duration ? `× ${studio.draft.parameters.duration}s` : studio.draft.variants === 1 ? "output" : "outputs", studio.draft.parameters.resolution, `Estimated for ${provider}`].filter(Boolean).join(" · ").replace(" · ×", " ×");
   const unavailable = !model?.previewSupported;
   const active = studio.runs.find(running);
   const status = estimating ? "Checking inputs and cost…" : estimate?.status === "failed" ? "Estimate failed · try again" : estimate?.status === "cancelled" ? "Estimate stopped" : unavailable ? "Provider has no cost preview" : "Estimate this setup first";

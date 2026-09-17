@@ -615,6 +615,7 @@ function readArtifactCard(
         kind: string;
         selectedRevisionId: string | null;
         state: string | null;
+        latestReviewVerdict: ArtifactMediaCard["latestReviewVerdict"] | null;
         mime: string | null;
         bytes: number | null;
         selectedObjectId: string | null;
@@ -628,6 +629,10 @@ function readArtifactCard(
               artifact.slug AS slug, artifact.kind AS kind,
               artifact.selected_revision_id AS selectedRevisionId,
               selected.state AS state, object.mime AS mime, object.bytes AS bytes,
+              (SELECT verdict FROM evaluations
+               WHERE artifact_revision_id = selected.id
+                 AND kind = 'media-review' AND verdict IN ('approved', 'needs-work', 'rejected', 'shortlist')
+               ORDER BY created_at DESC, id DESC LIMIT 1) AS latestReviewVerdict,
               selected.object_id AS selectedObjectId, object.storage_class AS storageClass,
               selected.created_at AS createdAt,
               (SELECT COUNT(*) FROM artifact_revisions revision
@@ -652,6 +657,7 @@ function readArtifactCard(
     kind: row.kind,
     selectedRevisionId: row.selectedRevisionId,
     selectedState: row.state,
+    ...(row.latestReviewVerdict ? { latestReviewVerdict: row.latestReviewVerdict } : {}),
     mime: row.mime,
     bytes: row.bytes,
     selectedAt: row.createdAt,

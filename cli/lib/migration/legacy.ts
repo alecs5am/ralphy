@@ -417,7 +417,7 @@ function sanitizeAbsoluteLocator(value: string, sourceRoot?: string): string {
   return `[migration-path-omitted sha256=${sha256(value)}]`;
 }
 
-function redactLegacyCredentialText(value: string): { value: string; redacted: boolean } {
+export function redactLegacyCredentialText(value: string): { value: string; redacted: boolean } {
   let redacted = false;
   const mark = (): string => {
     redacted = true;
@@ -504,7 +504,7 @@ function hasLegacyLineSecret(value: string): boolean {
     || /(^|\s)bearer\s*$/imu.test(value);
 }
 
-function isLegacyCredentialName(value: string): boolean {
+export function isLegacyCredentialName(value: string): boolean {
   const normalized = value
     .replace(/([a-z0-9])([A-Z])/gu, "$1_$2")
     .replace(/-/gu, "_")

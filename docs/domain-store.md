@@ -7,6 +7,11 @@ domain entities; filesystem paths are derived evidence, never identity.
 
 ## Scope and revisions
 
+A Document revision with an explicit title also updates the Document's current
+display title. Omitting the title preserves the current name; earlier revision
+titles remain immutable. Lists and search therefore use the name saved by the
+editor, including after a restart.
+
 Every read and write carries either `{ sessionId }` or
 `{ workspaceId, projectId? }`. A Session is immutable and its Project scope
 cannot be changed in place. Revisions are append-only and mutations use an
@@ -60,12 +65,43 @@ missing.
 
 ## Portable packages
 
-`workspace.export` creates a durable package Object and returns only its Run ID,
-Object ID, and bounded entity counts. `workspace.import` requires an
-idempotency key and returns cursor-paged old-to-new entity mappings and account
-relink requirements. Secrets, credential references, operational Runs,
-Publications, Metrics, and consumer-owned state are excluded. Replaying the same
-key and package is idempotent; later cursors do not create duplicate rows.
+`workspace.export({workspaceId})` creates a version 2, uncompressed `.workspace.tar`
+package as a durable Object and returns its Run ID, Object ID, entity counts, and
+file count. Transfer covers the entire workspace: projects, documents and all
+revisions, media bytes, compositions and builds, units and captions, publishing
+and metric history, memory, campaigns, calendar, settings, and execution history.
+Saved desktop Canvas files, video drafts, and workspace chat history are included.
+Project-only exports are refused because they can lose shared references.
+
+`workspace.import` requires an idempotency key and returns cursor-paged old-to-new
+entity mappings and account relink requirements. It always creates a new
+workspace. IDs, object paths, desktop workspace paths, and saved root paths are
+remapped; existing workspaces remain unchanged. Checksums, file paths, schema,
+foreign keys, and domain invariants are checked in a staging store before a
+transaction restores the records. A failed import removes files it promoted;
+repeating a successful key and package returns the prior result.
+
+For a native file chooser or an initialized library with no workspaces, use:
+
+```bash
+ralphy --root /path/to/library --json workspace import \
+  --file /path/to/export.workspace.tar --idempotency-key transfer-2026-09
+```
+
+`--as` and `--name` optionally choose the new workspace slug and display name.
+File retries are identified by the complete archive hash and idempotency key.
+No temporary placeholder workspace or source credential configuration is created.
+Archives currently support up to 1 GiB; oversized archives fail explicitly rather
+than dropping files. Version 1 packages contained incomplete metadata and cannot
+restore a workspace; export the original workspace again to obtain version 2.
+
+Configured credentials, credential references, and consumer authentication are
+excluded. Recognizable credentials in saved transcript/tool text and metadata
+are redacted. Imported accounts require reconnection, chats use Plan permissions
+and fresh provider sessions, and unfinished execution jobs are cancelled. Source
+media and file bytes are preserved exactly: inspect user-authored files for any
+embedded secrets before sharing an archive. Machine configuration and installed
+dependencies are not part of workspace transfer.
 
 Legacy registry/current-Workspace pointers and control files are not
 authoritative state. Use explicit Workspace scope, immutable Sessions, and the

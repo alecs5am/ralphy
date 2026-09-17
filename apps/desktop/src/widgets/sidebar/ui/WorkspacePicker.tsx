@@ -1,4 +1,6 @@
 import { Check, ChevronDown, Search } from "@/shared/ui/icons";
+import { CreateLibraryEntry } from "@/shared/ui/CreateLibraryEntry";
+import { WorkspaceArchiveAction } from "@/shared/ui/WorkspaceArchiveAction";
 import { AnimatePresence } from "motion/react";
 import {
   useEffect,
@@ -267,6 +269,10 @@ export function WorkspacePicker({
                 {filtered.length === 0 && (
                   <span className="workspace-picker-empty block px-3 py-5 text-center type-sm text-on-instrument-muted">No workspaces found</span>
                 )}
+              </div>
+              <div className="mt-2 flex flex-col gap-2 rounded-field bg-surface p-2 text-ink">
+                <CreateLibraryEntry onCreated={(id) => { onValueChange(id); closeAndRestoreFocus(); }} />
+                <WorkspaceArchiveAction onImported={(id) => { onValueChange(id); closeAndRestoreFocus(); }} />
               </div>
             </div>
             </InstrumentOverlay>

@@ -6,6 +6,8 @@ import { UnitRevisionPreview, unitRevisionNumber } from "@/entities/unit";
 import type { UnitRevisionDto } from "../../../../electron/ralphy/types";
 import { parseAgentMessage, type UnitCardReference } from "../lib/agent-mdx";
 
+const UNIT_REFRESH_DEBOUNCE_MS = 120;
+
 export interface AgentUnitNavigation {
   workspaceId?: string | null;
   onOpenUnit?(project: ProjectReference, unitId: string, label: string): void;
@@ -20,23 +22,49 @@ function ChatUnitCard({ reference, workspaceId, onOpenUnit }: AgentUnitNavigatio
   const [attempt, setAttempt] = useState(0);
   const sameWorkspace = reference.workspaceId === workspaceId;
   const epoch = useRef(0);
+  const expanded = useRef(visibleCount);
+  expanded.current = visibleCount;
   useEffect(() => {
     let current = true;
     epoch.current++;
     setSummary(null); setError(false); setVisibleCount(8); setMoreError(false); setLoadingMore(false);
     if (!sameWorkspace) return;
     const project = { workspaceId: reference.workspaceId, projectId: reference.projectId };
-    void bridge.loadProjectUnit(project, reference.unitId).then(async (unit) => {
-      if (unit.id !== reference.unitId || !unit.latestRevisionId) throw new Error("Unit is not ready");
-      const [latest, page, source] = await Promise.all([
-        bridge.loadProjectUnitRevision(project, unit.id, unit.latestRevisionId),
-        bridge.loadProjectUnitPage(project, { kind: "revisions", unitId: unit.id }),
-        unit.sourceRevisionId ? bridge.loadProjectUnitRevision(project, unit.id, unit.sourceRevisionId).catch(() => null) : null,
-      ]);
-      const revisions = page.items.filter((item) => item.unitId === unit.id && item.id !== unit.sourceRevisionId).sort((a, b) => b.revisionNo - a.revisionNo);
-      if (current) setSummary({ title: unit.slug, format: unit.format, versions: latest.revisionNo - (source?.unitId === unit.id ? 1 : 0), source, sourceRevisionId: unit.sourceRevisionId, sourceLabel: unit.sourceLabel, cursor: page.nextCursor, revisions });
-    }).catch(() => { if (current) setError(true); });
-    return () => { current = false; epoch.current++; };
+    const load = async () => {
+      const requestEpoch = ++epoch.current;
+      setLoadingMore(false); setMoreError(false);
+      try {
+        const unit = await bridge.loadProjectUnit(project, reference.unitId);
+        if (unit.id !== reference.unitId || !unit.latestRevisionId) throw new Error("Unit is not ready");
+        const [latest, page, source] = await Promise.all([
+          bridge.loadProjectUnitRevision(project, unit.id, unit.latestRevisionId),
+          bridge.loadProjectUnitPage(project, { kind: "revisions", unitId: unit.id }),
+          unit.sourceRevisionId ? bridge.loadProjectUnitRevision(project, unit.id, unit.sourceRevisionId).catch(() => null) : null,
+        ]);
+        const revisions = page.items.filter((item) => item.unitId === unit.id && item.id !== unit.sourceRevisionId);
+        let cursor = page.nextCursor;
+        const seen = new Set<string>();
+        while (cursor && revisions.length < expanded.current && current && requestEpoch === epoch.current) {
+          if (seen.has(cursor)) throw new Error("Repeated version cursor");
+          seen.add(cursor);
+          const next = await bridge.loadProjectUnitPage(project, { kind: "revisions", unitId: unit.id, cursor });
+          revisions.push(...next.items.filter((item) => item.unitId === unit.id && item.id !== unit.sourceRevisionId && !revisions.some(({ id }) => id === item.id)));
+          cursor = next.nextCursor;
+        }
+        if (current && requestEpoch === epoch.current) {
+          setError(false);
+          setSummary({ title: unit.slug, format: unit.format, versions: latest.revisionNo - (source?.unitId === unit.id ? 1 : 0), source, sourceRevisionId: unit.sourceRevisionId, sourceLabel: unit.sourceLabel, cursor, revisions: revisions.sort((a, b) => b.revisionNo - a.revisionNo) });
+        }
+      } catch { if (current && requestEpoch === epoch.current) { setSummary(null); setError(true); } }
+    };
+    void load();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const unsubscribe = bridge.onMediaEvent((event) => {
+      if (event.type !== "activity-refresh") return;
+      clearTimeout(timer);
+      timer = setTimeout(() => { void load(); }, UNIT_REFRESH_DEBOUNCE_MS);
+    });
+    return () => { current = false; epoch.current++; clearTimeout(timer); unsubscribe(); };
   }, [reference.workspaceId, reference.projectId, reference.unitId, sameWorkspace, attempt]);
   const showMore = async () => {
     if (!summary || loadingMore) return;

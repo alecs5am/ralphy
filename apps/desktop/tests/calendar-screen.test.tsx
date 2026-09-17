@@ -55,6 +55,111 @@ function button(host: HTMLElement, name: string): HTMLButtonElement {
 const click = (target: HTMLButtonElement) => target.dispatchEvent(new Event("click", { bubbles: true }));
 
 describe("Calendar screen", () => {
+  test("checks uncertain status once without resubmitting and refreshes the inspector", async () => {
+    const uncertain = { ...workspace.events[0]!, status: "failed" as const, channels: [{ ...workspace.events[0]!.channels[0]!, needsReconciliation: true }] };
+    const checked = { ...uncertain, rowVersion: 2, status: "published" as const, channels: [{ ...uncertain.channels[0]!, status: "published" as const, needsReconciliation: false, error: null }] };
+    const load = vi.spyOn(bridge, "loadCalendar").mockResolvedValue({ ...workspace, events: [uncertain] });
+    let finish!: (value: typeof checked) => void;
+    const mutate = vi.spyOn(bridge, "mutateCalendar").mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const host = createReactHost(); const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<CalendarScreen workspaceId="ws_ux" workspaceName="QA" initialDate={new Date(2026, 7, 18)} />); });
+      await act(async () => click(button(host.container, "Launch teaser")));
+      expect(host.container.querySelector(".calendar-inspector")?.textContent).toContain("Status uncertain");
+      expect(button(host.container, "Move to draft").disabled).toBe(true);
+      await act(async () => { click(button(host.container, "Check status")); click(button(host.container, "Check status")); });
+      expect(mutate).toHaveBeenCalledTimes(1);
+      expect(mutate).toHaveBeenCalledWith("ws_ux", { action: "reconcile", eventId: uncertain.id, expectedRowVersion: 1 });
+      load.mockResolvedValue({ ...workspace, events: [checked] });
+      await act(async () => { finish(checked); });
+      expect(load).toHaveBeenCalledTimes(2);
+      expect(host.container.querySelector(".calendar-inspector")?.textContent).toContain("Published");
+      expect(host.container.textContent).toContain("Publication status checked");
+    } finally { await act(async () => root.unmount()); host.restore(); vi.restoreAllMocks(); }
+  });
+
+  test("opens workspace-owned Units from both publication and scheduling views", async () => {
+    vi.spyOn(bridge, "loadCalendar").mockResolvedValue({ ...workspace,
+      events: workspace.events.map((event) => ({ ...event, projectId: null })),
+      readyUnits: workspace.readyUnits.map((unit) => ({ ...unit, projectId: null })),
+    });
+    const openUnit = vi.fn();
+    const host = createReactHost(); const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<CalendarScreen workspaceId="ws_ux" workspaceName="QA" initialDate={new Date(2026, 7, 18)} onOpenProject={openUnit} />); });
+      await act(async () => click(button(host.container, "Launch teaser")));
+      expect(button(host.container, "Open Unit").disabled).toBe(false);
+      await act(async () => click(button(host.container, "Open Unit")));
+      expect(openUnit).toHaveBeenLastCalledWith(null, "unit_1");
+      await act(async () => click(button(host.container, "Schedule content")));
+      const dialog = document.body.querySelector('[role="dialog"]')! as HTMLElement;
+      expect(button(dialog, "Open Unit").disabled).toBe(false);
+      await act(async () => click(button(dialog, "Open Unit")));
+      expect(openUnit).toHaveBeenLastCalledWith(null, "unit_2");
+    } finally { await act(async () => root.unmount()); host.restore(); vi.restoreAllMocks(); }
+  });
+
+  test("offers and verifies a first Postiz connection with zero accounts", async () => {
+    const connect = vi.spyOn(bridge, "connectCalendar").mockResolvedValue({ imported: 1, skipped: 0 });
+    vi.spyOn(bridge, "loadCalendar").mockResolvedValue({ ...workspace, accounts: [], postiz: { available: false, lastSyncedAt: null, error: null } });
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<CalendarScreen workspaceId="ws_ux" workspaceName="UX Testing Lab" />); await Promise.resolve(); });
+      await act(async () => click(button(host.container, "Connect Postiz")));
+      const dialog = document.body.querySelector(".calendar-reconnect-dialog")!;
+      expect(dialog.textContent).toContain("Connect Postiz");
+      expect(dialog.textContent).toContain("does not publish content");
+      expect(dialog.querySelector("input")?.type).toBe("password");
+      expect(button(dialog as HTMLElement, "Connect accounts").disabled).toBe(true);
+      const input = dialog.querySelector("input")! as HTMLInputElement;
+      Object.assign(input, { attachEvent() {}, detachEvent() {} });
+      await act(async () => {
+        input.dispatchEvent(new Event("focusin", { bubbles: true })); input.value = "postiz-test-secret";
+        input.dispatchEvent(new Event("keyup", { bubbles: true })); input.dispatchEvent(new Event("focusout", { bubbles: true }));
+      });
+      await act(async () => { click(button(dialog as HTMLElement, "Connect accounts")); await Promise.resolve(); });
+      expect(connect).toHaveBeenCalledWith("ws_ux", "postiz-test-secret");
+      expect(host.container.textContent).toContain("Connected 1 account");
+      expect(document.body.querySelector(".calendar-reconnect-dialog")).toBeNull();
+    } finally { await act(async () => root.unmount()); host.restore(); vi.restoreAllMocks(); }
+  });
+
+  test("keeps a saved draft visible when scheduling fails without offering a duplicate create", async () => {
+    vi.spyOn(bridge, "loadCalendar").mockResolvedValue(workspace);
+    const mutate = vi.spyOn(bridge, "mutateCalendar").mockResolvedValueOnce(workspace.events[0]!).mockRejectedValueOnce(new Error("Postiz is offline"));
+    const host = createReactHost(); const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<CalendarScreen workspaceId="ws_ux" workspaceName="UX Testing Lab" />); await Promise.resolve(); });
+      await act(async () => { click(button(host.container, "Schedule content")); await Promise.resolve(); });
+      await act(async () => { click(button(document.body as unknown as HTMLElement, "Schedule 2 publications")); await Promise.resolve(); await Promise.resolve(); });
+      expect(mutate).toHaveBeenCalledTimes(2);
+      const created = mutate.mock.calls[0]![1];
+      expect(created.action).toBe("create");
+      if (created.action === "create") expect(created.channels.every((channel) => !("caption" in (channel.settings as object)))).toBe(true);
+      expect(host.container.textContent).toContain("Draft saved. Scheduling failed: Postiz is offline");
+      expect(document.body.querySelector(".calendar-modal")).toBeNull();
+    } finally { await act(async () => root.unmount()); host.restore(); vi.restoreAllMocks(); }
+  });
+
+  test("opens the requested account setup once when arriving from Workspace accounts", async () => {
+    vi.spyOn(bridge, "loadCalendar").mockResolvedValue(workspace);
+    const host = createReactHost(); const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    const context = { label: "Reconnect account", accountId: "account_2", accountAction: "manage" as const };
+    try {
+      await act(async () => { root.render(<CalendarScreen workspaceId="ws_ux" workspaceName="UX Testing Lab" navigationContext={context} />); await Promise.resolve(); });
+      expect(document.body.querySelector(".calendar-reconnect-dialog")?.textContent).toContain("Reconnect @ralphy.video");
+      await act(async () => click(button(document.body as unknown as HTMLElement, "Cancel")));
+      await act(async () => { root.render(<CalendarScreen workspaceId="ws_ux" workspaceName="UX Testing Lab" navigationContext={context} />); await Promise.resolve(); });
+      expect(document.body.querySelector(".calendar-reconnect-dialog")).toBeNull();
+    } finally { await act(async () => root.unmount()); host.restore(); vi.restoreAllMocks(); }
+  });
+
   test("opens the exact contextual timestamp when one Unit has nearby events", async () => {
     const exactAt = workspace.events[0]!.at!;
     vi.spyOn(bridge, "loadCalendar").mockResolvedValue({
@@ -153,8 +258,8 @@ describe("Calendar screen", () => {
       await act(async () => click(button(document.body as unknown as HTMLElement, "Platform settings")));
       expect(document.body.querySelector(".calendar-modal-poster")).toBeTruthy();
       expect(document.body.querySelector(".calendar-platform-tabs")).toBeTruthy();
-      expect(document.body.textContent).toContain("Share to feed");
-      await act(async () => click(button(document.body as unknown as HTMLElement, "Share to feed")));
+      expect(document.body.textContent).toContain("PUBLISH AS");
+      await act(async () => click(button(document.body as unknown as HTMLElement, "story")));
       expect(document.body.querySelector(".calendar-platform-tabs")?.textContent).toContain("Edited");
     } finally {
       await act(async () => root.unmount()); host.restore(); vi.restoreAllMocks();

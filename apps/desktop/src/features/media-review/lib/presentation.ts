@@ -2,7 +2,7 @@ import type { ArtifactRevisionState, MediaCardDto } from "../../../../electron/r
 import type { Availability } from "@/shared/instrument/types";
 
 export type MediaReviewVerdict = "approved" | "needs-work" | "rejected";
-export type ProductionMediaReviewStatus = ArtifactRevisionState;
+export type ProductionMediaReviewStatus = ArtifactRevisionState | "needs-work";
 
 export const MEDIA_REVIEW_UNSUPPORTED_REASON = "Review is unavailable in Core 0.3.0 from Desktop.";
 
@@ -16,6 +16,7 @@ function isArtifactRevisionState(value: unknown): value is ArtifactRevisionState
 
 export function productionMediaReviewStatus(card: MediaCardDto): Availability<ProductionMediaReviewStatus> {
   if (card.ref.type === "artifact" && "selectedState" in card && isArtifactRevisionState(card.selectedState)) {
+    if (card.latestReviewVerdict === "needs-work") return { status: "ready", value: "needs-work" };
     return { status: "ready", value: card.selectedState };
   }
   return { status: "unavailable", reason: "Review status is unavailable for this media item." };

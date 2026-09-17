@@ -58,7 +58,7 @@ test("period selection updates the readout and survives a shorter refreshed seri
 
 test("missing engagement data renders one compact status without empty bars", () => {
   const markup = renderToStaticMarkup(<WorkspaceEngagement totals={{ publications: null, views: null, likes: null, comments: null, shares: null, watchTimeMs: null }} />);
-  expect(markup).toContain("Engagement unavailable");
+  expect(markup).toContain("No engagement reported yet");
   expect(markup).toContain('role="status"');
   expect(markup).not.toContain("<svg");
   expect(markup).not.toContain("Interactions / views");

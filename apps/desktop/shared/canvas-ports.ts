@@ -9,7 +9,7 @@ export function canvasNodePorts(node: CanvasNode): { inputs: CanvasPort[]; outpu
     case "prompt": return { inputs: [], outputs: [port("text", "Prompt", "text")] };
     case "media": return { inputs: [], outputs: [port("media", media === "text" ? "Text" : "Media", media)] };
     case "note": return { inputs: [], outputs: [] };
-    case "model": return { inputs: [port("prompt", "Prompt", "text"), ...(media === "image" || media === "video" ? [port("reference", media === "video" ? "Start frame" : "Reference", "image")] : []), ...(media === "video" ? [port("video", "Video reference", "video")] : [])], outputs: [port("result", "Result", media)] };
+    case "model": return { inputs: [port("prompt", "Prompt", "text"), ...(media === "image" || media === "video" ? [port("reference", media === "video" && node.config?.modelId !== "bytedance/seedance-2.0/reference-to-video" ? "Start frame" : "Reference", "image")] : []), ...(media === "video" && node.config?.provider !== "fal" ? [port("video", "Video reference", "video")] : [])], outputs: [port("result", "Result", media)] };
     case "output": return { inputs: [port("input", "Result", "any")], outputs: [] };
     case "connector": {
       const type = node.config?.operation === "join-text" ? "text" : "any";

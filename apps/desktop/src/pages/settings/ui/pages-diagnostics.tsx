@@ -5,7 +5,7 @@
  * the platform granted -- so a green row means something was asked and answered. The About page
  * states the versions it can actually see, including Chromium's, read from the user agent.
  */
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ArrowUpRight } from "@/shared/ui/icons";
 
 import { bridge } from "@/shared/api/ipc";
@@ -13,19 +13,17 @@ import { RalphyMascot } from "@/shared/ui/RalphyMascot";
 import {
   action,
   Dot,
-  LedBar,
-  META,
   NOTE,
-  NUMBER,
   Plate,
   Row,
   Section,
-  Segmented,
+  Status,
   statusText,
   type StatusTone,
-  Toggle,
   WIDGET_LIGHT,
 } from "./rows";
+import { useDesktopSystem, diskSize } from "../model/use-desktop-system";
+import type { DesktopSystemInfo } from "../../../../shared/desktop-system";
 import type { SettingsContext } from "../model/context";
 import { usePermission, type PermissionState } from "./pages-permissions";
 import {
@@ -43,7 +41,7 @@ interface DiagnosticCheck {
   fix?: { label: string; run(): void };
 }
 
-export function diagnosticChecks(ctx: SettingsContext, microphone: PermissionState): readonly DiagnosticCheck[] {
+export function diagnosticChecks(ctx: SettingsContext, microphone: PermissionState, system?: DesktopSystemInfo | null): readonly DiagnosticCheck[] {
   const harnesses = ctx.harnesses.rows;
   const connected = harnesses.filter(({ tone }) => tone === "ok").length;
   const notifications: string = typeof Notification === "undefined" ? "unknown" : Notification.permission;
@@ -51,9 +49,9 @@ export function diagnosticChecks(ctx: SettingsContext, microphone: PermissionSta
     {
       id: "library",
       label: "Library read/write",
-      value: ctx.libraryPath ?? "no library is open",
-      state: ctx.libraryPath ? "HEALTHY" : "FAILED",
-      tone: ctx.libraryPath ? "ok" : "bad",
+      value: system?.libraryError ?? (system?.libraryWritable ? "Temporary write and cleanup succeeded" : "Not checked"),
+      state: system ? system.libraryWritable ? "HEALTHY" : "FAILED" : "NOT REPORTED",
+      tone: system ? system.libraryWritable ? "ok" : "bad" : "off",
     },
     {
       id: "harnesses",
@@ -79,9 +77,9 @@ export function diagnosticChecks(ctx: SettingsContext, microphone: PermissionSta
       tone: notifications === "granted" ? "ok" : notifications === "unknown" ? "off" : "warn",
       fix: { label: "Open permissions", run: () => ctx.goTo("permissions") },
     },
-    { id: "providers", label: "Generation providers", value: "no discovery contract", state: "NOT REPORTED", tone: "off" },
-    { id: "disk", label: "Disk space", value: "no disk-usage contract", state: "NOT REPORTED", tone: "off" },
-    { id: "cli", label: "Ralphy CLI", value: "no version probe", state: "NOT REPORTED", tone: "off" },
+    { id: "providers", label: "Generation providers", value: "Check each service in Generation providers", state: "NOT REPORTED", tone: "off", fix: { label: "Check connections", run: () => ctx.goTo("providers") } },
+    { id: "disk", label: "Disk space", value: diskSize(system?.availableBytes), state: system?.availableBytes == null ? "NOT REPORTED" : system.availableBytes < 1024 ** 3 ? "NEEDS ATTENTION" : "HEALTHY", tone: system?.availableBytes == null ? "off" : system.availableBytes < 1024 ** 3 ? "warn" : "ok" },
+    { id: "cli", label: "Ralphy CLI", value: system?.versions.core ?? "No active runtime", state: system?.versions.core ? "HEALTHY" : "NOT REPORTED", tone: system?.versions.core ? "ok" : "off" },
   ];
 }
 
@@ -89,11 +87,13 @@ export function DiagnosticsPage({ ctx }: { ctx: SettingsContext }) {
   const microphone = usePermission("microphone");
   const [checking, setChecking] = useState(false);
   const [copied, setCopied] = useState(false);
-  const checks = diagnosticChecks(ctx, microphone);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const system = useDesktopSystem();
+  const checks = diagnosticChecks(ctx, microphone, system.info);
   const rerun = async () => {
     setChecking(true);
     try {
-      await ctx.harnesses.refresh();
+      await Promise.all([ctx.harnesses.refresh(), system.refresh()]);
     } finally {
       setChecking(false);
     }
@@ -119,81 +119,20 @@ export function DiagnosticsPage({ ctx }: { ctx: SettingsContext }) {
       <button
         className={action({ size: "lg" })}
         type="button"
-        onClick={async () => { await bridge.copyText(summary()); setCopied(true); }}
+        onClick={async () => { try { await bridge.copyText(summary()); setCopied(true); setActionError(null); } catch { setActionError("Could not copy the summary. Try again."); } }}
       >{copied ? "Copied" : "Copy redacted summary"}</button>
-      <button className={action({ size: "lg" })} type="button" disabled>Reveal logs</button>
+      <button className={action({ size: "lg" })} type="button" onClick={() => { setActionError(null); void bridge.revealDesktopFolder("logs").catch(() => setActionError("Could not open the logs folder. Try again.")); }}>Reveal logs</button>
       <p className={`${NOTE} ml-auto text-right @max-settings-column/settings-main:ml-0 @max-settings-column/settings-main:text-left`}>THE SUMMARY CARRIES NO KEYS, PROMPTS<br />OR MEDIA PATHS</p>
     </div>
+    {actionError && <p className={NOTE} role="alert">{actionError}</p>}
   </>;
 }
 
 export function UpdatesPage({ ctx }: { ctx: SettingsContext }) {
-  const { values, set } = ctx.preferences;
-  const [progress, setProgress] = useState<number | null>(null);
-  const [ready, setReady] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
-
-  // ponytail: the progress run is local until an updater contract exists; the states it
-  // walks through (idle, downloading, ready) are the ones the real updater will report.
-  const start = () => {
-    if (ready) return;
-    if (progress !== null) {
-      if (timer.current) clearInterval(timer.current);
-      timer.current = null;
-      setProgress(null);
-      return;
-    }
-    setProgress(0);
-    timer.current = setInterval(() => setProgress((current) => {
-      const next = (current ?? 0) + 7;
-      if (next < 100) return next;
-      if (timer.current) clearInterval(timer.current);
-      timer.current = null;
-      setReady(true);
-      return 100;
-    }), 90);
-  };
-
-  return <>
-    <Section title="VERSION">
-      <div className={`flex flex-col gap-3.25 ${WIDGET_LIGHT}`}>
-        <div className="flex items-center gap-4">
-          <span className="flex min-w-0 flex-1 flex-col gap-1.25">
-            <span className={META}>{ready ? "READY TO INSTALL" : progress !== null ? "DOWNLOADING" : `CURRENT VERSION · ${values["updates.channel"].toLocaleUpperCase()}`}</span>
-            <strong className="font-display type-display font-extrabold leading-none text-ink">{ctx.version}</strong>
-          </span>
-          <button className={action({ size: "lg", tone: progress !== null && !ready ? undefined : "primary" })} type="button" onClick={start}>
-            {ready ? "Restart to update" : progress !== null ? "Pause" : "Check for updates"}
-          </button>
-        </div>
-        {progress !== null && <div className="flex items-center gap-3">
-          <LedBar percent={progress} />
-          <b className={NUMBER}>{progress}%</b>
-        </div>}
-        <p className="m-0 type-label leading-copy text-muted">{ready
-          ? "The update is downloaded. Installing happens on restart — active runs are stopped cleanly first."
-          : progress !== null ? "Downloading runs in the background and does not block work."
-          : "An update feed is not wired up yet, so this check walks the states the real updater will report."}</p>
-      </div>
-    </Section>
-
-    <Section title="CHANNEL">
-      <Plate>
-        <Row title="Update channel" description="Beta arrives earlier and can break CLI contracts." id="updates.channel">
-          <Segmented
-            label="Update channel"
-            value={values["updates.channel"]}
-            options={["Stable", "Beta"] as const}
-            onChange={(next) => set("updates.channel", next)}
-          />
-        </Row>
-        <Row title="Download updates automatically" description="Installing still waits for your restart." id="updates.autoDownload">
-          <Toggle label="Download updates automatically" on={values["updates.autoDownload"]} onChange={(next) => set("updates.autoDownload", next)} />
-        </Row>
-      </Plate>
-    </Section>
-  </>;
+  return <Section title="APPLICATION UPDATES"><Plate>
+    <Row title="Installed version" description="This build is updated manually. Your library is stored separately from the application."><Status>{ctx.version}</Status></Row>
+    <Row title="Get the latest release" description="Review release notes and installation instructions before replacing the application."><a className={action()} href="https://github.com/alecs5am/ralphy/releases" target="_blank" rel="noreferrer">Open releases<ArrowUpRight size={14} /></a></Row>
+  </Plate></Section>;
 }
 
 /* An outbound link is a sunken pill like an action, but it is a link, not a control. */
@@ -202,14 +141,15 @@ const LINK = "inline-flex h-8 items-center gap-2 rounded-control bg-field px-3.5
 const CHROMIUM = /Chrome\/([\d.]+)/.exec(typeof navigator === "undefined" ? "" : navigator.userAgent)?.[1] ?? null;
 
 export function AboutPage({ ctx }: { ctx: SettingsContext }) {
+  const { info } = useDesktopSystem();
   const [copied, setCopied] = useState(false);
   const runtime: readonly [string, string][] = [
     ["Ralphy Desktop", ctx.version],
     ["Chromium", CHROMIUM ?? "not reported"],
     ["Platform", (typeof navigator === "undefined" ? "" : navigator.platform) || "not reported"],
-    ["Electron", "not reported"],
-    ["Node", "not reported"],
-    ["Ralphy CLI", "not reported"],
+    ["Electron", info?.versions.electron ?? "Checking…"],
+    ["Node", info?.versions.node ?? "Checking…"],
+    ["Ralphy CLI", info?.versions.core ?? "No active runtime"],
   ];
   return <>
     <div className="flex items-center gap-5 rounded-panel bg-instrument p-4">
@@ -239,7 +179,7 @@ export function AboutPage({ ctx }: { ctx: SettingsContext }) {
 
     <Section title="OPEN SOURCE">
       <div className={`flex flex-wrap gap-2 ${WIDGET_LIGHT}`}>
-        <a className={LINK} href="https://github.com/alecs5am/ralphy-desktop" target="_blank" rel="noreferrer">
+        <a className={LINK} href="https://github.com/alecs5am/ralphy" target="_blank" rel="noreferrer">
           Repository
           <ArrowUpRight size={12} strokeWidth={1.8} aria-hidden="true" />
         </a>

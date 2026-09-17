@@ -60,15 +60,15 @@ function cachedPreview(key: string, project: ProjectReference, ref: MediaRef, re
 }
 
 export function mediaCardName(card: MediaCardDto): string {
-  if ("slug" in card) return card.slug;
-  if ("purpose" in card) return card.purpose;
-  return card.mime || "Media object";
+  if ("slug" in card && card.slug !== "artifact") return card.slug;
+  if ("purpose" in card) return card.purpose.replaceAll("-", " ");
+  return `${mediaCardKind(card)} · ${card.ref.id.slice(-8)}`;
 }
 
 export function mediaCardKind(card: MediaCardDto): string {
-  if (card.ref.type === "artifact") return "Artifact";
-  if (card.ref.type === "run-object") return "Run object";
-  return "Object";
+  if (card.ref.type === "artifact") return card.mediaKind === "other" ? "Media" : card.mediaKind[0]!.toUpperCase() + card.mediaKind.slice(1);
+  if (card.ref.type === "run-object") return "Generation file";
+  return "Source file";
 }
 
 function formatBytes(bytes: number | null): string {
@@ -182,4 +182,3 @@ export function MediaCardPreview({
     {!source && <span className={`asset-extension type-${kind ?? "file"} min-h-5 rounded-chip bg-media-plate px-1.75 type-xs text-on-instrument-muted`}><FileGlyph kind={kind} size={11} />{kind ?? "file"}</span>}
   </div>;
 }
-

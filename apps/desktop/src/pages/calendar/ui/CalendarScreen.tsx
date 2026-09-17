@@ -9,7 +9,7 @@ import { PageHeader, PageHeaderMore, PAGE_HEADER_BUTTON, PAGE_HEADER_PRIMARY } f
 import {
   CalendarDays, Columns3, List, ChevronLeft, ChevronRight, CircleAlert, Globe2, PanelRight, Plus, SlidersHorizontal,
 } from "@/shared/ui/icons";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CalendarEventDto, CalendarReadyUnitDto, CalendarWorkspaceDto,
 } from "../../../../electron/ralphy/types";
@@ -38,7 +38,7 @@ export const calendarInstrumentStates = defineInstrumentScreenStates({
 
 export function CalendarScreen({
   workspaceId, workspaceName, initialDate = new Date(), navigationContext, onOpenProject = () => undefined,
-}: { workspaceId: string; workspaceName: string; initialDate?: Date; navigationContext?: WorkspaceCalendarNavigationContext; onOpenProject?: (projectId: string, unitId: string) => void }) {
+}: { workspaceId: string; workspaceName: string; initialDate?: Date; navigationContext?: WorkspaceCalendarNavigationContext; onOpenProject?: (projectId: string | null, unitId: string) => void }) {
   const [view, setView] = useState<CalendarView>("month");
   const [anchor, setAnchor] = useState(initialDate);
   const [data, setData] = useState<CalendarWorkspaceDto | null>(null);
@@ -56,9 +56,14 @@ export function CalendarScreen({
   const [modalDate, setModalDate] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
+  const [mutating, setMutating] = useState(false);
+  const mutationPending = useRef(false);
+  const [connectionOpen, setConnectionOpen] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [reconnectAccount, setReconnectAccount] = useState<CalendarWorkspaceDto["accounts"][number] | null>(null);
   const [reconnectCredential, setReconnectCredential] = useState("");
   const [reconnecting, setReconnecting] = useState(false);
+  const openedAccountContext = useRef<WorkspaceCalendarNavigationContext | undefined>(undefined);
   const timezone = data?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC";
 
   useEffect(() => {
@@ -68,6 +73,12 @@ export function CalendarScreen({
     void bridge.loadCalendar(workspaceId, { ...range, timezone }).then((next) => {
       if (!current) return;
       setData(next);
+      setModalUnit((unit) => unit ? next.readyUnits.find((item) => item.unitId === unit.unitId) ?? null : null);
+      if (navigationContext?.accountAction && openedAccountContext.current !== navigationContext) {
+        openedAccountContext.current = navigationContext;
+        setReconnectAccount(navigationContext.accountAction === "manage" ? next.accounts.find((account) => account.id === navigationContext.accountId) ?? null : null);
+        setReconnectCredential(""); setConnectionError(null); setConnectionOpen(true);
+      }
       setSelectedEventId((id) => {
         const contextual = navigationContext?.unitId
           ? next.events.find((event) => event.unitId === navigationContext.unitId && (
@@ -110,13 +121,20 @@ export function CalendarScreen({
   };
   const openReconnect = (accountId: string | null) => {
     const account = data?.accounts.find((item) => item.id === accountId) ?? null;
-    if (account) { setReconnectAccount(account); setReconnectCredential(""); }
+    setReconnectAccount(account); setReconnectCredential(""); setConnectionError(null); setConnectionOpen(true);
   };
   const mutate = useCallback(async (input: Parameters<typeof bridge.mutateCalendar>[1]) => {
+    if (mutationPending.current) return;
+    mutationPending.current = true; setMutating(true);
     try {
-      await bridge.mutateCalendar(workspaceId, input);
-      setNotice("Calendar updated."); setRightPanel(null); setRefresh((value) => value + 1);
+      const result = await bridge.mutateCalendar(workspaceId, input);
+      if (input.action === "reconcile") {
+        setNotice(result.channels.some((channel) => channel.needsReconciliation)
+          ? "Status is still uncertain. Check the channel details and Postiz before retrying. No post was resubmitted."
+          : "Publication status checked. No post was resubmitted.");
+      } else { setNotice("Calendar updated."); setRightPanel(null); }
     } catch (cause) { setNotice(cause instanceof Error ? cause.message : String(cause)); }
+    finally { mutationPending.current = false; setMutating(false); setRefresh((value) => value + 1); }
   }, [workspaceId]);
 
   const instrumentState = modalOpen
@@ -153,49 +171,62 @@ export function CalendarScreen({
         <small className="font-code type-mono-md text-muted">{visible.length} publications · {rangeNote(days)}</small>
       </div>
 
-      {!data?.postiz.available && data && <div className="calendar-readonly m-0 flex min-h-10 min-w-0 flex-none items-center gap-2 rounded-control bg-surface-sunken px-3 py-2 type-sm text-muted"><CircleAlert className={`${ICON} shrink-0`} /><span className="flex-1">Postiz is unavailable. Your local calendar and drafts are still available.</span><button type="button" className={`${ACTION} ml-auto px-2.25 py-1.25 type-sm bg-desk-primary text-desk-primary-ink`} onClick={() => setRefresh((value) => value + 1)}>Try again</button></div>}
+      {data && (!data.postiz.available || data.accounts.length === 0) && <div className="calendar-readonly m-0 flex min-h-10 min-w-0 flex-none items-center gap-2 rounded-control bg-surface-sunken px-3 py-2 type-sm text-muted"><CircleAlert className={`${ICON} shrink-0`} /><span className="flex-1">Connect Postiz to schedule publications. Your local calendar and drafts are still available.</span><button type="button" className={`${ACTION} ml-auto px-2.25 py-1.25 type-sm bg-desk-primary text-desk-primary-ink`} onClick={() => openReconnect(null)}>Connect Postiz</button></div>}
       <div className="calendar-content relative m-0 flex min-h-0 w-full max-w-none flex-1 overflow-visible bg-transparent p-0">
         {error ? <CalendarError error={error} onRetry={() => setRefresh((value) => value + 1)} />
           : loading && !data ? <CalendarLoading />
             : view === "month" ? <MonthView days={days} events={visible} timezone={timezone} selectedEventId={selectedEventId} onOpen={openEvent} onDropUnit={(unitId, date) => openSchedule(data?.readyUnits.find((unit) => unit.unitId === unitId) ?? null, date)} />
               : view === "week" ? <WeekView days={days} events={visible} timezone={timezone} selectedEventId={selectedEventId} onOpen={openEvent} />
                 : <AgendaView events={visible} timezone={timezone} selectedEventId={selectedEventId} tab={agendaTab} onTab={setAgendaTab} onOpen={openEvent}
-                  onRetry={(event) => mutate({ action: "retry", eventId: event.id, expectedRowVersion: event.rowVersion })} onReconnect={openReconnect} />}
-        {rightPanel === "inspector" && selected && <EventInspector event={selected} postizAvailable={data?.postiz.available ?? false} onClose={() => setRightPanel(null)} onOpenUnit={() => selected.projectId && onOpenProject(selected.projectId, selected.unitId)} onMutate={mutate} />}
+                  busy={mutating} onRetry={(event) => mutate({ action: event.channels.some((channel) => channel.needsReconciliation) ? "reconcile" : "retry", eventId: event.id, expectedRowVersion: event.rowVersion })} onReconnect={openReconnect} />}
+        {rightPanel === "inspector" && selected && <EventInspector event={selected} busy={mutating} postizAvailable={data?.postiz.available ?? false} onClose={() => setRightPanel(null)} onOpenUnit={() => onOpenProject(selected.projectId, selected.unitId)} onMutate={mutate} />}
         {rightPanel === "drawer" && <ReadyDrawer units={data?.readyUnits ?? []} onClose={() => setRightPanel(null)} onSchedule={openSchedule} />}
       </div>
-      <span className="calendar-live sr-only" aria-live="polite">{notice}</span>
+      {notice && <p className="calendar-live m-0 rounded-control bg-surface-sunken px-3 py-2 type-sm text-ink" role="status">{notice}</p>}
     </section>
     <ScheduleDialog open={modalOpen} unit={modalUnit} step={modalStep} initialDate={modalDate} timezone={timezone} postizAvailable={data?.postiz.available ?? false} saving={saving}
       accounts={data?.accounts ?? []}
       onReconnect={openReconnect}
-      onOpenUnit={() => modalUnit?.projectId && onOpenProject(modalUnit.projectId, modalUnit.unitId)}
+      onOpenUnit={() => modalUnit && onOpenProject(modalUnit.projectId, modalUnit.unitId)}
       onOpenChange={setModalOpen} onSelect={setModalUnit} onStep={setModalStep} units={data?.readyUnits ?? []}
       onSave={async (submit, at, channels, unitRevisionId) => {
         if (!unitRevisionId || channels.length === 0) return;
         setSaving(true);
+        let savedDraft: CalendarEventDto | null = null;
         try {
           const draft = await bridge.mutateCalendar(workspaceId, {
             action: "create", unitRevisionId, at: null, draftAt: at, timezone,
             channels,
           });
-          if (submit) await bridge.mutateCalendar(workspaceId, { action: "submit", eventId: draft.id, expectedRowVersion: draft.rowVersion, at });
-          setModalOpen(false); setNotice(submit ? "Content scheduled." : "Draft saved."); setRefresh((value) => value + 1);
-        } catch (cause) { setNotice(cause instanceof Error ? cause.message : String(cause)); }
-        finally { setSaving(false); }
+          savedDraft = draft;
+          const result = submit ? await bridge.mutateCalendar(workspaceId, { action: "submit", eventId: draft.id, expectedRowVersion: draft.rowVersion, at }) : draft;
+          setNotice(submit ? `Publication status: ${STATUS_LABEL[result.status]}. Check each channel for details.` : "Draft saved locally.");
+        } catch (cause) { setNotice(`${savedDraft ? "Draft saved. Scheduling failed: " : ""}${cause instanceof Error ? cause.message : String(cause)}`); }
+        finally {
+          setSaving(false);
+          if (savedDraft) { setModalOpen(false); setSelectedEventId(savedDraft.id); setRightPanel("inspector"); setRefresh((value) => value + 1); }
+        }
       }} />
-    <ReconnectDialog account={reconnectAccount} credential={reconnectCredential} saving={reconnecting} onCredential={setReconnectCredential} onOpenChange={(open) => { if (!open) setReconnectAccount(null); }} onSave={async () => {
-      if (!reconnectAccount) return;
-      setReconnecting(true);
+    <ReconnectDialog open={connectionOpen} account={reconnectAccount} credential={reconnectCredential} saving={reconnecting} error={connectionError} onCredential={setReconnectCredential} onOpenChange={(open) => { if (!reconnecting) { setConnectionOpen(open); if (!open) setReconnectCredential(""); } }} onSave={async () => {
+      setReconnecting(true); setConnectionError(null);
       try {
-        await bridge.reconnectCalendarAccount(workspaceId, { accountId: reconnectAccount.id, expectedRowVersion: reconnectAccount.rowVersion, credential: reconnectCredential });
-        setReconnectAccount(null); setNotice(`${reconnectAccount.handle} reconnected.`); setRefresh((value) => value + 1);
-      } catch (cause) { setNotice(cause instanceof Error ? cause.message : String(cause)); }
+        if (reconnectAccount) {
+          await bridge.reconnectCalendarAccount(workspaceId, { accountId: reconnectAccount.id, expectedRowVersion: reconnectAccount.rowVersion, credential: reconnectCredential });
+          setNotice(`${reconnectAccount.handle} verified and reconnected.`);
+        } else {
+          const result = await bridge.connectCalendar(workspaceId, reconnectCredential);
+          setNotice(result.imported ? `Connected ${result.imported} account(s). ${result.skipped ? `${result.skipped} disabled or unsupported account(s) skipped.` : ""}` : "Postiz key verified. No supported enabled accounts found. Connect Instagram, YouTube, TikTok, X, or Telegram in Postiz, then connect again.");
+        }
+        setConnectionOpen(false); setReconnectAccount(null); setReconnectCredential(""); setRefresh((value) => value + 1);
+      } catch (cause) { setConnectionError(cause instanceof Error ? cause.message : String(cause)); }
       finally { setReconnecting(false); }
     }} />
   </main></InstrumentScreenRoot></CalendarWorkspaceContext.Provider>;
 }
 
 export function shiftAnchor(date: Date, view: CalendarView, direction: number) { const next = new Date(date); view === "month" ? next.setMonth(next.getMonth() + direction) : next.setDate(next.getDate() + direction * (view === "week" ? 7 : 21)); return next; }
-export function periodTitle(view: CalendarView, anchor: Date) { if (view === "month") return new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(anchor); const days = weekDays(anchor); return view === "week" ? `${new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(days[0]!.date)} — ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(days[6]!.date)}` : `${new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(days[0]!.date)} → ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 6))}`; }
+export function periodTitle(view: CalendarView, anchor: Date) {
+  if (view === "month") return new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(anchor);
+  return rangeNote(view === "week" ? weekDays(anchor) : monthDays(anchor));
+}
 export function rangeNote(days: ReturnType<typeof monthDays>) { return `${new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(days[0]!.date)} — ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(days.at(-1)!.date)}`; }

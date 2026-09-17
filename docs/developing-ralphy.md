@@ -4,6 +4,14 @@
 
 This file does **not** describe the architecture — read `CLAUDE.md`, `cli/index.ts`, and `docs/playbooks/README.md` for that, or grep the codebase. This file lists the **non-obvious** things you'd miss without being told.
 
+## Pinned runtime
+
+Use Bun 1.4.2, pinned in `.bun-version` and `package.json`. Bun 1.3.14 can close unrelated file descriptors after Chromium exits; the fix is included in the pinned official release. CLI actions and binary builds reject unsupported runtimes, while `doctor` remains available to explain the prerequisite. Standalone binaries embed the build runtime.
+
+Keep the global Bun installation unchanged with `mise install bun@1.4.2`, then run checks through `mise exec bun@1.4.2 -- bun run test:integration` (and the other package scripts).
+
+For desktop development, first run `mise exec bun@1.4.2 -- bun run build:bin:current`, then start the app with `RALPHY_BIN` set to the absolute path of the resulting `dist/binaries/ralphy-<platform>-<arch>` executable. Desktop subprocesses use a restricted PATH, so a shell's mise activation alone does not select the CLI runtime. Packaged desktop builds compile and embed the supported runtime automatically; they require no user-installed Bun.
+
 ## English-only output (hard rule, applies to EVERY dev edit)
 
 **Every file you write or edit lands on disk in English. EXCLUSIVELY.** Cyrillic (or any other non-Latin script in prose / identifiers / examples) is banned repo-wide. This includes:

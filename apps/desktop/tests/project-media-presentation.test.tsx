@@ -11,6 +11,7 @@ import { ProjectScreenView, createProjectScreenController } from "@/pages/projec
 import { bridge, type ProjectSummary } from "@/shared/api/ipc";
 import { createReactHost, type HostNode } from "./react-host";
 import { MEDIA_REVIEW_UNSUPPORTED_REASON as REVIEW_REASON } from "@/features/media-review";
+import { productionMediaReviewStatus } from "@/features/media-review/lib/presentation";
 
 const card: MediaCardDto = {
   ref: { type: "artifact", id: "artifact-1" },
@@ -86,6 +87,10 @@ function keydown(target: EventTarget, key: string, modifiers: Partial<Pick<Keybo
 }
 
 describe("Project media presentation", () => {
+  test("shows a saved Needs Work verdict without relabeling ordinary candidate media", () => {
+    expect(productionMediaReviewStatus({ ...card, selectedState: "candidate" })).toEqual({ status: "ready", value: "candidate" });
+    expect(productionMediaReviewStatus({ ...card, selectedState: "candidate", latestReviewVerdict: "needs-work" })).toEqual({ status: "ready", value: "needs-work" });
+  });
   test("uses a four-second poster for long previews and starts short clips at the beginning", () => {
     expect(compactVideoStartTime(24, true)).toBe(4);
     expect(compactVideoStartTime(24, false)).toBe(0);
@@ -144,7 +149,7 @@ describe("Project media presentation", () => {
     expect(tile).not.toContain('aria-label="Open Campaign hero"');
     expect(tile.match(/<button/g)).toHaveLength(1);
     expect(tile).toContain("aspect-ratio:1");
-    expect(tile).toContain("Artifact · image/png");
+    expect(tile).toContain("Image · image/png");
     expect(tile).toContain("image/png · 2.0 KB · approved · cover");
     expect(grid).toContain("asset-grid-scroll");
   });
@@ -196,10 +201,10 @@ describe("Project media presentation", () => {
       // onto the asset itself. Production exposes no review mutation, so all three rows are
       // disabled and each one carries the reason rather than implying a state change.
       expect(menu.querySelectorAll("button").map((item) => item.textContent?.replace(REVIEW_REASON, ""))).toEqual([
-        "Preview", "Open externally", "Reveal in Finder", "Copy file", "ApprovedA", "Needs WorkN", "RejectedR",
+        "Preview", "Open externally", "Reveal in Finder", "Copy file", "Approved", "Needs Work", "Rejected",
       ]);
-      expect([...menu.querySelectorAll("button")].slice(4).every((item) => item.getAttribute("aria-disabled") === "true")).toBe(true);
-      expect(menu.textContent).toContain(REVIEW_REASON);
+      expect([...menu.querySelectorAll("button")].slice(4).every((item) => item.getAttribute("aria-disabled") !== "true")).toBe(true);
+      expect(menu.textContent).not.toContain(REVIEW_REASON);
       expect(menu.textContent).not.toContain("Trash");
       expect(menu.style.left).toBe("120px");
       expect(menu.style.top).toBe("140px");
@@ -333,7 +338,7 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
-      const opener = button(host.container, "diagnostic-log");
+      const opener = button(host.container, "diagnostic log");
       opener.focus();
       await act(async () => { opener.dispatchEvent(new Event("dblclick", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
 
@@ -449,7 +454,7 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
-      await act(async () => { button(host.container, "diagnostic-log").dispatchEvent(new Event("dblclick", { bubbles: true })); await Promise.resolve(); });
+      await act(async () => { button(host.container, "diagnostic log").dispatchEvent(new Event("dblclick", { bubbles: true })); await Promise.resolve(); });
       const dialog = (globalThis.document.body as unknown as HostNode).findAll((node) => node.getAttribute("role") === "dialog")[0];
       const attempts = dialog.findAll((node) => node.getAttribute("class") === "generation-attempt");
       const attempt = (number: number) => attempts.find((node) => node.textContent.startsWith(`Attempt ${number}`))!;
@@ -498,7 +503,7 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
-      await act(async () => { button(host.container, "diagnostic-log").dispatchEvent(new Event("dblclick", { bubbles: true })); await Promise.resolve(); });
+      await act(async () => { button(host.container, "diagnostic log").dispatchEvent(new Event("dblclick", { bubbles: true })); await Promise.resolve(); });
       const body = globalThis.document.body as unknown as HostNode;
       expect(body.findAll((node) => node.getAttribute("role") === "status").map((node) => node.textContent)).toEqual(expect.arrayContaining(["Loading preview…", "Loading generation details…"]));
 
@@ -530,7 +535,7 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
-      const opener = button(host.container, "diagnostic-log");
+      const opener = button(host.container, "diagnostic log");
       opener.focus();
       await act(async () => { opener.dispatchEvent(new Event("dblclick", { bubbles: true })); await Promise.resolve(); });
       const dialog = (globalThis.document.body as unknown as HostNode).findAll((node) => node.getAttribute("role") === "dialog")[0];
@@ -560,7 +565,7 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject key="root-1" controller={first} />); await Promise.resolve(); });
-      const opener = button(host.container, "diagnostic-log");
+      const opener = button(host.container, "diagnostic log");
       opener.focus();
       await act(async () => { opener.dispatchEvent(new Event("dblclick", { bubbles: true })); await Promise.resolve(); });
       const removedDialog = (globalThis.document.body as unknown as HostNode).findAll((node) => node.getAttribute("role") === "dialog")[0];

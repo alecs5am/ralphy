@@ -68,6 +68,11 @@ describe("lintHyperframesHtml — rule 1: timed media attrs on the element", () 
     const result = lintHyperframesHtml(html);
     expect(result.errors.some((e) => e.code === "media_attrs_on_wrapper")).toBe(true);
   });
+
+  test("composition duration around timed clips is not a media wrapper", () => {
+    const html = `<div data-composition-id="main" data-start="0" data-duration="1"><video id="first" data-start="0" data-duration="0.5" src="clip.mp4"></video><video id="second" data-start="0.5" data-duration="0.5" src="clip.mp4"></video></div>`;
+    expect(lintHyperframesHtml(html).errors).toEqual([]);
+  });
 });
 
 describe("lintHyperframesHtml — rule 2: many-short-same-track montage", () => {

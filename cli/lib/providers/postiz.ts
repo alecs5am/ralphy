@@ -39,9 +39,9 @@ export function postizAvailable(workspace?: string): boolean {
 }
 
 /** Resolve scoped auth and non-secret endpoint config, defaulting to Postiz Cloud. */
-function requireConfig(workspace?: string): PostizConfig {
+function requireConfig(workspace?: string, credential?: string | null): PostizConfig {
   void workspace;
-  const key = credentialValue("postiz");
+  const key = credential === undefined ? credentialValue("postiz") : credential;
   const apiUrl = process.env.POSTIZ_API_URL;
   const legacyBase = process.env.POSTIZ_BASE_URL;
   if (!key) {
@@ -66,18 +66,18 @@ async function request<T>(
   init: RequestInit,
   fetchImpl: FetchLike,
   workspace?: string,
+  credential?: string | null,
 ): Promise<T> {
-  const { apiRoot, key } = requireConfig(workspace);
+  const { apiRoot, key } = requireConfig(workspace, credential);
   const headers: Record<string, string> = {
     // Postiz public API auth: the raw key in Authorization (no Bearer prefix).
     Authorization: key,
     ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
   };
   const url = apiUrl(apiRoot, endpoint);
-  const resp = await fetchImpl(url, { ...init, headers });
+  const resp = await fetchImpl(url, { ...init, headers, redirect: "error" });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    const message = `postiz ${init.method ?? "GET"} ${url} ${resp.status}: ${text.slice(0, 300)}`;
+    const message = `Postiz request failed (HTTP ${resp.status}). Check the key, account access, and connection.`;
     if (resp.status >= 400 && resp.status < 500) throw new TerminalProviderError(message);
     throw new Error(message);
   }
@@ -156,14 +156,20 @@ export type PostizAnalyticsRow = {
 export async function postizIntegrations(
   fetchImpl: FetchLike = fetch,
   workspace?: string,
+  credential?: string | null,
 ): Promise<PostizIntegration[]> {
   const r = await request<PostizIntegration[] | { integrations?: PostizIntegration[] }>(
     "integrations",
-    { method: "GET" },
+    { method: "GET", signal: AbortSignal.timeout(10_000) },
     fetchImpl,
     workspace,
+    credential,
   );
-  return Array.isArray(r) ? r : r.integrations ?? [];
+  const rows = Array.isArray(r) ? r : r?.integrations;
+  if (!Array.isArray(rows) || rows.length > 1000 || rows.some((row) => !row || typeof row.id !== "string" || !row.id || row.id.length > 256 || typeof row.identifier !== "string")) {
+    throw new Error("Postiz returned an invalid account list");
+  }
+  return rows;
 }
 
 /** POST /upload (multipart) → an uploaded-media ref for `value[].image`. */
@@ -171,11 +177,12 @@ export async function postizUpload(
   filePath: string,
   fetchImpl: FetchLike = fetch,
   workspace?: string,
+  credential?: string | null,
 ): Promise<PostizUploadResult> {
   const bytes = await fs.readFile(filePath);
   const form = new FormData();
   form.append("file", new Blob([bytes]), path.basename(filePath));
-  return request<PostizUploadResult>("upload", { method: "POST", body: form }, fetchImpl, workspace);
+  return request<PostizUploadResult>("upload", { method: "POST", body: form }, fetchImpl, workspace, credential);
 }
 
 /** POST /posts → create/schedule posts (one request may carry N integrations). */
@@ -183,12 +190,14 @@ export async function postizCreatePost(
   req: PostizCreatePostRequest,
   fetchImpl: FetchLike = fetch,
   workspace?: string,
+  credential?: string | null,
 ): Promise<PostizCreatedPost[]> {
   const r = await request<PostizCreatedPost[] | PostizCreatedPost>(
     "posts",
     { method: "POST", body: JSON.stringify(req) },
     fetchImpl,
     workspace,
+    credential,
   );
   return Array.isArray(r) ? r : [r];
 }
@@ -199,13 +208,15 @@ export async function postizListPosts(
   endDate: string,
   fetchImpl: FetchLike = fetch,
   workspace?: string,
+  credential?: string | null,
 ): Promise<PostizListedPost[]> {
   const query = new URLSearchParams({ startDate, endDate });
   const r = await request<PostizListedPost[] | { posts?: PostizListedPost[] }>(
     `posts?${query}`,
-    { method: "GET" },
+    { method: "GET", signal: AbortSignal.timeout(10_000) },
     fetchImpl,
     workspace,
+    credential,
   );
   return Array.isArray(r) ? r : r.posts ?? [];
 }
@@ -215,12 +226,14 @@ export async function postizDeletePost(
   postId: string,
   fetchImpl: FetchLike = fetch,
   workspace?: string,
+  credential?: string | null,
 ): Promise<{ id: string }> {
   return request<{ id: string }>(
     `posts/${encodeURIComponent(postId)}`,
     { method: "DELETE" },
     fetchImpl,
     workspace,
+    credential,
   );
 }
 

@@ -1,10 +1,13 @@
 import { describe, expect, test } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   agentBlocks,
   agentTurns,
   elapsedLabel,
   groupLabel,
   groupMeta,
+  AgentThread,
 } from "@/features/agent-chat";
 import type { AgentChatEntry } from "@/features/agent-chat";
 
@@ -26,6 +29,27 @@ function result(durationMs: number, costUsd: number): AgentChatEntry {
 }
 
 describe("agent transcript", () => {
+  test("saved failed turns stay failed and unwrap provider errors", () => {
+    const html = renderToStaticMarkup(createElement(AgentThread, {
+      entries: [user("check"), { id: 999, kind: "error", at: 1000, text: JSON.stringify({ error: { message: "Model unavailable" } }) }],
+      busy: false, streamingTool: null, onEdit() {}, onRerun() {},
+    }));
+    expect(html).toContain("Run failed");
+    expect(html).toContain("Model unavailable");
+    expect(html).not.toContain("Working");
+    expect(html).not.toContain("&quot;message&quot;");
+    expect(html).toContain('aria-label="Send again"');
+    expect(html).toContain("Send again in this conversation");
+    expect(html).not.toContain("Re-run from here");
+  });
+  test("cancelled work is not presented as completed", () => {
+    const html = renderToStaticMarkup(createElement(AgentThread, {
+      entries: [user("check"), { ...result(6000, 0), run: { durationMs: 6000, costUsd: 0, outcome: "cancelled" } }],
+      busy: false, streamingTool: null, onEdit() {}, onRerun() {},
+    }));
+    expect(html).toContain("Stopped after 6s");
+    expect(html).not.toContain("Worked for");
+  });
   test("splits a transcript into turns at each prompt and keeps each turn's own reading", () => {
     const entries = [
       user("first"), assistant("one"), result(73_000, 0.08),

@@ -196,14 +196,16 @@ export async function writeExclusiveStoreTemp(
     0o600,
   );
   try {
-    fs.writeFileSync(fd, contents);
-    fs.fsyncSync(fd);
+    try {
+      fs.writeFileSync(fd, contents);
+      fs.fsyncSync(fd);
+    } finally {
+      // Release ownership before cleanup yields: the number can then be reused.
+      fs.closeSync(fd);
+    }
   } catch (error) {
-    fs.closeSync(fd);
     await fs.promises.rm(target, { force: true });
     throw error;
-  } finally {
-    try { fs.closeSync(fd); } catch { /* The error path already closed it. */ }
   }
 }
 

@@ -66,6 +66,7 @@ function readLastPage(): SettingsPageId {
 }
 
 export function SettingsScreen({
+  workspace,
   rootPath,
   theme,
   resolvedTheme = "light",
@@ -73,6 +74,7 @@ export function SettingsScreen({
   onThemeChange,
   onBack,
 }: {
+  workspace?: { id: string; name: string } | null;
   rootPath: string | null;
   theme: ThemePreference;
   resolvedTheme?: ResolvedTheme;
@@ -113,6 +115,7 @@ export function SettingsScreen({
   };
 
   const ctx: SettingsContext = {
+    workspace,
     preferences,
     harnesses,
     bindings,

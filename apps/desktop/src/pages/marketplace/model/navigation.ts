@@ -187,7 +187,19 @@ function isNavigationState(value: unknown): value is MarketplaceNavigationState 
 export function readMarketplaceNavigation(storage: Storage): MarketplaceNavigationState {
   try {
     const value = JSON.parse(storage.getItem(STORAGE_KEY) ?? "null") as unknown;
-    return isNavigationState(value) ? value : initialState();
+    if (!isNavigationState(value)) return initialState();
+    const history = value.history.map((location): MarketplaceLocation => {
+      const route = location.route;
+      const retired = route.kind === "collection"
+        || route.kind === "library" && route.section !== "installed" && route.section !== "saved";
+      const query = location.query.filters.source === "modelscope"
+        ? { ...location.query, filters: { ...location.query.filters, source: "all" as const } }
+        : location.query;
+      return retired
+        ? { ...location, route: { kind: "discover" }, query, selectedItemId: null, scrollTop: 0, focusId: "marketplace-heading" }
+        : { ...location, query };
+    });
+    return { ...value, history, location: history[value.historyIndex] };
   } catch {
     return initialState();
   }
@@ -251,4 +263,3 @@ export function marketplaceReducer(
       return { ...state, sidebarVisible: !state.sidebarVisible };
   }
 }
-

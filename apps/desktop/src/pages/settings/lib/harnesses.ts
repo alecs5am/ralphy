@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { AgentProvider, AgentProviderStatus } from "../../../../electron/media/types";
 import { bridge } from "@/shared/api/ipc";
+import { GENERATION_PROVIDERS_CHANGED_EVENT } from "../../../../shared/generation-studio";
 import type { StatusTone } from "../ui/rows";
 
 /**
@@ -47,7 +48,7 @@ export function harnessRow(status: AgentProviderStatus): HarnessRow {
   return {
     id: status.id,
     name: status.label,
-    source: `${status.id.toLocaleUpperCase()} · BRIDGE ADAPTER`,
+    source: status.id === "openrouter" ? "API CONNECTION" : "INSTALLED AGENT",
     status: label,
     auth,
     capabilities: status.models.length ? `${status.models.length} MODELS REPORTED` : "NO MODELS REPORTED",
@@ -95,6 +96,11 @@ export function useHarnesses(): HarnessController {
   }, [apply]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    const changed = () => { void refresh(); };
+    window.addEventListener(GENERATION_PROVIDERS_CHANGED_EVENT, changed);
+    return () => window.removeEventListener(GENERATION_PROVIDERS_CHANGED_EVENT, changed);
+  }, [refresh]);
 
   return {
     state,
@@ -105,14 +111,17 @@ export function useHarnesses(): HarnessController {
     signIn: async (id) => {
       if (id === "openrouter") return;
       apply(await bridge.loginAgentProvider(id));
+      window.dispatchEvent(new Event(GENERATION_PROVIDERS_CHANGED_EVENT));
     },
     saveKey: async (id, key) => {
       if (id === "codex") throw new Error("Codex authenticates through its own provider login.");
       apply(await bridge.setAgentApiKey(id, key));
+      window.dispatchEvent(new Event(GENERATION_PROVIDERS_CHANGED_EVENT));
     },
     clearKey: async (id) => {
       if (id === "codex") return;
       apply(await bridge.clearAgentApiKey(id));
+      window.dispatchEvent(new Event(GENERATION_PROVIDERS_CHANGED_EVENT));
     },
   };
 }

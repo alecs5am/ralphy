@@ -1,3 +1,4 @@
+import { settingsStorage, useAppPreferences } from "@/shared/model/app-preferences";
 import {
   useCallback,
   useEffect,
@@ -125,6 +126,7 @@ export function AgentComposer({
      changes when the query changes and not on every caret move, which is what lets the highlight
      survive an arrow key. `sync` runs on keyup too, and an object literal there reset the
      highlight to the first row on the very keystroke that moved it. */
+  const { values: preferences } = useAppPreferences(settingsStorage);
   const [query, setQuery] = useState<string | null>(null);
   const [entities, setEntities] = useState<TagEntity[]>([]);
   const [highlight, setHighlight] = useState(0);
@@ -240,7 +242,8 @@ export function AgentComposer({
       else onEscape();
       return;
     }
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing
+      && (preferences["general.sendShortcut"] === "Enter" || event.metaKey || event.ctrlKey)) {
       event.preventDefault();
       onSubmit();
     }

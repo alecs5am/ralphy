@@ -12,6 +12,7 @@ export interface SettingsDetail {
 
 /** Everything a settings page is allowed to read or move. Pages own no state of their own. */
 export interface SettingsContext {
+  workspace?: { id: string; name: string } | null;
   preferences: AppPreferencesController;
   harnesses: HarnessController;
   bindings: CommandBindings;

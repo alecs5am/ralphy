@@ -15,6 +15,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { spawnInDirectory } from "./descriptor-launch.js";
+import { DomainError } from "../errors/domain.js";
 
 export type HyperframesRenderArgs = {
   /** Absolute path to the HyperFrames project dir (has `index.html`). */
@@ -54,6 +55,11 @@ export function looksLikeHyperframesProject(projectDir: string): boolean {
 export async function runHyperframesRender(
   args: HyperframesRenderArgs,
 ): Promise<HyperframesRenderResult> {
+  const executable = Bun.which("bunx");
+  const missing = ["bunx", "node", "ffmpeg", "ffprobe"].filter((command) => !Bun.which(command));
+  if (missing.length > 0) throw new DomainError("E_DEP_MISSING",
+    `Video rendering needs additional tools: ${missing.join(", ")}. Install Bun (https://bun.sh), Node.js 22 or newer, and FFmpeg. Run \`bunx hyperframes --help\`, then restart Ralphy and retry. The first render may download a browser; your saved timeline is preserved.`,
+    { dep: missing.map((command) => command === "bunx" ? "Bun (bunx)" : command === "node" ? "Node.js 22+" : `FFmpeg (${command})`).join(", ") });
   const argv: string[] = ["hyperframes", "render", args.projectDir, "--output", args.outputPath];
 
   if (args.composition) {
@@ -81,17 +87,19 @@ export async function runHyperframesRender(
     argv.push("--workers", String(args.workers));
   }
 
-  if (args.projectFd !== undefined) return spawnInDirectory(args.projectFd, ["bunx", ...argv]);
+  if (args.projectFd !== undefined) return spawnInDirectory(args.projectFd, [executable!, ...argv]);
   return new Promise((resolve) => {
-    const proc = spawn("bunx", argv, {
-      stdio: ["ignore", "inherit", "pipe"],
+    const proc = spawn(executable!, argv, {
+      stdio: ["ignore", "pipe", "pipe"],
     });
     let stderr = "";
+    proc.stdout.on("data", (chunk) => process.stderr.write(chunk));
     proc.stderr.on("data", (c) => {
       const chunk = c.toString();
       stderr += chunk;
       process.stderr.write(chunk);
     });
     proc.on("close", (code) => resolve({ exitCode: code ?? 1, stderr }));
+    proc.on("error", (error) => resolve({ exitCode: 127, stderr: `Could not start the video renderer: ${error.message}` }));
   });
 }

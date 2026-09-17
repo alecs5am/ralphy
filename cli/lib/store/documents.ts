@@ -215,9 +215,9 @@ export function reviseDocument(
     );
     const result = db
       .prepare(
-        "UPDATE documents SET current_revision_id = ?, row_version = row_version + 1, updated_at = ? WHERE id = ? AND current_revision_id IS ?",
+        "UPDATE documents SET current_revision_id = ?, title = COALESCE(?, title), row_version = row_version + 1, updated_at = ? WHERE id = ? AND current_revision_id IS ?",
       )
-      .run(id, now, document.id, expectedHeadId);
+      .run(id, title, now, document.id, expectedHeadId);
     if (!result.changes) throw new StoreConflictError("Document head conflict");
     if (document.currentRevisionId) {
       db.prepare(

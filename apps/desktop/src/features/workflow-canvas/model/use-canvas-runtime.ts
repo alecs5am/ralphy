@@ -1,17 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { bridge } from "@/shared/api/ipc";
-import type { CanvasModelCatalog, CanvasRun } from "../../../../shared/canvas-runtime";
+import { mergeCanvasRuns, type CanvasModelCatalog, type CanvasRun } from "../../../../shared/canvas-runtime";
 import type { SavedCanvas } from "../../../../shared/workflow-canvas";
+import { GENERATION_PROVIDERS_CHANGED_EVENT } from "../../../../shared/generation-studio";
 
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
 const active = (run: CanvasRun) => run.status === "running" || run.status === "pending";
-export function useCanvasRuntime(workspaceId: string, canvasId?: string) {
+export function useCanvasRuntime(workspaceId: string, canvasId?: string, resultIds: string[] = []) {
   const [catalog, setCatalog] = useState<CanvasModelCatalog>({ models: [], providers: [], errors: [] });
   const [loadingModels, setLoadingModels] = useState(true);
   const [runs, setRuns] = useState<CanvasRun[]>([]);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const loadedOlder = useRef(false), paging = useRef(false), selectedResults = useRef(resultIds);
+  selectedResults.current = resultIds;
+  const selectionKey = JSON.stringify(resultIds);
   const alive = useRef(true);
   const modelVersion = useRef(0);
   const pollVersion = useRef(0);
@@ -44,7 +50,13 @@ export function useCanvasRuntime(workspaceId: string, canvasId?: string) {
     void refreshModels();
   }, [refreshModels]);
   useEffect(() => {
-    setRuns([]); setSelectedRunId(null); setError(null); setStarting(false);
+    const refresh = () => { void refreshModels(); };
+    window.addEventListener(GENERATION_PROVIDERS_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(GENERATION_PROVIDERS_CHANGED_EVENT, refresh);
+  }, [refreshModels]);
+  useEffect(() => {
+    setRuns([]); currentRuns.current = []; setSelectedRunId(null); setError(null); setStarting(false);
+    setNextCursor(null); loadedOlder.current = false; paging.current = false; setLoadingOlder(false);
     if (!canvasId) return;
     let stopped = false;
     let inFlight = false;
@@ -59,10 +71,12 @@ export function useCanvasRuntime(workspaceId: string, canvasId?: string) {
       const current = () => !stopped && alive.current && scope.current.version === scopeVersion && version === pollVersion.current;
       let keepPolling = false;
       try {
-        const next = await bridge.loadCanvasRuns(workspaceId, canvasId);
+        const page = await bridge.loadCanvasRuns(workspaceId, canvasId, { resultIds: selectedResults.current });
         if (current()) {
+          const next = mergeCanvasRuns(currentRuns.current, page.items);
           keepPolling = next.some(active);
-          setRuns(next);
+          currentRuns.current = next; setRuns(next);
+          if (!loadedOlder.current) setNextCursor(page.nextCursor);
         } else keepPolling = currentRuns.current.some(active);
       }
       catch (cause) { if (current()) { setError(message(cause)); keepPolling = currentRuns.current.some(active); } }
@@ -75,6 +89,18 @@ export function useCanvasRuntime(workspaceId: string, canvasId?: string) {
     void refresh();
     return () => { stopped = true; clearTimeout(timer); window.removeEventListener("focus", focus); wakePolling.current = () => {}; };
   }, [workspaceId, canvasId]);
+  useEffect(() => { wakePolling.current(); }, [selectionKey]);
+  const loadOlder = async () => {
+    if (!canvasId || !nextCursor || paging.current) return;
+    paging.current = true; setLoadingOlder(true);
+    const scopeVersion = scope.current.version;
+    const current = () => alive.current && scope.current.version === scopeVersion;
+    try {
+      const page = await bridge.loadCanvasRuns(workspaceId, canvasId, { before: nextCursor });
+      if (current()) { loadedOlder.current = true; const next = mergeCanvasRuns(currentRuns.current, page.items); currentRuns.current = next; setRuns(next); setNextCursor(page.nextCursor); }
+    } catch (cause) { if (current()) setError(message(cause)); }
+    finally { if (current()) { paging.current = false; setLoadingOlder(false); } }
+  };
   const start = async (saved: SavedCanvas, mode: "preview" | "execute", nodeId?: string) => {
     if (startToken.current) return;
     if (saved.canvas.id !== canvasId) { setError("Open this canvas before running it."); return; }
@@ -105,5 +131,5 @@ export function useCanvasRuntime(workspaceId: string, canvasId?: string) {
     } catch (cause) { if (current()) setError(message(cause)); }
   };
   const selectedRun = runs.find((run) => run.id === selectedRunId) ?? runs[0];
-  return { catalog, loadingModels, refreshModels, runs, selectedRun, setSelectedRunId, start, cancel, starting, error, setError, running: runs.some((run) => run.status === "running" || run.status === "pending") };
+  return { catalog, loadingModels, refreshModels, runs, selectedRun, setSelectedRunId, start, cancel, starting, error, setError, loadOlder, hasOlder: nextCursor !== null, loadingOlder, running: runs.some((run) => run.status === "running" || run.status === "pending") };
 }

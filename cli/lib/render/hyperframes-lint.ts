@@ -102,6 +102,8 @@ export function lintHyperframesHtml(html: string): HyperframesLintResult {
   let m: RegExpExecArray | null;
   while ((m = wrapperRe.exec(html)) !== null) {
     const wrapperAttrs = m[2] ?? "";
+    // The composition root declares the full duration, not a media wrapper's timing.
+    if (hasAttr(` ${wrapperAttrs}`, "data-composition-id")) continue;
     if (
       /\bdata-start\b/.test(wrapperAttrs) ||
       /\bdata-track-index\b/.test(wrapperAttrs) ||

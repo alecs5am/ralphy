@@ -27,7 +27,6 @@ import { WorkspaceOperations } from "./WorkspaceOperations";
 import { WorkspacePerformance } from "./WorkspacePerformance";
 import { WorkspacePlanAndOutcomes } from "./WorkspacePlanAndOutcomes";
 import { COMMAND_BUTTON, PROJECT_LOCAL_ERROR } from "@/shared/ui/route-chrome";
-import { previewWorkspaceOverview } from "../lib/overview-preview";
 
 export { createWorkspaceScreenController } from "../model/screen-controller";
 
@@ -63,7 +62,7 @@ function WorkspaceOverviewShell({ value, onOpenPage, onOpenCalendar, onOpenUnit,
   return <>
     <WorkspacePerformance value={value} onOpenCalendar={onOpenCalendar} />
     <WorkspacePlanAndOutcomes value={value} onOpenPage={onOpenPage} onOpenCalendar={onOpenCalendar} onOpenUnit={onOpenUnit} />
-    <WorkspaceOperations value={value} onOpenProject={onOpenProject} onOpenPage={onOpenPage} onRetry={onRetry} attentionExpanded={attentionExpanded} onAttentionExpandedChange={onAttentionExpandedChange} />
+    <WorkspaceOperations value={value} onOpenProject={onOpenProject} onOpenPage={onOpenPage} onOpenCalendar={onOpenCalendar} onRetry={onRetry} attentionExpanded={attentionExpanded} onAttentionExpandedChange={onAttentionExpandedChange} />
     <WorkspaceInsights value={value} onOpenPage={onOpenPage} />
   </>;
 }
@@ -97,7 +96,7 @@ function WorkspaceOverviewError({ error, workspaceName, workspaceDescription, on
     <PageHeader title={workspaceName || "Workspace overview"} icon={ChartNoAxesCombined} meta="Overview" description={`Workspace overview · ${workspaceDescription}`} />
     <div className={PROJECT_LOCAL_ERROR} role="alert">
       <AlertCircle size={17} aria-hidden="true" />
-      <span><strong className="block type-sm font-medium">Workspace overview could not be loaded</strong>{error ?? "Core did not return workspace data."}</span>
+      <span><strong className="block type-sm font-medium">Workspace overview could not be loaded</strong>{error ?? "The library could not be read. Try refreshing."}</span>
       <button className={COMMAND_BUTTON} type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button>
     </div>
   </main></InstrumentScreenRoot>;
@@ -122,7 +121,6 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
   const restoredState = useRef<WorkspaceOverviewReturnState | null>(null);
   const restoredFocus = useRef<WorkspaceOverviewReturnState | null>(null);
   const [attentionExpanded, setAttentionExpanded] = useState(false);
-  const [previewWorkspace, setPreviewWorkspace] = useState<string | null>(null);
   useEffect(() => {
     const state = props.overviewReturnState;
     if (snapshot.status !== "ready" || !snapshot.value || !state || state.originWorkspaceId !== snapshot.value.workspace.id || restoredState.current === state) return;
@@ -146,12 +144,11 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
     return <WorkspaceOverviewError error={snapshot.error} workspaceName={props.workspaceName ?? ""} workspaceDescription={workspaceDescription} onRetry={() => { void controller.retry(); }} />;
   }
   if (!snapshot.value) return null;
-  const preview = previewWorkspace === snapshot.value.workspace.id && snapshot.value.workspace.name === "UX Testing Lab";
-  const presentation = previewWorkspaceOverview(presentWorkspaceOverview({
+  const presentation = presentWorkspaceOverview({
     overview: snapshot.value,
     catalogProjects,
     description: workspaceDescription,
-  }), preview);
+  });
   const criticalCount = presentation.attention.status === "ready" || presentation.attention.status === "partial"
     ? presentation.attention.value.criticalCount
     : presentation.attention;
@@ -166,13 +163,13 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
     : props.onOpenPage(destination.page, destination.returnFocusId);
   return <InstrumentScreenRoot descriptor={workspaceOverviewInstrumentStates} state={snapshot.error ? "partial" : "ready"}><main className={ROUTE} aria-busy={snapshot.refreshing || undefined}>
     <WorkspaceOverviewHeader
+      workspaceId={snapshot.value.workspace.id}
       value={presentation.header}
       criticalCount={criticalCount}
       refreshing={snapshot.refreshing}
       lastSuccessfulRefreshAt={snapshot.lastSuccessfulRefreshAt ?? null}
       error={snapshot.error}
       onRefresh={() => { void controller.retry(); }}
-      previewControl={snapshot.value.workspace.name === "UX Testing Lab" && <button className="rounded-control bg-card px-2 py-1 type-xs text-muted focus-visible:outline-2 focus-visible:outline-ink" type="button" aria-pressed={preview} title={preview ? "Demo analytics · Sample workspace and Unit performance; live accounts and planning" : "Preview sample analytics for UX Testing Lab"} onClick={() => setPreviewWorkspace(preview ? null : snapshot.value!.workspace.id)}>{preview ? "Use workspace data" : "Preview demo analytics"}</button>}
     />
     {snapshot.error && <div className={PROJECT_LOCAL_ERROR} role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.error}</span><button className={COMMAND_BUTTON} type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
     <div className={OVERVIEW_GRID} ref={scrollRef}>

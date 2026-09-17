@@ -46,6 +46,8 @@ fs.writeFileSync(process.env.CLAUDE_TEST_CAPTURE, JSON.stringify({
   apiKey: process.env.ANTHROPIC_API_KEY ?? null,
   authToken: process.env.ANTHROPIC_AUTH_TOKEN ?? null,
   bedrock: process.env.CLAUDE_CODE_USE_BEDROCK ?? null,
+  falKey: process.env.FAL_KEY ?? null,
+  openrouterKey: process.env.OPENROUTER_API_KEY ?? null,
 }));
 const init = { type: "system", subtype: "init", session_id: "123e4567-e89b-12d3-a456-426614174000", tools: ["Read", "Bash"] };
 process.stdout.write(JSON.stringify(init) + "\\n");
@@ -146,6 +148,7 @@ describe("ClaudeSession", () => {
     const fake = await fakeClaude();
     const session = new ClaudeSession({
       binary: fake.binary,
+      generationCredentials: { FAL_KEY: "fal-nonfunctional-test-key", OPENROUTER_API_KEY: "sk-or-nonfunctional-test-key" },
       env: {
         PATH: process.env.PATH ?? "/usr/bin:/bin",
         CLAUDE_TEST_CAPTURE: fake.capture,
@@ -164,8 +167,13 @@ describe("ClaudeSession", () => {
     const capture = JSON.parse(await readFile(fake.capture, "utf8")) as {
       args: string[];
       apiKey: string | null;
+      falKey: string | null;
+      openrouterKey: string | null;
     };
     expect(capture.apiKey).toBe("sk-ant-test-key-1234567890");
+    expect(capture.falKey).toBe("fal-nonfunctional-test-key");
+    expect(capture.openrouterKey).toBe("sk-or-nonfunctional-test-key");
+    expect(JSON.stringify(capture.args)).not.toContain("fal-nonfunctional-test-key");
     expect(capture.args).toContain("bypassPermissions");
   });
 

@@ -11,7 +11,7 @@ export function WorkspaceEngagement({ totals }: { totals: WorkspaceMomentumPrese
   const max = Math.max(...rows.map(({ value }) => value ?? 0), 1);
   const complete = rows.every(({ value }) => value !== null);
   const interactions = rows.reduce((sum, { value }) => sum + (value ?? 0), 0);
-  if (rows.every(({ value }) => value === null)) return <div className="workspace-engagement rounded-frame bg-card px-3 py-2 type-xs text-muted" role="status">Engagement unavailable · No reported interactions</div>;
+  if (rows.every(({ value }) => value === null)) return <div className="workspace-engagement rounded-frame bg-card px-3 py-2 type-xs text-muted" role="status">No engagement reported yet.</div>;
   return <Window className="workspace-engagement min-w-0">
     <WindowTitlebar><Heart className="size-4 shrink-0 text-muted" aria-hidden="true" /><h3 className="m-0 flex-1 type-sm font-semibold">Engagement</h3><span className="font-code type-xs text-muted">{complete ? compact.format(interactions) : "Partial"}</span></WindowTitlebar>
     <div className={`${WINDOW_CARD} workspace-engagement-body gap-3 p-3`}>

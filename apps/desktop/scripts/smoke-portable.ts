@@ -2,20 +2,21 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { RalphySession } from "../electron/ralphy/session";
 import { ralphyPreamble } from "../electron/agent/context";
 
 // Relocate the complete app and run its CLI without the developer's HOME, PATH or cwd.
 const scratch = await mkdtemp(join(tmpdir(), "ralphy-portable-"));
 const desktop = process.cwd();
-const app = join(scratch, "Applications", "Ralphy Media.app");
+const app = join(scratch, "Applications", "Portable \u00e9 test", "Ralphy Media.app");
 const home = join(scratch, "home");
 const root = join(home, ".ralphy");
 const bin = join(app, "Contents/Resources/bin/ralphy");
 const env = { HOME: home, PATH: "/usr/bin:/bin", TMPDIR: scratch, NO_COLOR: "1" };
 const session = new RalphySession({ bin, env });
 try {
+  await mkdir(dirname(app), { recursive: true });
   execFileSync("/usr/bin/ditto", [resolve(process.argv[2] ?? "release/Ralphy Media.app"), app]);
   await mkdir(join(root, "workspaces"), { recursive: true });
   process.chdir(home);

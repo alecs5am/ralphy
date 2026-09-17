@@ -11,7 +11,6 @@ import {
   Bot,
   Code2,
   Cpu,
-  FolderHeart,
   LayoutTemplate,
   MessageSquareText,
   Package,
@@ -81,7 +80,7 @@ export function formatDate(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function MarketplaceDiscover({ snapshot, onOpenCategory, onOpenLibrary, onOpenCollection }: {
+export function MarketplaceDiscover({ snapshot, onOpenCategory, onOpenLibrary }: {
   snapshot: Extract<MarketplaceSnapshot, { status: "ready" }>;
   onOpenCategory(category: MarketplaceCategory): void;
   onOpenLibrary(section: MarketplaceLibrarySection): void;
@@ -109,10 +108,7 @@ export function MarketplaceDiscover({ snapshot, onOpenCategory, onOpenLibrary, o
       <ul className="marketplace-category-grid grid list-none grid-cols-3 gap-2 p-0 @max-marketplace-grid/main-region:grid-cols-2 @max-marketplace-column/main-region:grid-cols-1" role="list">{snapshot.categories.map((category) => <CategoryCard value={category} onOpen={onOpenCategory} key={category.category} />)}</ul>
     </section>
     {!hasAnyCount && <div className="marketplace-empty-note flex min-h-20 items-center gap-3 rounded-cell bg-surface p-4" role="status"><Package className="size-5 shrink-0 text-muted" aria-hidden="true" /><span className="flex flex-col gap-0.5"><strong className="text-sm font-normal">No items have been returned by the current sources yet.</strong><small className="text-xs text-muted">Categories remain visible with their current source state.</small></span></div>}
-    <section aria-labelledby="marketplace-community-heading">
-      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono type-mono-xs uppercase tracking-mono text-muted">Made together</span><h2 className="m-0 text-base font-normal" id="marketplace-community-heading">Community</h2></div>
-      <button className="flex min-h-20 w-full items-center gap-3 rounded-cell bg-surface p-4 text-left text-ink hover:bg-surface-hover" type="button" aria-disabled={onOpenCollection ? undefined : true} aria-describedby="marketplace-community-contract-note" onClick={onOpenCollection}><FolderHeart className="size-4 shrink-0" aria-hidden="true" /><span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="truncate text-sm font-normal">Community contributions</strong><small className="text-xs text-muted" id="marketplace-community-contract-note">Community collections and publishing aren't available in this build.</small></span><small className="font-mono type-meta text-muted">Not available yet</small></button>
-    </section>
+
     {installed.length > 0 && <section aria-labelledby="marketplace-continue-heading">
       <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono type-mono-xs uppercase tracking-mono text-muted">Local state</span><h2 className="m-0 text-base font-normal" id="marketplace-continue-heading">Continue where you left off</h2></div>
       <ul className="marketplace-installed-list grid list-none grid-cols-3 gap-2 p-0 @max-marketplace-grid/main-region:grid-cols-2 @max-marketplace-column/main-region:grid-cols-1" role="list">{installed.map((item) => <li className="min-w-0" key={`${item.runtime}:${item.id}`}><button className="flex min-h-16 w-full items-center gap-3 rounded-cell bg-surface px-4 py-3 text-left hover:bg-surface-hover" type="button" onClick={() => onOpenLibrary("installed")}><Cpu className="size-4 shrink-0" aria-hidden="true" /><span className="flex min-w-0 flex-col gap-0.5"><strong className="truncate text-sm font-normal">{item.name}</strong><small className="truncate font-mono type-meta text-muted">Registered in Ollama · {item.format}</small></span></button></li>)}</ul>

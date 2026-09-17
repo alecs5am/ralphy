@@ -95,48 +95,18 @@ async function mountInspector(card = artifact(), props: Partial<React.ComponentP
 afterEach(() => vi.restoreAllMocks());
 
 describe("Shared Artifact inspector", () => {
-  test("separates returned identity and referenced-role evidence from unavailable intended use, rights, backlinks, and relationships", async () => {
+  test("shows returned identity and roles without placeholder metadata or write actions", async () => {
     vi.spyOn(bridge, "loadSharedLibraryArtifact").mockResolvedValue(artifact());
     vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({ items: [revision(1)], nextCursor: null });
     vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue({ url: "ralphy-media://asset/audio", sizeBytes: 2_048 });
     const mounted = await mountInspector();
     try {
       const text = mounted.host.container.textContent;
-      expect(text).toContain("Title unavailable");
-      expect(text).toContain("Slug identity · brand-hook");
-      expect(text).toContain("audio-hook");
-      expect(text).toContain("approved");
-      expect(text).toContain("audio/mpeg");
-      expect(text).toContain("2.0 KB");
-      expect(text).toContain("Coarse media provenance");
-      expect(text).toContain("Generated media evidence");
-      expect(text).toContain("Context agents receive");
-      for (const field of ["Purpose", "Use when", "Avoid when", "Constraints"]) expect(text).toContain(field);
-      for (const field of ["Semantic roles", "Tags", "Named entities", "Canonical status"]) expect(text).toContain(field);
-      expect(text).toContain("Selected revision state · approved");
-      expect(text).toContain("Agent-use canonical status");
-      expect(text).toContain("Canonical status is unavailable from the current Core media contract.");
-      expect(text.match(/Unavailable from this Core version/g)?.length).toBeGreaterThanOrEqual(3);
-      expect(text).toContain("Actual usage");
-      expect(text).toContain("System-derived backlinks are unavailable from this Core version");
-      expect(text).toContain("Referenced as");
-      expect(text).toContain("opening hook");
-      expect(text).toContain("brand signature");
-      const referencedEvidence = mounted.host.container.querySelector(".shared-inspector-referenced-as");
-      const actualUsage = mounted.host.container.querySelector(".shared-inspector-actual-usage");
-      expect(referencedEvidence).not.toBeNull();
-      expect(actualUsage).not.toBeNull();
-      expect(referencedEvidence!.textContent).toContain("opening hook");
-      expect(actualUsage!.textContent).not.toContain("opening hook");
-      expect(text).toContain("Provenance and rights");
-      expect(text).toContain("Rights and provenance evidence are unavailable from this Core version");
-      expect(text).toContain("Related artifacts");
-      expect(text).toContain("Relationship data is unavailable from this Core version");
-      expect(text).toContain("Use in project");
-      expect(text).toContain("Complete metadata");
-      expect(text).toContain("Open original");
-      expect(text).not.toMatch(/0 references|not used yet|rights safe|system prompt/i);
-      expect(text).not.toMatch(/object-private|object path|bucket|sha-?256|hash/i);
+      for (const fact of ["brand-hook", "audio-hook", "approved", "audio/mpeg", "2.0 KB", "Origin", "Generated", "Referenced as", "opening hook", "brand signature", "Open original"]) expect(text).toContain(fact);
+      for (const unsupported of ["Context agents receive", "Purpose", "Semantic roles", "Canonical status", "Actual usage", "Provenance and rights", "Related artifacts", "Use in project", "Complete metadata", "Core"]) expect(text).not.toContain(unsupported);
+      expect(mounted.host.container.querySelector(".shared-inspector-referenced-as")?.textContent).toContain("opening hook");
+      expect(mounted.host.container.querySelector(".shared-inspector-actual-usage")).toBeNull();
+      expect(text).not.toMatch(/0 references|not used yet|rights safe|system prompt|object-private|bucket|sha-?256/i);
 
       const technical = mounted.host.container.querySelector(".shared-inspector-technical");
       expect(technical?.getAttribute("open")).toBeNull();
@@ -144,18 +114,13 @@ describe("Shared Artifact inspector", () => {
       expect(technical?.textContent).toContain("revision-1");
       expect(technical?.textContent).toContain("audio/mpeg");
       expect(technical?.textContent).toContain("durable");
-      expect(button(mounted.host.container, "Use in project").getAttribute("aria-disabled")).toBe("true");
-      expect(button(mounted.host.container, "Complete metadata").getAttribute("aria-disabled")).toBe("true");
-      const unavailableActions = button(mounted.host.container, "Use in project").getAttribute("aria-describedby");
-      expect(unavailableActions).not.toBeNull();
-      expect(mounted.host.container.querySelector(`#${unavailableActions}`)?.textContent).toContain("unavailable until Core exposes mutation contracts");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();
     }
   });
 
-  test("keeps append-only revision pages bounded and shows only exact revision state, date, parent, and session evidence", async () => {
+  test("pages revisions with their recorded status and date without exposing internal lineage labels", async () => {
     vi.spyOn(bridge, "loadSharedLibraryArtifact").mockResolvedValue(artifact());
     vi.spyOn(bridge, "loadSharedLibraryRevisions")
       .mockResolvedValueOnce({ items: [revision(1), revision(2)], nextCursor: "next" })
@@ -166,17 +131,15 @@ describe("Shared Artifact inspector", () => {
     try {
       const text = mounted.host.container.textContent;
       expect(text).toContain("Revisions");
-      expect(text).toContain("Append-only");
+      expect(text).not.toContain("Append-only");
       expect(text).toContain("Revision 1");
       expect(text).toContain("Selected default");
       expect(text).toContain("approved");
       expect(text).toContain("2026-08-18T10:00:00.000Z");
-      expect(text).toContain("Parent revision ID · None returned");
-      expect(text).toContain("Authored session ID · session-1");
+      expect(text).not.toContain("Parent revision ID");
+      expect(text).not.toContain("Authored session ID");
       expect(text).toContain("Revision 2");
       expect(text).toContain("Select as default for future use");
-      expect(text).toContain("Parent revision ID · revision-1");
-      expect(text).toContain("Authored session ID · None returned");
       expect(text).not.toMatch(/change note|dimensions|duration|hash|source|usages pinned|usage count/i);
 
       await click(button(mounted.host.container, "Load more revisions"));
@@ -203,7 +166,7 @@ describe("Shared Artifact inspector", () => {
       await click(buttonByAria(mounted.host.container, "Select revision 2 as default for future use"));
       expect(select).toHaveBeenCalledWith("workspace-1", "artifact-1", "revision-2", "revision-1");
       expect(mounted.host.container.textContent).toContain("Selecting default revision…");
-      expect(mounted.host.container.textContent).toContain("Existing references stay pinned");
+      expect(mounted.host.container.textContent).toContain("Existing project references keep their saved version");
       expect(mounted.host.container.textContent).not.toMatch(/existing references stay pinned\s*\d|\d+ existing references/i);
       await act(async () => { pending.resolve(artifact({ selectedRevisionId: "revision-2", selectedState: "candidate" })); await settle(); });
       expect(mounted.host.container.textContent).toContain("Revision 2Selected default");
@@ -247,7 +210,7 @@ describe("Shared Artifact inspector", () => {
     const mounted = await mountInspector();
     try {
       await click(buttonByAria(mounted.host.container, "Select revision 2 as default for future use"));
-      expect(mounted.host.container.textContent).toContain("The selected default changed in Core. Reload current state before retrying.");
+      expect(mounted.host.container.textContent).toContain("The selected default changed elsewhere. Reload current state before retrying.");
       await click(button(mounted.host.container, "Reload current state"));
       expect(mounted.host.container.textContent).toContain("Current selected default reloaded. Retry when ready.");
       await click(button(mounted.host.container, "Retry selection"));
@@ -303,13 +266,13 @@ describe("Shared Artifact inspector", () => {
         />);
         await settle();
       });
-      expect(mounted.host.container.textContent).toContain("Slug identity · second-artifact");
+      expect(mounted.host.container.textContent).toContain("Asset · second-artifact");
       expect(mounted.host.container.textContent).toContain("Revision 9Selected default");
 
       await act(async () => { staleDetail.resolve(artifact({ selectedRevisionId: "revision-3" })); await settle(); });
       await act(async () => { staleRevisions.resolve({ items: [revision(3)], nextCursor: null }); await settle(); });
 
-      expect(mounted.host.container.textContent).toContain("Slug identity · second-artifact");
+      expect(mounted.host.container.textContent).toContain("Asset · second-artifact");
       expect(mounted.host.container.textContent).toContain("Revision 9Selected default");
       expect(mounted.host.container.textContent).not.toContain("Current selected default reloaded. Retry when ready.");
       expect(mounted.host.container.textContent).not.toContain("Retry selection");
@@ -345,7 +308,7 @@ describe("Shared Artifact inspector", () => {
       expect(openOriginal.disabled).toBe(true);
       const reasonId = openOriginal.getAttribute("aria-describedby");
       expect(reasonId).not.toBeNull();
-      expect(targetless.host.container.querySelector(`#${reasonId}`)?.textContent).toContain("Core returned no selected media target");
+      expect(targetless.host.container.querySelector(`#${reasonId}`)?.textContent).toContain("this item has no selected file");
     } finally {
       await act(async () => targetless.root.unmount());
       targetless.host.restore();

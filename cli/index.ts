@@ -17,6 +17,7 @@ import {
   scrubCredentialEnvironment,
 } from "./lib/providers/credentials.js";
 import { listConnectors } from "./lib/providers/registry.js";
+import { assertSupportedBun } from "./lib/bun-runtime.js";
 
 // Capture only the fixed provider allowlist before any project environment is
 // loaded, then remove those names from this long-lived process.
@@ -41,6 +42,11 @@ function geoblockCtx(e: unknown): { provider: string; reason: string } | null {
 function raiseDomainError(error: unknown): void {
   if (error instanceof DomainError) {
     raiseError(error.code, (error.details ?? {}) as any);
+  }
+  const failure = error as { status?: unknown; provider?: unknown } | null;
+  if (failure?.status === 402) {
+    const provider = typeof failure.provider === "string" && /^[a-z][a-z0-9.-]{0,63}$/.test(failure.provider) ? failure.provider : "The provider";
+    raiseError("E_PROVIDER_CREDITS", { provider });
   }
 }
 
@@ -143,6 +149,7 @@ program
   .option("--project <id>", "Project ID for this command")
   .option("--session <id>", "Agent Session ID for this command")
   .hook("preAction", async (thisCommand, actionCommand) => {
+    if (actionCommand.name() !== "doctor") assertSupportedBun();
     const opts = thisCommand.opts();
     // ui.ts mode: auto-detect TTY unless explicit --pretty / --json
     const { setMode, setQuiet } = await import("./lib/ui.js");
@@ -230,7 +237,10 @@ program
          unrunnable on exactly the libraries that have been used. */
       /* Same for `skill`: it writes the agent's instruction files and installs
          the pack, both of which are per-machine, not per-workspace. */
-      if (sub === "prompts" || sub === "skill") {
+      // An explicit stdin credential probe does not select or mutate a workspace.
+      const explicitCredentialProbe = sub === "provider" && actionCommand.name() === "test"
+        && actionCommand.opts().stdin === true && actionCommand.opts().ping === true;
+      if (sub === "prompts" || sub === "skill" || explicitCredentialProbe) {
         setDataRoot(identity.dataRoot);
         return true;
       }
@@ -308,7 +318,7 @@ function taskThreeAdapterOwnsContext(root: unknown, action: string): boolean {
     return true;
   }
   if (root === "workspace") {
-    return ["create", "list", "show", "update", "account"].includes(action);
+    return ["create", "list", "show", "update", "account", "import"].includes(action);
   }
   return root === "project" &&
     ["create", "list", "show", "update", "iterate", "status", "transfer"].includes(action);

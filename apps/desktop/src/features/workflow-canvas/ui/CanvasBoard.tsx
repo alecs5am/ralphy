@@ -63,8 +63,12 @@ export function CanvasBoard({ canvas, nodeData, onEdit, onError, onSelection, on
   const [nodes, setNodes] = useState<CanvasFlowNode[]>(() => canvas.nodes.map((node) => ({ id: node.id, type: "canvas", position: { x: node.x, y: node.y }, dragHandle: ".canvas-node-drag", width: canvasNodeWidth(node), height: canvasNodeHeight(node), draggable: !node.locked && !dropDisabled, selected: selection?.includes(node.id) ?? false, data: nodeData(node) })));
   const initialFit = useRef(!canvas.viewport);
   useEffect(() => {
-    setNodes((current) => canvas.nodes.map((node) => ({ id: node.id, type: "canvas", position: { x: node.x, y: node.y }, dragHandle: ".canvas-node-drag", width: canvasNodeWidth(node), height: canvasNodeHeight(node), draggable: !node.locked && !dropDisabled, selected: selection?.includes(node.id) ?? current.find((item) => item.id === node.id)?.selected ?? false, data: nodeData(node) })));
-  }, [canvas.nodes, nodeData, dropDisabled, selection]);
+    setNodes((current) => canvas.nodes.map((node) => ({ id: node.id, type: "canvas", position: { x: node.x, y: node.y }, dragHandle: ".canvas-node-drag", width: canvasNodeWidth(node), height: canvasNodeHeight(node), draggable: !node.locked && !dropDisabled, selected: current.find((item) => item.id === node.id)?.selected ?? false, data: nodeData(node) })));
+  }, [canvas.nodes, nodeData, dropDisabled]);
+  // Runtime updates must not replay an older selection while React Flow reports a click.
+  useEffect(() => {
+    if (selection) setNodes((current) => current.map((node) => node.selected === selection.includes(node.id) ? node : { ...node, selected: selection.includes(node.id) }));
+  }, [selection]);
   const graphEdges = useMemo<Edge[]>(() => canvas.edges.map((edge) => {
     const source = canvas.nodes.find((node) => node.id === edge.from)!;
     const target = canvas.nodes.find((node) => node.id === edge.to)!;

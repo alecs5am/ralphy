@@ -2,7 +2,7 @@ import { AlertTriangle, FolderOpen, ListTodo, RefreshCw } from "@/shared/ui/icon
 import { useState } from "react";
 import type { ProjectSummary } from "@/shared/api/ipc";
 import { DitherIdentity } from "@/shared/instrument/primitives";
-import type { WorkspacePage } from "@/shared/model/workbench";
+import type { WorkspaceCalendarNavigationContext, WorkspacePage } from "@/shared/model/workbench";
 import { OverviewHeading } from "./OverviewHeading";
 import {
   ACTION_ON_SUNKEN,
@@ -29,6 +29,7 @@ interface Props {
   value: OperationsValue;
   onOpenProject(project: ProjectSummary): void;
   onOpenPage(page: WorkspacePage, returnFocusId: string): void;
+  onOpenCalendar?(context: WorkspaceCalendarNavigationContext, returnFocusId: string): void;
   onRetry(): void;
 }
 
@@ -66,12 +67,13 @@ function affectedLabel(value: AttentionPresentation["affectedCount"]): string {
 function attentionAction(item: AttentionPresentation): string {
   return item.kind === "publication-failure" || item.kind === "publication-reconciliation"
     ? "Review publications"
-    : "Review account publications";
+    : item.kind === "account-relink" ? "Relink account" : "Connect account";
 }
 
-function AttentionQueue({ value, onOpenPage, onRetry, expanded: controlledExpanded, onExpandedChange }: {
+function AttentionQueue({ value, onOpenPage, onOpenCalendar, onRetry, expanded: controlledExpanded, onExpandedChange }: {
   value: OperationsValue["attention"];
   onOpenPage(page: WorkspacePage, returnFocusId: string): void;
+  onOpenCalendar?: Props["onOpenCalendar"];
   onRetry(): void;
   expanded?: boolean;
   onExpandedChange?(expanded: boolean): void;
@@ -102,7 +104,10 @@ function AttentionQueue({ value, onOpenPage, onRetry, expanded: controlledExpand
             <AlertTriangle className={critical ? "text-alert" : "text-muted"} size={15} aria-hidden="true" />{critical ? "Critical" : "Warning"}
           </span>
           <span className={`workspace-attention-copy ${ROW_COPY}`}><strong className={ROW_TITLE}>{item.title}</strong><small className={ROW_NOTE}>{affectedLabel(item.affectedCount)}</small></span>
-          <button className={`${ACTION_ON_SUNKEN} ${ROW_ACTION_STACKED}`} id={focusId} type="button" aria-label={`${attentionAction(item)} for ${item.title}`} onClick={() => onOpenPage("calendar", focusId)}>{attentionAction(item)}</button>
+          <button className={`${ACTION_ON_SUNKEN} ${ROW_ACTION_STACKED}`} id={focusId} type="button" aria-label={`${attentionAction(item)} for ${item.title}`} onClick={() => onOpenCalendar ? onOpenCalendar({
+            label: item.title, ...(item.accountId ? { accountId: item.accountId } : {}),
+            ...(["account-relink", "account-configuration"].includes(item.kind) ? { accountAction: "manage" as const } : {}),
+          }, focusId) : onOpenPage("calendar", focusId)}>{attentionAction(item)}</button>
         </li>;
       })}
     </ul>}
@@ -152,7 +157,7 @@ function ActiveProjects({ value, onOpenProject, onOpenPage, onRetry }: {
     </OverviewHeading>
     {value.status === "partial" && <InfoBanner title="Bounded project data" reason={value.reason} />}
     {value.status === "unavailable" && <RetryBanner title="Active projects unavailable" reason={value.reason} label="Retry projects" onRetry={onRetry} />}
-    {available && projects.length === 0 && <p className={EMPTY_NOTE}>No active projects were returned by Core.</p>}
+    {available && projects.length === 0 && <p className={EMPTY_NOTE}>No active projects yet.</p>}
     {projects.length > 0 && <ul className="workspace-active-project-list m-0 grid list-none gap-1 p-0">
       {projects.map((project) => <ActiveProjectRow key={project.id} value={project} onOpenProject={onOpenProject} onOpenPage={onOpenPage} />)}
     </ul>}
@@ -179,7 +184,7 @@ function WorkspaceOnboarding({ onOpenPage }: { onOpenPage(page: WorkspacePage, r
   </section>;
 }
 
-export function WorkspaceOperations({ value, onOpenProject, onOpenPage, onRetry, attentionExpanded, onAttentionExpandedChange }: Props & {
+export function WorkspaceOperations({ value, onOpenProject, onOpenPage, onOpenCalendar, onRetry, attentionExpanded, onAttentionExpandedChange }: Props & {
   attentionExpanded?: boolean;
   onAttentionExpandedChange?(expanded: boolean): void;
 }) {
@@ -191,7 +196,7 @@ export function WorkspaceOperations({ value, onOpenProject, onOpenPage, onRetry,
       <RetryBanner title="Workspace setup state unavailable" reason={value.onboarding.reason} label="Retry workspace state" onRetry={onRetry} />
     </div>}
     <ActiveProjects value={value.projects} onOpenProject={onOpenProject} onOpenPage={onOpenPage} onRetry={onRetry} />
-    {!attentionCompleteEmpty && <AttentionQueue value={value.attention} onOpenPage={onOpenPage} onRetry={onRetry} expanded={attentionExpanded} onExpandedChange={onAttentionExpandedChange} />}
+    {!attentionCompleteEmpty && <AttentionQueue value={value.attention} onOpenPage={onOpenPage} onOpenCalendar={onOpenCalendar} onRetry={onRetry} expanded={attentionExpanded} onExpandedChange={onAttentionExpandedChange} />}
     {onboarding && <WorkspaceOnboarding onOpenPage={onOpenPage} />}
   </>;
 }

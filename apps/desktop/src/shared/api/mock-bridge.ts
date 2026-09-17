@@ -49,6 +49,13 @@ export function createMockBridge(injectedBridge?: RalphyBridge): RalphyBridge {
   });
 
   return {
+    async exportLibraryWorkspace() { throw new Error("Workspace export requires the native app"); },
+    async importLibraryWorkspace() { throw new Error("Workspace import requires the native app"); },
+    async createLibraryWorkspace() { throw new Error("Workspace creation requires the native app"); },
+    async createLibraryProject() { throw new Error("Project creation requires the native app"); },
+    async getDesktopSystemInfo() { return { libraryPath: null, libraryWritable: false, libraryError: "No native host", availableBytes: null, cacheBytes: 0, shell: "Not available", versions: { desktop: "test", electron: "test", node: "test", chrome: "test", core: null } }; },
+    async clearDesktopCache() { return { beforeBytes: 0, afterBytes: 0 }; },
+    async revealDesktopFolder() {},
     ...mockCanvasSurfaces(),
     ...mockVideoWorkspace(),
     ...mockGenerationBridge(),
@@ -109,6 +116,9 @@ export function createMockBridge(injectedBridge?: RalphyBridge): RalphyBridge {
         },
       };
     },
+    async loadWorkspaceUnitPage() {
+      return { units: { items: [], nextCursor: null }, publications: { items: [], nextCursor: null } };
+    },
     async loadSharedLibraryPage() {
       return { items: [], nextCursor: null };
     },
@@ -161,6 +171,7 @@ export function createMockBridge(injectedBridge?: RalphyBridge): RalphyBridge {
     async mutateCalendar() {
       throw new Error("Calendar mutations are unavailable in mock mode");
     },
+    async connectCalendar() { throw new Error("Postiz connection requires the desktop runtime."); },
     async reconnectCalendarAccount() {
       throw new Error("Calendar reconnect is unavailable in mock mode");
     },

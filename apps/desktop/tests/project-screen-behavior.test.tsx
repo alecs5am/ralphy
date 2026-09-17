@@ -86,6 +86,7 @@ function createApi() {
     loadDocumentPreview: vi.fn(async () => ({ revisionId: "revision-1", format: "markdown", text: "# Bounded brief", truncated: false })),
     searchProjectDocuments: vi.fn(async () => ({ items: [], nextCursor: null })),
     showProjectDocument: vi.fn(async (project: unknown, documentId: string) => ({ id: documentId, workspaceId: "workspace-1", projectId: "project-1", kind: "brief", slug: "brief", title: "Brief", currentRevisionId: "revision-1", rowVersion: 1, createdAt: 1, updatedAt: 1, currentRevision: { id: "revision-1", documentId, revisionNo: 1, parentRevisionId: null, iterationId: null, format: "markdown", title: null, authoredBySessionId: null, createdAt: 1 } })),
+    createProjectDocument: vi.fn(async () => ({ id: "document-new", workspaceId: "workspace-1", projectId: "project-1", kind: "note", slug: "untitled-document-new", title: "Untitled document", currentRevisionId: null, rowVersion: 1, createdAt: 1, updatedAt: 1, currentRevision: null })),
     reviseProjectDocument: vi.fn(async () => ({ id: "revision-2", documentId: "document-1", revisionNo: 2, parentRevisionId: "revision-1", iterationId: null, format: "markdown", title: null, authoredBySessionId: null, createdAt: 2 })),
     resolveProjectPreview: vi.fn(async () => null as { url: string; sizeBytes: number } | null),
     loadProjectGeneration: vi.fn(async (_project: unknown, target: MediaGenerationDetailDto["target"]) => ({ status: "unknown" as const, target, reason: "not-recorded" as const })),
@@ -139,6 +140,24 @@ function renderController(controller: ReturnType<typeof createController>) {
 }
 
 describe("ProjectScreen behavior", () => {
+  test("creates a document from the empty workbench and retries its first revision without duplicating it", async () => {
+    const api = createApi();
+    const controller = createController(api) as any;
+    await controller.selectTab("documents");
+    expect(renderToStaticMarkup(<screen.ProjectScreenView project={project} controller={controller} snapshot={controller.getSnapshot()} />)).toContain("New document");
+    await controller.createDocument();
+    expect(api.createProjectDocument).toHaveBeenCalledWith({ workspaceId: "workspace-1", projectId: "project-1" }, { title: "Untitled document" });
+    expect(controller.getSnapshot()).toMatchObject({ selectedDocument: { id: "document-new", currentRevisionId: null }, documentMode: "edit", documentDirty: true, documentDraft: { title: "Untitled document", body: "" } });
+    controller.setDocumentDraftBody("New document content");
+    await controller.createDocument();
+    expect(api.createProjectDocument).toHaveBeenCalledTimes(1);
+    api.reviseProjectDocument.mockRejectedValueOnce(new Error("Offline"));
+    await controller.saveDocument();
+    expect(controller.getSnapshot()).toMatchObject({ documentDirty: true, documentDraft: { body: "New document content" }, documentConflict: "Offline" });
+    await controller.saveDocument();
+    expect(api.reviseProjectDocument).toHaveBeenLastCalledWith({ workspaceId: "workspace-1", projectId: "project-1" }, expect.objectContaining({ documentId: "document-new", expectedHeadId: null, body: "New document content" }));
+    expect(controller.getSnapshot()).toMatchObject({ documentMode: "read", documentDirty: false, domain: { pages: { documents: { items: [expect.objectContaining({ id: "document-new", currentRevisionId: "revision-2" })] } } } });
+  });
   test("opens a calendar deep-link on the requested Unit", async () => {
     const api = createApi();
     api.loadProjectPage.mockResolvedValue({ items: [await api.loadProjectUnit()], nextCursor: null });

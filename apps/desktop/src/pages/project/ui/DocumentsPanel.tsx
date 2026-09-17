@@ -45,15 +45,12 @@ const documentDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "
 const documentViewTabs = [{ value: "render", label: "Render" }, { value: "source", label: "Source" }] as const;
 
 // The reading canvas the document detail gives every view it mounts: markdown, JSON and plain
-// text. It is stated on the detail because the canvas is the detail's decision, not the view's —
-// the same components render at their own width inside a unit preview or an artifact preview.
-// The reading canvas the document detail gives every view it mounts: markdown, JSON and plain
 // text. It is stated on the detail because the canvas is the detail's decision, not the view's --
 // the same components render at their own width inside a unit preview or an artifact preview.
 // The three selectors are written out: Tailwind reads class names from the source text, so an
 // interpolated variant prefix would never reach the generated stylesheet.
 const DOCUMENT_CANVAS = [
-  "[&_.markdown-view]:mx-auto [&_.markdown-view]:w-[calc(100%_-_48px)] [&_.markdown-view]:max-w-document-canvas [&_.markdown-view]:pt-7 [&_.markdown-view]:pb-16 [&_.markdown-view]:text-left [&_.markdown-view]:type-md",
+  "[&_.markdown-view]:mx-auto [&_.markdown-view]:w-[calc(100%_-_48px)] [&_.markdown-view]:max-w-document-canvas [&_.markdown-view]:pt-7 [&_.markdown-view]:pb-16 [&_.markdown-view]:text-left [&_.markdown-view]:type-md [&_.markdown-view]:[overflow-wrap:anywhere]",
   "[&_.json-document-view]:mx-auto [&_.json-document-view]:w-[calc(100%_-_48px)] [&_.json-document-view]:max-w-document-canvas [&_.json-document-view]:pt-7 [&_.json-document-view]:pb-16 [&_.json-document-view]:text-left",
   "[&_.plain-text-view]:mx-auto [&_.plain-text-view]:w-[calc(100%_-_48px)] [&_.plain-text-view]:max-w-document-canvas [&_.plain-text-view]:pt-7 [&_.plain-text-view]:pb-16 [&_.plain-text-view]:text-left",
 ].join(" ");
@@ -116,6 +113,7 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
   const [masterRoot, setMasterRoot] = useState<HTMLDivElement | null>(null);
   const [documentView, setDocumentView] = useState<"render" | "source">(snapshot.documentMode === "edit" ? "source" : "render");
   const [reviewCurrent, setReviewCurrent] = useState(false);
+  const [creationError, setCreationError] = useState<string | null>(null);
   const masterRef = useRef<HTMLDivElement>(null);
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const normalizedQuery = query.trim();
@@ -175,6 +173,11 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
   const displayFormat = draft?.format ?? snapshot.documentPreview.value?.format ?? revision?.format ?? null;
   return <InstrumentScreenRoot descriptor={documentsInstrumentStates} state={documentsInstrumentState(page, snapshot)}><div className="documents-workbench grid h-full min-h-0 w-full min-w-0 grid-cols-(--project-documents-columns) gap-2 @max-project-split/project-domain:grid-cols-1 @max-project-stack/project-domain:grid-rows-(--project-split-rows)">
     <div className="documents-master relative min-h-0 min-w-0 overflow-auto overscroll-contain bg-transparent p-2 [scrollbar-gutter:stable]" role="region" aria-label="Documents" ref={attachMaster} onScroll={masterScroll.onScroll}>
+      <button className={`${COMMAND_BUTTON} mb-3`} type="button" disabled={snapshot.documentSaving || snapshot.documentDirty} title={snapshot.documentDirty ? "Save or cancel your current changes first" : undefined} onClick={() => {
+        setCreationError(null);
+        void controller.createDocument().then(() => setQuery("")).catch((error: unknown) => setCreationError(error instanceof Error ? error.message : "Document could not be created. Try again."));
+      }}>New document</button>
+      {creationError && <p role="alert" className="type-sm text-muted">{creationError}</p>}
       <div className="document-search sticky top-0 z-raised mb-3 flex h-control-md items-center gap-2 rounded-control bg-surface px-3 text-muted">
         <Search className="shrink-0" aria-hidden="true" size={13} />
         <label className="sr-only" htmlFor="document-search">Search documents</label>
@@ -223,15 +226,15 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
         `.documents-detail` stays the scroller, so it states `rounded-frame bg-card` rather than
         reading `WINDOW_PLATE`: the plate clips with `overflow-hidden`, and two `overflow`
         utilities on one element resolve by stylesheet order rather than markup order. */}
-    <div className={`documents-detail-window ${WINDOW}`}>
-      {selected && <header className={`document-detail-header ${WINDOW_TITLEBAR}`}>
+    <div className={`documents-detail-window ${WINDOW} @container/document-detail`}>
+      {selected && <header className={`document-detail-header ${WINDOW_TITLEBAR} @max-project-stack/document-detail:[&>.document-format-badge]:hidden`}>
         <FormatBadge format={displayFormat} />
         {/* Focus lands here when a row opens, so a reader is told which document it is -- and the
             focus contract wants that visible. It states the theme ink: this line stands on the
             panel now, where reset.css\'s legacy ring resolves to the near-white on-dark colour. */}
-        <h2 className="document-detail-heading m-0 min-w-0 flex-none truncate type-lg font-normal focus-visible:outline-ink focus-visible:-outline-offset-2" tabIndex={-1} ref={detailHeading}>{displayTitle}</h2>
-        <p className="m-0 min-w-0 flex-1 truncate type-xs text-muted">{selected.kind}{revision ? ` · Revision ${revision.revisionNo}` : " · No revision"}{snapshot.documentDirty ? " · Unsaved" : ""}</p>
-        <div className="document-header-actions flex min-w-0 flex-none items-center gap-2">
+        <h2 className="document-detail-heading m-0 min-w-0 flex-1 truncate type-lg font-normal focus-visible:outline-ink focus-visible:-outline-offset-2" tabIndex={-1} ref={detailHeading}>{displayTitle}</h2>
+        <p className="m-0 hidden min-w-0 max-w-40 truncate type-xs text-muted @min-project-stack/document-detail:block">{selected.kind}{revision ? ` · Revision ${revision.revisionNo}` : " · No revision"}{snapshot.documentDirty ? " · Unsaved" : ""}</p>
+        <div className="document-header-actions flex min-w-0 flex-none items-center gap-2 [&_.gooey-tabs]:[--gooey-cell-width:var(--spacing-document-view-tab)]">
           <GooeyTabs<"render" | "source"> tabs={documentViewTabs} value={documentView} onValueChange={setDocumentView} size="s" ariaLabel="Document view" />
           {snapshot.documentMode === "read"
             ? <button className={COMMAND_BUTTON} type="button" disabled={snapshot.documentSaving || Boolean(selected.currentRevisionId && (snapshot.documentPreview.status !== "ready" || !snapshot.documentPreview.value || snapshot.documentPreview.value.truncated))} aria-describedby={snapshot.documentPreview.value?.truncated ? "document-truncated-note" : undefined} onClick={() => controller.beginDocumentEdit()}>Edit</button>

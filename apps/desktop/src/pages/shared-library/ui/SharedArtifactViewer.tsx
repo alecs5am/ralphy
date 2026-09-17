@@ -24,12 +24,10 @@ import {
   STEP,
   TRANSPORT_BUTTON,
   ViewerStage,
-  availabilityReason,
   editableTarget,
   errorMessage,
   formatBytes,
   isConflict,
-  stringList,
   titleText,
   viewerKind,
 } from "./shared-artifact-stage";
@@ -61,7 +59,6 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
   const revisionRequest = useRef(0);
   const selectionRequest = useRef(0);
   const actionRequest = useRef(0);
-  const unavailableActionId = useId();
   const targetlessActionId = useId();
   const kind = viewerKind(detail.mime);
   const index = artifacts.findIndex(({ id }) => id === detail.id);
@@ -129,7 +126,7 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
     const current = ++previewRequest.current;
     if (kind === "unsupported") return;
     if (detail.preview === "no-target") {
-      setPreview({ status: "unavailable", reason: "Core returned no selected preview target." });
+      setPreview({ status: "unavailable", reason: "No file is selected for preview." });
       return;
     }
     setPreview({ status: "loading" });
@@ -137,9 +134,9 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
       if (current !== previewRequest.current) return;
       setPreview(value
         ? { status: "ready", url: value.url, sizeBytes: value.sizeBytes }
-        : { status: "unavailable", reason: "Core did not return a guarded preview URL." });
+        : { status: "unavailable", reason: "The selected file is unavailable." });
     }).catch(() => {
-      if (current === previewRequest.current) setPreview({ status: "unavailable", reason: "The guarded preview URL could not be loaded." });
+      if (current === previewRequest.current) setPreview({ status: "unavailable", reason: "The preview could not be loaded." });
     });
     return () => { previewRequest.current += 1; };
   }, [detail.id, detail.preview, detail.selectedRevisionId, kind, rootEpoch, workspaceId]);
@@ -206,7 +203,7 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
     if (!next) return;
     onNavigate(next);
   };
-  const topLine = [detail.kind, detail.mime ?? "MIME unavailable", `Slug · ${detail.slug}`]
+  const topLine = [detail.kind, `Asset · ${detail.slug}`]
     .map((value) => value.toLocaleUpperCase()).join(" · ");
 
   return <Modal
@@ -258,7 +255,7 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
               {revisions.error && <div className={ALERT} role="alert"><span>Revision history unavailable · {revisions.error}</span><button className={ACTION} type="button" onClick={() => { void loadRevisions(revisions.items.length ? revisions.nextCursor : null); }}>Retry revisions</button></div>}
               {selection.status === "pending" && <p className={SECTION_COPY} role="status">Selecting default revision…</p>}
               {selection.status === "reloading" && <p className={SECTION_COPY} role="status">Reloading current selected default…</p>}
-              {selection.status === "conflict" && <div className={ALERT} role="alert"><span>The selected default changed in Core. Reload current state before retrying.</span><button className={ACTION} type="button" onClick={() => { void reloadConflict(); }}>Reload current state</button></div>}
+              {selection.status === "conflict" && <div className={ALERT} role="alert"><span>The selected default changed elsewhere. Reload current state before retrying.</span><button className={ACTION} type="button" onClick={() => { void reloadConflict(); }}>Reload current state</button></div>}
               {selection.status === "reloaded" && <div className={ALERT} role="status"><span>Current selected default reloaded. Retry when ready.</span><button className={ACTION} type="button" onClick={() => { void selectRevision(selection.revisionId); }}>Retry selection</button></div>}
               {selection.status === "error" && <div className={ALERT} role="alert"><span>Revision selection unavailable · {selection.message}</span><button className={ACTION} type="button" onClick={() => { void selectRevision(selection.revisionId); }}>Retry selection</button></div>}
               {openState === "error" && <div className={ALERT} role="alert"><span>Open original unavailable.</span><button className={ACTION} type="button" onClick={() => { void openOriginal(); }}>Retry open original</button></div>}
@@ -266,31 +263,21 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
             <aside className="shared-viewer-context flex w-shared-viewer-context min-w-0 flex-none flex-col gap-3.25 overflow-y-auto rounded-menu bg-surface p-4 @max-shared-viewer/shared-viewer:w-full @max-shared-viewer/shared-viewer:overflow-visible">
               <div>
                 <Dialog.Title asChild><h2 className="m-0 type-title font-normal leading-title text-ink">{titleText(detail)}</h2></Dialog.Title>
-                <Dialog.Description asChild><p className="mt-1.25 mb-0 font-code type-mono-md text-muted">Slug identity · {detail.slug}</p></Dialog.Description>
+                <Dialog.Description asChild><p className="mt-1.25 mb-0 font-code type-mono-md text-muted">Asset · {detail.slug}</p></Dialog.Description>
               </div>
               <dl className="m-0 grid gap-1.25">
                 {([
-                  ["MIME", detail.mime ?? "Unavailable"],
+                  ["File type", detail.mime ?? "Unknown"],
                   ["Size", formatBytes(detail.bytes)],
-                  ["Selected revision state", detail.selectedState ?? "Unavailable"],
-                  ["Semantic roles", stringList(detail.semanticRoles)],
-                  ["Tags", stringList(detail.tags)],
-                  ["Named entities", stringList(detail.entities)],
-                  ["Canonical status", availabilityReason(detail.canonicalStatus)],
+                  ["Revision status", detail.selectedState ?? "Unavailable"],
                 ] as const).map(([label, value]) => <div className={FACT_ROW} key={label}><dt className={FACT_LABEL}>{label}</dt><dd className={FACT_VALUE}>{value}</dd></div>)}
               </dl>
-              <section className="flex flex-col gap-1.25 rounded-cell bg-surface-hover p-3.25"><h3 className={SECTION_LABEL}>Context agents receive</h3><dl className="m-0 grid gap-1.25">
-                {(["Purpose", "Use when", "Avoid when", "Constraints"] as const).map((label) => <div className={FACT_ROW} key={label}><dt className={FACT_LABEL}>{label}</dt><dd className={FACT_VALUE}>{availabilityReason(detail.agentUse)}</dd></div>)}
-                <div className={FACT_ROW}><dt className={FACT_LABEL}>Agent-use canonical status</dt><dd className={FACT_VALUE}>{availabilityReason(detail.canonicalStatus)}</dd></div>
-              </dl></section>
-              <section className="flex flex-col gap-1.25"><h3 className={SECTION_LABEL}>Referenced as</h3><p className={SECTION_COPY}>{detail.referencedAs.length ? detail.referencedAs.join(" · ") : "No referenced-role evidence returned by Core."}</p></section>
-              <section className="flex flex-col gap-1.25"><h3 className={SECTION_LABEL}>Actual usage</h3><p className={SECTION_COPY}>System-derived backlinks are unavailable from this Core version.</p></section>
+              <section className="flex flex-col gap-1.25"><h3 className={SECTION_LABEL}>Referenced as</h3><p className={SECTION_COPY}>{detail.referencedAs.length ? detail.referencedAs.join(" · ") : "No referenced roles recorded."}</p></section>
               <span className="flex-1 @max-shared-viewer/shared-viewer:hidden" />
-              <button className={`${ACTION} w-full flex-none`} type="button" aria-disabled="true" aria-describedby={unavailableActionId}>Use in project unavailable</button>
-              <p className={REASON} id={unavailableActionId}>Use in project is unavailable until Core exposes a mutation contract.</p>
-              {detail.preview === "no-target" && <p className={REASON} id={targetlessActionId}>Open original is unavailable because Core returned no selected media target.</p>}
+
+              {detail.preview === "no-target" && <p className={REASON} id={targetlessActionId}>Open original is unavailable because this item has no selected file.</p>}
               {onOpenInspector && <button className={`${ACTION} w-full flex-none`} type="button" onClick={() => onOpenInspector(detail)}><PanelRight aria-hidden="true" />Open full inspector</button>}
-              <small className="font-code type-mono-sm tracking-meta text-muted">← → ARTIFACT · MEDIA CONTROLS ARE LABELLED · ESC CLOSE</small>
+              <small className="font-code type-mono-sm tracking-meta text-muted">← → Browse assets · Esc Close</small>
             </aside>
   </Modal>;
 }

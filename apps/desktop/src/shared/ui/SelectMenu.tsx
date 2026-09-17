@@ -46,6 +46,7 @@ export interface SelectMenuProps<Value extends string> {
   className?: string;
   contentClassName?: string;
   prefix?: string;
+  disabled?: boolean;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
   overlayOwner: InstrumentSharedSelectOwnerId;
@@ -62,6 +63,7 @@ export function SelectMenu<Value extends string>({
   className = "",
   contentClassName = "",
   prefix,
+  disabled = false,
   side = "bottom",
   align = "start",
   overlayOwner,
@@ -75,6 +77,7 @@ export function SelectMenu<Value extends string>({
 
   return (
     <Select.Root
+      disabled={disabled}
       open={open}
       onOpenChange={setOpen}
       value={value === "" && selected ? emptyValue : value}

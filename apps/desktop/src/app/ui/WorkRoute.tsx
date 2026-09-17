@@ -21,7 +21,7 @@ import { WorkspaceScreen } from "@/pages/workspace";
 import { WorkspaceProjectsScreen } from "@/pages/workspace-projects";
 import { WorkspaceUnitsScreen } from "@/pages/workspace-units";
 import { readUnitViewTarget, type ViewTab } from "@/widgets/view-panel";
-import type { AgentProvider, CatalogResult, ProjectSummary, WorkspaceSummary } from "@/shared/api/ipc";
+import type { AgentProvider, CatalogResult, ProjectReference, ProjectSummary, WorkspaceSummary } from "@/shared/api/ipc";
 import type { WorkbenchRoute, WorkspaceDestination, WorkspaceOverviewReturnState, WorkspacePage } from "@/shared/model/workbench";
 
 import { ProjectScreenLoadingFallback } from "./app-frames";
@@ -62,6 +62,7 @@ export interface WorkRouteProps {
   onRetryLibrary(): void;
   onOpenWorkspace(workspaceId: string): void;
   onOpenProject(project: ProjectSummary, unitId?: string | null): void;
+  onOpenUnitView?(reference: ProjectReference, unitId: string, label: string, revisionId?: string): void;
   onOpenWorkspacePage(page: WorkspacePage): void;
   onNavigateFromOverview(destination: WorkspaceDestination, returnState: WorkspaceOverviewReturnState): void;
   onToggleProjectPin(projectId: string): void;
@@ -99,12 +100,14 @@ export function WorkRoute({
   onToggleProjectPin,
   onOpenProviders,
   onRequestVideoAgent,
+  onOpenUnitView,
 }: WorkRouteProps) {
   if (viewTab?.type === "unit") {
     const target = readUnitViewTarget(viewTab.targetId);
     const project = target?.workspaceId === selectedWorkspace?.id
       ? projects.find((project) => project.workspaceId === target?.workspaceId && project.projectId === target?.projectId) : null;
-    return target && project ? <Suspense fallback={<p role="status">Opening Unit…</p>}><UnitView key={`${rootEpoch}:${viewTab.id}`} project={project} unitId={target.unitId} rootEpoch={rootEpoch} onClose={() => onCloseUnitView?.()} /></Suspense>
+    const reference = project ?? (target && target.workspaceId === selectedWorkspace?.id && target.projectId === null ? { workspaceId: target.workspaceId, projectId: null } : null);
+    return target && reference ? <Suspense fallback={<p role="status">Opening Unit…</p>}><UnitView key={`${rootEpoch}:${viewTab.id}`} project={reference} unitId={target.unitId} revisionId={target.revisionId} rootEpoch={rootEpoch} onClose={() => onCloseUnitView?.()} onRequestAgent={onRequestVideoAgent} /></Suspense>
       : <p role="alert">This Unit is not available in the current workspace.</p>;
   }
   const library = (
@@ -126,6 +129,7 @@ export function WorkRoute({
         workspaceName={selectedWorkspace.name}
         rootEpoch={rootEpoch}
         onOpenProviders={onOpenProviders}
+        onOpenUnit={onOpenUnitView}
       />
     </Suspense>;
   }
@@ -158,6 +162,7 @@ export function WorkRoute({
   if (route.kind === "workspace" && selectedWorkspace && workspacePage === "projects") {
     return (
       <WorkspaceProjectsScreen
+        workspaceId={selectedWorkspace.id}
         workspaceName={selectedWorkspace.name}
         workspaceDescription={selectedWorkspace.description}
         projects={projects.filter((project) => project.workspaceId === selectedWorkspace.id)}
@@ -198,17 +203,23 @@ export function WorkRoute({
       initialDate={calendarContext?.date === undefined ? undefined : new Date(calendarContext.date)}
       navigationContext={calendarContext}
       onOpenProject={(projectId, unitId) => {
-      const project = projects.find((item) => item.projectId === projectId);
+      if (onOpenUnitView) { onOpenUnitView({ workspaceId: selectedWorkspace.id, projectId }, unitId, "Unit"); return; }
+      const project = projects.find((item) => item.projectId === projectId && item.workspaceId === selectedWorkspace.id);
       if (project) onOpenProject(project, unitId);
     }} />;
   }
   if (route.kind === "workspace" && selectedWorkspace && workspacePage === "units") {
     return <WorkspaceUnitsScreen
       key={`workspace-units:${rootEpoch}:${selectedWorkspace.id}`}
+      workspaceId={selectedWorkspace.id}
       workspaceName={selectedWorkspace.name}
       projects={projects.filter((project) => project.workspaceId === selectedWorkspace.id)}
       rootEpoch={rootEpoch}
-      onOpenUnit={(project, unitId) => onOpenProject(project, unitId)}
+      activitySequence={activitySequence}
+      onOpenUnit={(reference, unitId, label) => {
+        if (onOpenUnitView) onOpenUnitView(reference, unitId, label);
+        else { const project = projects.find((item) => item.projectId === reference.projectId && item.workspaceId === reference.workspaceId); if (project) onOpenProject(project, unitId); }
+      }}
     />;
   }
   if (route.kind === "project" && selectedProject) {

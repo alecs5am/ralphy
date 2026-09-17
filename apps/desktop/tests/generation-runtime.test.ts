@@ -10,7 +10,7 @@ import { loadCanvases } from "../electron/canvas/store";
 import type { RuntimeDependencies } from "../electron/canvas/runtime";
 import { MEDIA_CHANNELS } from "../electron/media/types";
 import { generationDraftFromRun, type GenerationDraft } from "../shared/generation-studio";
-import type { CanvasRun } from "../shared/canvas-runtime";
+import type { CanvasRunPage, CanvasRun } from "../shared/canvas-runtime";
 
 const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))); });
@@ -31,14 +31,14 @@ async function setup() {
     if (args[0] === "models") return args[1] === "preflight" ? { ok: true } : { models: [] };
     return { dryRun: true, cost_estimate_usd: 0.04 };
   });
-  const runtime: RuntimeDependencies = { root, workspaceId: "workspace", cli, request: vi.fn(), mint: async () => ({ url: "ralphy-media://asset/checked" }), text: vi.fn(), assertCurrent() {} };
+  const runtime: RuntimeDependencies = { root, workspaceId: "workspace", cli, request: vi.fn(), mint: async () => ({ url: "ralphy-media://asset/checked" }), assertCurrent() {} };
   const handlers = new Map<string, (...args: unknown[]) => Promise<unknown>>();
   const capture = vi.fn(async () => runtime), destination = join(root, "export.png");
   registerGenerationIpc({ handle: (channel, handler) => handlers.set(channel, handler), capture, fetcher, chooseExport: async () => destination });
   const call = (channel: keyof typeof MEDIA_CHANNELS, ...args: unknown[]) => Promise.resolve().then(() => handlers.get(MEDIA_CHANNELS[channel])!("workspace", ...args));
   const finished = async () => {
     for (let i = 0; i < 100; i++) {
-      const runs = await call("loadGenerationRuns") as CanvasRun[];
+      const { items: runs } = await call("loadGenerationRuns") as CanvasRunPage;
       if (runs[0] && ["succeeded", "failed", "cancelled"].includes(runs[0].status)) return runs[0];
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
@@ -131,7 +131,7 @@ test("generation cancellation remains scoped to its history and settles the reus
   const run = await call("startGeneration", draft(), "execute") as CanvasRun;
   await expect(call("cancelGenerationRun", "some-other-run")).rejects.toThrow(/no longer available/);
   expect((await call("cancelGenerationRun", run.id) as CanvasRun).status).toBe("cancelled");
-  expect((await call("loadGenerationRuns") as CanvasRun[])[0]!.status).toBe("cancelled");
+  expect((await call("loadGenerationRuns") as CanvasRunPage).items[0]!.status).toBe("cancelled");
 });
 
 test("music and voice use distinct CLI flags, while SFX execution has no model flag", async () => {

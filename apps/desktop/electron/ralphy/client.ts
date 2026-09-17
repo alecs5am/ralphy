@@ -392,21 +392,25 @@ export class RalphyBridgeClient {
     );
     this.#child = child;
     child.stdout.on("data", (chunk: Buffer) => this.#readStdout(chunk));
-    child.stderr.resume();
+    let startupStderr = "";
+    child.stderr.on("data", (chunk: Buffer) => {
+      if (!this.#hello) startupStderr = (startupStderr + chunk.toString("utf8")).slice(-4096);
+    });
     child.stdin.on("error", (error) => {
       if (!this.#closed) this.#fail(new RalphyBridgeError("E_BRIDGE_WRITE", error.message));
     });
     child.once("error", (error) => {
-      this.#fail(new RalphyBridgeError("E_BRIDGE_START", error.message));
+      this.#fail(new RalphyBridgeError("code" in error && error.code === "ENOENT" ? "E_RUNTIME_MISSING" : "E_BRIDGE_START", "The Ralphy runtime could not start"));
     });
     child.once("close", (code, signal) => {
       if (!this.#closed && !this.#terminalError) {
         this.#terminalError = new RalphyBridgeError(
-          "E_BRIDGE_EXITED",
+          !this.#hello && /(?:env:.*bun.*(?:No such file|not found)|bun: command not found)/i.test(startupStderr) ? "E_RUNTIME_MISSING" : "E_BRIDGE_EXITED",
           `Ralphy bridge exited unexpectedly (${signal ?? code ?? "unknown"})`,
           { code, signal },
         );
       }
+      startupStderr = "";
       this.#rejectPending(this.#terminalError ?? this.#closedError());
       this.#child = null;
     });

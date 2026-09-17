@@ -1,4 +1,5 @@
 import { watch, type FSWatcher } from "node:fs";
+import { mkdir } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 import { isDomainLibraryRoot, validateLibraryRoot } from "./catalog";
 
@@ -97,6 +98,7 @@ export class LibraryWatcher {
         this.#rootPath,
         await isDomainLibraryRoot(this.#rootPath) ? "buckets" : "workspaces",
       );
+      await mkdir(workspacesPath, { recursive: true });
       const workspaceWatcher = watchFileSystem(
         workspacesPath,
         { recursive: true },

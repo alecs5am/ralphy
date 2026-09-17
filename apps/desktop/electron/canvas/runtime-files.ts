@@ -2,7 +2,7 @@ import { constants } from "node:fs";
 import { lstat, mkdir, open, readdir, realpath } from "node:fs/promises";
 import { basename, extname, join, relative } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { CanvasRun } from "../../shared/canvas-runtime";
+import type { CanvasRun, CanvasRunPage } from "../../shared/canvas-runtime";
 import { canvasId, type CanvasAsset } from "../../shared/workflow-canvas";
 import { parseCanvasRun } from "./runtime-record";
 import { guardedAtomicWrite } from "../media/atomic-write";
@@ -60,25 +60,68 @@ export async function importCanvasFile(root: string, workspaceId: string, source
 
 export async function writeCanvasRun(root: string, run: CanvasRun): Promise<void> {
   const path = join(await runtimeDirectory(root, run.workspaceId, "runs", run.canvasId), `${canvasId(run.id)}.json`);
-  const durable = { ...run, nodes: run.nodes.map((node) => ({ ...node, results: node.results.map(({ previewUrl: _url, ...result }) => result) })) };
+  const durable = { ...run, nodes: run.nodes.map((node) => ({ ...node, results: node.results.map(({ previewUrl: _url, unavailableReason: _reason, ...result }) => result) })) };
   await guardedAtomicWrite(path, `${JSON.stringify(durable)}\n`, { maxBytes: RUN_BYTES });
 }
 
-export async function readCanvasRuns(root: string, workspaceId: string, canvas: string): Promise<CanvasRun[]> {
+export async function readCanvasRuns(root: string, workspaceId: string, canvas: string, before?: string | null): Promise<CanvasRunPage> {
   const directory = await runtimeDirectory(root, workspaceId, "runs", canvas);
-  const names = (await readdir(directory)).filter((name) => name.endsWith(".json")).sort().reverse().slice(0, 100);
+  const cursor = before == null ? null : `${canvasId(before)}.json`;
+  const names = (await readdir(directory)).filter((name) => name.endsWith(".json") && (!cursor || name < cursor)).sort().reverse();
+  const page = names.slice(0, 100);
   const runs: CanvasRun[] = [];
-  for (const name of names) {
+  for (const name of page) {
     const id = canvasId(name.slice(0, -5));
-    const handle = await open(join(directory, name), constants.O_RDONLY | constants.O_NOFOLLOW);
-    try {
-      const info = await handle.stat();
-      if (!info.isFile() || info.size > RUN_BYTES) throw new Error("Invalid canvas run record");
-      const run = parseCanvasRun(JSON.parse(await handle.readFile("utf8")), id, workspaceId, canvas);
-      runs.push(run);
-    } finally { await handle.close(); }
+    runs.push(await readRunFile(directory, workspaceId, canvas, id));
   }
-  return runs.sort((a, b) => b.startedAt - a.startedAt);
+  return { items: runs.sort((a, b) => b.startedAt - a.startedAt), nextCursor: names.length > page.length ? page.at(-1)!.slice(0, -5) : null };
+}
+
+async function readRunFile(directory: string, workspaceId: string, canvas: string, id: string): Promise<CanvasRun> {
+  const handle = await open(join(directory, `${canvasId(id)}.json`), constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const info = await handle.stat();
+    if (!info.isFile() || info.size > RUN_BYTES) throw new Error("Invalid canvas run record");
+    return parseCanvasRun(JSON.parse(await handle.readFile("utf8")), id, workspaceId, canvas);
+  } finally { await handle.close(); }
+}
+
+export async function readCanvasRun(root: string, workspaceId: string, canvas: string, id: string): Promise<CanvasRun> {
+  return readRunFile(await runtimeDirectory(root, workspaceId, "runs", canvas), workspaceId, canvas, id);
+}
+
+/** A saved selection is independent of which history pages the renderer has opened. */
+export async function findCanvasResultRuns(root: string, workspaceId: string, canvas: string, resultIds: string[]): Promise<CanvasRun[]> {
+  // ponytail: scan durable pages; add a result index only if large histories make selection slow.
+  if (!Array.isArray(resultIds) || resultIds.length > 100 || resultIds.some((id) => typeof id !== "string" || !id || id.length > 256)) throw new Error("Invalid saved result selection");
+  const remaining = new Set(resultIds), found: CanvasRun[] = [];
+  let before: string | null = null;
+  while (remaining.size) {
+    const page = await readCanvasRuns(root, workspaceId, canvas, before);
+    for (const run of page.items) {
+      if (run.mode !== "execute") continue;
+      let matched = false;
+      for (const node of run.nodes) for (const result of node.results) if (remaining.delete(result.id)) matched = true;
+      if (matched) found.push(run);
+    }
+    if (!page.nextCursor) break;
+    before = page.nextCursor;
+  }
+  return found;
+}
+
+export async function readCanvasText(root: string, workspaceId: string, asset: CanvasAsset): Promise<string> {
+  if (asset.kind !== "text") throw new Error("Choose a text source");
+  const checked = await validateCanvasAsset(root, asset, workspaceId);
+  const file = await open(checked.path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const info = await file.stat();
+    if (!info.isFile() || info.size > 1024 * 1024) throw new Error("Text source exceeds 1 MB. Use a smaller text file.");
+    const bytes = await file.readFile();
+    if (bytes.length !== info.size) throw new Error("Text source changed while it was being read");
+    try { return new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
+    catch { throw new Error("Text source must be valid UTF-8"); }
+  } finally { await file.close(); }
 }
 
 export async function writeCanvasText(root: string, workspaceId: string, text: string): Promise<CanvasAsset> {

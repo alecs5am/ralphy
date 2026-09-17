@@ -21,6 +21,7 @@ const overlayIds = [
 ] as const;
 
 const sharedSelectOwners = [
+  "generation.unit-save",
   "generation.parameters",
   "canvas.parameters",
   "canvas.switcher",
@@ -42,6 +43,7 @@ const overlayKinds = {
 } as const;
 
 const sharedSelectOwnerRecords = {
+  "generation.unit-save": { module: "src/entities/generation/ui/SaveGenerationToUnit.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.generation", "workspace.canvas"] } },
   "generation.parameters": { module: "src/entities/generation/ui/GenerationControls.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.generation", "workspace.canvas"] } },
   "canvas.parameters": { module: "src/features/workflow-canvas/ui/CanvasNodeChoices.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.canvas"] } },
   "canvas.switcher": { module: "src/features/workflow-canvas/ui/CanvasScreen.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.canvas"] } },

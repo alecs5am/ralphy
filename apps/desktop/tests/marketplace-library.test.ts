@@ -98,6 +98,14 @@ afterEach(async () => {
 });
 
 describe("Marketplace public catalog trust boundary", () => {
+  test("accepts Electron net.fetch responses without a response URL", async () => {
+    const snapshot = await loadMarketplacePublicLibrary({
+      fetcher: fetcher(response(document(), { url: "" })), cachePath, now: () => NOW,
+    });
+    expect(snapshot.source).toBe("live");
+    expect(snapshot.items).toHaveLength(2);
+  });
+
   test("fetches only the fixed source and projects only bounded Template and Recipe fields", async () => {
     process.env.RALPHY_LIBRARY_URL = "file:///Users/demo/.ssh/id_rsa";
     const request = fetcher(response(document(), {

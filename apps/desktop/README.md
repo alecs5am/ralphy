@@ -55,7 +55,7 @@ select a different Codex executable with `RALPHY_CODEX_PATH` in an untracked
 
 ## Run
 
-Requires Bun and macOS. This package lives in `apps/desktop` inside
+Requires Bun 1.4.2 or newer and macOS; the repository pins 1.4.2. This package lives in `apps/desktop` inside
 [`alecs5am/ralphy`](https://github.com/alecs5am/ralphy). Run these commands
 from this directory, or use `bun run install:desktop` and `bun run start`
 from the repository root.
@@ -65,9 +65,7 @@ bun install --frozen-lockfile
 bun run start
 ```
 
-Development launches use this repository's `cli/index.ts` through Bun. Set
-`RALPHY_BIN` to an absolute executable path only to test another runtime.
-Packaged applications always use their bundled runtime.
+Development launches use this repository's `cli/index.ts` through Bun on the desktop's restricted PATH. If your global Bun is older, install the pinned runtime with `mise install bun@1.4.2`, then run `mise exec bun@1.4.2 -- bun run build:bin:current` from the repository root. Set `RALPHY_BIN` to the absolute `dist/binaries/ralphy-<platform>-<arch>` executable before starting the app. A shell's mise activation alone does not select the runtime for desktop subprocesses. Packaged applications always use their bundled runtime and require no external Bun for CLI operations.
 
 For renderer-only development with fixture data:
 
@@ -107,10 +105,29 @@ pin in `scripts/bundled-core.mjs`. Builds target the build machine's architectur
 Codex is a separate prerequisite: install it and sign in on the receiving computer.
 MCP connections and generation-provider credentials must also be configured there.
 
+Timeline editing, saving, and existing media previews work without a local renderer.
+Rendering a new video requires Bun (`bunx`), Node.js 22 or newer, and FFmpeg
+(`ffmpeg` and `ffprobe`) on the receiving computer. Run `bunx hyperframes --help`
+once to prepare the renderer, then restart the app. The renderer may download its
+browser on first use. Missing tools produce setup guidance and keep the saved
+composition intact; the packaged CLI itself does not require Bun or Node.
+
 Run `bun scripts/smoke-portable.ts` after packaging to relocate the app into a
 temporary directory and check it with a fresh home and no developer tools on PATH.
 
-The signed development build is written to `release/Ralphy Media.app`.
+The development build is written to `release/Ralphy Media.app`, with an ad-hoc signature.
+Its version comes from this package's `package.json`; `RALPHY_BUILD_NUMBER` can set a
+numeric release build number. The build targets the host architecture (Apple silicon
+or Intel) and the minimum macOS version declared by the bundled Electron framework.
+
+For public distribution, provide `RALPHY_SIGNING_IDENTITY` (a Developer ID Application
+identity installed in Keychain) and `RALPHY_NOTARY_PROFILE` (a preconfigured notarytool
+Keychain profile). Packaging signs with the hardened runtime, verifies the signature,
+submits for notarization, staples the result, and checks Gatekeeper. A build without
+these credentials is a development artifact, not a verified end-user release.
+Packaged apps disable Chromium remote debugging. Validate the resulting artifact on
+a separate machine before publishing; a local smoke test cannot prove Gatekeeper
+behavior on a clean device.
 
 ## Architecture
 

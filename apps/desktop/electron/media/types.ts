@@ -1,3 +1,6 @@
+import type { DesktopSystemBridge } from "../../shared/desktop-system";
+import type { GenerationUnitsBridge } from "../../shared/generation-units";
+import type { AgentChatStorageBridge } from "../../shared/agent-chat-storage";
 import type { CanvasRuntimeBridge } from "../../shared/canvas-runtime";
 import type { VideoWorkspaceBridge } from "../../shared/video-workspace";
 import type { GenerationBridge } from "../../shared/generation-studio";
@@ -35,7 +38,8 @@ export type MediaKind =
 
 export interface ProjectReference {
   workspaceId: string;
-  projectId: string;
+  /** Null scopes Unit reads and previews to workspace-owned content. Project operations reject it. */
+  projectId: string | null;
 }
 
 export type ActivityRunDetail = {
@@ -92,6 +96,7 @@ export interface WorkspaceSummary {
 }
 
 export interface ProjectSummary extends ProjectReference {
+  projectId: string;
   id: string;
   name: string;
   brief: string;
@@ -285,6 +290,7 @@ export interface AgentProviderStatus {
 
 export interface AgentChatEnvelope {
   storeId: string;
+  workspaceId: string | null;
   chatId: string;
   provider: AgentProvider;
   event: AgentChatEvent;
@@ -511,142 +517,149 @@ export interface LocalModelReference {
   id: string;
 }
 
-export interface MediaWorkbenchBridge extends MarketplaceBridge, CanvasBridge, CanvasRuntimeBridge, GenerationBridge, VideoWorkspaceBridge {
-  /** A dropped file's absolute path, or null when the host cannot name one. */
-  pathForFile(file: unknown): string | null;
-  restoreLibrary(): Promise<LibraryOpenResult | null>;
-  loadWorkspaceOverview(workspaceId: string): Promise<import("../ralphy/types").WorkspaceOverviewDto>;
-  loadSharedLibraryPage(workspaceId: string, query?: SharedLibraryQuery): Promise<import("../ralphy/types").Page<import("../ralphy/types").ArtifactMediaCardDto>>;
-  loadSharedLibraryArtifact(workspaceId: string, artifactId: string): Promise<import("../ralphy/types").ArtifactMediaCardDto>;
-  loadSharedLibraryRevisions(workspaceId: string, artifactId: string, after?: string | null): Promise<import("../ralphy/types").Page<import("../ralphy/types").ArtifactRevisionDto>>;
-  selectSharedLibraryRevision(workspaceId: string, artifactId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<import("../ralphy/types").ArtifactMediaCardDto>;
-  resolveSharedLibraryPreview(workspaceId: string, artifactId: string): Promise<ProjectPreview | null>;
-  performSharedLibraryAction(workspaceId: string, artifactId: string, action: SharedLibraryAction): Promise<void>;
-  loadMemory(workspaceId: string, input?: import("../ralphy/memory-reader").MemoryListInput): Promise<{ items: import("../ralphy/types").MemoryDetailDto[] }>;
-  showMemory(workspaceId: string, memoryEntryId: string): Promise<import("../ralphy/types").MemoryDetailDto>;
-  mutateMemory(workspaceId: string, input: import("../ralphy/memory-reader").MemoryMutation): Promise<import("../ralphy/types").MemoryDetailDto | void>;
-  loadMemoryHistory(workspaceId: string, memoryEntryId: string): Promise<{ items: import("../ralphy/types").MemoryDetailDto[] }>;
-  recallMemory(workspaceId: string): Promise<import("../ralphy/types").MemoryRecallDto>;
-  loadMemoryHealth(workspaceId: string): Promise<import("../ralphy/types").MemoryHealthDto>;
-  loadCalendar(workspaceId: string, input: import("../ralphy/calendar-reader").CalendarRangeInput): Promise<import("../ralphy/types").CalendarWorkspaceDto>;
-  mutateCalendar(workspaceId: string, input: import("../ralphy/calendar-reader").CalendarMutation): Promise<import("../ralphy/types").CalendarEventDto>;
-  reconnectCalendarAccount(workspaceId: string, input: import("../ralphy/calendar-reader").CalendarReconnectInput): Promise<void>;
-  resolveCalendarPreview(workspaceId: string, projectId: string | null, ref: { type: "artifact-revision"; id: string }): Promise<ProjectPreview>;
-  searchLocalModels(input?: LocalModelSearchInput): Promise<LocalModelCatalog>;
-  loadLocalModelDetail(ref: LocalModelReference): Promise<LocalModelDetail>;
-  refreshLocalModelMachine(): Promise<LocalModelMachine>;
-  openLocalModelProvider(url: string): Promise<void>;
-  /* The window's native appearance follows the app's own theme. macOS draws the traffic lights,
-     native menus and scrollbars from the window's appearance, not from what the renderer paints,
-     so without this the inactive traffic lights are greyed for the wrong surface and read as
-     missing. The three values are `nativeTheme.themeSource`'s own, "system" included. */
-  applyNativeAppearance(theme: "system" | "light" | "dark"): Promise<void>;
-  loadProjectOverview(project: ProjectReference): Promise<import("../ralphy/types").ProjectOverviewDto>;
-  loadProjectPage(input: {
-    tab: ProjectTab;
-    project: ProjectReference;
-    cursor?: string | number | null;
-    mediaQuery?: ProjectMediaQuery;
-  }): Promise<ProjectPage>;
-  loadProjectActivityRun(project: ProjectReference, runId: string): Promise<ActivityRunDetail>;
-  loadProjectMediaCard(
-    project: ProjectReference,
-    ref: import("../ralphy/types").MediaCardDto["ref"],
-  ): Promise<import("../ralphy/types").MediaCardDto>;
-  loadProjectGeneration(
-    project: ProjectReference,
-    target: import("../ralphy/types").MediaGenerationTarget,
-    after?: string | null,
-  ): Promise<import("../ralphy/types").MediaGenerationDetailDto>;
-  loadProjectMediaRevisions(
-    project: ProjectReference,
-    artifactId: string,
-    after?: string | null,
-  ): Promise<import("../ralphy/types").Page<import("../ralphy/types").ArtifactRevisionDto>>;
-  selectProjectMediaRevision(
-    project: ProjectReference,
-    artifactId: string,
-    revisionId: string,
-    expectedSelectedRevisionId: string | null,
-  ): Promise<import("../ralphy/types").ArtifactMediaCardDto>;
-  performProjectMediaAction(
-    project: ProjectReference,
-    ref: import("../ralphy/types").MediaCardDto["ref"],
-    action: ProjectMediaAction,
-  ): Promise<void>;
-  loadDocumentPreview(project: ProjectReference, revisionId: string): Promise<{
-    revisionId: string;
-    format: string;
-    text: string;
-    truncated: boolean;
-  }>;
-  searchProjectDocuments(project: ProjectReference, query: string, cursor?: string | null): Promise<import("../ralphy/types").Page<import("../ralphy/types").DocumentSearchDto>>;
-  showProjectDocument(project: ProjectReference, documentId: string): Promise<import("../ralphy/types").DocumentDetailDto>;
-  reviseProjectDocument(project: ProjectReference, input: {
-    documentId: string;
-    expectedHeadId?: string | null;
-    iterationId?: string | null;
-    format: "markdown" | "text" | "json";
-    title?: string | null;
-    body: import("../ralphy/types").JsonValue;
-  }): Promise<import("../ralphy/types").DocumentRevisionDto>;
-  resolveProjectPreview(project: ProjectReference, ref: import("../ralphy/types").MediaCardDto["ref"]): Promise<ProjectPreview | null>;
-  loadProjectComposition(project: ProjectReference, compositionId: string): Promise<import("../ralphy/types").CompositionDto>;
-  loadProjectCompositionRevision(project: ProjectReference, revisionId: string): Promise<import("../ralphy/types").CompositionRevisionDto>;
-  loadProjectCompositionBuild(project: ProjectReference, buildId: string): Promise<import("../ralphy/types").BuildDto>;
-  loadProjectCompositionPage(project: ProjectReference, request: ProjectCompositionPageRequest): Promise<import("../ralphy/types").Page<import("../ralphy/types").CompositionRevisionDto | import("../ralphy/types").CompositionSourceDto | import("../ralphy/types").CompositionInputDto | import("../ralphy/types").EvaluationDto | import("../ralphy/types").BuildDto | import("../ralphy/types").BuildOutputDto>>;
-  reviseProjectComposition(project: ProjectReference, input: import("../ralphy/project-reader").ReviseCompositionInput): Promise<import("../ralphy/types").CompositionRevisionDto>;
-  selectProjectCompositionRevision(project: ProjectReference, input: {
-    compositionId: string;
-    revisionId: string;
-    expectedSelectedRevisionId: string | null;
-  }): Promise<import("../ralphy/types").CompositionDto>;
-  buildProjectComposition(project: ProjectReference, compositionRevisionId: string, profile?: import("../ralphy/types").JsonValue): Promise<import("../ralphy/types").CompositionBuildCompletion>;
-  resolveCompositionOutputPreview(project: ProjectReference, artifactRevisionId: string): Promise<import("../ralphy/project-reader").CompositionOutputPreview>;
-  loadProjectUnit(project: ProjectReference, unitId: string): Promise<import("../ralphy/types").UnitDto>;
-  loadProjectUnitRevision(project: ProjectReference, unitId: string, revisionId: string): Promise<import("../ralphy/types").UnitRevisionDto>;
-  loadProjectUnitPage(project: ProjectReference, request: Extract<ProjectUnitPageRequest, { kind: "revisions" }>): Promise<import("../ralphy/types").Page<import("../ralphy/types").UnitRevisionDto>>;
-  loadProjectUnitPage(project: ProjectReference, request: Extract<ProjectUnitPageRequest, { kind: "items" }>): Promise<import("../ralphy/types").Page<import("../ralphy/types").UnitItemDto>>;
-  loadProjectUnitPage(project: ProjectReference, request: Extract<ProjectUnitPageRequest, { kind: "presentations" }>): Promise<import("../ralphy/types").Page<import("../ralphy/types").UnitPresentationDto>>;
-  loadProjectUnitPreview(project: ProjectReference, revisionId: string, platform: string): Promise<import("../ralphy/types").UnitPreviewDto>;
-  selectProjectUnitRevision(project: ProjectReference, unitId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<import("../ralphy/types").UnitDto>;
-  onMediaEvent(callback: (event: MediaEvent) => void): () => void;
-  loadAnnotations(): Promise<AnnotationStore>;
-  updateAnnotations(updates: Record<string, AnnotationInput>): Promise<AnnotationStore>;
-  trashItems(paths: string[]): Promise<TrashResult>;
-  showInFinder(path: string): Promise<void>;
-  openExternal(path: string): Promise<string>;
-  startFileDrag(path: string): Promise<void>;
-  copyText(text: string): Promise<void>;
-  copyMigrationRecoveryCommand(): Promise<void>;
-  readText(path: string, maxBytes?: number): Promise<TextReadResult>;
-  getMediaUrl(path: string): Promise<MediaPreviewSource>;
-  getAgentProviders(): Promise<AgentProviderStatus[]>;
-  loginAgentProvider(provider: "claude" | "codex"): Promise<AgentProviderStatus[]>;
-  setAgentApiKey(
-    provider: "claude" | "openrouter",
-    apiKey: string,
-  ): Promise<AgentProviderStatus[]>;
-  clearAgentApiKey(provider: "claude" | "openrouter"): Promise<AgentProviderStatus[]>;
-  sendAgentMessage(request: AgentChatRequest): Promise<void>;
-  /** Read the provider's saved transcript without starting or resuming a model turn. */
-  loadAgentHistory(sessionId: string, workspaceId: string | null): Promise<AgentHistoryEvent[]>;
-  /** One short read-only turn that names a chat, or null when the provider cannot answer now. */
-  summariseAgentTitle(request: AgentChatRequest): Promise<string | null>;
-  /** Everything a chat of this provider carries before it reads a message, in five layers. */
-  loadAgentContext(input: {
-    provider: AgentProvider;
-    workspaceId?: string | null;
-    project?: ProjectReference | null;
-  }): Promise<import("../agent/context-page").ContextPageDto>;
-  /** Read one of the places the Context page listed, in the app. Only those paths are accepted. */
-  readContextPath(path: string): Promise<
-    import("../agent/context-document").ContextFileDto | null
-  >;
-  stopAgent(): Promise<void>;
-  onAgentEvent(callback: (event: AgentChatEnvelope) => void): () => void;
-  onToggleRightPanel(callback: () => void): () => void;
+export interface WorkspaceUnitCursors {
+  units?: string | null;
+  publications?: string | null;
 }
+
+export interface MediaWorkbenchBridge extends DesktopSystemBridge, GenerationUnitsBridge, MarketplaceBridge, CanvasBridge, CanvasRuntimeBridge, GenerationBridge, VideoWorkspaceBridge, AgentChatStorageBridge { /** A dropped file's absolute path, or null when the host cannot name one. */
+pathForFile(file: unknown): string | null;
+restoreLibrary(): Promise<LibraryOpenResult | null>;
+loadWorkspaceOverview(workspaceId: string): Promise<import("../ralphy/types").WorkspaceOverviewDto>;
+loadWorkspaceUnitPage(workspaceId: string, cursors: WorkspaceUnitCursors): Promise<Pick<import("../ralphy/types").WorkspaceOverviewDto, "units" | "publications">>;
+loadSharedLibraryPage(workspaceId: string, query?: SharedLibraryQuery): Promise<import("../ralphy/types").Page<import("../ralphy/types").ArtifactMediaCardDto>>;
+loadSharedLibraryArtifact(workspaceId: string, artifactId: string): Promise<import("../ralphy/types").ArtifactMediaCardDto>;
+loadSharedLibraryRevisions(workspaceId: string, artifactId: string, after?: string | null): Promise<import("../ralphy/types").Page<import("../ralphy/types").ArtifactRevisionDto>>;
+selectSharedLibraryRevision(workspaceId: string, artifactId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<import("../ralphy/types").ArtifactMediaCardDto>;
+resolveSharedLibraryPreview(workspaceId: string, artifactId: string): Promise<ProjectPreview | null>;
+performSharedLibraryAction(workspaceId: string, artifactId: string, action: SharedLibraryAction): Promise<void>;
+loadMemory(workspaceId: string, input?: import("../ralphy/memory-reader").MemoryListInput): Promise<{ items: import("../ralphy/types").MemoryDetailDto[] }>;
+showMemory(workspaceId: string, memoryEntryId: string): Promise<import("../ralphy/types").MemoryDetailDto>;
+mutateMemory(workspaceId: string, input: import("../ralphy/memory-reader").MemoryMutation): Promise<import("../ralphy/types").MemoryDetailDto | void>;
+loadMemoryHistory(workspaceId: string, memoryEntryId: string): Promise<{ items: import("../ralphy/types").MemoryDetailDto[] }>;
+recallMemory(workspaceId: string): Promise<import("../ralphy/types").MemoryRecallDto>;
+loadMemoryHealth(workspaceId: string): Promise<import("../ralphy/types").MemoryHealthDto>;
+loadCalendar(workspaceId: string, input: import("../ralphy/calendar-reader").CalendarRangeInput): Promise<import("../ralphy/types").CalendarWorkspaceDto>;
+mutateCalendar(workspaceId: string, input: import("../ralphy/calendar-reader").CalendarMutation): Promise<import("../ralphy/types").CalendarEventDto>;
+connectCalendar(workspaceId: string, credential: string): Promise<import("../ralphy/calendar-reader").CalendarConnectResult>;
+reconnectCalendarAccount(workspaceId: string, input: import("../ralphy/calendar-reader").CalendarReconnectInput): Promise<void>;
+resolveCalendarPreview(workspaceId: string, projectId: string | null, ref: { type: "artifact-revision"; id: string }): Promise<ProjectPreview>;
+searchLocalModels(input?: LocalModelSearchInput): Promise<LocalModelCatalog>;
+loadLocalModelDetail(ref: LocalModelReference): Promise<LocalModelDetail>;
+refreshLocalModelMachine(): Promise<LocalModelMachine>;
+openLocalModelProvider(url: string): Promise<void>;
+/* The window's native appearance follows the app's own theme. macOS draws the traffic lights,
+   native menus and scrollbars from the window's appearance, not from what the renderer paints,
+   so without this the inactive traffic lights are greyed for the wrong surface and read as
+   missing. The three values are `nativeTheme.themeSource`'s own, "system" included. */
+applyNativeAppearance(theme: "system" | "light" | "dark"): Promise<void>;
+loadProjectOverview(project: ProjectReference): Promise<import("../ralphy/types").ProjectOverviewDto>;
+loadProjectPage(input: {
+  tab: ProjectTab;
+  project: ProjectReference;
+  cursor?: string | number | null;
+  mediaQuery?: ProjectMediaQuery;
+}): Promise<ProjectPage>;
+loadProjectActivityRun(project: ProjectReference, runId: string): Promise<ActivityRunDetail>;
+loadProjectMediaCard(
+  project: ProjectReference,
+  ref: import("../ralphy/types").MediaCardDto["ref"],
+): Promise<import("../ralphy/types").MediaCardDto>;
+loadProjectGeneration(
+  project: ProjectReference,
+  target: import("../ralphy/types").MediaGenerationTarget,
+  after?: string | null,
+): Promise<import("../ralphy/types").MediaGenerationDetailDto>;
+loadProjectMediaRevisions(
+  project: ProjectReference,
+  artifactId: string,
+  after?: string | null,
+): Promise<import("../ralphy/types").Page<import("../ralphy/types").ArtifactRevisionDto>>;
+reviewProjectMedia(project: ProjectReference, input: import("../ralphy/media-review").DesktopMediaReviewInput): Promise<import("../ralphy/types").ArtifactMediaCardDto>;
+selectProjectMediaRevision(
+  project: ProjectReference,
+  artifactId: string,
+  revisionId: string,
+  expectedSelectedRevisionId: string | null,
+): Promise<import("../ralphy/types").ArtifactMediaCardDto>;
+performProjectMediaAction(
+  project: ProjectReference,
+  ref: import("../ralphy/types").MediaCardDto["ref"],
+  action: ProjectMediaAction,
+): Promise<void>;
+loadDocumentPreview(project: ProjectReference, revisionId: string): Promise<{
+  revisionId: string;
+  format: string;
+  text: string;
+  truncated: boolean;
+}>;
+searchProjectDocuments(project: ProjectReference, query: string, cursor?: string | null): Promise<import("../ralphy/types").Page<import("../ralphy/types").DocumentSearchDto>>;
+showProjectDocument(project: ProjectReference, documentId: string): Promise<import("../ralphy/types").DocumentDetailDto>;
+createProjectDocument(project: ProjectReference, input: { title: string }): Promise<import("../ralphy/types").DocumentDetailDto>;
+reviseProjectDocument(project: ProjectReference, input: {
+  documentId: string;
+  expectedHeadId?: string | null;
+  iterationId?: string | null;
+  format: "markdown" | "text" | "json";
+  title?: string | null;
+  body: import("../ralphy/types").JsonValue;
+}): Promise<import("../ralphy/types").DocumentRevisionDto>;
+resolveProjectPreview(project: ProjectReference, ref: import("../ralphy/types").MediaCardDto["ref"]): Promise<ProjectPreview | null>;
+loadProjectComposition(project: ProjectReference, compositionId: string): Promise<import("../ralphy/types").CompositionDto>;
+loadProjectCompositionRevision(project: ProjectReference, revisionId: string): Promise<import("../ralphy/types").CompositionRevisionDto>;
+loadProjectCompositionBuild(project: ProjectReference, buildId: string): Promise<import("../ralphy/types").BuildDto>;
+loadProjectCompositionPage(project: ProjectReference, request: ProjectCompositionPageRequest): Promise<import("../ralphy/types").Page<import("../ralphy/types").CompositionRevisionDto | import("../ralphy/types").CompositionSourceDto | import("../ralphy/types").CompositionInputDto | import("../ralphy/types").EvaluationDto | import("../ralphy/types").BuildDto | import("../ralphy/types").BuildOutputDto>>;
+reviseProjectComposition(project: ProjectReference, input: import("../ralphy/project-reader").ReviseCompositionInput): Promise<import("../ralphy/types").CompositionRevisionDto>;
+selectProjectCompositionRevision(project: ProjectReference, input: {
+  compositionId: string;
+  revisionId: string;
+  expectedSelectedRevisionId: string | null;
+}): Promise<import("../ralphy/types").CompositionDto>;
+buildProjectComposition(project: ProjectReference, compositionRevisionId: string, profile?: import("../ralphy/types").JsonValue): Promise<import("../ralphy/types").CompositionBuildCompletion>;
+resolveCompositionOutputPreview(project: ProjectReference, artifactRevisionId: string): Promise<import("../ralphy/project-reader").CompositionOutputPreview>;
+loadProjectUnit(project: ProjectReference, unitId: string): Promise<import("../ralphy/types").UnitDto>;
+loadProjectUnitRevision(project: ProjectReference, unitId: string, revisionId: string): Promise<import("../ralphy/types").UnitRevisionDto>;
+loadProjectUnitPage(project: ProjectReference, request: Extract<ProjectUnitPageRequest, { kind: "revisions" }>): Promise<import("../ralphy/types").Page<import("../ralphy/types").UnitRevisionDto>>;
+loadProjectUnitPage(project: ProjectReference, request: Extract<ProjectUnitPageRequest, { kind: "items" }>): Promise<import("../ralphy/types").Page<import("../ralphy/types").UnitItemDto>>;
+loadProjectUnitPage(project: ProjectReference, request: Extract<ProjectUnitPageRequest, { kind: "presentations" }>): Promise<import("../ralphy/types").Page<import("../ralphy/types").UnitPresentationDto>>;
+loadProjectUnitPreview(project: ProjectReference, revisionId: string, platform: string): Promise<import("../ralphy/types").UnitPreviewDto>;
+selectProjectUnitRevision(project: ProjectReference, unitId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<import("../ralphy/types").UnitDto>;
+onMediaEvent(callback: (event: MediaEvent) => void): () => void;
+loadAnnotations(): Promise<AnnotationStore>;
+updateAnnotations(updates: Record<string, AnnotationInput>): Promise<AnnotationStore>;
+trashItems(paths: string[]): Promise<TrashResult>;
+showInFinder(path: string): Promise<void>;
+openExternal(path: string): Promise<string>;
+startFileDrag(path: string): Promise<void>;
+copyText(text: string): Promise<void>;
+copyMigrationRecoveryCommand(): Promise<void>;
+readText(path: string, maxBytes?: number): Promise<TextReadResult>;
+getMediaUrl(path: string): Promise<MediaPreviewSource>;
+getAgentProviders(): Promise<AgentProviderStatus[]>;
+loginAgentProvider(provider: "claude" | "codex"): Promise<AgentProviderStatus[]>;
+setAgentApiKey(
+  provider: "claude" | "openrouter",
+  apiKey: string,
+): Promise<AgentProviderStatus[]>;
+clearAgentApiKey(provider: "claude" | "openrouter"): Promise<AgentProviderStatus[]>;
+sendAgentMessage(request: AgentChatRequest): Promise<void>;
+/** Read the provider's saved transcript without starting or resuming a model turn. */
+loadAgentHistory(sessionId: string, workspaceId: string | null): Promise<AgentHistoryEvent[]>;
+/** One short read-only turn that names a chat, or null when the provider cannot answer now. */
+summariseAgentTitle(request: AgentChatRequest): Promise<string | null>;
+/** Everything a chat of this provider carries before it reads a message, in five layers. */
+loadAgentContext(input: {
+  provider: AgentProvider;
+  workspaceId?: string | null;
+  project?: ProjectReference | null;
+}): Promise<import("../agent/context-page").ContextPageDto>;
+/** Read one of the places the Context page listed, in the app. Only those paths are accepted. */
+readContextPath(path: string): Promise<
+  import("../agent/context-document").ContextFileDto | null
+>;
+stopAgent(): Promise<void>;
+onAgentEvent(callback: (event: AgentChatEnvelope) => void): () => void;
+onToggleRightPanel(callback: () => void): () => void; }
 
 export const APP_CHANNELS = {
   toggleRightPanel: "app:toggle-right-panel",
@@ -659,6 +672,7 @@ export interface AgentHistoryEvent {
 
 export const MEDIA_CHANNELS = {
   loadGenerationProviders: "generation:providers:load",
+  probeGenerationProvider: "generation:providers:probe",
   setGenerationProviderKey: "generation:providers:set-key",
   clearGenerationProviderKey: "generation:providers:clear-key",
   loadGenerationCatalog: "workspace:generation:catalog",
@@ -684,6 +698,7 @@ export const MEDIA_CHANNELS = {
   loadMarketplaceInstalls: "marketplace:installs:load",
   mutateMarketplaceInstalls: "marketplace:installs:mutate",
   loadWorkspaceOverview: "workspace:overview",
+  loadWorkspaceUnitPage: "workspace:units:page",
   loadSharedLibraryPage: "workspace:shared-library:page",
   loadSharedLibraryArtifact: "workspace:shared-library:show",
   loadSharedLibraryRevisions: "workspace:shared-library:revisions",
@@ -698,6 +713,7 @@ export const MEDIA_CHANNELS = {
   loadMemoryHealth: "workspace:memory:health",
   loadCalendar: "workspace:calendar:load",
   mutateCalendar: "workspace:calendar:mutate",
+  connectCalendar: "workspace:calendar:connect",
   reconnectCalendarAccount: "workspace:calendar:reconnect-account",
   resolveCalendarPreview: "workspace:calendar:preview",
   searchLocalModels: "models:search",
@@ -712,10 +728,12 @@ export const MEDIA_CHANNELS = {
   loadProjectGeneration: "project:media:generation",
   loadProjectMediaRevisions: "project:media:revisions",
   selectProjectMediaRevision: "project:media:select",
+  reviewProjectMedia: "project:media:review",
   performProjectMediaAction: "project:media:action",
   loadDocumentPreview: "project:document-preview",
   searchProjectDocuments: "project:documents:search",
   showProjectDocument: "project:document:show",
+  createProjectDocument: "project:document:create",
   reviseProjectDocument: "project:document:revise",
   resolveProjectPreview: "project:preview",
   loadProjectComposition: "project:composition:show",

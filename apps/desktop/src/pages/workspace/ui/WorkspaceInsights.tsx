@@ -171,7 +171,7 @@ function metricValue(
 ): Availability<string> {
   if (value.status !== "ready" && value.status !== "partial") return { status: value.status, reason: value.reason };
   return value.value.metrics.find((metric) => metric.id === id)?.value
-    ?? { status: "unavailable", reason: "Core did not return this bounded metric." };
+    ?? { status: "unavailable", reason: "This metric has not been reported." };
 }
 
 function ProductionEfficiency({ value, onOpenShared }: {

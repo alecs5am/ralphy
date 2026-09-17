@@ -74,7 +74,7 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
   const [density, setDensity] = useState(230);
   const [context, setContext] = useState<ContextState>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const review = useMediaReview({ workspaceName, project, rootEpoch });
+  const review = useMediaReview({ workspaceName, project, rootEpoch, onSaved: () => { void controller.retry(); } });
   const menuRef = useRef<HTMLDivElement>(null);
   const closeContext = useCallback((restore = true) => {
     setContext((current) => {

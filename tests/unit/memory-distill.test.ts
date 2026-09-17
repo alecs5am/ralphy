@@ -15,7 +15,7 @@ import os from "node:os";
 
 import { setRoot, workspaceDir } from "../../cli/lib/paths.js";
 import { distillPostmortem, NoPostmortemError } from "../../cli/lib/memory/distill.js";
-import { listEntries } from "../../cli/lib/memory/store.js";
+import { listEntries, listEntryHistory } from "../../cli/lib/memory/store.js";
 import { clearCommandContext, setCommandContext } from "../../cli/lib/context-state.js";
 import { closeDomainDb } from "../../cli/lib/store/db.js";
 import { createProject, createWorkspace } from "../../cli/lib/store/scopes.js";
@@ -165,9 +165,13 @@ describe("memory distill (#113)", () => {
     const r1 = await distillPostmortem({ projectId });
     stubLLM([candidate]);
     const r2 = await distillPostmortem({ projectId });
-    expect(r1.staged[0]!.file).toBe("same-lesson.md");
-    expect(r2.staged[0]!.file).toBe("same-lesson.v2.md");
-    expect(fs.existsSync(r1.staged[0]!.path)).toBe(true); // v1 untouched
+    expect(r1.staged[0]!.id).toStartWith("mentry_");
+    expect(r2.staged[0]!.id).toBe(r1.staged[0]!.id);
+    expect(r2.staged[0]!.revisionId).not.toBe(r1.staged[0]!.revisionId);
+    const history = await listEntryHistory(r1.staged[0]!.id!);
+    expect(history.map((entry) => entry.version)).toEqual([2, 1]);
+    expect(history.every((entry) => entry.status === "proposed")).toBe(true);
+    expect(history[1]?.revisionId).toBe(r1.staged[0]!.revisionId);
   });
 
   test("missing postmortem dir raises the coded not-found error", async () => {

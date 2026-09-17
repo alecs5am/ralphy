@@ -1,5 +1,8 @@
+import { DESKTOP_SYSTEM_CHANNELS } from "../shared/desktop-system";
+import { GENERATION_UNIT_CHANNELS } from "../shared/generation-units";
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { VIDEO_CHANNELS } from "../shared/video-workspace";
+import { AGENT_CHAT_STORAGE_CHANNELS } from "../shared/agent-chat-storage";
 import { type IpcResult, unwrapIpcResult } from "./ipc-security";
 import {
   AGENT_CHANNELS,
@@ -49,6 +52,15 @@ function loadProjectCompositionPage(
 }
 
 const mediaBridge: MediaWorkbenchBridge = {
+  loadAgentChats: (rootPath, workspaceId) => invoke(AGENT_CHAT_STORAGE_CHANNELS.load, rootPath, workspaceId),
+  saveAgentChats: (rootPath, workspaceId, data, expectedRevision) => invoke(AGENT_CHAT_STORAGE_CHANNELS.save, rootPath, workspaceId, data, expectedRevision),
+  exportLibraryWorkspace: (workspaceId) => invoke(DESKTOP_SYSTEM_CHANNELS.exportWorkspace, workspaceId),
+  importLibraryWorkspace: () => invoke(DESKTOP_SYSTEM_CHANNELS.importWorkspace),
+  createLibraryWorkspace: (name) => invoke(DESKTOP_SYSTEM_CHANNELS.createWorkspace, name),
+  createLibraryProject: (workspaceId, name) => invoke(DESKTOP_SYSTEM_CHANNELS.createProject, workspaceId, name),
+  getDesktopSystemInfo: () => invoke(DESKTOP_SYSTEM_CHANNELS.info),
+  clearDesktopCache: () => invoke(DESKTOP_SYSTEM_CHANNELS.clearCache),
+  revealDesktopFolder: (folder) => invoke(DESKTOP_SYSTEM_CHANNELS.revealFolder, folder),
   loadVideoWorkspace: (ref) => invoke(VIDEO_CHANNELS.loadVideoWorkspace, ref),
   saveVideoWorkspace: (ref, html, fps, expected) => invoke(VIDEO_CHANNELS.saveVideoWorkspace, ref, html, fps, expected),
   previewVideoWorkspace: (ref, html) => invoke(VIDEO_CHANNELS.previewVideoWorkspace, ref, html),
@@ -59,6 +71,7 @@ const mediaBridge: MediaWorkbenchBridge = {
     return invoke(VIDEO_CHANNELS.importVideoWorkspaceAsset, ref, path);
   },
   loadGenerationProviders: () => invoke(MEDIA_CHANNELS.loadGenerationProviders),
+  probeGenerationProvider: (provider) => invoke(MEDIA_CHANNELS.probeGenerationProvider, provider),
   setGenerationProviderKey: (provider, apiKey) => invoke(MEDIA_CHANNELS.setGenerationProviderKey, provider, apiKey),
   clearGenerationProviderKey: (provider) => invoke(MEDIA_CHANNELS.clearGenerationProviderKey, provider),
   loadGenerationCatalog: (workspaceId) => invoke(MEDIA_CHANNELS.loadGenerationCatalog, workspaceId),
@@ -66,7 +79,9 @@ const mediaBridge: MediaWorkbenchBridge = {
   loadGenerationDraft: (workspaceId) => invoke(MEDIA_CHANNELS.loadGenerationDraft, workspaceId),
   saveGenerationDraft: (workspaceId, draft) => invoke(MEDIA_CHANNELS.saveGenerationDraft, workspaceId, draft),
   startGeneration: (workspaceId, draft, mode) => invoke(MEDIA_CHANNELS.startGeneration, workspaceId, draft, mode),
-  loadGenerationRuns: (workspaceId) => invoke(MEDIA_CHANNELS.loadGenerationRuns, workspaceId),
+  loadGenerationRuns: (workspaceId, before) => invoke(MEDIA_CHANNELS.loadGenerationRuns, workspaceId, before),
+  loadGenerationUnitOptions: (workspaceId, projectId) => invoke(GENERATION_UNIT_CHANNELS.options, workspaceId, projectId),
+  saveGenerationToUnit: (workspaceId, source, destination) => invoke(GENERATION_UNIT_CHANNELS.save, workspaceId, source, destination),
   cancelGenerationRun: (workspaceId, id) => invoke(MEDIA_CHANNELS.cancelGenerationRun, workspaceId, id),
   exportGenerationAsset: (workspaceId, asset) => invoke(MEDIA_CHANNELS.exportGenerationAsset, workspaceId, asset),
   loadCanvasModels: (workspaceId) => invoke(MEDIA_CHANNELS.loadCanvasModels, workspaceId),
@@ -78,7 +93,7 @@ const mediaBridge: MediaWorkbenchBridge = {
   },
   loadCanvasAssetPreview: (workspaceId, asset) => invoke(MEDIA_CHANNELS.loadCanvasAssetPreview, workspaceId, asset),
   startCanvasRun: (workspaceId, canvas, options) => invoke(MEDIA_CHANNELS.startCanvasRun, workspaceId, canvas, options),
-  loadCanvasRuns: (workspaceId, canvas) => invoke(MEDIA_CHANNELS.loadCanvasRuns, workspaceId, canvas),
+  loadCanvasRuns: (workspaceId, canvas, query) => invoke(MEDIA_CHANNELS.loadCanvasRuns, workspaceId, canvas, query),
   cancelCanvasRun: (workspaceId, run) => invoke(MEDIA_CHANNELS.cancelCanvasRun, workspaceId, run),
   loadCanvases: (workspaceId) => invoke(MEDIA_CHANNELS.loadCanvases, workspaceId),
   saveCanvas: (workspaceId, canvas, expectedRevision) => invoke(MEDIA_CHANNELS.saveCanvas, workspaceId, canvas, expectedRevision),
@@ -102,6 +117,7 @@ const mediaBridge: MediaWorkbenchBridge = {
   loadMarketplaceInstalls: () => invoke(MEDIA_CHANNELS.loadMarketplaceInstalls),
   mutateMarketplaceInstalls: (mutation) => invoke(MEDIA_CHANNELS.mutateMarketplaceInstalls, mutation),
   loadWorkspaceOverview: (workspaceId) => invoke(MEDIA_CHANNELS.loadWorkspaceOverview, workspaceId),
+  loadWorkspaceUnitPage: (workspaceId, cursors) => invoke(MEDIA_CHANNELS.loadWorkspaceUnitPage, workspaceId, cursors),
   loadSharedLibraryPage: (workspaceId, query) => (
     invoke(MEDIA_CHANNELS.loadSharedLibraryPage, workspaceId, query)
   ),
@@ -134,6 +150,7 @@ const mediaBridge: MediaWorkbenchBridge = {
   loadMemoryHealth: (workspaceId) => invoke(MEDIA_CHANNELS.loadMemoryHealth, workspaceId),
   loadCalendar: (workspaceId, input) => invoke(MEDIA_CHANNELS.loadCalendar, workspaceId, input),
   mutateCalendar: (workspaceId, input) => invoke(MEDIA_CHANNELS.mutateCalendar, workspaceId, input),
+  connectCalendar: (workspaceId, credential) => invoke(MEDIA_CHANNELS.connectCalendar, workspaceId, credential),
   reconnectCalendarAccount: (workspaceId, input) => invoke(MEDIA_CHANNELS.reconnectCalendarAccount, workspaceId, input),
   resolveCalendarPreview: (workspaceId, projectId, ref) => invoke(MEDIA_CHANNELS.resolveCalendarPreview, workspaceId, projectId, ref),
   searchLocalModels: (input) => invoke(MEDIA_CHANNELS.searchLocalModels, input),
@@ -151,6 +168,7 @@ const mediaBridge: MediaWorkbenchBridge = {
   loadProjectMediaRevisions: (project, artifactId, after) => (
     invoke(MEDIA_CHANNELS.loadProjectMediaRevisions, project, artifactId, after)
   ),
+  reviewProjectMedia: (project, input) => invoke(MEDIA_CHANNELS.reviewProjectMedia, project, input),
   selectProjectMediaRevision: (project, artifactId, revisionId, expectedSelectedRevisionId) => (
     invoke(
       MEDIA_CHANNELS.selectProjectMediaRevision,
@@ -172,6 +190,7 @@ const mediaBridge: MediaWorkbenchBridge = {
   showProjectDocument: (project, documentId) => (
     invoke(MEDIA_CHANNELS.showProjectDocument, project, documentId)
   ),
+  createProjectDocument: (project, input) => invoke(MEDIA_CHANNELS.createProjectDocument, project, input),
   reviseProjectDocument: (project, input) => (
     invoke(MEDIA_CHANNELS.reviseProjectDocument, project, input)
   ),

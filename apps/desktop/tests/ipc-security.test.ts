@@ -164,6 +164,12 @@ describe("Electron IPC security", () => {
       ok: false,
       error: { code: "E_INTERNAL", message: "The operation could not be completed" },
     });
+    for (const code of ["E_RUNTIME_MISSING", "EACCES", "ENOSPC", "SQLITE_BUSY", "SQLITE_CORRUPT"]) {
+      const result = await toIpcResult(async () => { throw Object.assign(new Error("token=secret /private/library"), { code }); });
+      expect(result).toMatchObject({ ok: false, error: { code } });
+      expect(JSON.stringify(result)).not.toMatch(/secret|private/);
+      expect(JSON.stringify(result)).not.toContain("The operation could not be completed");
+    }
   });
 
   test("allows only the exact renderer URL or dev origin", async () => {
@@ -522,6 +528,7 @@ describe("Electron IPC security", () => {
     expect(workspaceReader.registerWorkspaceOverviewIpc).toBeTypeOf("function");
     const register = workspaceReader.registerWorkspaceOverviewIpc as (input: Record<string, unknown>) => void;
     let handler!: (event: unknown, workspaceId: unknown) => Promise<unknown>;
+    let unitsHandler!: (event: unknown, workspaceId: unknown, cursors: unknown) => Promise<unknown>;
     const mainFrame = {};
     const webContents = { mainFrame };
     const window = { isDestroyed: () => false, webContents };
@@ -545,9 +552,12 @@ describe("Electron IPC security", () => {
     };
 
     expect(() => register({
-      handle(channel: string, listener: typeof handler) {
-        expect(channel).toBe("workspace:overview");
-        handler = listener;
+      handle(channel: string, listener: typeof unitsHandler) {
+        if (channel === "workspace:overview") handler = listener as typeof handler;
+        else {
+          expect(channel).toBe("workspace:units:page");
+          unitsHandler = listener;
+        }
       },
       getWindow: () => window,
       captureRoot: () => ({ epoch }),
@@ -564,6 +574,10 @@ describe("Electron IPC security", () => {
       ok: false, error: { code: "E_INTERNAL", message: "The operation could not be completed" },
     });
     expect(firstRequest).not.toHaveBeenCalled();
+    for (const cursors of [{}, { units: 42 }, { extra: null }, { units: "" }, { units: "x".repeat(4097) }]) {
+      await expect(unitsHandler({ sender: webContents, senderFrame: mainFrame }, "workspace-1", cursors)).resolves.toMatchObject({ ok: false });
+    }
+    await expect(unitsHandler({ sender: webContents, senderFrame: {} }, "workspace-1", { units: null })).resolves.toMatchObject({ ok: false });
 
     activeRequest = firstRequest as unknown as RalphyBridgeClient["request"];
     const pending = handler({ sender: webContents, senderFrame: mainFrame }, "workspace-1");
@@ -612,8 +626,8 @@ describe("Electron IPC security", () => {
     });
 
     expect([...handlers.keys()]).toEqual([
-      "project:media:generation", "project:media:show", "project:media:revisions", "project:media:select", "project:media:action",
-      "project:documents:search",
+      "project:media:generation", "project:media:show", "project:media:revisions", "project:media:select", "project:media:review", "project:media:action",
+      "project:document:create", "project:documents:search",
       "project:composition:show", "project:composition:revision:show", "project:composition:build:show", "project:composition:page",
       "project:unit:show", "project:unit:revision:show", "project:unit:page", "project:unit:preview", "project:unit:select",
     ]);

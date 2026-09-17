@@ -171,22 +171,22 @@ describe("Shared Library screen", () => {
     controller.dispose();
   });
 
-  test("renders the fixed empty library copy with one primary Add action and secondary Promote action", async () => {
+  test("explains an empty shared library without advertising unsupported writes", async () => {
     vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([]));
     const mounted = await mountScreen();
     try {
-      expect(mounted.host.container.textContent).toContain("Build a reusable source of truth");
-      expect(mounted.host.container.textContent).toContain("Add canonical characters, locations, products, audio hooks, and brand assets for future projects.");
-      expect(byText(mounted.host.container, "Add artifact").getAttribute("class")).toContain("shared-library-primary");
-      expect(byText(mounted.host.container, "Promote from project").getAttribute("class") ?? "").not.toContain("shared-library-primary");
-      expect(mounted.host.container.querySelectorAll(".shared-library-primary")).toHaveLength(1);
+      expect(mounted.host.container.textContent).toContain("No shared media yet");
+      expect(mounted.host.container.textContent).toContain("Workspace media created by your agent appears here for reuse across projects.");
+      expect(mounted.host.container.textContent).not.toContain("Add artifact");
+      expect(mounted.host.container.textContent).not.toContain("Promote from project");
+      expect(mounted.host.container.querySelectorAll(".shared-library-primary")).toHaveLength(0);
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();
     }
   });
 
-  test("renders the live shell, honest compact totals, current controls, and unavailable future filters", async () => {
+  test("renders the live shell, loaded totals, and supported filters", async () => {
     vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([
       artifact("brand-mark"),
       artifact("opening-hook", { mediaKind: "audio", mime: "audio/mpeg", bytes: 4_096 }),
@@ -198,22 +198,16 @@ describe("Shared Library screen", () => {
       expect(text).toContain("Reusable workspace artifacts for people and agents");
       expect(text).toContain("2 ARTIFACTS");
       expect(text).toContain("6.0 KB");
-      expect(text).toContain("Add artifact");
-      expect(text).toContain("Promote from project");
+      expect(text).not.toContain("Add artifact");
+      expect(text).not.toContain("Promote from project");
       // The field is a flex child in a crowded toolbar; a long placeholder ran off its own pill.
       expect(byAria(mounted.host.container, "input", "Search Shared Library")?.getAttribute("placeholder"))
         .toBe("Search artifacts");
       expect(text).toContain("Grid");
       expect(text).toContain("List");
       expect(text).not.toContain("Shared Library is not wired yet");
-      expect(mounted.host.container.querySelectorAll(".shared-library-primary")).toHaveLength(1);
-      const unavailable = mounted.host.container.querySelectorAll("[data-unavailable-filter]");
-      expect(unavailable.map((control) => control.textContent)).toEqual(expect.arrayContaining([
-        "Semantic role", "Entity", "Canonical", "Used / unused", "Rights", "Missing metadata", "Group by entity",
-      ]));
-      expect(unavailable.every((control) => !control.disabled && control.getAttribute("aria-disabled") === "true" && !!control.getAttribute("aria-describedby"))).toBe(true);
-      const filterReason = unavailable[0]?.getAttribute("aria-describedby");
-      expect(mounted.host.container.querySelector(`#${filterReason}`)?.textContent).toMatch(/unavailable from the current Core/i);
+      expect(mounted.host.container.querySelectorAll(".shared-library-primary")).toHaveLength(0);
+      expect(mounted.host.container.querySelectorAll("[data-unavailable-filter]")).toHaveLength(0);
       expect(text).not.toMatch(/semantic search/i);
     } finally {
       await act(async () => mounted.root.unmount());
@@ -271,16 +265,12 @@ describe("Shared Library screen", () => {
     }
   });
 
-  test("keeps absent attention contracts explicit without inferring evidence states", async () => {
+  test("omits attention metadata that is not available", async () => {
     vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([artifact("portrait")]));
     const mounted = await mountScreen();
     try {
       const text = mounted.host.container.textContent;
-      for (const state of ["File health", "references", "rights", "duplicates", "revision updates"]) {
-        expect(text).toContain(state);
-      }
-      expect(text).toContain("have not been checked. No status is inferred.");
-      expect(mounted.host.container.querySelector("details")?.getAttribute("open")).toBeNull();
+      for (const state of ["File health", "Rights", "Canonical", "Attention evidence", "Additional filters"]) expect(text).not.toContain(state);
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();
@@ -295,7 +285,7 @@ describe("Shared Library screen", () => {
     vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue(null);
     const mounted = await mountScreen();
     try {
-      const identity = byAria(mounted.host.container, "button", "Select unselected identity and open inspector")!;
+      const identity = byAria(mounted.host.container, "button", "Select unselected and open inspector")!;
       expect(identity.closest("article")?.textContent).toContain("No preview target");
       await act(async () => { identity.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
       const inspectorPreview = mounted.host.container.querySelector(".shared-inspector-preview");
@@ -306,7 +296,7 @@ describe("Shared Library screen", () => {
       Object.defineProperty(enter, "key", { value: "Enter" });
       await act(async () => { identity.dispatchEvent(enter); await settle(); });
       const viewerPreview = (document.body as unknown as HostNode).querySelector(".shared-viewer-preview-state");
-      expect(viewerPreview?.textContent).toContain("No preview target");
+      expect(viewerPreview?.textContent).toContain("No file is selected for preview");
       expect(viewerPreview?.textContent).not.toMatch(/missing file|corrupt|damaged/i);
     } finally {
       await act(async () => mounted.root.unmount());
@@ -335,18 +325,18 @@ describe("Shared Library screen", () => {
       const audio = mounted.host.container.querySelector("audio");
       expect(audio).not.toBeNull();
       expect(audio!.getAttribute("autoplay")).toBeNull();
-      expect(mounted.host.container.querySelector(".audio-waveform-heading strong")?.textContent).toBe("Slug identity: theme");
+      expect(mounted.host.container.querySelector(".audio-waveform-heading strong")?.textContent).toBe("Asset: theme");
       expect(mounted.host.container.textContent).toContain("Preview unavailable");
-      const targetless = byAria(mounted.host.container, "button", "Select notes identity and open inspector")?.closest("article");
+      const targetless = byAria(mounted.host.container, "button", "Select notes and open inspector")?.closest("article");
       expect(targetless?.textContent).toContain("No preview target");
       expect(targetless?.textContent).not.toMatch(/missing file|broken reference|rights unknown|duplicate|revision update/i);
 
-      const portrait = byAria(mounted.host.container, "button", "Select portrait identity and open inspector")!;
+      const portrait = byAria(mounted.host.container, "button", "Select portrait and open inspector")!;
       expect(portrait).not.toBeNull();
       expect(portrait.getAttribute("aria-describedby")).not.toBeNull();
-      expect(mounted.host.container.textContent).toContain("Click or press Space to select this slug identity and open the inspector. Press Enter or double-click to open the viewer.");
-      expect(mounted.host.container.textContent).toContain("Title unavailable");
-      expect(mounted.host.container.textContent).toContain("SLUG · portrait");
+      expect(mounted.host.container.textContent).toContain("Click or press Space to select this asset and open the inspector. Press Enter or double-click to open the viewer.");
+      expect(mounted.host.container.textContent).not.toContain("Title unavailable");
+      expect(mounted.host.container.textContent).toContain("ASSET · portrait");
       expect(portrait.closest("article")?.getAttribute("role")).toBeNull();
       await act(async () => portrait.dispatchEvent(new Event("click", { bubbles: true })));
       expect(onOpenInspector).toHaveBeenCalledWith(expect.objectContaining({ id: "portrait" }));
@@ -370,8 +360,8 @@ describe("Shared Library screen", () => {
     vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([artifact("portrait"), artifact("theme")]));
     const mounted = await mountScreen();
     try {
-      const portrait = byAria(mounted.host.container, "button", "Select portrait identity and open inspector")!;
-      const theme = byAria(mounted.host.container, "button", "Select theme identity and open inspector")!;
+      const portrait = byAria(mounted.host.container, "button", "Select portrait and open inspector")!;
+      const theme = byAria(mounted.host.container, "button", "Select theme and open inspector")!;
       expect(portrait.getAttribute("aria-pressed")).toBe("false");
       expect(theme.getAttribute("aria-pressed")).toBe("false");
       await act(async () => { portrait.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
@@ -407,12 +397,12 @@ describe("Shared Library screen", () => {
       await act(async () => { search.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
       const scroll = mounted.host.container.querySelector(".shared-library-scroll")!;
       scroll.scrollTop = 83;
-      const origin = byAria(mounted.host.container, "button", "Select portrait identity and open inspector")!;
+      const origin = byAria(mounted.host.container, "button", "Select portrait and open inspector")!;
       origin.focus();
       await act(async () => { origin.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
       expect(mounted.host.container.querySelector(".shared-artifact-inspector")).not.toBeNull();
       expect(mounted.host.container.querySelector(".shared-library-content")?.getAttribute("data-inspector-open")).toBe("true");
-      expect(mounted.host.container.textContent).toContain("Context agents receive");
+      expect(mounted.host.container.textContent).toContain("Revisions");
 
       await act(async () => { byAria(mounted.host.container, "button", "Close artifact inspector")!.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
       expect(mounted.host.container.querySelector(".shared-artifact-inspector")).toBeNull();
@@ -451,7 +441,7 @@ describe("Shared Library screen", () => {
     const mounted = await mountScreen();
     try {
       await act(async () => { byText(mounted.host.container, "Load more").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
-      const origin = byAria(mounted.host.container, "button", "Select second identity and open inspector")!;
+      const origin = byAria(mounted.host.container, "button", "Select second and open inspector")!;
       origin.focus();
       await act(async () => { origin.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
       await act(async () => { byAria(mounted.host.container, "button", "Select revision 1 as default for future use")!.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
@@ -463,7 +453,7 @@ describe("Shared Library screen", () => {
       expect(byText(mounted.host.container, "Load more")).not.toBeNull();
 
       await act(async () => { byAria(mounted.host.container, "button", "Close artifact inspector")!.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
-      expect(byAria(mounted.host.container, "button", "Select second identity and open inspector")).toBe(origin);
+      expect(byAria(mounted.host.container, "button", "Select second and open inspector")).toBe(origin);
       expect(origin.closest("article")?.getAttribute("class")).toContain("is-selected");
       expect(document.activeElement).toBe(origin);
       expect(bridge.loadSharedLibraryPage).toHaveBeenCalledTimes(2);
@@ -473,7 +463,7 @@ describe("Shared Library screen", () => {
     }
   });
 
-  test("renders the 44px audit list with unavailable future cells and disabled bulk mutations", async () => {
+  test("renders supported audit columns with keyboard navigation and no placeholder bulk actions", async () => {
     vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([
       artifact("portrait", { usageRoles: ["character reference"] }),
       artifact("theme", { mediaKind: "audio", mime: "audio/mpeg", usageRoles: ["music bed"] }),
@@ -482,22 +472,22 @@ describe("Shared Library screen", () => {
     try {
       await act(async () => byText(mounted.host.container, "List").dispatchEvent(new Event("click", { bubbles: true })));
       const text = mounted.host.container.textContent;
-      for (const column of ["ARTIFACT", "KIND", "REFERENCED AS", "CANONICAL", "REVISION", "REVISION COUNT", "USED BY", "RIGHTS", "LAST USED", "ATTENTION"]) {
+      for (const column of ["ARTIFACT", "KIND", "REFERENCED AS", "REVISION", "REVISION COUNT"]) {
         expect(text).toContain(column);
       }
       expect(mounted.host.container.querySelectorAll(".shared-library-audit-row")).toHaveLength(2);
-      expect(text).toContain("Title unavailable");
-      expect(text).toContain("SLUG · portrait");
+      expect(text).not.toContain("Title unavailable");
+      expect(text).toContain("ASSET · portrait");
       const firstRow = mounted.host.container.querySelectorAll(".shared-library-audit-row")[0];
-      expect(firstRow.children[5]?.textContent).toBe("revision-portraitapproved");
-      expect(firstRow.children[6]?.textContent).toBe("2 revisions");
+      expect(firstRow.children[3]?.textContent).toBe("revision-portraitapproved");
+      expect(firstRow.children[4]?.textContent).toBe("2 revisions");
       for (const state of [
         "Canonical evidence unavailable",
         "Usage evidence unavailable",
         "Rights evidence unavailable",
         "Last-used evidence unavailable",
         "Attention evidence unavailable",
-      ]) expect(text).toContain(state);
+      ]) expect(text).not.toContain(state);
       expect(text).not.toContain("not used");
 
       const auditScroll = mounted.host.container.querySelector(".shared-library-audit-scroll");
@@ -516,16 +506,8 @@ describe("Shared Library screen", () => {
       expect((document.body as unknown as HostNode).querySelector(".shared-artifact-viewer")).not.toBeNull();
       await act(async () => { byAria(document.body as unknown as HostNode, "button", "Close viewer")!.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
 
-      const select = byAria(mounted.host.container, "input", "Select portrait")!;
-      await act(async () => select.dispatchEvent(new Event("click", { bubbles: true })));
-      expect(mounted.host.container.textContent).toContain("1 SELECTED");
-      for (const label of ["Assign role", "Tag", "Review metadata", "Archive"]) {
-        const action = byText(mounted.host.container, label);
-        expect(action.disabled).toBe(false);
-        expect(action.getAttribute("aria-disabled")).toBe("true");
-        const reasonId = action.getAttribute("aria-describedby");
-        expect(mounted.host.container.querySelector(`#${reasonId}`)?.textContent).toMatch(/Core mutation/i);
-      }
+      expect(mounted.host.container.querySelector(".shared-library-bulk-bar")).toBeNull();
+      for (const label of ["Assign role", "Review metadata", "Archive"]) expect(mounted.host.container.textContent).not.toContain(label);
       expect(mounted.host.container.textContent).not.toMatch(/replace revision|update all/i);
     } finally {
       await act(async () => mounted.root.unmount());
@@ -639,7 +621,7 @@ describe("Shared Library screen", () => {
       const search = byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value: string };
       search.value = "old";
       await act(async () => { search.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
-      await act(async () => byAria(mounted.host.container, "button", "Select old-card identity and open inspector")!.dispatchEvent(new Event("click", { bubbles: true })));
+      await act(async () => byAria(mounted.host.container, "button", "Select old-card and open inspector")!.dispatchEvent(new Event("click", { bubbles: true })));
 
       await act(async () => {
         mounted.root.render(<SharedLibraryScreen workspaceId="workspace-1" workspaceName="Launch Studio" rootEpoch={2} />);
@@ -671,7 +653,7 @@ describe("Shared Library screen", () => {
       const search = byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value: string };
       search.value = "old";
       await act(async () => { search.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
-      await act(async () => byAria(mounted.host.container, "button", "Select old-card identity and open inspector")!.dispatchEvent(new Event("click", { bubbles: true })));
+      await act(async () => byAria(mounted.host.container, "button", "Select old-card and open inspector")!.dispatchEvent(new Event("click", { bubbles: true })));
 
       await act(async () => {
         mounted.root.render(<SharedLibraryScreen workspaceId="workspace-2" workspaceName="Second Studio" rootEpoch={1} />);

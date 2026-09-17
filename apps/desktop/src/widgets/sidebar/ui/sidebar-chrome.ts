@@ -6,8 +6,8 @@
  * decision: assembled twice, they drift once.
  */
 import {
-  Boxes, Brain, CalendarDays, ChartNoAxesCombined, CircleAlert, Download, FolderOpen, Layers,
-  Layers3, PackageCheck, Plus, Save, Sparkles, Store, UsersRound, WandSparkles, Workflow,
+  Boxes, Brain, CalendarDays, ChartNoAxesCombined, FolderOpen, Layers,
+  Layers3, PackageCheck, Save, Sparkles, Store, UsersRound, WandSparkles, Workflow,
   type AppIcon,
 } from "@/shared/ui/icons";
 
@@ -15,13 +15,14 @@ import type { WorkspaceSummary } from "@/shared/api/ipc";
 import type { WorkspacePage } from "@/shared/model/workbench";
 import type { MarketplaceCategory, MarketplaceLibrarySection } from "@/shared/model/routes";
 
-/* A conversation as the sidebar needs it: enough to draw a row and order the list, and nothing
-   of the transcript -- the card must never hold a message. */
+/* Transcripts are searched, never rendered inside a sidebar row. */
 export interface SidebarChat {
   id: string;
   title: string;
   busy: boolean;
   updatedAt: number;
+  archived?: boolean;
+  entries?: readonly { kind: string; text?: string }[];
 }
 
 export const PAGE_ICONS: Record<WorkspacePage, AppIcon> = {
@@ -48,10 +49,6 @@ export const MARKETPLACE_CATEGORIES: Array<{ id: MarketplaceCategory; label: str
 export const MARKETPLACE_LIBRARY: Array<{ id: MarketplaceLibrarySection; label: string; icon: AppIcon }> = [
   { id: "installed", label: "Installed", icon: PackageCheck },
   { id: "saved", label: "Saved", icon: Save },
-  { id: "added", label: "Added", icon: Plus },
-  { id: "downloads", label: "Downloads", icon: Download },
-  { id: "updates", label: "Updates", icon: Sparkles },
-  { id: "attention", label: "Needs attention", icon: CircleAlert },
 ];
 
 export const RELATIVE_TIME = new Intl.RelativeTimeFormat(undefined, { numeric: "auto", style: "narrow" });

@@ -42,13 +42,13 @@ export function presentWorkspaceOverview({
     momentum: presentMomentum(overview.metrics),
     accounts: presentAccounts(overview.accounts, overview.publications),
     plan: presentPlan(overview.publications, overview.accounts, overview.units, overview.projects, now),
-    outcomes: unavailable("Performance benchmarks and observation windows are not available from Core yet."),
-    insights: unavailable("Evidence samples and counterexamples are not available from Core yet."),
-    efficiency: unavailable("Production timing and reuse evidence are not available from Core yet."),
+    outcomes: unavailable("Performance comparisons have not been reported."),
+    insights: unavailable("No supporting performance evidence has been reported."),
+    efficiency: unavailable("Production timing and reuse statistics have not been reported."),
     attention: presentAttention(overview.accounts, overview.publications),
-    pulse: unavailable("Workspace run and build progress is not available from Core yet."),
+    pulse: unavailable("Open a project to see its current work."),
     projects: presentProjects(overview.projects, catalogProjects),
-    recentChanges: unavailable("Core currently returns technical activity without display names."),
+    recentChanges: unavailable("Open a project to see its recent activity."),
     onboarding: presentOnboarding(overview.projects, overview.publications),
   };
 }
@@ -74,7 +74,7 @@ function presentMomentum(metrics: MetricTotals | undefined): WorkspaceMomentumPr
       shares: metrics?.shares ?? null,
       watchTimeMs: metrics?.watchTimeMs ?? null,
     },
-    trend: unavailable("Comparable reporting windows and trend points are not available from Core yet."),
+    trend: unavailable("A comparable reporting history is not available yet."),
   };
 }
 
@@ -82,7 +82,7 @@ function presentAccounts(
   accounts: Page<OverviewAccountDto> | undefined,
   publications: Page<OverviewPublicationDto> | undefined,
 ): Availability<AccountPresentation[]> {
-  if (!accounts) return unavailable("Connected accounts were not returned by Core.");
+  if (!accounts) return unavailable("Connected accounts could not be loaded. Refresh to try again.");
   return pageAvailability(
     accounts,
     accounts.items.map((account) => presentAccount(account, publications)),
@@ -104,7 +104,7 @@ function presentAccount(account: OverviewAccountDto, publications: Page<Overview
       "Account publications",
     ),
     updatedAt: account.updatedAt,
-    metrics: unavailable("Account metrics are not available from the current Core contract."),
+    metrics: unavailable("Channel analytics have not been reported."),
   };
 }
 
@@ -116,13 +116,13 @@ function presentPlan(
   now: number,
 ): WorkspacePlanPresentation {
   const days = planDays(now);
-  const coverage = unavailable<PlanCoveragePresentation[]>("cadence targets are not configured in the current Core contract.");
-  const readyUnscheduled = unavailable<ReadyUnscheduledPresentation[]>("Ready Unit lifecycle state is not available from the current Core contract.");
+  const coverage = unavailable<PlanCoveragePresentation[]>("posting targets have not been configured.");
+  const readyUnscheduled = unavailable<ReadyUnscheduledPresentation[]>("Open Units to review which versions are ready to publish.");
   if (!publications) {
     return {
       days,
       coverage,
-      upcoming: unavailable("Upcoming publications were not returned by Core."),
+      upcoming: unavailable("The publishing schedule could not be loaded. Open Calendar to try again."),
       readyUnscheduled,
     };
   }
@@ -194,16 +194,16 @@ function planLimitations(
   projects: Page<ProjectDto> | undefined,
 ): string[] {
   return [
-    publications.nextCursor === null ? null : "Upcoming publications are limited to the returned Core page.",
+    publications.nextCursor === null ? null : "This is a preview of upcoming publications. Open Calendar for the full schedule.",
     !accounts
-      ? "Publishing account labels are unavailable because connected accounts were not returned by Core."
-      : accounts.nextCursor === null ? null : "Publishing account labels are limited to the returned Core account page.",
+      ? "Some publishing account names could not be loaded."
+      : accounts.nextCursor === null ? null : "Some publishing account names are outside this overview.",
     !units
-      ? "Unit labels and exact navigation are unavailable because Units were not returned by Core."
-      : units.nextCursor === null ? null : "Unit labels and exact navigation are limited to the returned Core Unit page.",
+      ? "Some content names could not be loaded. Open Units to find them."
+      : units.nextCursor === null ? null : "Some content is outside this overview. Open Units to find it.",
     !projects
-      ? "Project labels are unavailable because projects were not returned by Core."
-      : projects.nextCursor === null ? null : "Project labels are limited to the returned Core project page.",
+      ? "Some project names could not be loaded."
+      : projects.nextCursor === null ? null : "Some project names are outside this overview.",
   ].filter((reason): reason is string => reason !== null);
 }
 
@@ -211,7 +211,7 @@ function presentAttention(
   accounts: Page<OverviewAccountDto> | undefined,
   publications: Page<OverviewPublicationDto> | undefined,
 ): Availability<AttentionSummaryPresentation> {
-  if (!accounts && !publications) return unavailable("Account and publication attention data were not returned by Core.");
+  if (!accounts && !publications) return unavailable("Publishing issues could not be checked. Refresh to try again.");
   const accountItems = accounts?.items ?? [];
   const publicationItems = publications?.items ?? [];
   const items: AttentionPresentation[] = [
@@ -238,7 +238,7 @@ function presentAttention(
     criticalCount: countAvailability(publications, items.filter((item) => item.severity === "critical").length, "Critical attention"),
   };
   if (!accounts || !publications || accounts.nextCursor !== null || publications.nextCursor !== null) {
-    return { status: "partial", reason: "Attention is limited to the returned account and publication pages.", value };
+    return { status: "partial", reason: "This overview may not include every publishing issue. Open Calendar to review them.", value };
   }
   return { status: "ready", value };
 }
@@ -285,7 +285,7 @@ function attentionPriority(item: AttentionPresentation): number {
 }
 
 function presentProjects(projects: Page<ProjectDto> | undefined, catalogProjects: ProjectSummary[]): Availability<ActiveProjectPresentation[]> {
-  if (!projects) return unavailable("Projects were not returned by Core.");
+  if (!projects) return unavailable("Projects could not be loaded. Refresh to try again.");
   return pageAvailability(projects, projects.items
     .filter((project) => project.state === "active")
     .map((project) => ({
@@ -306,7 +306,7 @@ function presentOnboarding(
 ): Availability<boolean> {
   if (projects?.items.length || publications?.items.length) return { status: "ready", value: false };
   if (!projects || !publications || projects.nextCursor !== null || publications.nextCursor !== null) {
-    return unavailable("Whether this is a new workspace cannot be determined from the returned Core pages.");
+    return unavailable("More workspace information is needed to show setup steps.");
   }
   return { status: "ready", value: true };
 }
@@ -318,11 +318,11 @@ function unavailable<T>(reason: string): Availability<T> {
 function pageAvailability<Item, Value>(page: Page<Item>, value: Value, label: string): Availability<Value> {
   return page.nextCursor === null
     ? { status: "ready", value }
-    : { status: "partial", reason: `${label} are limited to the returned Core page.`, value };
+    : { status: "partial", reason: `${label} shown here are a preview; more may be available.`, value };
 }
 
 function countAvailability<Item>(page: Page<Item> | undefined, value: number, label: string): Availability<number> {
-  if (!page) return unavailable(`${label} were not returned by Core.`);
+  if (!page) return unavailable(`${label} could not be loaded. Refresh to try again.`);
   return pageAvailability(page, value, label);
 }
 

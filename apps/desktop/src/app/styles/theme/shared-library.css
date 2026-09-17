@@ -13,7 +13,7 @@
   --shared-library-tiles: repeat(auto-fill, minmax(252px, 1fr));
   /* The audit list is a table: eleven fixed columns, so ten rows line up instead of eleven
      ragged ones. It scrolls sideways inside its own region rather than reflowing. */
-  --shared-library-audit-columns: 28px minmax(220px, 1fr) 90px 138px 94px 130px 90px 80px 90px 80px 90px;
+  --shared-library-audit-columns: minmax(220px, 1fr) 90px 138px 130px 90px;
   /* A label/value pair: the label column is bounded, the value takes the rest and stays right-set. */
   --shared-library-fact-columns: minmax(110px, .7fr) minmax(0, 1fr);
   --shared-library-viewer-fact-columns: 1fr minmax(0, 1.4fr);

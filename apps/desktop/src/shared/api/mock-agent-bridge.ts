@@ -11,8 +11,10 @@ import type {
 } from "../../../electron/media/types";
 import type { RalphyBridge } from "./ipc";
 
-export function mockAgentSurfaces(): Pick<RalphyBridge, "getAgentProviders" | "loadAgentHistory" | "loginAgentProvider" | "setAgentApiKey" | "clearAgentApiKey" | "sendAgentMessage" | "stopAgent" | "onAgentEvent"> {
+export function mockAgentSurfaces(): Pick<RalphyBridge, "loadAgentChats" | "saveAgentChats" | "getAgentProviders" | "loadAgentHistory" | "loginAgentProvider" | "setAgentApiKey" | "clearAgentApiKey" | "sendAgentMessage" | "stopAgent" | "onAgentEvent"> {
   const agentCallbacks = new Set<(event: AgentChatEnvelope) => void>();
+  const chats = new Map<string, { data: string; revision: string }>();
+  let nextRevision = 0;
   let openRouterConfigured = false;
   let claudeAuth: ClaudeAuthState = {
     binaryReady: true,
@@ -23,6 +25,16 @@ export function mockAgentSurfaces(): Pick<RalphyBridge, "getAgentProviders" | "l
   };
 
   return {
+    async loadAgentChats(rootPath, workspaceId) {
+      return chats.get(JSON.stringify([rootPath, workspaceId])) ?? { data: null, revision: null };
+    },
+    async saveAgentChats(rootPath, workspaceId, data, expectedRevision) {
+      const key = JSON.stringify([rootPath, workspaceId]);
+      if ((chats.get(key)?.revision ?? null) !== expectedRevision) throw new Error("Chat history changed outside this window");
+      const revision = String(++nextRevision);
+      chats.set(key, { data, revision });
+      return revision;
+    },
     async loadAgentHistory() { return []; },
     async getAgentProviders() {
       return [
@@ -92,6 +104,7 @@ export function mockAgentSurfaces(): Pick<RalphyBridge, "getAgentProviders" | "l
       const emitAgent = (event: AgentChatEnvelope["event"]): void => {
         const envelope: AgentChatEnvelope = {
           storeId: "mock-store",
+          workspaceId: request.workspaceId ?? request.project?.workspaceId ?? null,
           chatId: request.chatId,
           provider: request.provider,
           event,

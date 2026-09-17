@@ -12,6 +12,7 @@ import {
 } from "../../cli/lib/store/secrets.js";
 import {
   captureCredentialEnvironment,
+  captureStartupCredentialEnvironment,
   createCredentialResolver,
   credentialSecretRef,
   OPENROUTER_CREDENTIAL,
@@ -31,6 +32,7 @@ const SECRET_SENTINEL = "task-2b-secret-sentinel";
 let root: TmpRoot | null = null;
 
 afterEach(() => {
+  captureStartupCredentialEnvironment({});
   closeDomainDb();
   resetProviderCache();
   root?.cleanup();
@@ -56,6 +58,29 @@ function fixture() {
 }
 
 describe("provider credential descriptors", () => {
+  test("app startup captures the native snapshot despite shell overrides and scrubs both key names", () => {
+    const env = { RALPHY_APP_CREDENTIALS: "openrouter", RALPHY_APP_OPENROUTER_API_KEY: "selected-app-key", OPENROUTER_API_KEY: "shell-override", FAL_KEY: "hidden-shell-key" };
+    const captured = captureStartupCredentialEnvironment(env);
+    expect([...captured]).toEqual([["openrouter", "selected-app-key"]]);
+    expect(env).toEqual({ RALPHY_APP_CREDENTIALS: "openrouter" });
+    expect([...captureStartupCredentialEnvironment({ RALPHY_APP_CREDENTIALS: "", OPENROUTER_API_KEY: "hidden-shell-key" })]).toEqual([]);
+    expect(() => captureStartupCredentialEnvironment({ RALPHY_APP_CREDENTIALS: "unknown" })).toThrow();
+  });
+  test("desktop generation uses only its declared app keys and never hidden scoped fallbacks", async () => {
+    const { dataRoot, secretStore } = fixture();
+    const context = { kind: "scope" as const, workspaceId: "ws_a", projectId: "project_a" };
+    await secretStore.set(credentialSecretRef("openrouter", context), "old-project-key");
+    await secretStore.set(credentialSecretRef("fal", context), "old-fal-key");
+    const resolver = createCredentialResolver({ dataRoot, context, secretStore,
+      capturedEnvironment: new Map([["openrouter", "visible-app-key"], ["fal", "ambient-shell-key"]]),
+      appCredentialProviders: ["openrouter"],
+    });
+    expect(await resolver.resolve("openrouter")).toMatchObject({ value: "visible-app-key", source: "environment" });
+    expect(await resolver.resolve("fal")).toMatchObject({ value: null, configured: false, source: "missing" });
+    const disconnected = createCredentialResolver({ dataRoot, context, secretStore, capturedEnvironment: new Map(), appCredentialProviders: [] });
+    expect(await disconnected.resolve("openrouter")).toMatchObject({ configured: false, value: null });
+    expect(await secretStore.read(credentialSecretRef("openrouter", context))).toBe("old-project-key");
+  });
   test("the fixed descriptor allowlist covers every credentialed connector module", () => {
     expect(
       STATIC_CREDENTIAL_DESCRIPTORS.map((descriptor) => descriptor.providerId),

@@ -47,7 +47,7 @@ test("studio saves, previews without generation, shares saved agent context and 
   let runs: CanvasRun[] = [];
   vi.spyOn(bridge, "loadCanvases").mockImplementation(async () => saved);
   vi.spyOn(bridge, "loadCanvasModels").mockResolvedValue({ models: [{ id: "test/image", name: "Image model", provider: "openrouter", modality: "image", available: true, description: "", parameters: {} }], providers: [], errors: [] });
-  vi.spyOn(bridge, "loadCanvasRuns").mockImplementation(async () => runs);
+  vi.spyOn(bridge, "loadCanvasRuns").mockImplementation(async () => ({ items: runs, nextCursor: null }));
   const preview = vi.spyOn(bridge, "startCanvasRun").mockImplementation(async (workspaceId, canvasId, options) => {
     const run: CanvasRun = { id: "preview-one", workspaceId, canvasId, canvasRevision: options.expectedRevision, mode: options.mode, status: "succeeded", startedAt: 1, endedAt: 2, nodes: [], error: null, snapshot: saved[0]!.canvas };
     runs = [run]; return run;
@@ -141,7 +141,7 @@ test("dropped files become persistent references in one undo step and preserve e
   vi.stubGlobal("crypto", webcrypto);
   vi.spyOn(bridge, "loadCanvases").mockResolvedValue([]);
   vi.spyOn(bridge, "loadCanvasModels").mockResolvedValue({ models: [], providers: [], errors: [] });
-  vi.spyOn(bridge, "loadCanvasRuns").mockResolvedValue([]);
+  vi.spyOn(bridge, "loadCanvasRuns").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(bridge, "loadCanvasAssetPreview").mockResolvedValue("ralphy-media://imported");
   let complete!: (asset: { path: string; name: string; kind: "image" }) => void;
   const importFile = vi.spyOn(bridge, "importCanvasAsset").mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }))
@@ -179,7 +179,7 @@ test("canvas shortcuts select nodes, preserve text editing and stay inside the c
   vi.stubGlobal("crypto", webcrypto);
   vi.spyOn(bridge, "loadCanvases").mockResolvedValue([]);
   vi.spyOn(bridge, "loadCanvasModels").mockResolvedValue({ models: [], providers: [], errors: [] });
-  vi.spyOn(bridge, "loadCanvasRuns").mockResolvedValue([]);
+  vi.spyOn(bridge, "loadCanvasRuns").mockResolvedValue({ items: [], nextCursor: null });
   const host = createReactHost();
   const { createRoot } = await import("react-dom/client");
   const root = createRoot(host.container as unknown as Element);
@@ -233,7 +233,7 @@ test("a delayed asset picker preserves newer node edits and ignores a removed no
   vi.stubGlobal("crypto", webcrypto);
   vi.spyOn(bridge, "loadCanvases").mockResolvedValue([]);
   vi.spyOn(bridge, "loadCanvasModels").mockResolvedValue({ models: [], providers: [], errors: [] });
-  vi.spyOn(bridge, "loadCanvasRuns").mockResolvedValue([]);
+  vi.spyOn(bridge, "loadCanvasRuns").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(bridge, "loadCanvasAssetPreview").mockResolvedValue(null);
   let complete!: (asset: Awaited<ReturnType<typeof bridge.importCanvasAsset>>) => void;
   vi.spyOn(bridge, "importCanvasAsset").mockImplementation(() => new Promise((resolve) => { complete = resolve; }));

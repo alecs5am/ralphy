@@ -21,7 +21,8 @@ test("rich model nodes expose only catalog-supported controls and truthful outpu
   expect(markup).toContain("Duration");
   expect(markup).not.toContain("Resolution");
   expect(markup).toContain("Slow dolly");
-  expect(markup).toContain("Connected");
+  expect(markup).toContain("Key present");
+  expect(markup).not.toContain("Generate audio");
   expect(markup).not.toContain("Completed");
   expect(markup).toContain('role="combobox"');
   expect(markup).not.toContain("<details");

@@ -177,6 +177,8 @@ class ImmutableCredentialMap extends Map<string, string> {
 }
 
 let startupCredentials: ReadonlyMap<string, string> | null = null;
+const APP_GENERATION_PROVIDERS = new Set(["openrouter", "elevenlabs", "fal"]);
+let appCredentialProviders: readonly string[] | undefined;
 let currentResolver: CredentialResolver | null = null;
 const currentValues = new Map<string, string>();
 let testCredentialSource:
@@ -208,11 +210,22 @@ export function captureCredentialEnvironment(
 export function captureStartupCredentialEnvironment(
   environment: Record<string, string | undefined> = process.env,
 ): ReadonlyMap<string, string> {
+  const manifest = environment.RALPHY_APP_CREDENTIALS;
+  appCredentialProviders = manifest === undefined ? undefined : manifest.split(",").filter(Boolean);
+  if (appCredentialProviders?.some((id) => !APP_GENERATION_PROVIDERS.has(id))) throw providerInputError("provider", "invalid desktop credential manifest");
   const connectors = STATIC_CREDENTIAL_DESCRIPTORS.map((credential) => ({
     id: credential.providerId,
     credential,
   }));
+  if (appCredentialProviders) for (const descriptor of STATIC_CREDENTIAL_DESCRIPTORS) {
+    if (!APP_GENERATION_PROVIDERS.has(descriptor.providerId) || descriptor.kind !== "api-key" || !descriptor.environmentVariable) continue;
+    const name = descriptor.environmentVariable;
+    // Shell startup and harness settings may replace ordinary provider variables.
+    environment[name] = appCredentialProviders.includes(descriptor.providerId) ? environment[`RALPHY_APP_${name}`] : undefined;
+    delete environment[`RALPHY_APP_${name}`];
+  }
   startupCredentials = captureCredentialEnvironment(environment, connectors);
+  if (appCredentialProviders) startupCredentials = new ImmutableCredentialMap([...startupCredentials].filter(([id]) => !APP_GENERATION_PROVIDERS.has(id) || appCredentialProviders!.includes(id)));
   return startupCredentials;
 }
 
@@ -288,6 +301,8 @@ export function createCredentialResolver(input: {
   secretStore?: SecretStore;
   descriptors?: readonly CredentialDescriptor[];
   capturedEnvironment?: ReadonlyMap<string, string>;
+  /** Desktop runs use visible app connections, without hidden scoped generation keys. */
+  appCredentialProviders?: readonly string[];
 }): CredentialResolver {
   const descriptors = new Map(
     (input.descriptors ?? STATIC_CREDENTIAL_DESCRIPTORS).map((descriptor) => {
@@ -298,6 +313,7 @@ export function createCredentialResolver(input: {
   const secretStore =
     input.secretStore ?? createSecretStore({ dataRoot: input.dataRoot });
   const captured = input.capturedEnvironment ?? startupCredentials ?? new Map();
+  const appProviders = input.appCredentialProviders ?? appCredentialProviders;
 
   const descriptorFor = (providerId: string): CredentialDescriptor => {
     checkedProviderId(providerId);
@@ -332,6 +348,7 @@ export function createCredentialResolver(input: {
 
   const resolver: CredentialResolver = {
     async set(providerId, value, target) {
+      if (appProviders && APP_GENERATION_PROVIDERS.has(providerId)) throw providerInputError(providerId, "manage app generation connections in Settings > Providers");
       const descriptor = descriptorFor(providerId);
       if (descriptor.kind === "none") {
         throw providerInputError(providerId, "provider does not accept credentials");
@@ -346,6 +363,7 @@ export function createCredentialResolver(input: {
       }
     },
     async clear(providerId, target) {
+      if (appProviders && APP_GENERATION_PROVIDERS.has(providerId)) throw providerInputError(providerId, "manage app generation connections in Settings > Providers");
       descriptorFor(providerId);
       await secretStore.delete(
         credentialSecretRef(providerId, scopeFor(target)),
@@ -359,6 +377,10 @@ export function createCredentialResolver(input: {
       const descriptor = descriptorFor(providerId);
       if (descriptor.kind === "none") {
         return { configured: true, providerId, source: "missing", value: null };
+      }
+      if (appProviders && APP_GENERATION_PROVIDERS.has(providerId)) {
+        const value = appProviders.includes(providerId) ? captured.get(providerId) ?? null : null;
+        return { configured: value !== null, providerId, source: value === null ? "missing" : "environment", value };
       }
       const encrypted = await secretStore.read(
         credentialSecretRef(providerId, scopeFor(target)),

@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import { RalphySession } from "../electron/ralphy/session";
 import { BRIDGE_METHODS } from "../electron/ralphy/types";
@@ -288,16 +288,21 @@ describe("RalphySession", () => {
   test("does not wedge root replacement when the prior bridge ignores SIGTERM", async () => {
     const session = new RalphySession({ bin: fixtureBin });
     await session.open("/libraries/stubborn");
-    const replacement = session.open("/libraries/next");
+    let ready!: () => void;
+    const candidateReady = new Promise<void>((resolve) => { ready = resolve; });
+    const replacement = session.open("/libraries/next", { beforePreviousClose() {
+      // Process startup is real; the bounded shutdown clock starts only after hello.
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      ready();
+    } });
 
     try {
-      const outcome = await Promise.race([
-        replacement.then((hello) => hello.rootId),
-        new Promise((resolve) => setTimeout(() => resolve("timeout"), 2500)),
-      ]);
-      expect(outcome).toBe(fixtureRootId("/libraries/next"));
+      await candidateReady;
+      await vi.advanceTimersByTimeAsync(2_000);
+      await expect(replacement).resolves.toMatchObject({ rootId: fixtureRootId("/libraries/next") });
     } finally {
-      await replacement;
+      await vi.runOnlyPendingTimersAsync();
+      vi.useRealTimers();
       await session.close();
     }
   });

@@ -869,6 +869,7 @@ export type ArtifactMediaCard = {
   kind: string;
   selectedRevisionId: string | null;
   selectedState: string | null;
+  latestReviewVerdict?: "approved" | "needs-work" | "rejected" | "shortlist";
   mime: string | null;
   bytes: number | null;
   selectedAt: number | null;

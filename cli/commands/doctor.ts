@@ -18,6 +18,7 @@ import { readGlobalConfig as readHomeConfig } from "../lib/global-config.js";
 import { checkForUpdate, type InstallMode as UpdateInstallMode } from "../lib/update-check.js";
 import { daemonStatus } from "../lib/jobs/daemon.js";
 import { countByStatus } from "../lib/jobs/db.js";
+import { MIN_BUN_VERSION, supportedBunVersion } from "../lib/bun-runtime.js";
 
 type InstallMode = "binary" | "developer";
 
@@ -143,12 +144,12 @@ export function doctorCmd() {
       }
 
       // Dependencies
-      // ffmpeg + imagemagick use single-dash `-version`, bun uses `--version`.
-      [report.deps.bun, report.deps.ffmpeg] = await Promise.all([
-        bin("bun"),
-        bin("ffmpeg", "-version"),
-      ]);
-      if (!report.deps.bun) report.blockers.push("bun is not installed — `brew install bun`.");
+      if (!supportedBunVersion(process.versions.bun)) {
+        report.blockers.push(`Active Bun ${process.versions.bun ?? "unknown"} is unsupported. Use Bun ${MIN_BUN_VERSION} or newer, or a current compiled Ralphy binary.`);
+      }
+      // A compiled CLI carries Bun; a missing or old external Bun is unrelated.
+      report.deps.bun = supportedBunVersion(process.versions.bun);
+      report.deps.ffmpeg = await bin("ffmpeg", "-version");
       if (!report.deps.ffmpeg) report.blockers.push("ffmpeg is not installed — `brew install ffmpeg`.");
       // ImageMagick (#101): OPTIONAL — info-level only, never a blocker and
       // never a warning. IM7 ships `magick`, IM6 ships `convert`.
@@ -244,7 +245,7 @@ export function doctorCmd() {
         );
 
         section("Dependencies");
-        console.log(`  ${report.deps.bun ? icons.ok : icons.fail} bun`);
+        console.log(`  ${report.deps.bun ? icons.ok : icons.fail} Bun runtime ${process.versions.bun ?? "unknown"}`);
         console.log(`  ${report.deps.ffmpeg ? icons.ok : icons.fail} ffmpeg`);
         // Optional dep — absence is neutral (muted bullet), never the fail icon.
         if (report.deps.imagemagick) {

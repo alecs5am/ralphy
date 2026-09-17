@@ -28,6 +28,7 @@ import {
   getSocialAccountCredentialState,
 } from "../lib/store/scopes.js";
 import { StoreConflictError } from "../lib/store/types.js";
+import { probeOpenRouterKey } from "../lib/providers/openrouter.js";
 
 const ALL_CAPS: Capability[] = ["text", "image", "video", "voice", "music", "sfx", "transcribe"];
 
@@ -175,8 +176,11 @@ export function providerCmd(dependencies: {
   cmd
     .command("test [id]")
     .description("Report each connector's availability + config validity. Offline by default (no network); --ping hits the endpoint.")
-    .option("--ping", "Probe the endpoint over the network (not just config/key checks). Use with care.")
-    .action((id: string | undefined, opts: { ping?: boolean }) => {
+    .option("--ping", "Validate OpenRouter authentication without generating content. Other connectors report untested.")
+    .option("--stdin", "With test openrouter --ping, check the exact API key supplied through stdin.")
+    .action(async (id: string | undefined, opts: { ping?: boolean; stdin?: boolean }) => {
+      if (opts.stdin && (id !== "openrouter" || !opts.ping)) throw providerAuthInput("stdin", "requires provider test openrouter --ping");
+      const key = opts.stdin ? await (dependencies.readStdin ?? readCredentialStdin)() : undefined;
       const { errors } = loadProviderConfigs();
       let rows = providerMatrix();
       if (id) {
@@ -185,19 +189,20 @@ export function providerCmd(dependencies: {
           raiseError("E_NOT_FOUND", { kind: "provider", id });
         }
       }
-      const providers = rows.map((r) => ({
+      const providers = await Promise.all(rows.map(async (r) => ({
         id: r.id,
         label: r.label,
         envVar: r.envVar,
-        available: r.available,
+        available: key !== undefined ? Boolean(key) : r.available,
         capabilities: r.capabilities,
-        verdict: r.available ? "ready" : `unavailable (set ${r.envVar})`,
-      }));
+        verdict: (key !== undefined ? Boolean(key) : r.available) ? "key present (not validated)" : `unavailable (set ${r.envVar})`,
+        validation: opts.ping && r.id === "openrouter" ? await probeOpenRouterKey(key) : "untested",
+      })));
       out({
         providers,
         // Surface config-parse errors so a malformed providers[] entry is visible.
         configErrors: errors,
-        pinged: Boolean(opts.ping),
+        pinged: Boolean(opts.ping && providers.some((provider) => provider.id === "openrouter" && !["missing", "untested"].includes(provider.validation))),
       });
     });
 
@@ -244,7 +249,10 @@ async function readCredentialStdin(): Promise<string> {
   }
   process.stdin.setEncoding("utf8");
   let value = "";
-  for await (const chunk of process.stdin) value += chunk;
+  for await (const chunk of process.stdin) {
+    value += chunk;
+    if (Buffer.byteLength(value) > 4096) throw providerAuthInput("stdin", "credential exceeds the input size limit");
+  }
   return value.trim();
 }
 

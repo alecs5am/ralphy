@@ -3,6 +3,7 @@ import {
   spawn,
   type ChildProcess,
 } from "node:child_process";
+import { appCredentialEnvironment } from "../canvas/app-credentials";
 import { constants } from "node:fs";
 import { access, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -54,6 +55,7 @@ export interface ClaudeAuthStatus {
 interface ClaudeSessionOptions {
   binary: string;
   env?: NodeJS.ProcessEnv;
+  generationCredentials?: Partial<Record<"OPENROUTER_API_KEY" | "ELEVENLABS_API_KEY" | "FAL_KEY", string>>;
   emit(event: ClaudeChatEvent): void;
 }
 
@@ -301,6 +303,7 @@ export async function resolveClaudeBinary(
 export class ClaudeSession {
   readonly #binary: string;
   readonly #env: NodeJS.ProcessEnv;
+  readonly #generationCredentials: ClaudeSessionOptions["generationCredentials"];
   readonly #emit: (event: ClaudeChatEvent) => void;
   #process: ChildProcess | null = null;
   #stopping = false;
@@ -309,6 +312,7 @@ export class ClaudeSession {
   constructor(options: ClaudeSessionOptions) {
     this.#binary = options.binary;
     this.#env = { ...(options.env ?? process.env) };
+    this.#generationCredentials = options.generationCredentials;
     this.#emit = options.emit;
   }
 
@@ -322,7 +326,7 @@ export class ClaudeSession {
     if (request.resumeSessionId && !SESSION_ID.test(request.resumeSessionId)) {
       throw new Error("Invalid Claude session id");
     }
-    const env = claudeSubscriptionEnvironment(this.#env);
+    const env = appCredentialEnvironment(claudeSubscriptionEnvironment(this.#env), this.#generationCredentials ?? {});
     if (request.authMethod === "subscription") {
       delete env.ANTHROPIC_API_KEY;
     } else if (request.authMethod === "api-key") {

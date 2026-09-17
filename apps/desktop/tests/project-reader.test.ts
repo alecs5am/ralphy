@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { createProjectReader } from "../electron/ralphy/project-reader";
+import { createProjectReader, parseUnitScope } from "../electron/ralphy/project-reader";
 import type { RalphyBridgeClient } from "../electron/ralphy/client";
 import type {
   ArtifactMediaCardDto,
@@ -17,6 +17,14 @@ import type {
 } from "../electron/ralphy/types";
 
 const project = { workspaceId: "workspace-1", projectId: "project-1" };
+
+test("Unit scopes allow explicit workspace ownership and reject malformed references", () => {
+  expect(parseUnitScope({ workspaceId: "ws", projectId: null })).toEqual({ workspaceId: "ws", projectId: null });
+  expect(parseUnitScope(project)).toEqual(project);
+  for (const value of [{ workspaceId: "ws" }, { workspaceId: "ws", projectId: "" }, { workspaceId: "", projectId: null }, { ...project, extra: true }, { workspaceId: "ws", projectId: 42 }]) {
+    expect(() => parseUnitScope(value)).toThrow("Invalid Unit scope");
+  }
+});
 
 function page(items: unknown[] = [], nextCursor: string | null = null) {
   return { items, nextCursor };
@@ -606,6 +614,23 @@ describe("Project domain reader", () => {
       request: vi.fn(async () => sharedUnit) as unknown as RalphyBridgeClient["request"],
     });
     await expect(sharedReader.loadProjectUnit(project, "unit-1")).resolves.toEqual(sharedUnit);
+    const ownedScope = { workspaceId: project.workspaceId, projectId: null };
+    const ownedRequest = vi.fn(async (method: string) => method === "unit.show" || method === "unit.select" ? sharedUnit
+      : method === "unit.revision.show" ? revision("unit-revision-1", 1)
+        : method === "document.content" ? { text: "Workspace caption", format: "text", nextByte: null }
+          : page([]));
+    const ownedReader = createProjectReader({ request: ownedRequest as RalphyBridgeClient["request"] });
+    await expect(ownedReader.loadProjectUnit(ownedScope, "unit-1")).resolves.toEqual(sharedUnit);
+    await ownedReader.loadProjectUnitRevision(ownedScope, "unit-1", "unit-revision-1");
+    await ownedReader.loadProjectUnitPage(ownedScope, { kind: "revisions", unitId: "unit-1" });
+    await ownedReader.loadProjectUnitPage(ownedScope, { kind: "items", revisionId: "unit-revision-1" });
+    await ownedReader.loadProjectUnitPage(ownedScope, { kind: "presentations", revisionId: "unit-revision-1" });
+    await ownedReader.selectProjectUnitRevision(ownedScope, "unit-1", "unit-revision-1", null);
+    await expect(ownedReader.loadDocumentPreview(ownedScope, "document-1")).resolves.toMatchObject({ text: "Workspace caption" });
+    expect(ownedRequest.mock.calls.every((call) => JSON.stringify(call[1].context) === JSON.stringify({ workspaceId: project.workspaceId }))).toBe(true);
+    await expect(ownedReader.loadOverview(ownedScope)).rejects.toThrow("Invalid project identifier");
+    const foreignReader = createProjectReader({ request: vi.fn(async () => unit) as unknown as RalphyBridgeClient["request"] });
+    await expect(foreignReader.loadProjectUnit(ownedScope, "unit-1")).rejects.toThrow("Invalid Unit");
 
     let overDepth: Record<string, unknown> = {};
     for (let depth = 0; depth < 34; depth += 1) overDepth = { child: overDepth };

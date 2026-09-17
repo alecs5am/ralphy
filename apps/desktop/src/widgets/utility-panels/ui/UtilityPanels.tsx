@@ -5,7 +5,7 @@ import type { ProjectReference, ProjectSummary, WorkspaceSummary } from "@/share
 import type { AgentChatController } from "@/features/agent-chat";
 import { AgentComposer, type AgentComposerHandle } from "@/features/agent-chat";
 import { addAttachments, attachmentInstructions, withAttachments, type Attachment } from "@/features/agent-chat";
-import { AgentThread } from "@/features/agent-chat";
+import { AgentThread, AgentFailure } from "@/features/agent-chat";
 import { AgentMark } from "@/shared/ui/AgentMark";
 import { WINDOW, WINDOW_BODY } from "@/shared/ui/Window";
 
@@ -152,7 +152,10 @@ export function AgentChatPanel({
       </header>
 
       <div className={`utility-right-panel-card ${WINDOW_BODY}`}>
-      {!chat.connected && active.entries.length === 0 ? (
+      {chat.historyError && <AgentFailure title="Chat history needs attention" text={chat.historyError} onRetry={chat.retryHistory} />}
+      {chat.historyReady === false ? (
+        <p className="p-4 type-ui text-secondary" role="status">{chat.historyError ? "Retry to reopen your saved conversations." : "Opening chat history..."}</p>
+      ) : !chat.connected && active.entries.length === 0 ? (
         <AgentConnection chat={chat} />
       ) : (
         <>
@@ -196,6 +199,7 @@ export function AgentChatPanel({
                 }}
               />}
           </div>
+          {active.entries.length > 0 && !active.sessionId && !active.busy && <p className="m-0 px-4 py-2 type-xs text-muted">This history is saved locally. Your next message starts a new agent session.</p>}
           {/* The composer is a field on the card: one step off it, at the card's own radius, with
               the field above and the instruments below. */}
           {!chat.connected ? (

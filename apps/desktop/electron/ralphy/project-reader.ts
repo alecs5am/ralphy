@@ -1,5 +1,6 @@
 import { RalphyBridgeError, type RalphyBridgeClient } from "./client";
 import { isAbsolute } from "node:path";
+import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { assertTrustedSender, toIpcResult } from "../ipc-security";
 import { parseBoundedJsonValue } from "../json-value";
@@ -41,6 +42,7 @@ import {
   PROJECT_MEDIA_FILTERS,
 } from "../media/types";
 import type { RalphySession } from "./session";
+import { saveMediaReview, type DesktopMediaReviewInput } from "./media-review";
 import type {
   ProjectMediaFilter,
   ProjectMediaAction,
@@ -79,11 +81,11 @@ export type ReviseCompositionInput = {
   engineConfig?: JsonValue;
 };
 
-function projectContext(project: ProjectRef): ProjectRef {
+function projectContext(project: ProjectRef): { workspaceId: string; projectId: string } {
   if (!project || !validId(project.workspaceId) || !validId(project.projectId)) {
     throw new Error("Invalid project identifier");
   }
-  return project;
+  return { workspaceId: project.workspaceId, projectId: project.projectId };
 }
 
 function validId(value: unknown): value is string {
@@ -456,12 +458,14 @@ function validateArtifactCard(value: unknown, project: ProjectRef, artifactId: s
     "ref", "workspaceId", "projectId", "slug", "kind", "selectedRevisionId", "selectedState",
     "mime", "bytes", "selectedAt", "revisionCount", "selectedObjectId", "storageClass", "usageRoles", "target",
     "mediaKind", "provenance",
+    ...(Object.hasOwn(card, "latestReviewVerdict") ? ["latestReviewVerdict"] : []),
   ]) || !ref || !exactKeys(ref, ["type", "id"]) || ref.type !== "artifact" || ref.id !== artifactId
     || card.workspaceId !== project.workspaceId || card.projectId !== project.projectId
     || typeof card.slug !== "string" || !card.slug || card.slug.length > 256
     || typeof card.kind !== "string" || !card.kind || card.kind.length > 256
     || card.selectedRevisionId !== revisionId
     || (card.selectedState !== null && (typeof card.selectedState !== "string" || !card.selectedState || card.selectedState.length > 128))
+    || (card.latestReviewVerdict !== undefined && !["approved", "needs-work", "rejected", "shortlist"].includes(card.latestReviewVerdict as string))
     || (card.mime !== null && (typeof card.mime !== "string" || !card.mime || card.mime.length > 1024))
     || (card.bytes !== null && !sequence(card.bytes))
     || (card.selectedAt !== null && !sequence(card.selectedAt))
@@ -486,7 +490,7 @@ function mediaRef(value: unknown): MediaCardDto["ref"] {
   return { type: ref.type as MediaCardDto["ref"]["type"], id: ref.id };
 }
 
-function optionalScope(value: unknown, expected: string): boolean {
+function optionalScope(value: unknown, expected: string | null): boolean {
   return value === null || value === expected;
 }
 
@@ -508,11 +512,13 @@ function validateMediaCard(value: unknown, project: ProjectRef, expectedRef: Med
       "ref", "workspaceId", "projectId", "slug", "kind", "selectedRevisionId", "selectedState",
       "mime", "bytes", "selectedAt", "revisionCount", "selectedObjectId", "storageClass", "usageRoles", "target",
       "mediaKind", "provenance",
+      ...(Object.hasOwn(card, "latestReviewVerdict") ? ["latestReviewVerdict"] : []),
     ]) || card.workspaceId !== project.workspaceId || !optionalScope(card.projectId, project.projectId)
       || typeof card.slug !== "string" || !card.slug || card.slug.length > 256
       || typeof card.kind !== "string" || !card.kind || card.kind.length > 256
       || (selected ? !validGenerationId(card.selectedRevisionId) : card.selectedRevisionId !== null)
       || (card.selectedState !== null && (typeof card.selectedState !== "string" || !card.selectedState || card.selectedState.length > 128))
+      || (card.latestReviewVerdict !== undefined && !["approved", "needs-work", "rejected", "shortlist"].includes(card.latestReviewVerdict as string))
       || (card.mime !== null && (typeof card.mime !== "string" || !card.mime || card.mime.length > 1024))
       || (card.bytes !== null && !sequence(card.bytes)) || (card.selectedAt !== null && !sequence(card.selectedAt))
       || !sequence(card.revisionCount) || (card.selectedObjectId !== null && !validGenerationId(card.selectedObjectId))
@@ -661,6 +667,18 @@ function parseProjectMediaIpcProject(value: unknown): ProjectRef {
     throw new Error("Invalid project reference");
   }
   return { workspaceId: project.workspaceId, projectId: project.projectId };
+}
+
+export function parseUnitScope(value: unknown): ProjectRef {
+  const scope = record(value);
+  if (!scope || !exactKeys(scope, ["workspaceId", "projectId"]) || !validId(scope.workspaceId)
+    || (scope.projectId !== null && !validId(scope.projectId))) throw new Error("Invalid Unit scope");
+  return { workspaceId: scope.workspaceId, projectId: scope.projectId };
+}
+
+function unitContext(value: ProjectRef): { workspaceId: string; projectId?: string } {
+  const scope = parseUnitScope(value);
+  return { workspaceId: scope.workspaceId, ...(scope.projectId === null ? {} : { projectId: scope.projectId }) };
 }
 
 function parseProjectUnitPageRequest(value: unknown): ProjectUnitPageRequest {
@@ -850,6 +868,9 @@ export function registerProjectMediaIpc<Root>({
       rawExpectedSelectedRevisionId,
     );
   }));
+  handle(MEDIA_CHANNELS.reviewProjectMedia, secured((reader, _root, _assertCurrent, rawProject, rawInput) => (
+    reader.reviewMedia(parseProjectMediaIpcProject(rawProject), rawInput as DesktopMediaReviewInput)
+  )));
   handle(MEDIA_CHANNELS.performProjectMediaAction, secured(async (
     reader,
     root,
@@ -888,6 +909,9 @@ export function registerProjectMediaIpc<Root>({
     }
     return undefined;
   }));
+  handle(MEDIA_CHANNELS.createProjectDocument, secured((reader, _root, _assertCurrent, rawProject, rawInput) => (
+    reader.createDocument(parseProjectMediaIpcProject(rawProject), rawInput as { title: string })
+  )));
   handle(MEDIA_CHANNELS.searchProjectDocuments, secured((reader, _root, _assertCurrent, rawProject, rawQuery, rawAfter) => {
     if (!validDocumentSearchQuery(rawQuery)) {
       throw new RalphyBridgeError(
@@ -921,18 +945,18 @@ export function registerProjectMediaIpc<Root>({
   )));
   handle(MEDIA_CHANNELS.loadProjectUnit, secured((reader, _root, _assertCurrent, rawProject, rawUnitId) => {
     if (!validId(rawUnitId)) throw new Error("Invalid Unit identifier");
-    return reader.loadProjectUnit(parseProjectMediaIpcProject(rawProject), rawUnitId);
+    return reader.loadProjectUnit(parseUnitScope(rawProject), rawUnitId);
   }));
   handle(MEDIA_CHANNELS.loadProjectUnitRevision, secured((reader, _root, _assertCurrent, rawProject, rawUnitId, rawRevisionId) => {
     if (!validId(rawUnitId) || !validId(rawRevisionId)) throw new Error("Invalid Unit revision identifier");
     return reader.loadProjectUnitRevision(
-      parseProjectMediaIpcProject(rawProject),
+      parseUnitScope(rawProject),
       rawUnitId,
       rawRevisionId,
     );
   }));
   handle(MEDIA_CHANNELS.loadProjectUnitPage, secured((reader, _root, _assertCurrent, rawProject, rawRequest) => {
-    const project = parseProjectMediaIpcProject(rawProject);
+    const project = parseUnitScope(rawProject);
     const input = parseProjectUnitPageRequest(rawRequest);
     if (input.kind === "revisions") return reader.loadProjectUnitPage(project, input);
     if (input.kind === "items") return reader.loadProjectUnitPage(project, input);
@@ -940,7 +964,7 @@ export function registerProjectMediaIpc<Root>({
   }));
   handle(MEDIA_CHANNELS.loadProjectUnitPreview, secured((reader, _root, _assertCurrent, rawProject, rawRevisionId, rawPlatform) => {
     if (!validId(rawRevisionId) || !validId(rawPlatform)) throw new Error("Invalid Unit preview request");
-    return reader.loadProjectUnitPreview(parseProjectMediaIpcProject(rawProject), rawRevisionId, rawPlatform);
+    return reader.loadProjectUnitPreview(parseUnitScope(rawProject), rawRevisionId, rawPlatform);
   }));
   handle(MEDIA_CHANNELS.selectProjectUnitRevision, secured((reader, _root, _assertCurrent, rawProject, rawUnitId, rawRevisionId, rawExpectedSelectedRevisionId) => {
     if (!validId(rawUnitId) || !validId(rawRevisionId)
@@ -948,7 +972,7 @@ export function registerProjectMediaIpc<Root>({
       throw new Error("Invalid Unit selection");
     }
     return reader.selectProjectUnitRevision(
-      parseProjectMediaIpcProject(rawProject),
+      parseUnitScope(rawProject),
       rawUnitId,
       rawRevisionId,
       rawExpectedSelectedRevisionId,
@@ -1039,7 +1063,7 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
     project: ProjectRef,
     rawInput: ProjectUnitPageRequest,
   ): Promise<Page<UnitRevisionDto> | Page<UnitItemDto> | Page<UnitPresentationDto>> {
-    const context = projectContext(project);
+    const context = unitContext(project);
     const input = parseProjectUnitPageRequest(rawInput);
     const after = pageCursor(input.cursor);
     if (input.kind === "revisions") {
@@ -1167,15 +1191,15 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
     },
 
     async loadProjectUnit(project: ProjectRef, unitId: string): Promise<UnitDto> {
-      const context = projectContext(project);
+      const context = unitContext(project);
       if (!validId(unitId)) throw new Error("Invalid Unit identifier");
       const value = await request("unit.show", { context, unitId });
-      if (!unitDto(value, context, unitId)) throw new Error("Invalid Unit");
+      if (!unitDto(value, project, unitId)) throw new Error("Invalid Unit");
       return value;
     },
 
     async loadProjectUnitPreview(project: ProjectRef, revisionId: string, platform: string): Promise<UnitPreviewDto> {
-      const context = projectContext(project);
+      const context = unitContext(project);
       if (!validId(revisionId) || !validId(platform)) throw new Error("Invalid Unit preview request");
       const presentations = await unitRows((cursor) => loadProjectUnitPage(project, { kind: "presentations", revisionId, cursor }));
       const presentation = presentations.find((item) => item.platform === platform);
@@ -1200,7 +1224,7 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
       unitId: string,
       revisionId: string,
     ): Promise<UnitRevisionDto> {
-      const context = projectContext(project);
+      const context = unitContext(project);
       if (!validId(unitId) || !validId(revisionId)) throw new Error("Invalid Unit revision identifier");
       const value = await request("unit.revision.show", { context, revisionId });
       if (!unitRevisionDto(value, unitId)) throw new Error("Invalid Unit revision");
@@ -1215,7 +1239,7 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
       revisionId: string,
       expectedSelectedRevisionId: string | null,
     ): Promise<UnitDto> {
-      const context = projectContext(project);
+      const context = unitContext(project);
       if (!validId(unitId) || !validId(revisionId)
         || (expectedSelectedRevisionId !== null && !validId(expectedSelectedRevisionId))) {
         throw new Error("Invalid Unit selection");
@@ -1223,7 +1247,7 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
       const value = await request("unit.select", {
         context, unitId, revisionId, expectedSelectedRevisionId,
       });
-      if (!unitDto(value, context, unitId) || value.selectedRevisionId !== revisionId) {
+      if (!unitDto(value, project, unitId) || value.selectedRevisionId !== revisionId) {
         throw new Error("Invalid Unit selection");
       }
       return value;
@@ -1305,6 +1329,10 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
       return value;
     },
 
+    async reviewMedia(project: ProjectRef, input: DesktopMediaReviewInput) {
+      return saveMediaReview(request, projectContext(project), input);
+    },
+
     async selectMediaRevision(
       project: ProjectRef,
       artifactId: string,
@@ -1326,7 +1354,7 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
     },
 
     async loadDocumentPreview(project: ProjectRef, revisionId: string) {
-      const context = projectContext(project);
+      const context = unitContext(project);
       if (!validId(revisionId)) throw new Error("Invalid document revision identifier");
       let afterByte = 0;
       let text = "";
@@ -1363,6 +1391,20 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
       return documentSearchPage(await request("document.search", {
         context, query, ...(cursor ? { after: cursor } : {}), limit: PROJECT_PAGE_LIMIT,
       }), context);
+    },
+
+    async createDocument(project: ProjectRef, input: { title: string }): Promise<DocumentDetailDto> {
+      const context = projectContext(project);
+      const value = record(input);
+      if (!value || !exactKeys(value, ["title"]) || typeof value.title !== "string" || !value.title.trim() || value.title.length > 256 || /[\u0000-\u001f\u007f]/.test(value.title)) {
+        throw new RalphyBridgeError("E_VALIDATION_FAILED", "Enter a document title of up to 256 characters.");
+      }
+      const title = value.title.trim();
+      const slug = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 80).replace(/^-|-$/g, "") || "document"}-${randomUUID().slice(0, 8)}`;
+      const created = await request("document.create", { context, kind: "note", slug, title });
+      const document = { ...created, currentRevision: null };
+      if (!documentDetailDto(document, context, created.id) || document.currentRevisionId !== null) throw new Error("Invalid created Document");
+      return document;
     },
 
     async showDocument(project: ProjectRef, documentId: string): Promise<DocumentDetailDto> {
@@ -1440,7 +1482,7 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
     },
 
     async resolveCompositionOutputPreview(project: ProjectRef, revisionId: string): Promise<CompositionOutputPreview> {
-      const context = projectContext(project);
+      const context = unitContext(project);
       if (!validId(revisionId)) throw new Error("Invalid artifact revision identifier");
       const revision = await request("media.revision.show", { context, revisionId });
       if (!revision || revision.id !== revisionId || !validId(revision.objectId)) throw new Error("Invalid Artifact revision");

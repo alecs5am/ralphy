@@ -70,12 +70,21 @@ export function ViewBrowser({ url, onNavigate }: {
   const view = useRef<WebviewElement | null>(null);
   const [address, setAddress] = useState(url ?? "");
   const [history, setHistory] = useState({ back: false, forward: false });
+  const [loading, setLoading] = useState(Boolean(url));
+  const [failed, setFailed] = useState(false);
+  const requested = useRef(url ?? "");
+  const navigation = useRef(0);
+  const failure = useRef(false);
+
+  const showFailure = () => { failure.current = true; setFailed(true); setLoading(false); };
 
   useEffect(() => {
     const guest = view.current;
     if (!guest) return;
     const settled = (): void => {
+      if (failure.current || !/^https?:\/\//i.test(guest.getURL())) return;
       setAddress(guest.getURL());
+      requested.current = guest.getURL();
       setHistory({ back: guest.canGoBack(), forward: guest.canGoForward() });
       onNavigate(guest.getURL(), guest.getTitle());
     };
@@ -84,18 +93,47 @@ export function ViewBrowser({ url, onNavigate }: {
     for (const event of ["did-navigate", "did-navigate-in-page", "page-title-updated"]) {
       guest.addEventListener(event, settled);
     }
+    const started = (raw: Event) => {
+      const event = raw as Event & { isMainFrame?: boolean; isInPlace?: boolean; url?: string };
+      if (event.isMainFrame === false || event.isInPlace) return;
+      if (event.url !== requested.current) navigation.current++;
+      if (event.url) { requested.current = event.url; setAddress(event.url); }
+      failure.current = false; setFailed(false); setLoading(true);
+    };
+    const finished = () => { setLoading(false); settled(); };
+    const rejected = (raw: Event) => {
+      const event = raw as Event & { isMainFrame?: boolean; errorCode?: number; validatedURL?: string };
+      if (event.isMainFrame === false || event.errorCode === -3) return;
+      if (event.validatedURL && requested.current && event.validatedURL !== requested.current) return;
+      showFailure();
+    };
+    guest.addEventListener("did-start-navigation", started);
+    guest.addEventListener("did-finish-load", finished);
+    guest.addEventListener("did-fail-load", rejected);
+    guest.addEventListener("render-process-gone", showFailure);
     return () => {
       for (const event of ["did-navigate", "did-navigate-in-page", "page-title-updated"]) {
         guest.removeEventListener(event, settled);
       }
+      guest.removeEventListener("did-start-navigation", started);
+      guest.removeEventListener("did-finish-load", finished);
+      guest.removeEventListener("did-fail-load", rejected);
+      guest.removeEventListener("render-process-gone", showFailure);
+      navigation.current++;
     };
   }, [onNavigate, url === null]);
 
   const go = (input: string): void => {
     const next = browserUrlFor(input);
     if (!next) return;
+    const attempt = ++navigation.current;
+    requested.current = next;
+    failure.current = false; setFailed(false); setLoading(true);
     setAddress(next);
-    if (view.current) void view.current.loadURL(next);
+    if (view.current) void view.current.loadURL(next).catch((error: unknown) => {
+      if (attempt !== navigation.current || (error as { code?: string })?.code === "ERR_ABORTED") return;
+      showFailure();
+    });
     else onNavigate(next, "");
   };
 
@@ -107,7 +145,7 @@ export function ViewBrowser({ url, onNavigate }: {
       <button className={BAR_BUTTON} type="button" aria-label="Forward" disabled={!history.forward} onClick={() => view.current?.goForward()}>
         <ArrowRight size={15} strokeWidth={1.8} aria-hidden="true" />
       </button>
-      <button className={BAR_BUTTON} type="button" aria-label="Reload" disabled={!url} onClick={() => view.current?.reload()}>
+      <button className={BAR_BUTTON} type="button" aria-label="Reload" disabled={!url} onClick={() => go(requested.current || url || "")}>
         <RotateCw size={14} strokeWidth={1.8} aria-hidden="true" />
       </button>
       <form className="flex min-w-0 flex-1" onSubmit={(event) => { event.preventDefault(); go(address); }}>
@@ -121,8 +159,17 @@ export function ViewBrowser({ url, onNavigate }: {
         />
       </form>
     </div>
+    {loading && <p className="m-0 px-3 py-1 type-xs text-muted" role="status">Loading page…</p>}
     {url
-      ? <webview className="view-browser-guest min-h-0 min-w-0 flex-1" ref={(node) => { view.current = node as WebviewElement | null; }} src={url} partition={PARTITION} />
+      ? <div className="relative flex min-h-0 flex-1 flex-col">
+        <webview className="view-browser-guest min-h-0 min-w-0 flex-1" ref={(node) => { view.current = node as WebviewElement | null; }} src={url} partition={PARTITION} />
+        {failed && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card p-6 text-center" role="alert">
+          <Globe size={24} className="text-muted" aria-hidden="true" />
+          <strong className="type-ui text-ink">This page could not be opened</strong>
+          <p className="m-0 max-w-screen-copy type-sm text-muted">Check the address or your connection, then try again.</p>
+          <button className="rounded-control bg-field px-4 py-2 type-sm text-ink hover:bg-panel focus-visible:outline-2 focus-visible:outline-ink" type="button" onClick={() => go(requested.current)}>Retry page</button>
+        </div>}
+      </div>
       : <div className="grid min-h-0 flex-1 place-items-center gap-2 p-6 text-center">
         <Globe className="text-muted-decorative" size={22} strokeWidth={1.6} aria-hidden="true" />
         <p className="m-0 max-w-screen-copy type-sm text-muted">

@@ -51,41 +51,29 @@ export type MarketplacePackInstallAction = "install" | "uninstall" | "enable" | 
 
 export interface MarketplacePackItemDetailProps {
   item: MarketplacePackItemPresentation;
-  /** The workspace the install would land in, or null when there is none. */
+  /** The workspace whose bookmarks are being edited. */
   workspaceName: string | null;
   onBack(): void;
-  onReviewTarget(item: MarketplacePackItemPresentation): void;
   onInstallAction(action: MarketplacePackInstallAction, entryId: string): void;
 }
 
-/* The state line says what installing means here: the pack's documents are
-   already on disk under the library's prompts tree, so an install records that
-   this workspace reaches for this one -- and disabled means it does not. */
+/* Existing install records become bookmarks without changing their disk schema. */
 function installLine(item: MarketplacePackItemPresentation, workspaceName: string | null): string {
   const where = workspaceName === null ? "the selected workspace" : `“${workspaceName}”`;
-  if (item.install.status === "no-workspace") return "Installing needs a workspace in the current home library; there is none to install into.";
-  if (item.install.status === "available") return `Not installed in ${where}. Installing records this workspace's choice on this machine; the document itself already ships with the app.`;
+  if (item.install.status === "no-workspace") return "Create a workspace to save this document for later.";
+  if (item.install.status === "available") return `Save a reference for ${where}. This document is already bundled with the app; saving does not change agent capabilities.`;
   const when = new Date(item.install.installedAt).toISOString().slice(0, 10);
-  return item.install.enabled
-    ? `Installed in ${where} on ${when} and enabled.`
-    : `Installed in ${where} on ${when} but disabled, so its agent does not reach for it.`;
+  return `Saved for ${where} on ${when}. This bookmark does not change agent capabilities.`;
 }
 
 function available(value: Availability<string>): string {
   return value.status === "ready" ? value.value : value.reason;
 }
 
-const ACTION_LABEL: Record<MarketplacePackItemPresentation["category"], string> = {
-  skills: "Review install target",
-  prompts: "Review chat target",
-  templates: "Review project target",
-  recipes: "Review apply target",
-  components: "Review project target",
-};
-
-export function MarketplacePackItemDetail({ item, workspaceName, onBack, onReviewTarget, onInstallAction }: MarketplacePackItemDetailProps) {
+export function MarketplacePackItemDetail({ item, workspaceName, onBack, onInstallAction }: MarketplacePackItemDetailProps) {
   const entry = item.pack;
   const [body, setBody] = useState<Body>({ state: "loading" });
+  const [copyStatus, setCopyStatus] = useState<{ id: string; message: string } | null>(null);
 
   useEffect(() => {
     if (entry.path === null) {
@@ -107,6 +95,16 @@ export function MarketplacePackItemDetail({ item, workspaceName, onBack, onRevie
     return () => { current = false; };
   }, [entry.id, entry.path]);
 
+  const copyDocument = async () => {
+    if (body.state !== "ready") return;
+    try {
+      await bridge.copyText(body.markdown);
+      setCopyStatus({ id: entry.id, message: "Document copied" });
+    } catch {
+      setCopyStatus({ id: entry.id, message: "The document could not be copied. Please try again." });
+    }
+  };
+
   const categoryLabel = CATEGORY_LABEL[item.category];
   return <article className={`marketplace-pack-detail marketplace-detail-route ${DETAIL_ROUTE}`} aria-labelledby="marketplace-pack-title">
     <button className={`marketplace-pack-back ${DETAIL_BACK}`} type="button" onClick={onBack}>
@@ -117,21 +115,11 @@ export function MarketplacePackItemDetail({ item, workspaceName, onBack, onRevie
       <h2 className={DETAIL_TITLE} id="marketplace-pack-title">{item.name}</h2>
       <p className={DETAIL_LEAD}>{item.summary}</p>
       <div className={`marketplace-pack-actions ${DETAIL_ACTIONS}`}>
-        {item.install.status === "no-workspace"
-          ? <button className={HERO_ACTION_PRIMARY} type="button" aria-disabled="true">Install</button>
-          : item.install.status === "available"
-            ? <button className={HERO_ACTION_PRIMARY} type="button" onClick={() => onInstallAction("install", item.pack.id)}>Install</button>
-            : <>
-              <button
-                className={HERO_ACTION_PRIMARY}
-                type="button"
-                onClick={() => onInstallAction(item.install.status === "installed" && item.install.enabled ? "disable" : "enable", item.pack.id)}
-              >{item.install.status === "installed" && item.install.enabled ? "Disable" : "Enable"}</button>
-              <button className={HERO_ACTION_SECONDARY} type="button" onClick={() => onInstallAction("uninstall", item.pack.id)}>Uninstall</button>
-            </>}
-        <button className={HERO_ACTION_SECONDARY} type="button" onClick={() => onReviewTarget(item)}>{ACTION_LABEL[item.category]}</button>
+        <button className={HERO_ACTION_PRIMARY} type="button" disabled={item.install.status === "no-workspace"} onClick={() => onInstallAction(item.install.status === "installed" ? "uninstall" : "install", item.pack.id)}>{item.install.status === "installed" ? "Remove from saved" : "Save to workspace"}</button>
+        {body.state === "ready" && <button className={HERO_ACTION_SECONDARY} type="button" onClick={() => { void copyDocument(); }}>Copy document</button>}
       </div>
       <p className={`marketplace-pack-install-state ${HERO_STATE}`}>{installLine(item, workspaceName)}</p>
+      {copyStatus?.id === entry.id && <p className={HERO_STATE} role="status">{copyStatus.message}</p>}
       {body.state === "ready" && body.truncated && <p className={`marketplace-pack-truncated ${HERO_STATE}`}>This document is longer than the reader shows; the full text ships in the pack.</p>}
       <MarketplaceCategorySignature category={item.category} />
     </header>

@@ -232,6 +232,13 @@ export const ERROR_CODES = {
   },
 
   // ── Provider errors (exit 3) ──────────────────────────────────────────────
+  E_PROVIDER_CREDITS: {
+    class: "provider",
+    httpAnalog: 402,
+    message: "{provider} rejected the request because of insufficient credits or a spending limit",
+    hint: "Check the provider balance and API key limit before trying again.",
+    relatedDocs: "MODELS.md",
+  },
   E_PROVIDER_HTTP: {
     class: "provider",
     httpAnalog: 502,
@@ -298,7 +305,7 @@ export const ERROR_CODES = {
   E_DEP_MISSING: {
     class: "env",
     message: "Required dependency not found on PATH: {dep}",
-    hint: "Install with `brew install {dep}` (macOS) or your package manager, then re-run `ralphy doctor`.",
+    hint: "Install the named tools using their official setup instructions or your package manager, then restart Ralphy and re-run `ralphy doctor`.",
     relatedDocs: ".agents/skills/install/references/ralphy-install.md",
   },
   E_FS_PERMISSION: {

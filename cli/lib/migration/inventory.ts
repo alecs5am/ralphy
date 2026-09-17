@@ -781,8 +781,11 @@ export function scanMigrationProcesses(
     const pid = Number(match[1]);
     const command = `${match[2]} ${match[3]}`.toLowerCase();
     const targetsRoot = canonicalRoots.some((root) => command.includes(root.toLowerCase()));
+    const workerCommand = /ralphy[^\n]*\s(?:daemon|worker)(?:\s|$)/.test(command);
+    const explicitlyScoped = /(?:^|\s)--(?:root|cwd)(?:=|\s)/.test(command);
     const category = targetsRoot && /ralphy\.app|ralphy-desktop|electron[^\n]*ralphy/.test(command) ? "desktop"
-      : /ralphy[^\n]*(daemon|worker)/.test(command) ? "watcher"
+      // An unscoped legacy daemon is conservative; an explicitly foreign one is not ours.
+      : workerCommand && (targetsRoot || !explicitlyScoped) ? "watcher"
         : targetsRoot && /(^|\s)(watchexec|entr)(\s|$)|chokidar|--watch/.test(command) ? "watcher"
           : targetsRoot && /ffmpeg|hyperframes|remotion|ralphy[^\n]*(generate|render)/.test(command) ? "generation"
             : targetsRoot && /ralphy[^\n]*publish|postiz/.test(command) ? "publishing"

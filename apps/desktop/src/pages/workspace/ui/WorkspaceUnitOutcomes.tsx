@@ -86,7 +86,7 @@ function UnitOutcomeDetailDialog({ value, onOpenChange, onOpenUnit }: {
       <section className={DETAIL_SECTION}><h3 className={DETAIL_TITLE}>Benchmark method</h3><p className={DETAIL_COPY}>Percentage change = (current views − previous views) / previous views. Engagement = interactions / views. Finish = completed plays / video starts.</p>{performance.sample && <p className={DETAIL_COPY}>Sample analytics for UX Testing Lab. These values are illustrative and are not saved to the workspace.</p>}</section>
     </> : ([
       ["Result", "Normalized result"], ["Benchmark method", "Benchmark method"], ["Child publications", "Child publication metrics"], ["Observation window", "Observation windows"], ["Destination", "Destination outcomes"],
-    ]).map(([title, subject]) => <section className={DETAIL_SECTION} key={title}><h3 className={DETAIL_TITLE}>{title}</h3><p className={DETAIL_COPY}>{subject} {title === "Result" || title === "Benchmark method" ? "is" : "are"} not available from the current Core contract.</p></section>)}
+    ]).map(([title, subject]) => <section className={DETAIL_SECTION} key={title}><h3 className={DETAIL_TITLE}>{title}</h3><p className={DETAIL_COPY}>{subject} {title === "Result" || title === "Benchmark method" ? "has" : "have"} not been reported.</p></section>)}
   </Modal>;
 }
 

@@ -21,10 +21,9 @@ const categoryOptions = [
 ] satisfies Array<SelectMenuOption<MarketplaceCategory | "all">>;
 const sourceOptions = [
   { value: "all", label: "All sources" },
-  { value: "ralphy", label: "Ralphy public library" },
+  { value: "ralphy", label: "Ralphy library" },
   { value: "huggingface", label: "Hugging Face" },
   { value: "civitai", label: "Civitai" },
-  { value: "modelscope", label: "ModelScope" },
 ] satisfies Array<SelectMenuOption<MarketplaceQueryState["filters"]["source"]>>;
 const licenseOptions = [
   { value: "all", label: "Any license state" },
@@ -103,7 +102,7 @@ export function MarketplaceHeader({
     onSearch();
   };
   const activeFilters = [
-    query.filters.source !== "all" ? { label: sourceOptions.find(({ value }) => value === query.filters.source)!.label, clear: () => onQueryChange(queryWithFilter(query, "source", "all")) } : null,
+    query.filters.source !== "all" ? { label: sourceOptions.find(({ value }) => value === query.filters.source)?.label ?? "Unavailable source", clear: () => onQueryChange(queryWithFilter(query, "source", "all")) } : null,
     query.filters.license !== "all" ? { label: "License declared", clear: () => onQueryChange(queryWithFilter(query, "license", "all")) } : null,
     query.filters.compatibility !== "all" ? { label: compatibilityOptions.find(({ value }) => value === query.filters.compatibility)!.label, clear: () => onQueryChange(queryWithFilter(query, "compatibility", "all")) } : null,
     query.filters.modality !== "all" ? { label: query.filters.modality, clear: () => onQueryChange(queryWithFilter(query, "modality", "all")) } : null,
@@ -155,13 +154,13 @@ export function MarketplaceHeader({
           rather than offering a target that does not exist. */}
       {workspaces.length > 0
         ? <SelectMenu className={filterClass} tone="caller" overlayOwner="marketplace.header"
-          ariaLabel="Workspace to install into" prefix="Install into"
+          ariaLabel="Workspace for saved items" prefix="Workspace"
           value={selectedWorkspaceId ?? workspaces[0]!.id}
           options={workspaces.map(({ id, name }) => ({ value: id, label: name }))}
           align="end"
           onValueChange={onSelectWorkspace}
         />
-        : <span className="marketplace-install-target-unavailable inline-flex h-control-md items-center rounded-control bg-surface-sunken px-3 text-xs text-muted" role="status">No workspace to install into</span>}
+        : <span className="marketplace-install-target-unavailable inline-flex h-control-md items-center rounded-control bg-surface-sunken px-3 text-xs text-muted" role="status">Create a workspace to save items</span>}
       <SelectMenu className={filterClass} tone="caller" overlayOwner="marketplace.header" ariaLabel="Sort Marketplace" prefix="Sort" value={query.sort} options={sortOptions} align="end" onValueChange={(sort) => onQueryChange({ ...query, sort })} />
     </div>
     {activeFilters.length > 0 && <div className="marketplace-filter-chips col-span-full flex min-w-0 flex-wrap gap-1.5" aria-label="Active filters">

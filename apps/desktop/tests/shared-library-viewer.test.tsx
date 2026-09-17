@@ -112,7 +112,7 @@ async function mountViewer(card = artifact("portrait"), cards = [card], props: P
 afterEach(() => vi.restoreAllMocks());
 
 describe("Shared Artifact viewer", () => {
-  test("owns one opaque full-window surface and shows truthful image, identity, context, usage, and revision evidence", async () => {
+  test("owns one full-window surface with image, identity, roles and revision controls", async () => {
     const card = artifact("portrait", { selectedRevisionId: "revision-portrait-2", usageRoles: ["character reference"] });
     vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue({ url: "ralphy-media://asset/portrait-token", sizeBytes: 2_048 });
     vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({
@@ -127,14 +127,10 @@ describe("Shared Artifact viewer", () => {
       expect(surface?.getAttribute("role")).toBe("dialog");
       expect(mounted.body.querySelectorAll(".shared-artifact-viewer")).toHaveLength(1);
       const text = surface!.textContent;
-      expect(text).toContain("Slug identity · portrait");
-      expect(text).toContain("Title unavailable — Core does not return artifact titles");
-      expect(text).toContain("Context agents receive");
-      expect(text).toContain("Agent use guidance is unavailable from the current Core media contract.");
-      for (const field of ["Semantic roles", "Tags", "Named entities", "Canonical status", "Agent-use canonical status"]) expect(text).toContain(field);
-      expect(text).toContain("Selected revision stateapproved");
-      expect(text).toContain("Actual usage");
-      expect(text).toContain("System-derived backlinks are unavailable from this Core version");
+      expect(text).toContain("Asset · portrait");
+      expect(text).toContain("portrait");
+      expect(text).toContain("Revision statusapproved");
+      for (const unsupported of ["Context agents receive", "Canonical status", "Use in project", "Actual usage", "Core"]) expect(text).not.toContain(unsupported);
       expect(text).toContain("Referenced as");
       expect(text).toContain("character reference");
       expect(text).toContain("Revision 2");
@@ -148,10 +144,6 @@ describe("Shared Artifact viewer", () => {
       expect(byAria(surface!, "button", "Fit image")).not.toBeNull();
       expect(text).toContain("FIT");
       expect(text).toContain("100%");
-      const useInProject = buttonByText(surface!, "Use in project unavailable");
-      expect(useInProject.disabled).toBe(false);
-      expect(useInProject.getAttribute("aria-disabled")).toBe("true");
-      expect(surface?.querySelector(`#${useInProject.getAttribute("aria-describedby")}`)?.textContent).toContain("unavailable until Core exposes a mutation contract");
       await click(byAria(surface!, "button", "Open original"));
       expect(open).toHaveBeenCalledWith("workspace-1", "portrait", "open");
     } finally {
@@ -170,7 +162,7 @@ describe("Shared Artifact viewer", () => {
       expect(video).not.toBeNull();
       expect(video?.getAttribute("src")).toBe("ralphy-media://asset/clip-token");
       expect(video?.getAttribute("autoplay")).toBeNull();
-      expect(byAria(mounted.body, "button", "Play Slug identity: clip")).not.toBeNull();
+      expect(byAria(mounted.body, "button", "Play Asset: clip")).not.toBeNull();
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();
@@ -190,10 +182,10 @@ describe("Shared Artifact viewer", () => {
       audio.volume = 1;
       audio.muted = false;
       await act(async () => { audio.dispatchEvent(new Event("loadedmetadata")); await settle(); });
-      expect(byAria(mounted.body, "button", "Play Slug identity: sonic-hook")).not.toBeNull();
-      expect(byAria(mounted.body, "div", "Position in Slug identity: sonic-hook")).not.toBeNull();
-      expect(byAria(mounted.body, "button", "Mute Slug identity: sonic-hook")).not.toBeNull();
-      expect(byAria(mounted.body, "div", "Volume for Slug identity: sonic-hook")).not.toBeNull();
+      expect(byAria(mounted.body, "button", "Play Asset: sonic-hook")).not.toBeNull();
+      expect(byAria(mounted.body, "div", "Position in Asset: sonic-hook")).not.toBeNull();
+      expect(byAria(mounted.body, "button", "Mute Asset: sonic-hook")).not.toBeNull();
+      expect(byAria(mounted.body, "div", "Volume for Asset: sonic-hook")).not.toBeNull();
       expect(mounted.body.textContent).toContain("0:03 · streaming preview");
     } finally {
       await act(async () => mounted.root.unmount());
@@ -313,7 +305,7 @@ describe("Shared Artifact viewer", () => {
     const mounted = await mountViewer(card);
     try {
       expect(mounted.body.textContent).toContain("Preview unavailable");
-      expect(mounted.body.textContent).toContain("Core returned no selected preview target");
+      expect(mounted.body.textContent).toContain("No file is selected for preview");
       expect(byAria(mounted.body, "button", "Open original").disabled).toBe(true);
       expect(resolve).not.toHaveBeenCalled();
     } finally {
@@ -396,7 +388,7 @@ describe("Shared Artifact viewer", () => {
       await click(byAria(document.body as unknown as HostNode, "button", "Next artifact"));
       await act(async () => { await settle(); });
       const body = document.body as unknown as HostNode;
-      expect(body.textContent).toContain("Slug identity · second");
+      expect(body.textContent).toContain("Asset · second");
       expect(body.querySelector('[src="ralphy-media://asset/second"]')).not.toBeNull();
       expect(body.querySelector('[src="ralphy-media://asset/first"]')).toBeNull();
       expect(body.textContent).toContain("Revision 4Selected default");
@@ -433,7 +425,7 @@ describe("Shared Artifact viewer", () => {
         />);
         await settle();
       });
-      expect(mounted.body.textContent).toContain("Slug identity · second");
+      expect(mounted.body.textContent).toContain("Asset · second");
       expect(mounted.body.textContent).not.toContain("Opening original…");
       pending.reject(new Error("stale open failure"));
       await act(async () => { await settle(); });
@@ -474,15 +466,15 @@ describe("Shared Artifact viewer", () => {
         await settle();
       });
       await act(async () => { await settle(); });
-      expect(mounted.body.textContent).toContain("Slug identity · second");
+      expect(mounted.body.textContent).toContain("Asset · second");
       expect(mounted.body.querySelector('[src="ralphy-media://asset/second"]')).not.toBeNull();
       expect(mounted.body.textContent).toContain("Revision 1Selected default");
 
       pending.resolve(artifact("first", { selectedRevisionId: "revision-first-2" }));
       await act(async () => { await settle(); });
 
-      expect(mounted.body.textContent).toContain("Slug identity · second");
-      expect(mounted.body.textContent).not.toContain("Slug identity · first");
+      expect(mounted.body.textContent).toContain("Asset · second");
+      expect(mounted.body.textContent).not.toContain("Asset · first");
       expect(mounted.body.querySelector('[src="ralphy-media://asset/second"]')).not.toBeNull();
       expect(mounted.body.textContent).not.toContain("Revision selection unavailable");
       expect(byAria(mounted.body, "button", "Select revision 2 as default for future use").disabled).toBe(false);
@@ -510,8 +502,8 @@ describe("Shared Artifact viewer", () => {
     const mounted = await mountViewer(current, [current], { onReconcile: reconcile });
     try {
       await click(byAria(mounted.body, "button", "Select revision 3 as default for future use"));
-      expect(mounted.body.textContent).toContain("The selected default changed in Core. Reload current state before retrying.");
-      expect(mounted.body.textContent).toContain("Slug identity · conflicted");
+      expect(mounted.body.textContent).toContain("The selected default changed elsewhere. Reload current state before retrying.");
+      expect(mounted.body.textContent).toContain("Asset · conflicted");
 
       await click(buttonByText(mounted.body, "Reload current state"));
       expect(loadDetail).toHaveBeenCalledWith("workspace-1", "conflicted");
@@ -523,7 +515,7 @@ describe("Shared Artifact viewer", () => {
       expect(select).toHaveBeenNthCalledWith(1, "workspace-1", "conflicted", "revision-conflicted-3", "revision-conflicted-1");
       expect(select).toHaveBeenNthCalledWith(2, "workspace-1", "conflicted", "revision-conflicted-3", "revision-conflicted-2");
       expect(reconcile).toHaveBeenCalledWith(selected);
-      expect(mounted.body.textContent).toContain("Slug identity · conflicted");
+      expect(mounted.body.textContent).toContain("Asset · conflicted");
       expect(mounted.body.textContent).toContain("Revision 3Selected default");
     } finally {
       await act(async () => mounted.root.unmount());
@@ -577,7 +569,7 @@ describe("Shared Artifact viewer", () => {
       await act(async () => { input.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
       const scroll = host.container.querySelector(".shared-library-scroll")!;
       scroll.scrollTop = 91;
-      const identity = byAria(host.container, "button", "Select portrait identity and open inspector");
+      const identity = byAria(host.container, "button", "Select portrait and open inspector");
       identity.focus();
 
       await act(async () => {

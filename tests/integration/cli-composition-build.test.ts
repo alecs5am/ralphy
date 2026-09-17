@@ -702,6 +702,19 @@ describe("composition revision/build CLI", () => {
     expect(revised.checkoutPath).toContain(revised.id);
   });
 
+  test("missing render tools return actionable diagnostics and preserve the sealed source", async () => {
+    const base = await compositionWithSource("hyperframes-prerequisite", "<!doctype html><html></html>");
+    const draft = await reviseCompositionCheckout({ compositionId: base.compositionId,
+      expectedLatestRevisionId: base.revisionId, engine: "hyperframes", engineConfig: {} });
+    const result = await runCli(["composition", "build", base.compositionId, "--revision", draft.id], fixtureRoot, { PATH: "/usr/bin:/bin" });
+    expect(result.exitCode).not.toBe(0);
+    expect(errorCode(result.stderr)).toBe("E_DEP_MISSING");
+    expect(result.stderr).toContain("Bun (bunx)");
+    expect(result.stderr).toContain("restart Ralphy");
+    expect(getCompositionRevision({ context: { workspaceId, projectId }, revisionId: draft.id }).state).toBe("sealed");
+    expect(fs.readFileSync(path.join(draft.checkoutPath, "index.html"), "utf8")).toBe("<!doctype html><html></html>");
+  });
+
   test("hyperframes render calls the domain controller directly with explicit root and no legacy lifecycle", async () => {
     const base = await compositionWithSource("hyperframes-direct", "<!doctype html><html></html>");
     const draft = await reviseCompositionCheckout({
@@ -717,7 +730,21 @@ describe("composition revision/build CLI", () => {
     fs.writeFileSync(nestedBun, `#!/bin/sh\nprintf called > '${nestedMarker}'\nexit 99\n`);
     fs.chmodSync(nestedBun, 0o755);
     const bunx = path.join(bin, "bunx");
-    fs.writeFileSync(bunx, "#!/bin/sh\nwhile [ $# -gt 0 ]; do if [ \"$1\" = \"--output\" ]; then shift; printf video > \"$1\"; exit 0; fi; shift; done\nexit 2\n");
+    fs.writeFileSync(bunx, `#!/bin/sh
+printf 'renderer progress\n'
+while [ $# -gt 0 ]; do
+  if [ "$1" = "--output" ]; then
+    shift
+    scratch=$(mktemp -d "$(dirname "$1")/render-work-XXXXXX") || exit 3
+    printf video > "$scratch/finished.mp4"
+    mv "$scratch/finished.mp4" "$1" || exit 4
+    rmdir "$scratch"
+    exit 0
+  fi
+  shift
+done
+exit 2
+`);
     fs.chmodSync(bunx, 0o755);
     const outside = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-hyperframes-cwd-"));
     const result = await runCli(["hyperframes", "render", projectId], outside, {

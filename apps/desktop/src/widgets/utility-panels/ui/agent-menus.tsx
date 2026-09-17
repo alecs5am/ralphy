@@ -166,11 +166,10 @@ export function AgentModelMenu({ chat, onOpenSettings }: { chat: AgentChatContro
   );
 }
 
-/* The app promises three modes, so the pill cycles three. The handoff's fourth, "Bypass
-   permissions", is not one of them: no harness call in this app runs unsandboxed. */
+/* Labels describe access rather than promising approval dialogs the adapters do not provide. */
 export const permissionLabels: Record<AgentPermissionMode, string> = {
-  auto: "Ask before changes",
-  plan: "Plan only",
+  auto: "Workspace access",
+  plan: "Read-only files",
   full: "Full access",
 };
 

@@ -41,7 +41,12 @@ describe("view panel tabs", () => {
     const stored = readViewPanel({ byChat: { chat: first } });
     expect(activeViewTab(tabSetFor(stored, "chat"))).toMatchObject(request);
     expect(readUnitViewTarget(request.targetId)).toEqual({ workspaceId: "ws", projectId: "prj", unitId: "unit" });
-    for (const invalid of [null, {}, "../prj/unit", "ws/prj/unit/extra", "ws//unit"]) expect(readUnitViewTarget(invalid)).toBeNull();
+    const owned = unitViewRequest({ workspaceId: "ws", projectId: null }, "unit", "Workspace creative");
+    expect(readUnitViewTarget(owned.targetId)).toEqual({ workspaceId: "ws", projectId: null, unitId: "unit" });
+    const saved = unitViewRequest({ workspaceId: "ws", projectId: "prj" }, "unit", "Creative R2", "revision-2");
+    expect(readUnitViewTarget(saved.targetId)).toEqual({ workspaceId: "ws", projectId: "prj", unitId: "unit", revisionId: "revision-2" });
+    expect(activeViewTab(tabSetFor(readViewPanel({ byChat: { chat: openViewTab(first, saved) } }), "chat"))).toMatchObject(saved);
+    for (const invalid of [null, {}, "../prj/unit", "ws/prj/unit/extra/more", "ws/prj/unit/", "ws//", "/prj/unit"]) expect(readUnitViewTarget(invalid)).toBeNull();
   });
 
   test("home is first, permanent, and the fallback active tab", () => {

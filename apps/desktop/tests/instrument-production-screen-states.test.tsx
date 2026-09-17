@@ -16,7 +16,7 @@ import {
   PRODUCTION_SCREEN_STATES,
   WORKSPACE_PICKER_ROUTE_KEYS,
 } from "@/app/instrument/production-screen-states";
-import { bridge } from "@/shared/api/ipc";
+import { bridge, type CatalogResult } from "@/shared/api/ipc";
 import { MARKETPLACE_BASE_ROUTE_KINDS, MARKETPLACE_CATEGORY_ROUTE_VALUES, MARKETPLACE_LIBRARY_ROUTE_VALUES, MARKETPLACE_UNAVAILABLE_DETAIL_ROUTE_VALUES, MarketplaceScreenView } from "@/pages/marketplace";
 import {
   MemoryScreen,
@@ -206,8 +206,8 @@ function marketplaceLocation(route: MarketplaceLocation["route"]): MarketplaceLo
   } as MarketplaceLocation;
 }
 
-function renderMarketplaceState(route: MarketplaceLocation["route"], snapshot: MarketplaceSnapshot): string | null {
-  const markup = renderToStaticMarkup(<MarketplaceScreenView catalog={null} location={marketplaceLocation(route)} sidebarVisible={false} snapshot={snapshot} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />);
+function renderMarketplaceState(route: MarketplaceLocation["route"], snapshot: MarketplaceSnapshot, catalog: CatalogResult | null = null): string | null {
+  const markup = renderToStaticMarkup(<MarketplaceScreenView catalog={catalog} location={marketplaceLocation(route)} sidebarVisible={false} snapshot={snapshot} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />);
   return /data-instrument-state="([^"]+)"/.exec(markup)?.[1] ?? null;
 }
 
@@ -328,7 +328,22 @@ describe("production instrument screen states", () => {
     expect(PRODUCTION_SCREEN_STATES.find(({ routeKey }) => routeKey === "marketplace.detail")!.states)
       .toEqual(["loading", "ready", "unavailable", "error"]);
     expect(renderMarketplaceState({ kind: "detail", itemId: "stale" }, marketplaceReady)).toBe("unavailable");
-    for (const section of ["saved", "added", "downloads", "updates", "attention"] as const) {
+    const savedRoute = { kind: "library", section: "saved" } as const;
+    const savedEntry = { id: "skill:editor", category: "skill", slug: "editor", title: "Editor", summary: "Render craft", path: null, tags: [] } as const;
+    const savedSnapshot = {
+      ...marketplaceReady,
+      packSource: { schemaVersion: 1, cliVersion: "0.3.0", entries: [{ ...savedEntry, tags: [] }], unavailable: null },
+      installs: { schemaVersion: 1, selectedWorkspaceId: "studio", installs: [{ entryId: "skill:editor", workspaceId: "studio", installedAt: 1_700_000_000_000, enabled: true }], warning: null },
+    } satisfies MarketplaceSnapshot;
+    const savedCatalog: CatalogResult = { rootPath: "/tmp/library", generation: 1, completedAt: "2026-09-16T00:00:00Z", projects: [], mediaItemCount: 0, workspaces: [{ id: "studio", name: "Studio", description: "", absolutePath: "/tmp/library/studio", projectCount: 0, sharedCount: 0, unitCount: 0, finalCount: 0, recentActivity: "" }] };
+    expected("marketplace.library.saved", [
+      renderMarketplaceState(savedRoute, { status: "loading", query: marketplaceQuery }),
+      renderMarketplaceState(savedRoute, marketplaceError),
+      renderMarketplaceState(savedRoute, marketplaceReady),
+      renderMarketplaceState(savedRoute, savedSnapshot),
+      renderMarketplaceState(savedRoute, savedSnapshot, savedCatalog),
+    ]);
+    for (const section of ["added", "downloads", "updates", "attention"] as const) {
       expected(`marketplace.library.${section}`, [renderMarketplaceState({ kind: "library", section }, marketplaceReady)]);
     }
     for (const category of ["prompts", "components", "skills"] as const) {

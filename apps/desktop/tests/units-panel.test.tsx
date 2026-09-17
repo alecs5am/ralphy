@@ -96,6 +96,23 @@ async function click(node: HostNode): Promise<void> {
 }
 
 describe("units workbench", () => {
+  test("refreshes an open Unit after activity, following latest or preserving an older choice", async () => {
+    const api = createApi();
+    const controller = screen.createProjectScreenController(api as any, project);
+    await controller.openUnit("unit-1");
+    await controller.inspectUnitRevision("revision-1-3");
+    api.loadProjectUnit.mockResolvedValue({ ...unit(1), latestRevisionId: "revision-1-4" });
+    await controller.refresh(1);
+    expect(controller.getSnapshot().unit.value?.latestRevisionId).toBe("revision-1-4");
+    expect(controller.getSnapshot().inspectedUnitRevisionId).toBe("revision-1-4");
+    await controller.inspectUnitRevision("revision-1-2");
+    api.loadProjectUnit.mockResolvedValue({ ...unit(1), latestRevisionId: "revision-1-5" });
+    await controller.refresh(2);
+    expect(controller.getSnapshot().unit.value?.latestRevisionId).toBe("revision-1-5");
+    expect(controller.getSnapshot().inspectedUnitRevisionId).toBe("revision-1-2");
+    controller.dispose();
+  });
+
   test("embeds the same Unit viewer inside its host without a modal or blocking the chat", async () => {
     const api = createApi();
     api.loadProjectUnit.mockImplementation(async () => ({ ...unit(1), sourceRevisionId: "revision-1-1", sourceLabel: "Uploaded file" }));
@@ -114,10 +131,14 @@ describe("units workbench", () => {
       expect(document.body.querySelector('[role="dialog"]')).toBeNull();
       expect(controller.getSnapshot().unit.value?.sourceRevisionId).toBe("revision-1-1");
       expect(host.container.querySelector(".unit-original-revision")).not.toBeNull();
+      expect(host.container.querySelector(".unit-original-revision")!.getAttribute("class")).not.toContain("ring-brand");
+      expect(host.container.findAll((node) => node.getAttribute("role") === "option" && node.getAttribute("aria-selected") === "true")).toHaveLength(1);
       expect(host.container.findAll((node) => node.getAttribute("aria-label") === "View revision 1")).toHaveLength(0);
       await click(host.container.findAll((node) => node.getAttribute("aria-label") === "View revision 0")[0]!);
       expect(host.container.querySelector(".unit-viewer-state")?.textContent).toBe("R0 · Original");
       expect(host.container.querySelector(".unit-source-preview")?.textContent).toContain("Uploaded file");
+      expect(host.container.querySelector(".unit-original-revision")!.getAttribute("class")).toContain("is-viewing");
+      expect(host.container.findAll((node) => node.getAttribute("role") === "option" && node.getAttribute("aria-selected") === "true")).toHaveLength(1);
       expect(host.container.querySelector(".unit-primary-action")).toBeNull();
       expect(api.selectProjectUnitRevision).not.toHaveBeenCalled();
       await click(host.container.findAll((node) => node.getAttribute("aria-label") === "View revision 3")[0]!);

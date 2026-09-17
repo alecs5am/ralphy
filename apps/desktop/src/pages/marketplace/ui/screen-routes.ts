@@ -48,7 +48,7 @@ export const marketplaceInstrumentStates = [
   marketplaceInstalledInstrumentStates,
   ...MARKETPLACE_LIBRARY_ROUTE_VALUES.filter((section) => section !== "installed").map((section) => defineInstrumentScreenStates({
     routeKey: `marketplace.library.${section}`,
-    states: ["unavailable"],
+    states: section === "saved" ? ["loading", "error", "unavailable", "empty", "ready"] : ["unavailable"],
     rootMarker: `marketplace-library-${section}`,
     landmarks: [section === "attention" ? "Needs attention" : `${section[0].toLocaleUpperCase()}${section.slice(1)}`, "My Library"],
   } as const)),

@@ -204,6 +204,7 @@ describe("Desktop bridge domain contract", () => {
       "calendar.reschedule",
       "calendar.remove",
       "calendar.retry",
+      "calendar.reconcile",
     ].every((method) => methods.has(method))).toBe(true);
 
     expect(await call("calendar.overview", {

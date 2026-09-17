@@ -16,20 +16,20 @@ export function SharedArtifactPreview({ artifact, workspaceId, rootEpoch, resolv
   list?: boolean;
 }) {
   const [preview, setPreview] = useState<PreviewState>(() => artifact.preview === "no-target"
-    ? { status: "unavailable", reason: "No selected preview target was returned by Core." }
+    ? { status: "unavailable", reason: "No file is selected for preview." }
     : { status: "loading" });
   const mediaError = useCallback(() => setPreview({ status: "unavailable", reason: "The resolved preview media could not be decoded or loaded." }), []);
   useEffect(() => {
     let current = true;
     if (artifact.preview === "no-target") {
-      setPreview({ status: "unavailable", reason: "No selected preview target was returned by Core." });
+      setPreview({ status: "unavailable", reason: "No file is selected for preview." });
       return () => { current = false; };
     }
     setPreview({ status: "loading" });
     void resolvePreview(workspaceId, artifact.id).then((value) => {
       if (current) setPreview(value
         ? { status: "ready", value }
-        : { status: "unavailable", reason: "Core did not return a preview URL." });
+        : { status: "unavailable", reason: "The selected file is unavailable." });
     }).catch(() => {
       if (current) setPreview({ status: "unavailable", reason: "The preview could not be loaded." });
     });
@@ -38,7 +38,7 @@ export function SharedArtifactPreview({ artifact, workspaceId, rootEpoch, resolv
 
   if (preview.status === "loading") return <span className="shared-artifact-preview-state" aria-hidden="true">Loading preview…</span>;
   if (preview.status === "unavailable") return <span className="shared-artifact-preview-state" title={preview.reason}><ImageOff aria-hidden="true" /><span>Preview unavailable</span></span>;
-  const identityName = `Slug identity: ${artifact.slug}`;
+  const identityName = `Asset: ${artifact.slug}`;
   if (list) {
     if (artifact.mediaKind === "image") return <img src={preview.value.url} alt="" onError={mediaError} />;
     if (artifact.mediaKind === "video") return <video src={preview.value.url} aria-label={`${identityName} preview`} muted playsInline preload="metadata" onError={mediaError} />;

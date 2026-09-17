@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { bridge } from "@/shared/api/ipc";
 import { GENERATION_PROVIDERS_CHANGED_EVENT, generationDraftFromRun, type GenerationCatalog, type GenerationDraft, type GenerationKind, type GenerationModel } from "../../../../shared/generation-studio";
-import type { CanvasRun, CanvasRunResult } from "../../../../shared/canvas-runtime";
+import { mergeCanvasRuns, type CanvasRun, type CanvasRunResult } from "../../../../shared/canvas-runtime";
 import { chooseGenerationModel, defaultGenerationModel, emptyDraft, running } from "../lib/generation-presentation";
 
 const message = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
@@ -13,6 +13,9 @@ export function useGenerationStudio(workspaceId: string) {
   const [ready, setReady] = useState(false);
   const [draft, setDraft] = useState<GenerationDraft>(emptyDraft);
   const [runs, setRuns] = useState<CanvasRun[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const loadedOlder = useRef(false), paging = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "failed">("saved");
   const [starting, setStarting] = useState(false);
@@ -74,8 +77,12 @@ export function useGenerationStudio(workspaceId: string) {
       clearTimeout(timer); inFlight = true;
       const request = version.current;
       try {
-        const next = await bridge.loadGenerationRuns(workspaceId);
-        if (!stopped && request === version.current) { runsRef.current = next; setRuns(next); }
+        const page = await bridge.loadGenerationRuns(workspaceId);
+        if (!stopped && request === version.current) {
+          const next = mergeCanvasRuns(runsRef.current, page.items);
+          runsRef.current = next; setRuns(next);
+          if (!loadedOlder.current) setNextCursor(page.nextCursor);
+        }
       } catch (cause) { if (!stopped && request === version.current) setError(message(cause)); }
       finally { inFlight = false; }
       if (runsRef.current.some(running) || startingRef.current) schedule();
@@ -85,6 +92,16 @@ export function useGenerationStudio(workspaceId: string) {
     window.addEventListener("focus", focus); void load();
     return () => { stopped = true; clearTimeout(timer); refresh.current = () => {}; window.removeEventListener("focus", focus); };
   }, [workspaceId, reload]);
+
+  const loadOlder = async () => {
+    if (!nextCursor || paging.current) return;
+    paging.current = true; setLoadingOlder(true);
+    try {
+      const page = await bridge.loadGenerationRuns(workspaceId, nextCursor);
+      if (alive.current) { loadedOlder.current = true; const next = mergeCanvasRuns(runsRef.current, page.items); runsRef.current = next; setRuns(next); setNextCursor(page.nextCursor); }
+    } catch (cause) { if (alive.current) setError(message(cause)); }
+    finally { paging.current = false; if (alive.current) setLoadingOlder(false); }
+  };
 
   const chooseModel = (model: GenerationModel) => edit(chooseGenerationModel(draftRef.current, model));
   const chooseKind = (kind: GenerationKind) => {
@@ -115,6 +132,7 @@ export function useGenerationStudio(workspaceId: string) {
     const current = draftRef.current;
     const model = catalog.models.find((item) => item.id === current.modelId && item.provider === current.provider && item.kind === current.kind);
     const spec = model?.inputs.find((item) => item.id === role);
+    if (result.unavailableReason) { setError(result.unavailableReason); return; }
     if (!result.asset || !spec || result.asset.kind !== spec.kind) { setError("This model does not accept that reference type."); return; }
     if (current.inputs.filter((item) => item.role === role).length >= spec.maxCount) { setError(`Remove a ${spec.label.toLocaleLowerCase()} before adding another.`); return; }
     edit({ ...current, inputs: [...current.inputs, { role, asset: result.asset }] });
@@ -135,12 +153,13 @@ export function useGenerationStudio(workspaceId: string) {
     finally { importingRef.current = false; if (alive.current) setImporting(false); }
   };
   const exportResult = async (result: CanvasRunResult) => {
+    if (result.unavailableReason) { setError(result.unavailableReason); return; }
     if (!result.asset) return;
     try { await bridge.exportGenerationAsset(workspaceId, result.asset); }
     catch (cause) { if (alive.current) setError(message(cause)); }
   };
   return {
-    catalog, loading, ready, draft, edit, chooseKind, chooseModel, runs, lastStartedId, error, setError, saveState,
+    catalog, loading, ready, draft, edit, chooseKind, chooseModel, runs, lastStartedId, error, setError, saveState, loadOlder, hasOlder: nextCursor !== null, loadingOlder,
     starting, importing, busy: starting || runs.some(running), start, cancel, importReference, addReference, exportResult,
     refreshCatalog, retryLoad: () => { setError(null); setReload((value) => value + 1); }, retrySave: () => edit(draftRef.current),
     restore: (run: CanvasRun) => { const next = generationDraftFromRun(run); if (next) edit(next); },

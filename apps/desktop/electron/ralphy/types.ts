@@ -84,6 +84,7 @@ export const BRIDGE_METHODS = [
   "composition.build",
   "composition.select",
   "unit.create",
+  "unit.saveMedia",
   "unit.list",
   "unit.show",
   "unit.revisions",
@@ -116,6 +117,7 @@ export const BRIDGE_METHODS = [
   "calendar.reschedule",
   "calendar.remove",
   "calendar.retry",
+  "calendar.reconcile",
   "activity.list",
   "activity.subscribe",
   "activity.unsubscribe",
@@ -320,6 +322,7 @@ export type ArtifactMediaCardDto = {
   kind: string;
   selectedRevisionId: string | null;
   selectedState: string | null;
+  latestReviewVerdict?: "approved" | "needs-work" | "rejected" | "shortlist";
   mime: string | null;
   bytes: number | null;
   selectedAt: number | null;
@@ -661,6 +664,7 @@ export interface CalendarChannelPublicationDto {
   accountId: string | null;
   account: string;
   status: CalendarChannelStatus;
+  needsReconciliation?: boolean;
   at: number | null;
   postUrl: string | null;
   error: string | null;
@@ -1000,13 +1004,13 @@ export interface BridgeMethodContract {
   "consumer.authenticate": Contract<{ namespace: "farm"; tokenBase64url: string }, AckDto>;
   "consumer.session.start": Contract<{ workspaceId: string; projectId?: string; tool: string; label?: string }, SessionDto>;
   "consumer.session.end": Contract<{ sessionId: string }, SessionDto>;
-  "session.start": Contract<{ workspaceId: string; projectId?: string; tool: string; label?: string }, SessionDto>;
+  "session.start": Contract<{ workspaceId: string; projectId?: string; agent: string; metadata?: JsonValue }, SessionDto>;
   "session.show": Contract<{ sessionId: string }, SessionDto>;
   "session.list": Contract<ScopedCursorParams, Page<SessionDto>>;
   "session.end": Contract<{ sessionId: string }, SessionDto>;
   "workspace.list": Contract<CursorParams, Page<WorkspaceDto>>;
   "workspace.show": Contract<IdParams<"workspaceId">, WorkspaceDto>;
-  "workspace.update": Contract<IdParams<"workspaceId"> & { expectedRowVersion: number; patch: JsonObject }, WorkspaceDto>;
+  "workspace.update": Contract<IdParams<"workspaceId"> & { expectedRowVersion: number; slug?: string; name?: string; metadata?: JsonValue }, WorkspaceDto>;
   /* `include` widens what a section counts as the workspace's: "owned" (the default, and what an
      older Core answers when the field is absent) is `project_id IS NULL`, "tree" is the whole
      workspace with its Projects. */
@@ -1051,11 +1055,11 @@ export interface BridgeMethodContract {
   "project.status": Contract<IdParams<"projectId">, { projectId: string; status: string; currentIterationId: string | null }>;
   "project.overview": Contract<IdParams<"projectId"> & { sections: ProjectOverviewSections }, ProjectOverviewDto>;
   "project.iteration.list": Contract<IdParams<"projectId"> & CursorParams, Page<IterationDto>>;
-  "project.iteration.create": Contract<IdParams<"projectId"> & { label?: string }, IterationDto>;
+  "project.iteration.create": Contract<IdParams<"projectId"> & { title: string; reason?: string }, IterationDto>;
   "feedback.list": Contract<IdParams<"projectId"> & CursorParams & { state?: string }, Page<FeedbackDto>>;
   "feedback.add": Contract<IdParams<"projectId"> & { iterationId: string; text: string; target?: MediaRef }, FeedbackDto>;
   "feedback.resolve": Contract<IdParams<"feedbackId"> & { resolutionRevisionId: string }, FeedbackDto>;
-  "document.create": Contract<ScopedParams & { slug: string; kind: string; format: string; body: string }, DocumentDto>;
+  "document.create": Contract<ScopedParams & { slug: string; kind: string; title: string }, DocumentDto>;
   "document.list": Contract<ScopedCursorParams, Page<DocumentDto>>;
   "document.show": Contract<IdParams<"documentId">, DocumentDetailDto>;
   "document.revisions": Contract<IdParams<"documentId"> & CursorParams, Page<DocumentRevisionDto>>;
@@ -1139,6 +1143,10 @@ export interface BridgeMethodContract {
   "composition.build": Contract<ScopedParams & { compositionRevisionId: string; profile?: JsonValue }, CompositionBuildCompletion>;
   "composition.select": Contract<IdParams<"compositionId"> & { revisionId: string; expectedSelectedRevisionId: string | null }, CompositionDto>;
   "unit.create": Contract<ScopedParams & { slug: string; format: string; compositionId?: string | null }, UnitDto>;
+  "unit.saveMedia": Contract<ScopedParams & {
+    key: string; kind: "image" | "video" | "audio"; unitId?: string; expectedLatestRevisionId?: string | null; name?: string;
+    file: { path: string; name: string; mime: string }; references: { path: string; name: string; mime: string }[]; provenance: JsonValue;
+  }, { workspaceId: string; projectId: string | null; unitId: string; revisionId: string; revisionNo: number; label: string; alreadySaved: boolean }>;
   "unit.list": Contract<ScopedCursorParams, Page<UnitDto>>;
   "unit.show": Contract<IdParams<"unitId">, UnitDto>;
   "unit.revisions": Contract<IdParams<"unitId"> & CursorParams & HistoryOrderParams, Page<UnitRevisionDto>>;
@@ -1188,6 +1196,7 @@ export interface BridgeMethodContract {
   "calendar.reschedule": Contract<ScopedParams & { eventId: string; expectedRowVersion: number; at: number }, CalendarEventDto>;
   "calendar.remove": Contract<ScopedParams & { eventId: string; expectedRowVersion: number }, CalendarEventDto>;
   "calendar.retry": Contract<ScopedParams & { eventId: string; expectedRowVersion: number }, CalendarEventDto>;
+  "calendar.reconcile": Contract<ScopedParams & { eventId: string; expectedRowVersion: number }, CalendarEventDto>;
   "activity.list": Contract<
     | { context: BridgeContext; afterSequence: number; limit: number }
     | { afterSequence: number; limit: number },

@@ -14,7 +14,7 @@ export type DocumentActions = Pick<ProjectScreenController,
   "openDocument" | "openDocumentById" | "searchDocuments" | "clearDocumentSearch"
   | "loadMoreDocumentSearch" | "retryDocumentSearchAppend" | "openSearchResult"
   | "beginDocumentEdit" | "cancelDocumentEdit" | "setDocumentDraftBody" | "setDocumentDraftTitle"
-  | "setDocumentDraftFormat" | "saveDocument">;
+  | "setDocumentDraftFormat" | "saveDocument" | "createDocument">;
 
 function revisionBody(format: DocumentDraft["format"], body: string): JsonValue {
   if (format !== "json") return body;
@@ -123,6 +123,29 @@ export function createDocumentSection(store: ProjectScreenStore): ProjectScreenS
   };
 
   const actions: DocumentActions = {
+    async createDocument() {
+      if (store.snapshot.documentSaving || store.snapshot.documentDirty) return;
+      const requestId = ++documentRequest;
+      saveRequest += 1;
+      store.patch({ documentSaving: true });
+      try {
+        const document = await store.api.createProjectDocument(store.snapshot.domain.project, { title: "Untitled document" });
+        if (store.disposed || requestId !== documentRequest) return;
+        const domain = store.snapshot.domain;
+        const page = domain.pages.documents;
+        store.patch({
+          domain: { ...domain, pages: { ...domain.pages, documents: { ...page, status: "ready", items: [document, ...page.items], error: null } } },
+          selectedDocument: document, documentPreview: idleDocument, documentMode: "read", documentDraft: null,
+          documentDirty: false, documentSaving: false, documentConflict: null, documentConflictReview: false,
+        });
+        actions.clearDocumentSearch();
+        actions.beginDocumentEdit();
+        actions.setDocumentDraftTitle(document.title);
+      } catch (error) {
+        if (!store.disposed && requestId === documentRequest) store.patch({ documentSaving: false });
+        throw error;
+      }
+    },
     async openDocument(document) {
       const retained = store.snapshot.selectedDocument?.id === document.id ? store.snapshot.documentDraft : null;
       await loadDocument(document.id, retained, retained ? store.snapshot.documentConflict : null, retained ? store.snapshot.documentConflictReview : false);
@@ -202,7 +225,10 @@ export function createDocumentSection(store: ProjectScreenStore): ProjectScreenS
           body: revisionBody(draft.format, draft.body),
         });
         if (saveRequest !== requestId || store.snapshot.selectedDocument?.id !== document.id) return;
-        const selectedDocument = { ...document, currentRevisionId: revision.id, currentRevision: revision };
+        const selectedDocument = { ...document, title: revision.title ?? document.title, currentRevisionId: revision.id, currentRevision: revision };
+        const domain = store.snapshot.domain;
+        const page = domain.pages.documents;
+        store.patch({ domain: { ...domain, pages: { ...domain.pages, documents: { ...page, items: page.items.map((row) => row.id === document.id ? selectedDocument : row) } } } });
         documentDraftBase = null;
         store.patch({ selectedDocument, documentPreview: { status: "ready", value: { revisionId: revision.id, format: revision.format, text: draft.body, truncated: false }, error: null }, documentMode: "read", documentDraft: null, documentDirty: false, documentSaving: false, documentConflict: null, documentConflictReview: false });
       } catch (error) {

@@ -110,7 +110,9 @@ export function MarketplacePublicItemDetail({
   const generation = useRef(0);
   const [copyResult, setCopyResult] = useState<{ key: string; artifact: string; kind: "success" | "error"; message: string } | null>(null);
   const recipe = item.category === "recipes" ? item.recipe.recipe : null;
-  const artifact = recipe?.artifact ?? null;
+  const artifact = item.category === "templates"
+    ? [`Ralphy template: ${item.name}`, `ID: ${item.template.id}`, item.summary, ...item.template.referenceUrls].join("\n")
+    : recipe?.artifact ?? null;
 
   useEffect(() => {
     generation.current += 1;
@@ -124,7 +126,7 @@ export function MarketplacePublicItemDetail({
     setCopyResult(null);
     try {
       await bridge.copyText(artifact);
-      if (requestGeneration === generation.current) setCopyResult({ key: item.key, artifact, kind: "success", message: "Artifact copied" });
+      if (requestGeneration === generation.current) setCopyResult({ key: item.key, artifact, kind: "success", message: item.category === "templates" ? "Template reference copied" : "Artifact copied" });
     } catch (cause) {
       if (requestGeneration === generation.current) {
         const message = (cause instanceof Error ? cause.message : String(cause)).slice(0, 1_024);
@@ -134,7 +136,6 @@ export function MarketplacePublicItemDetail({
   };
 
   const review = item.category === "templates" ? onReviewTemplateTarget : onReviewRecipeTarget;
-  const reviewUnavailableId = `marketplace-${item.category}-review-unavailable`;
   const copyUnavailableId = "marketplace-recipe-copy-unavailable";
   const status = copyResult?.key === item.key && copyResult.artifact === artifact ? copyResult : null;
 
@@ -145,17 +146,15 @@ export function MarketplacePublicItemDetail({
       <h2 className={DETAIL_TITLE} id="marketplace-public-title">{item.name}</h2>
       <p className={DETAIL_LEAD}>{item.summary}</p>
       <div className={`marketplace-public-actions ${DETAIL_ACTIONS}`}>
-        {item.category === "recipes" && <button className={HERO_ACTION_PRIMARY} type="button" aria-disabled={!artifact} aria-describedby={!artifact ? copyUnavailableId : undefined} onClick={artifact ? () => { void copyArtifact(); } : undefined}><Copy className={HERO_ACTION_GLYPH} aria-hidden="true" />Copy artifact</button>}
-        <button
+        <button className={HERO_ACTION_PRIMARY} type="button" aria-disabled={!artifact} aria-describedby={!artifact ? copyUnavailableId : undefined} onClick={artifact ? () => { void copyArtifact(); } : undefined}><Copy className={HERO_ACTION_GLYPH} aria-hidden="true" />{item.category === "templates" ? "Copy template reference" : "Copy artifact"}</button>
+        {review && <button
           className={item.category === "recipes" ? HERO_ACTION_SECONDARY : HERO_ACTION_PRIMARY}
           type="button"
-          aria-disabled={!review}
-          aria-describedby={!review ? reviewUnavailableId : undefined}
-          onClick={review ? () => item.category === "templates" ? onReviewTemplateTarget?.(item) : onReviewRecipeTarget?.(item) : undefined}
-        >{item.category === "templates" ? "Review project target" : "Review apply target"}</button>
+          onClick={() => item.category === "templates" ? onReviewTemplateTarget?.(item) : onReviewRecipeTarget?.(item)}
+        >{item.category === "templates" ? "Review project target" : "Review apply target"}</button>}
       </div>
       {item.category === "recipes" && !artifact && <p id={copyUnavailableId} className={`marketplace-public-action-state ${HERO_STATE}`}>Artifact copy is unavailable because public-library schema 1 did not provide an artifact.</p>}
-      {!review && <p id={reviewUnavailableId} className={`marketplace-public-action-state ${HERO_STATE}`}>Target review is unavailable until the current Desktop workflow contract is connected.</p>}
+      {item.category === "templates" && <p className={HERO_STATE}>Copy this reference into a chat to use it in a project.</p>}
       {status && <p className={`marketplace-public-copy-state ${HERO_STATE} [&[role=alert]]:text-alert-bright`} role={status.kind === "error" ? "alert" : "status"} aria-live="polite">{status.message}</p>}
       <MarketplaceCategorySignature category={item.category} />
     </header>

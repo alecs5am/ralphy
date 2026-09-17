@@ -57,6 +57,7 @@
 
   /* Layout the design fixes for this area. */
   --spacing-document-canvas: 960px;         /* a rendered document stops growing here */
+  --spacing-document-view-tab: 64px;
   --spacing-project-plate: min(360px, 100%); /* an unselected detail state stays a plate, not a slab */
   --spacing-project-state: 96px;            /* ...and holds a readable height while it is empty */
   --spacing-units-search: 200px;            /* the unit search never shrinks past its placeholder */

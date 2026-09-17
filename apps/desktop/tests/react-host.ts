@@ -1,5 +1,5 @@
 export const reactHostGlobalKeys = [
-  "window", "document", "Node", "NodeFilter", "Element", "HTMLElement", "HTMLInputElement", "DocumentFragment", "ResizeObserver", "IntersectionObserver", "MutationObserver", "CustomEvent", "getComputedStyle", "IS_REACT_ACT_ENVIRONMENT",
+  "window", "document", "Node", "NodeFilter", "Element", "HTMLElement", "HTMLInputElement", "HTMLFormElement", "DocumentFragment", "ResizeObserver", "IntersectionObserver", "MutationObserver", "CustomEvent", "getComputedStyle", "IS_REACT_ACT_ENVIRONMENT",
 ] as const;
 
 type Listener = EventListenerOrEventListenerObject;
@@ -295,7 +295,7 @@ export function createReactHost() {
   }
   const globals = globalThis as unknown as Record<string, unknown>;
   const previous = new Map(reactHostGlobalKeys.map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
-  Object.assign(globals, { window, document, Node: HostNode, NodeFilter: { SHOW_ELEMENT: 1, FILTER_ACCEPT: 1, FILTER_SKIP: 3 }, Element: HostNode, HTMLElement: HostNode, HTMLInputElement: class {}, DocumentFragment: HostDocumentFragment, ResizeObserver: HostResizeObserver, IntersectionObserver: HostIntersectionObserver, MutationObserver: HostMutationObserver, CustomEvent: HostCustomEvent, getComputedStyle: computedStyle, IS_REACT_ACT_ENVIRONMENT: true });
+  Object.assign(globals, { window, document, Node: HostNode, NodeFilter: { SHOW_ELEMENT: 1, FILTER_ACCEPT: 1, FILTER_SKIP: 3 }, Element: HostNode, HTMLElement: HostNode, HTMLInputElement: class {}, HTMLFormElement: class {}, DocumentFragment: HostDocumentFragment, ResizeObserver: HostResizeObserver, IntersectionObserver: HostIntersectionObserver, MutationObserver: HostMutationObserver, CustomEvent: HostCustomEvent, getComputedStyle: computedStyle, IS_REACT_ACT_ENVIRONMENT: true });
   const container = new HostNode(1, "DIV", document);
   rawDocument.body.appendChild(container);
   return {

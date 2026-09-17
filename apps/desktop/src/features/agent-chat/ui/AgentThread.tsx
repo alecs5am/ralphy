@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { agentErrorMessage } from "../../../../shared/agent-error";
 import { Copy, Pencil, RotateCcw, TriangleAlert } from "@/shared/ui/icons";
 import { bridge } from "@/shared/api/ipc";
 import { AgentTaggedText } from "./agent-tags";
@@ -35,7 +36,7 @@ export function AgentFailure({ title, text, onRetry }: { title?: string; text: s
       >Retry</button>}
     </div>
     <p className="m-0 mx-0.5 mb-0.5 rounded-md bg-card px-2.5 py-1.75 font-code type-mono-sm tracking-mono whitespace-pre-wrap text-failure-ink [overflow-wrap:anywhere]">
-      {text} · REPORTED BY PROVIDER
+      {agentErrorMessage(text)}
     </p>
   </div>;
 }
@@ -72,7 +73,7 @@ function UserTurn({
       <button className={LINE_ACTION} type="button" title="Edit & resend" aria-label="Edit and resend" onClick={() => onEdit(text)}>
         <Pencil size={11} strokeWidth={2} aria-hidden="true" />
       </button>
-      <button className={LINE_ACTION} type="button" title="Re-run from here" aria-label="Re-run from here" disabled={busy} onClick={() => onRerun(text)}>
+      <button className={LINE_ACTION} type="button" title="Send again in this conversation" aria-label="Send again" disabled={busy} onClick={() => onRerun(text)}>
         <RotateCcw size={11} strokeWidth={2} aria-hidden="true" />
       </button>
     </div>
@@ -172,11 +173,11 @@ function TurnView({
       onClick={() => setOpen((value) => !value)}
     >
       <span className="min-w-0 truncate type-base">
-        {turn.result ? `Worked for ${elapsedLabel(turn.result.run?.durationMs ?? 0)}` : "Working"}
+        {turn.result ? `${turn.result.run?.outcome === "cancelled" ? "Stopped after" : turn.result.run?.outcome === "failed" ? "Failed after" : "Worked for"} ${elapsedLabel(turn.result.run?.durationMs ?? 0)}` : streamingTool !== undefined ? "Working" : parts.some((part) => part.kind === "error") ? "Run failed" : "Interrupted"}
       </span>
       {worked.length > 0 && <Chevron open={open} />}
       <span className="min-w-0 flex-1" aria-hidden="true" />
-      {turn.result && turn.result.run!.costUsd > 0 && <span className={META}>
+      {turn.result?.run && turn.result.run.costUsd > 0 && <span className={META}>
         ${turn.result.run!.costUsd.toFixed(2)} REPORTED BY PROVIDER
       </span>}
     </button>}

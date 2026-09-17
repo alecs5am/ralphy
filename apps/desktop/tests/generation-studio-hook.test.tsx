@@ -6,7 +6,7 @@ import { chooseGenerationModel, generationProblem } from "../src/pages/generatio
 import { generationSnapshot } from "../electron/canvas/generation-draft";
 import type { GenerationCatalog, GenerationDraft, GenerationModel } from "../shared/generation-studio";
 import { GENERATION_PROVIDERS_CHANGED_EVENT } from "../shared/generation-studio";
-import type { CanvasRun } from "../shared/canvas-runtime";
+import type { CanvasRun, CanvasRunPage } from "../shared/canvas-runtime";
 import { createReactHost } from "./react-host";
 
 const model: GenerationModel = { id: "image-model", name: "Image model", provider: "openrouter", kind: "image", available: true, description: "", previewSupported: true, inputs: [{ id: "refs", label: "Reference images", kind: "image", maxCount: 1 }], fields: [{ id: "aspectRatio", label: "Aspect ratio", type: "choice", options: [{ value: "1:1", label: "Square" }], default: "1:1" }] };
@@ -27,7 +27,7 @@ async function harness() {
 function mocks() {
   vi.spyOn(bridge, "loadGenerationCatalog").mockResolvedValue(catalog);
   vi.spyOn(bridge, "loadGenerationDraft").mockResolvedValue(draft);
-  vi.spyOn(bridge, "loadGenerationRuns").mockResolvedValue([]);
+  vi.spyOn(bridge, "loadGenerationRuns").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(bridge, "saveGenerationDraft").mockResolvedValue();
 }
 
@@ -60,8 +60,8 @@ test("edits save immediately, failed saves remain visible, and a late import can
 
 test("duplicate starts submit once; stale polls cannot overwrite start and stop; completed work stops polling", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }); mocks();
-  const oldPoll = deferred<CanvasRun[]>(), started = deferred<CanvasRun>();
-  const load = vi.spyOn(bridge, "loadGenerationRuns").mockReturnValueOnce(oldPoll.promise).mockResolvedValue([run("succeeded")]);
+  const oldPoll = deferred<CanvasRunPage>(), started = deferred<CanvasRun>();
+  const load = vi.spyOn(bridge, "loadGenerationRuns").mockReturnValueOnce(oldPoll.promise).mockResolvedValue({ items: [run("succeeded")], nextCursor: null });
   const start = vi.spyOn(bridge, "startGeneration").mockReturnValue(started.promise);
   vi.spyOn(bridge, "cancelGenerationRun").mockResolvedValue(run("cancelled"));
   const host = await harness();
@@ -69,7 +69,7 @@ test("duplicate starts submit once; stale polls cannot overwrite start and stop;
     await host.render(); let first!: Promise<void>;
     await act(async () => { first = host.studio().start("execute"); void host.studio().start("execute"); });
     expect(start).toHaveBeenCalledTimes(1);
-    await act(async () => { started.resolve(run()); await first; oldPoll.resolve([]); });
+    await act(async () => { started.resolve(run()); await first; oldPoll.resolve({ items: [], nextCursor: null }); });
     expect(host.studio().runs[0]?.status).toBe("running");
     await act(async () => host.studio().cancel("run-one")); expect(host.studio().runs[0]?.status).toBe("cancelled");
     await act(async () => vi.advanceTimersByTimeAsync(1800));
@@ -101,5 +101,20 @@ test("saving a provider key refreshes model readiness without changing the draft
     await act(async () => window.dispatchEvent(new Event(GENERATION_PROVIDERS_CHANGED_EVENT)));
     expect(load).toHaveBeenCalledTimes(2); expect(host.studio().catalog.models[0]?.available).toBe(true);
     expect(host.studio().draft).toEqual(draft);
+  } finally { await host.close(); }
+});
+
+test("Create keeps older loaded results after a current-history refresh", async () => {
+  mocks(); const recent = run("succeeded"), old = { ...run("succeeded"), id: "older-run", startedAt: 0 };
+  const load = vi.spyOn(bridge, "loadGenerationRuns").mockResolvedValue({ items: [recent], nextCursor: "older" });
+  const host = await harness();
+  try {
+    await host.render(); expect(host.studio().hasOlder).toBe(true);
+    load.mockResolvedValueOnce({ items: [old], nextCursor: null });
+    await act(async () => host.studio().loadOlder());
+    expect(load).toHaveBeenLastCalledWith("ws-one", "older");
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    expect(host.studio().runs.map((run) => run.id)).toEqual([recent.id, old.id]);
+    expect(host.studio().hasOlder).toBe(false);
   } finally { await host.close(); }
 });

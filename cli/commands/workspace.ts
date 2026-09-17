@@ -31,6 +31,7 @@ import {
 import { StoreConflictError } from "../lib/store/types.js";
 import { resolveCommandContext } from "../lib/context.js";
 import { ralphDir } from "../lib/paths.js";
+import { importWorkspaceArchiveFile } from "../lib/store/portable.js";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 const SHARED_ASSET_KINDS = ["images", "videos", "voiceover", "music", "sfx", "fonts"];
@@ -80,6 +81,14 @@ export function workspaceCmd(): Command {
   const cmd = new Command("workspace").description(
     "Manage account workspaces: profile, channels, shared brand assets, projects, and units",
   );
+
+  cmd.command("import")
+    .description("Import a complete workspace archive as a new workspace")
+    .requiredOption("--file <path>", "Portable .workspace.tar file")
+    .requiredOption("--idempotency-key <key>", "Stable key for safe retries")
+    .option("--as <slug>", "New workspace slug")
+    .option("--name <name>", "New workspace display name")
+    .action(async (opts) => out(await importWorkspaceArchiveFile({ filePath: opts.file, idempotencyKey: opts.idempotencyKey, workspaceSlug: opts.as, workspaceName: opts.name })));
 
   cmd
     .command("create <name>")

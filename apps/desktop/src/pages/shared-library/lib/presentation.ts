@@ -68,7 +68,7 @@ export function presentSharedArtifact(card: ArtifactMediaCardDto): SharedArtifac
   return {
     id: card.ref.id,
     slug: card.slug,
-    title: unavailable("Titles are unavailable from the current Core media contract."),
+    title: { status: "ready", value: card.slug },
     kind: card.kind,
     mediaKind: card.mediaKind,
     mime: card.mime,
@@ -81,15 +81,15 @@ export function presentSharedArtifact(card: ArtifactMediaCardDto): SharedArtifac
     provenance: card.provenance,
     referencedAs: [...card.usageRoles],
     preview: card.target === null ? "no-target" : "available",
-    semanticRoles: unavailable("Semantic roles are unavailable from the current Core media contract."),
-    tags: unavailable("Tags are unavailable from the current Core media contract."),
-    entities: unavailable("Entities are unavailable from the current Core media contract."),
-    canonicalStatus: unavailable("Canonical status is unavailable from the current Core media contract."),
-    agentUse: unavailable("Agent use guidance is unavailable from the current Core media contract."),
-    rights: unavailable("Rights data is unavailable from the current Core media contract."),
-    usageBacklinks: unavailable("Usage backlinks are unavailable from the current Core media contract."),
-    attention: unavailable("Attention signals are unavailable from the current Core media contract."),
-    relationships: unavailable("Artifact relationships are unavailable from the current Core media contract."),
+    semanticRoles: unavailable("Semantic roles are unavailable."),
+    tags: unavailable("Tags are unavailable."),
+    entities: unavailable("Entities are unavailable."),
+    canonicalStatus: unavailable("Canonical status is unavailable."),
+    agentUse: unavailable("Agent use guidance is unavailable."),
+    rights: unavailable("Rights data is unavailable."),
+    usageBacklinks: unavailable("Usage backlinks are unavailable."),
+    attention: unavailable("Attention signals are unavailable."),
+    relationships: unavailable("Artifact relationships are unavailable."),
   };
 }
 
@@ -111,7 +111,7 @@ export function presentSharedLibrary(
 
   const artifacts = cards.map(presentSharedArtifact);
   const selectedBytes = cards.reduce((total, card) => total + (card.bytes ?? 0), 0);
-  const boundedReason = `Showing ${artifacts.length} loaded artifacts; more are available from Core.`;
+  const boundedReason = `Showing ${artifacts.length} loaded artifacts; more are available in this library.`;
   const unknownSelectedBytes = cards.some((card) => card.selectedRevisionId !== null && card.bytes === null);
 
   return {
@@ -124,7 +124,7 @@ export function presentSharedLibrary(
     totalSelectedBytes: page.nextCursor !== null
       ? { status: "partial", value: selectedBytes, reason: boundedReason }
       : unknownSelectedBytes
-        ? { status: "partial", value: selectedBytes, reason: "Selected bytes are unavailable for one or more loaded artifacts from Core." }
+        ? { status: "partial", value: selectedBytes, reason: "Selected bytes are unavailable for one or more loaded artifacts in this library." }
         : { status: "ready", value: selectedBytes },
   };
 }

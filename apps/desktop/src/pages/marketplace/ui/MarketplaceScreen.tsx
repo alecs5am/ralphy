@@ -59,14 +59,6 @@ export interface MarketplaceScreenProps {
   onRememberLocation(patch: MarketplaceMemoryPatch): void;
 }
 
-const PACK_WORKFLOW: Record<Exclude<MarketplaceCategory, "models">, MarketplaceWorkflowKind> = {
-  skills: "skill-install",
-  prompts: "prompt-use",
-  templates: "template-target",
-  recipes: "recipe-target",
-  components: "component-target",
-};
-
 function marketplaceRouteKey(route: MarketplaceLocation["route"]) {
   if (route.kind === "category") return `marketplace.category.${route.category}` as const;
   if (route.kind === "library") return `marketplace.library.${route.section}` as const;
@@ -235,7 +227,9 @@ export function MarketplaceScreenView({
     ? snapshot.items.filter((item) => instrumentCategory === null || item.category === instrumentCategory).length
     : 0;
   const instrumentDescriptor = marketplaceInstrumentStates.find(({ routeKey }) => routeKey === marketplaceRouteKey(location.route))!;
-  const instrumentState: InstrumentScenarioState = location.route.kind === "unavailable-detail"
+  const instrumentState: InstrumentScenarioState = location.route.kind === "library" && location.route.section === "saved"
+    ? snapshot.status === "loading" ? "loading" : snapshot.status === "error" ? "error" : !snapshot.installs || !snapshot.packSource || snapshot.installs.warning && !installedPackItems.length ? "unavailable" : installedPackItems.length ? "ready" : "empty"
+    : location.route.kind === "unavailable-detail"
     || (location.route.kind === "library" && location.route.section !== "installed")
     || staleDetail
     ? "unavailable"
@@ -276,14 +270,14 @@ export function MarketplaceScreenView({
       onScroll={(event) => onRememberLocation({ scrollTop: event.currentTarget.scrollTop })}
     >
       {targetMessage && <p className="marketplace-target-state mt-2 w-fit rounded-full bg-surface-sunken px-3 py-1.5 font-mono type-mono-xs tracking-label text-muted">{targetMessage}</p>}
+      {snapshot.status === "ready" && snapshot.installs?.warning && <p className="m-3 text-sm text-alert" role="alert">{snapshot.installs.warning}</p>}
       {detailReference
-        ? <MarketplaceModelDetail reference={detailReference} onBack={onBack} onReviewDownload={(model) => setWorkflow({ kind: "model-download", itemLabel: model.name })} />
+        ? <MarketplaceModelDetail reference={detailReference} onBack={onBack} />
         : detailItem?.origin === "pack"
           ? <MarketplacePackItemDetail
             item={detailItem}
             workspaceName={workspaces.find(({ id }) => id === installWorkspaceId)?.name ?? null}
             onBack={onBack}
-            onReviewTarget={(item) => setWorkflow({ kind: PACK_WORKFLOW[item.category], itemLabel: item.name })}
             onInstallAction={(action, entryId) => {
               if (installWorkspaceId === null) return;
               onInstallAction({ action, workspaceId: installWorkspaceId, entryId });
@@ -293,8 +287,6 @@ export function MarketplaceScreenView({
           ? <MarketplacePublicItemDetail
             item={detailItem}
             onBack={onBack}
-            onReviewTemplateTarget={(item) => setWorkflow({ kind: "template-target", itemLabel: item.name })}
-            onReviewRecipeTarget={(item) => setWorkflow({ kind: "recipe-target", itemLabel: item.name })}
           />
         : publicDetailState === "loading"
           ? <section className={ROUTE_PLACEHOLDER} role="status" aria-busy="true"><h2>Loading public item details…</h2></section>
@@ -303,7 +295,9 @@ export function MarketplaceScreenView({
         : staleDetail
           ? <section className={ROUTE_PLACEHOLDER} role="status"><div className="grid justify-items-center gap-2"><button className="marketplace-public-back inline-flex h-8 w-fit items-center gap-1.75 rounded-control bg-surface-sunken px-3 type-xs text-ink" type="button" onClick={onBack}>Back to Marketplace</button><h2 className="m-0 text-lg">Marketplace item unavailable</h2><p className="m-0 text-sm text-muted">This Marketplace item is unavailable because its saved reference is invalid or stale.</p></div></section>
         : location.route.kind === "library"
-          ? <MarketplaceMyLibrary
+          ? location.route.section === "saved" && (snapshot.status !== "ready" || !snapshot.installs || !snapshot.packSource || snapshot.installs.warning && !installedPackItems.length)
+            ? <section className={ROUTE_PLACEHOLDER} role="status"><p>{snapshot.status === "loading" ? "Loading saved documents…" : snapshot.status === "ready" && snapshot.installs?.warning || "Saved documents could not be loaded. Please refresh the catalog."}</p><button type="button" onClick={onRetry}>Refresh</button></section>
+            : <MarketplaceMyLibrary
             section={location.route.section}
             machine={snapshot.status === "ready" ? snapshot.machine : null}
             installedItems={installedPackItems}

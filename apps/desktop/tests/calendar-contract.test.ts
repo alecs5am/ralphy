@@ -58,7 +58,8 @@ describe("Calendar Desktop contract", () => {
           ? { absolutePath: "/safe/preview.jpg", mime: "image/jpeg", bytes: 42 }
           : event);
     const mint = vi.fn(async () => ({ url: "ralphy-media://asset/token", sizeBytes: 42 }));
-    const reader = createCalendarReader({ request: request as RalphyBridgeClient["request"], mint });
+    const connect = vi.fn(async () => ({ imported: 1, skipped: 0 }));
+    const reader = createCalendarReader({ request: request as RalphyBridgeClient["request"], mint, connect });
 
     await expect(reader.load("ws_1", {
       from: "2026-08-01T00:00:00.000Z",
@@ -85,23 +86,24 @@ describe("Calendar Desktop contract", () => {
       eventId: "calendar_1",
       expectedRowVersion: 1,
     });
-    expect(request).toHaveBeenNthCalledWith(3, "agent.credential.set", {
-      context: { workspaceId: "ws_1" },
-      provider: "postiz",
-      value: "postiz-secret",
-      accountId: "account_1",
-      expectedRowVersion: 1,
-    });
-    expect(request).toHaveBeenNthCalledWith(4, "media.revision.show", {
+    expect(connect).toHaveBeenCalledWith("ws_1", "postiz-secret", { accountId: "account_1", expectedRowVersion: 1 });
+    await expect(reader.connect("ws_1", "postiz-secret")).resolves.toEqual({ imported: 1, skipped: 0 });
+    expect(connect).toHaveBeenLastCalledWith("ws_1", "postiz-secret");
+    await expect(reader.connect("ws_1", "bad\nkey-value")).rejects.toThrow("Invalid Postiz API key");
+    expect(request).toHaveBeenNthCalledWith(3, "media.revision.show", {
       context: { workspaceId: "ws_1", projectId: "project_1" },
       revisionId: "arev_1",
     });
-    expect(request).toHaveBeenNthCalledWith(5, "locator.resolve", {
+    expect(request).toHaveBeenNthCalledWith(4, "locator.resolve", {
       context: { workspaceId: "ws_1", projectId: "project_1" },
       target: { type: "object", id: "object_1" },
       purpose: "preview",
     });
     expect(mint).toHaveBeenCalledWith("/safe/preview.jpg", "image/jpeg", 42);
+    await reader.mutate("ws_1", { action: "reconcile", eventId: "calendar_1", expectedRowVersion: 1 });
+    expect(request).toHaveBeenLastCalledWith("calendar.reconcile", { context: { workspaceId: "ws_1" }, eventId: "calendar_1", expectedRowVersion: 1 });
+    expect(validateCalendarWorkspace({ ...workspace, events: [{ ...event, channels: [{ ...event.channels[0], needsReconciliation: true }] }] }).events[0]?.channels[0]?.needsReconciliation).toBe(true);
+    expect(() => validateCalendarWorkspace({ ...workspace, events: [{ ...event, channels: [{ ...event.channels[0], needsReconciliation: "yes" }] }] })).toThrow("Invalid Calendar workspace");
     await expect(reader.mutate("ws_1", { action: "erase" } as never)).rejects.toThrow("Invalid Calendar mutation");
     expect(MEDIA_CHANNELS.loadCalendar).toBe("workspace:calendar:load");
     expect(MEDIA_CHANNELS.mutateCalendar).toBe("workspace:calendar:mutate");

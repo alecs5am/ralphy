@@ -116,6 +116,22 @@ function deferred<T>() {
 afterEach(() => vi.restoreAllMocks());
 
 describe("Marketplace public item details", () => {
+  test("copies a usable template reference without offering an unavailable review", async () => {
+    const copyText = vi.spyOn(bridge, "copyText").mockResolvedValue();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<MarketplacePublicItemDetail item={template} onBack={() => undefined} />));
+      expect(host.container.textContent).not.toContain("Review project target");
+      await act(async () => button(host.container, "Copy template reference").dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+      expect(copyText).toHaveBeenCalledWith(`Ralphy template: Story arc\nID: story-arc\n${template.summary}\n${template.template.referenceUrls[0]}`);
+      expect(host.container.textContent).toContain("Template reference copied");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
   test("renders every shared section and only source-backed Template evidence", () => {
     const markup = renderToStaticMarkup(<MarketplacePublicItemDetail item={template} onBack={() => undefined} />);
     for (const heading of [

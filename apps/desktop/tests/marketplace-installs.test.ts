@@ -6,7 +6,9 @@ import {
   mutateMarketplaceInstalls,
   parseMarketplaceInstallMutation,
   readMarketplaceInstalls,
+  registerMarketplaceInstallIpc,
 } from "../electron/marketplace-installs";
+import { MEDIA_CHANNELS } from "../electron/media/types";
 
 let dir = "";
 let store = "";
@@ -65,5 +67,29 @@ describe("marketplace installs", () => {
     expect(parseMarketplaceInstallMutation({ action: "install", workspaceId: "", entryId: "skill:editor" })).toBeNull();
     expect(parseMarketplaceInstallMutation({ action: "select-workspace", workspaceId: "ws_a", entryId: "skill:editor" }))
       .toEqual({ action: "select-workspace", workspaceId: "ws_a", entryId: null });
+  });
+
+  test("does not claim a bookmark was saved when its record cannot be written", async () => {
+    const result = await mutateMarketplaceInstalls(dir, { action: "install", workspaceId: "ws_a", entryId: "skill:editor" }, known, at);
+    expect(result.installs).toEqual([]);
+    expect(result.warning).toMatch(/could not be/);
+  });
+
+  test("preserves a damaged record instead of overwriting existing choices", async () => {
+    await writeFile(store, "{ damaged");
+    const result = await mutateMarketplaceInstalls(store, { action: "install", workspaceId: "ws_a", entryId: "skill:editor" }, known, at);
+    expect(result.installs).toEqual([]);
+    expect(result.warning).toMatch(/could not be/);
+    expect(await readFile(store, "utf8")).toBe("{ damaged");
+  });
+
+  test("keeps both bookmarks when two save requests arrive together", async () => {
+    const handlers = new Map<string, (event: { sender: unknown; senderFrame: unknown }, ...args: unknown[]) => Promise<unknown>>();
+    const window = { isDestroyed: () => false, webContents: { mainFrame: {} } };
+    registerMarketplaceInstallIpc({ handle: (name, handler) => handlers.set(name, handler), getWindow: () => window, storePath: () => store, catalogEntryIds: async () => known, now: at });
+    const event = { sender: window.webContents, senderFrame: window.webContents.mainFrame };
+    const save = handlers.get(MEDIA_CHANNELS.mutateMarketplaceInstalls)!;
+    await Promise.all([...known].map((entryId) => save(event, { action: "install", workspaceId: "ws_a", entryId })));
+    expect((await readMarketplaceInstalls(store)).installs.map(({ entryId }) => entryId).sort()).toEqual([...known].sort());
   });
 });

@@ -30,7 +30,7 @@
 .canvas-wire-outside .react-flow__edge-path { opacity: .35; stroke-dasharray: 3 7; }
 .canvas-screen .canvas-wire-flowing .react-flow__edge-path { stroke-width: 2; stroke-dasharray: 6 6; animation: canvas-wire-travel .7s linear infinite; }
 .canvas-connection-line { stroke: var(--canvas-port-color); stroke-width: 2; stroke-dasharray: 5 5; animation: canvas-wire-travel .7s linear infinite; }
-.canvas-connection-hint { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 999px; background: var(--instrument-widget-dark); color: var(--instrument-text-on-dark-primary); font: 9px var(--font-mono); text-transform: uppercase; white-space: nowrap; }
+.canvas-connection-hint { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: var(--radius-pill); background: var(--instrument-widget-dark); color: var(--instrument-text-on-dark-primary); font: 9px var(--font-mono); text-transform: uppercase; white-space: nowrap; }
 .canvas-screen .react-flow__controls {
   display: flex;
   flex-direction: row;
@@ -44,7 +44,7 @@
 .canvas-screen .react-flow__controls-button { border-radius: 50%; }
 .canvas-screen .react-flow__controls-button .app-icon { width: 16px; height: 16px; max-width: none; max-height: none; fill: none; }
 .canvas-screen .react-flow__controls-button:focus-visible { outline: 2px solid var(--instrument-text-primary); outline-offset: -2px; }
-.canvas-screen .react-flow__minimap { overflow: hidden; padding: 5px; border-radius: 14px; }
+.canvas-screen .react-flow__minimap { overflow: hidden; padding: 5px; border-radius: var(--radius-lg); }
 .canvas-screen .react-flow__minimap-svg { width: 144px; height: 92px; }
 .canvas-screen .react-flow__edge.selected .react-flow__edge-path { stroke-width: 3; }
 .canvas-screen .react-flow__minimap-mask { stroke: var(--instrument-text-primary); stroke-width: 1.5; }

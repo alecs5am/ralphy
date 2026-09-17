@@ -46,6 +46,20 @@ const ENV_VAR = "OPENROUTER_API_KEY";
 const SIGNUP_URL = "https://openrouter.ai/keys";
 const BASE_URL = "https://openrouter.ai/api/v1";
 
+/** Auth-only metadata request; never submits a model call or returns provider response text. */
+export async function probeOpenRouterKey(key = credentialValue(ID), fetcher: typeof fetch = fetch): Promise<"valid" | "invalid" | "unreachable" | "missing"> {
+  if (!key) return "missing";
+  if (!/^sk-or-\S{14,506}$/.test(key) || /[\u0000-\u0020\u007f-\u009f]/.test(key)) return "invalid";
+  try {
+    // https://openrouter.ai/docs/api/api-reference/api-keys/get-current-api-key
+    const response = await fetcher(`${BASE_URL}/key`, { method: "GET", headers: { Authorization: `Bearer ${key}` }, redirect: "error", signal: AbortSignal.timeout(10_000) });
+    if (response.status === 401 || response.status === 403) return "invalid";
+    if (!response.ok) return "unreachable";
+    const body = await response.json() as { data?: unknown };
+    return body?.data && typeof body.data === "object" && !Array.isArray(body.data) ? "valid" : "unreachable";
+  } catch { return "unreachable"; }
+}
+
 // OpenRouter image models accept a structured `image_config.aspect_ratio`
 // (chat-completions image modality). Passing it is the only reliable way to get
 // non-square output — the in-prompt size hint alone is ignored by gpt-image,
@@ -171,6 +185,7 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(body),
+          signal: opts.signal,
         }),
       );
 
@@ -330,7 +345,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
 
   // #005: wrap the POST + payload-parse in `retryTransient`. Only the network
   // call is retried; once we have a `url`, the protect+write block runs once.
-  type ImageNetResult = { url: string; rawJson: unknown };
+  type ImageNetResult = { url: string; rawJson: { id?: string; usage?: { cost?: unknown } } };
   const net = await retryTransient<ImageNetResult & { _attempt: number }>(
     async (attempt) => {
       const tCall = Date.now();
@@ -363,6 +378,8 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
       }
 
       const json = (await resp.json()) as {
+        id?: string;
+        usage?: { cost?: unknown };
         choices?: Array<{
           message?: {
             content?: string;
@@ -400,7 +417,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   const result: GenerateResult = {
     url: net.url,
     localPath,
-    costUsd: IMAGE_PRICE_PER_GEN[model] ?? IMAGE_PRICE_FALLBACK,
+    ...generationBilling(net.rawJson, IMAGE_PRICE_PER_GEN[model] ?? IMAGE_PRICE_FALLBACK),
     latencyMs: Date.now() - t0,
     model,
   };
@@ -548,6 +565,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     polling_url?: string;
     unsigned_urls?: string[];
     error?: string | { message?: string };
+    usage?: { cost?: unknown };
   };
 
   // #005: wrap the initial submit in `retryTransient`. The poll loop below
@@ -672,12 +690,19 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   const result: GenerateResult = {
     url: downloadUrl,
     localPath: dest,
-    costUsd: pricePerSec * input.durationSec,
+    ...generationBilling(job, pricePerSec * input.durationSec),
     latencyMs: Date.now() - t0,
     model,
     preprocess: preprocess as GenerateResult["preprocess"],
   };
   return result;
+}
+
+function generationBilling(response: { id?: string; usage?: { cost?: unknown } }, estimate: number): Pick<GenerateResult, "costUsd" | "costSource" | "providerRequestId"> {
+  const cost = response.usage?.cost;
+  const billed = typeof cost === "number" && Number.isFinite(cost) && cost >= 0;
+  return { costUsd: billed ? cost : estimate, costSource: billed ? "provider" : "estimate",
+    ...(typeof response.id === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(response.id) ? { providerRequestId: response.id } : {}) };
 }
 
 // ─── connector object ──────────────────────────────────────────────────────

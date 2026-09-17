@@ -5,7 +5,7 @@
  * a new chat all imply a mode, and a chat also implies the lens it lives under. Those pairings are
  * what this component holds -- the sidebar itself only reports what was pressed.
  */
-import { InstrumentSidebar } from "@/widgets/sidebar";
+import { InstrumentSidebar, type SidebarChat } from "@/widgets/sidebar";
 import type { AgentChatController } from "@/features/agent-chat";
 import type { CatalogResult, WorkspaceSummary } from "@/shared/api/ipc";
 import type { AppMode, MarketplaceBrowseRoute, MarketplaceRoute } from "@/shared/model/routes";
@@ -48,7 +48,7 @@ export function AppSidebar({
   canGoBack: boolean;
   canGoForward: boolean;
   agentChat: AgentChatController;
-  chats: { id: string; title: string; busy: boolean; updatedAt: number }[];
+  chats: SidebarChat[];
   onBack(): void;
   onForward(): void;
   onCollapse(): void;
@@ -89,6 +89,8 @@ export function AppSidebar({
     chats={chats}
     activeChatId={agentChat.activeChat?.id ?? null}
     onSelectChat={(chatId) => { onLens("chat"); agentChat.selectChat(chatId); }}
+    onRenameChat={agentChat.renameChat}
+    onArchiveChat={agentChat.archiveChat}
     onNewChat={() => { onLens("chat"); agentChat.newChat(); }}
   />;
 }

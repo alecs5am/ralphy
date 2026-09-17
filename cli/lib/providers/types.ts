@@ -39,6 +39,9 @@ export type GenerateResult = {
   localPath: string;
   /** Best-effort estimate; pulled from `MODELS.md` ratios when provider doesn't return it. */
   costUsd: number;
+  /** Distinguishes the provider's billed amount from a local fallback estimate. */
+  costSource?: "provider" | "estimate";
+  providerRequestId?: string;
   /** End-to-end latency for the call. */
   latencyMs: number;
   /** Model id actually used (provider may resolve aliases). */
@@ -186,6 +189,7 @@ export type LLMMessage = {
 };
 
 export type CallLLMOptions = {
+  signal?: AbortSignal;
   messages: LLMMessage[];
   model?: string;
   temperature?: number;

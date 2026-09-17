@@ -154,7 +154,7 @@ describe("instrument shell", () => {
     }
   });
 
-  test("swaps which column is elastic under the chat lens and drops the view panel when narrow", async () => {
+  test("swaps elastic columns and opens a narrow view without unmounting the chat", async () => {
     const mounted = await mountShell();
     try {
       const shell = mounted.host.container.querySelector(".instrument-shell")!;
@@ -220,8 +220,16 @@ describe("instrument shell", () => {
         mounted.observer.resize(shell, 1011, 800);
         await settle();
       });
-      expect(deskColumn().getAttribute("hidden")).toBe("");
+      expect(deskColumn().getAttribute("hidden")).toBeNull();
+      expect(deskColumn().style.width).toBeFalsy();
+      const rail = mounted.host.container.querySelector(".instrument-right-rail") as HostNode;
+      expect(rail.getAttribute("hidden")).toBe("");
+      expect(rail.getAttribute("inert")).toBe("");
       expect(shell.getAttribute("data-right-rail-mode")).toBe("docked");
+      await mounted.render({ lens: "chat", viewOpen: false });
+      expect(deskColumn().getAttribute("hidden")).toBe("");
+      expect(mounted.host.container.querySelector(".instrument-right-rail")).toBe(rail);
+      expect(rail.getAttribute("hidden")).toBeNull();
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();

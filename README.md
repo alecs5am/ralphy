@@ -24,7 +24,7 @@ The desktop calls the runtime through its CLI and bridge contract. Agents can al
 
 ## Run the desktop app
 
-Requires Bun and macOS. From the repository root:
+Requires Bun 1.4.2 or newer and macOS; development and CI pin 1.4.2. From the repository root:
 
 ```bash
 bun install --frozen-lockfile
@@ -33,6 +33,8 @@ bun run start
 ```
 
 `bun run dev` opens the renderer development server with fixture data. For real workspaces, install the Ralphy CLI using the instructions below, or set `RALPHY_BIN` to an absolute path to your development binary. User generation data stays in the root `.ralphy/` directory.
+
+To keep an older global Bun unchanged, use `mise install bun@1.4.2` and prefix these commands with `mise exec bun@1.4.2 --`. Before starting the desktop, run `bun run build:bin:current` through that runtime and set `RALPHY_BIN` to the absolute `dist/binaries/ralphy-<platform>-<arch>` path. Desktop subprocesses use a restricted PATH and do not inherit mise's runtime selection.
 
 ```bash
 bun run check:desktop   # types, tests, build, architecture and styles
@@ -160,6 +162,8 @@ graph LR
 | [GitHub Discussions](https://github.com/alecs5am/ralphy/discussions) | Q&A, Show & Tell, Tester feedback. |
 
 ## Contributing
+
+Use the pinned Bun 1.4.2 runtime for the commands below. See [developer runtime setup](docs/developing-ralphy.md#pinned-runtime) for a local installation that leaves your global runtime unchanged.
 
 ```bash
 git clone https://github.com/alecs5am/ralphy.git

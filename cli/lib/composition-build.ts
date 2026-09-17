@@ -227,6 +227,7 @@ export async function runCompositionBuild(input: {
   } catch (error) {
     const projected = projectRunFailure(error, { provider: revision.engine });
     try { failCompositionBuildRun({ buildId: build.id, attemptId: attempt.id, error: projected }); } catch { /* completion may already have terminalized all rows */ }
+    if (error instanceof DomainError && error.code === "E_DEP_MISSING") throw error;
     throw projected;
   }
 }
@@ -331,14 +332,14 @@ async function runEngine(
       case "hyperframes": {
         const lint = lintHyperframesHtml(readTextDescriptor(materialized.openSource("index.html"), 16 * 1024 * 1024));
         if (!lint.ok) throw new Error(`HyperFrames lint failed with ${lint.errors.length} error(s)`);
-        const engineOutput = materialized.createSourceOutput(".ralphy-output");
-        hooks?.beforeEngineLaunch?.({ sourcePath: sourceDir, outputPath: engineOutput.path });
+        // HyperFrames creates scratch files beside its output. Keep them outside immutable sources.
+        hooks?.beforeEngineLaunch?.({ sourcePath: sourceDir, outputPath: path.join(materialized.runPath, "hyperframes.mp4") });
         const fps = jsonNumber(profile, "fps") ?? jsonNumber(config, "fps");
         const quality = jsonString(profile, "quality") ?? jsonString(config, "quality");
         const result = await runHyperframesRender({
           projectDir: ".",
           projectFd: materialized.sourceFd,
-          outputPath: ".ralphy-output",
+          outputPath: "../hyperframes.mp4",
           quiet: true,
           ...(fps !== null ? { fps } : {}),
           ...(quality === "draft" || quality === "standard" || quality === "high" ? { quality } : {}),
@@ -349,7 +350,7 @@ async function runEngine(
         });
         if (result.exitCode !== 0) throw new Error(`HyperFrames render failed (exit ${result.exitCode})`);
         const output = materialized.createRunOutput("master.mp4");
-        copyRegularFileDescriptors(materialized.openSource(".ralphy-output"), output.fd);
+        copyRegularFileDescriptors(materialized.openRunOutput("hyperframes.mp4"), output.fd);
         return { outputs: [{ path: output.path, spec: { slug: `${revision.slug}-master`, kind: "video" as const, mime: "video/mp4", role: "master" } }], close: materialized.close, verify: materialized.verify };
       }
       case "ffmpeg": {
@@ -636,6 +637,15 @@ function materializeEngineTree(runId: string, sources: SourceRow[], inputs: Inpu
     inputs: materializedInputs,
     openSource,
     createRunOutput: (name: string) => createOutput(run.fd, path.join(rootPath, "tmp", runId), name),
+    openRunOutput: (name: string) => {
+      const fd = openRegularFileAt(run.fd, name);
+      if (fd === null) throw new StoreConflictError("Engine output disappeared");
+      descriptors.push(fd);
+      // The renderer publishes by rename. Pin its finished file before copying or promoting it.
+      const stat = fsSync.fstatSync(fd);
+      outputs.push({ path: path.join(rootPath, "tmp", runId, name), fd, dev: stat.dev, ino: stat.ino });
+      return fd;
+    },
     createSourceOutput: (name: string) => {
       if (name !== ".ralphy-output") throw new Error("Engine source output name is reserved");
       return engineOutput;

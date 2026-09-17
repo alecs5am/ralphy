@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Check, Clock3, Copy, GitCompareArrows, History, MessageSquare, RotateCcw, Sparkles } from "@/shared/ui/icons";
 import { Window, WindowBody, WindowTitlebar } from "@/shared/ui/Window";
 import { bridge } from "@/shared/api/ipc";
-import type { VideoAgentRequest, VideoWorkspaceRef } from "../../../../shared/video-workspace";
+import { VIDEO_HISTORY_LIMIT, type VideoAgentRequest, type VideoWorkspaceRef } from "../../../../shared/video-workspace";
 import type { VideoEditor } from "../model/useVideoWorkspace";
 import { elementName, timecode } from "../lib/composition";
 
@@ -11,13 +11,13 @@ export function VideoHistory({ editor, onCompare }: { editor: VideoEditor; onCom
   return <div className="video-inspector-content">
     <Window><WindowTitlebar><History size={14} /><strong>Version history</strong></WindowTitlebar><WindowBody className="video-properties">
       <div className="video-version-current"><span className="video-version-dot" /><div><strong>Current draft</strong><small>{editor.saving ? "Saving…" : editor.dirty ? "Unsaved changes" : "Saved on this Mac"}</small></div><Check size={14} /></div>
-      <p className="video-help">Drafts and rendered videos are separate. Editing leaves the Unit’s selected version unchanged.</p>
-      {editor.loaded?.versions.map((version, index) => <div className="video-history-row" key={`${version.id}-${index}`}><Clock3 size={14} /><div><strong>Saved {new Date(version.savedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</strong><small>{new Date(version.savedAt).toLocaleDateString([], { month: "short", day: "numeric" })}</small></div><button type="button" aria-label={`Compare saved draft ${index + 1}`} title="Compare with current draft" onClick={() => onCompare(version.html)}><GitCompareArrows size={15} /></button><button type="button" aria-label={`Restore saved draft ${index + 1}`} title="Restore as draft" disabled={editor.rendering} onClick={() => void editor.restore(version.html)}><RotateCcw size={14} /></button></div>)}
+      <p className="video-help">The latest {VIDEO_HISTORY_LIMIT} saved drafts include content and frame rate. Restoring preserves your current draft. The Unit’s selected version stays unchanged.</p>
+      {editor.loaded?.versions.map((version, index) => <div className="video-history-row" key={`${version.id}-${index}`}><Clock3 size={14} /><div><strong>Saved {new Date(version.savedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</strong><small>{new Date(version.savedAt).toLocaleDateString([], { month: "short", day: "numeric" })} · {version.fps ? `${version.fps} fps` : "Legacy draft · keeps current fps"}</small></div><button type="button" aria-label={`Compare saved draft ${index + 1}`} title="Compare content with current draft" onClick={() => onCompare(version.html)}><GitCompareArrows size={15} /></button><button type="button" aria-label={`Restore saved draft ${index + 1}`} title="Restore as draft" disabled={editor.rendering || editor.saving} onClick={() => void editor.restore(version)}><RotateCcw size={14} /></button></div>)}
       {!editor.loaded?.versions.length && <p className="video-help">Earlier drafts appear here as you edit.</p>}
     </WindowBody></Window>
     {result && <Window><WindowTitlebar><Check size={14} /><strong>{result.state === "succeeded" ? "Rendered version" : "Render failed"}</strong></WindowTitlebar><WindowBody className="video-properties">
       {result.previewUrl && <video className="video-render-preview" controls src={result.previewUrl} preload="metadata" />}
-      <p className="video-help">{result.state === "succeeded" ? "Stored with this Composition’s build outputs. The Unit’s selected version has not changed." : result.error ?? "The render did not finish. Your draft is preserved."}</p>
+      <p className="video-help">{result.error ?? (result.state === "succeeded" ? result.unitRevisionId ? "Saved as a new Unit version. Your selected version is unchanged." : "Saved with the composition’s rendered files." : "The render did not finish. Your draft is preserved.")}</p>
       <small className="video-history-id">{result.buildId}</small>
     </WindowBody></Window>}
   </div>;

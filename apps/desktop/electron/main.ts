@@ -1,3 +1,9 @@
+import { createLibraryEntry } from "./library-create";
+import { exportWorkspaceFile, importWorkspaceFile } from "./workspace-transfer";
+import { loadAgentChatStore, saveAgentChatStore } from "./agent/chat-store";
+import { AGENT_CHAT_STORAGE_CHANNELS } from "../shared/agent-chat-storage";
+import { DESKTOP_SYSTEM_CHANNELS } from "../shared/desktop-system";
+import { probeLibrary } from "./desktop-system";
 import {
   app,
   BrowserWindow,
@@ -46,7 +52,7 @@ import {
   CodexSession,
   loginCodex,
   readCodexAuthStatus,
-  readCodexBundledCatalog,
+  readCodexCatalog,
   readCodexConfiguredModel,
   readCodexVersion,
   resolveCodexBinary,
@@ -125,7 +131,7 @@ import {
   createActivitySynchronizer,
   type ActivitySynchronizer,
 } from "./ralphy/activity-sync";
-import { createProjectReader, registerProjectMediaIpc } from "./ralphy/project-reader";
+import { createProjectReader, parseUnitScope, registerProjectMediaIpc } from "./ralphy/project-reader";
 import { registerSharedLibraryIpc } from "./ralphy/shared-library-reader";
 import { createMemoryReader } from "./ralphy/memory-reader";
 import { createCalendarReader } from "./ralphy/calendar-reader";
@@ -177,6 +183,10 @@ import {
 
 // Keep native credential/settings storage in the same profile as Chromium.
 const userDataOverride = app.commandLine.getSwitchValue("user-data-dir");
+if (app.isPackaged) {
+  app.commandLine.removeSwitch("remote-debugging-port");
+  app.commandLine.removeSwitch("remote-debugging-pipe");
+}
 if (userDataOverride) {
   const profile = resolve(userDataOverride);
   mkdirSync(profile, { recursive: true });
@@ -198,6 +208,13 @@ let openRouterCredentialStore: EncryptedCredentialStore | null = null;
 const generationCredentialStores = new Map<"elevenlabs" | "fal", EncryptedCredentialStore>();
 const generationCredentials = createGenerationCredentials({
   environment: () => process.env,
+  probe: async (provider, key) => {
+    const operation = captureBridgeRoot();
+    const reply = await canvasCli(ralphyBin, operation.rootPath)(["provider", "test", provider, "--ping", "--stdin"], undefined, key) as { providers?: { id: string; validation?: string }[] };
+    assertBridgeRoot(operation);
+    const state = reply.providers?.find((item) => item.id === provider)?.validation;
+    return state === "valid" || state === "invalid" || state === "missing" ? state : "unreachable";
+  },
   store: (provider) => {
     if (provider === "openrouter") return openRouterStore();
     let store = generationCredentialStores.get(provider);
@@ -423,24 +440,28 @@ async function agentProviderStatuses(): Promise<AgentProviderStatus[]> {
   const codexStatus = codexBinary
     ? await readCodexAuthStatus(codexBinary).catch(() => null)
     : null;
-  /* The binary's own bundled catalogue, and the model the operator's config asks for: together
-     they decide what this Codex can be told to run. See `codexCatalog`. */
-  const [codexBundled, codexConfigured, codexVersion] = codexBinary
+  /* Refresh model metadata through this binary and account, with an offline fallback. */
+  const [codexModels, codexConfigured, codexVersion] = codexBinary
     ? await Promise.all([
-      readCodexBundledCatalog(codexBinary),
+      readCodexCatalog(codexBinary),
       readCodexConfiguredModel(app.getPath("home")),
       readCodexVersion(codexBinary),
     ])
     : [null, null, null];
-  const codex = codexCatalog(codexBundled, codexConfigured);
+  const codex = codexCatalog(codexModels, codexConfigured);
   const inheritedOpenRouterKey = inheritedOpenRouterApiKey();
   const storedOpenRouterKey = await openRouterStore().read();
   const openRouterKey = storedOpenRouterKey ?? inheritedOpenRouterKey ?? undefined;
   const routerModels = await openRouterModels(openRouterKey);
+  let routerStatus = (await generationCredentials.load()).find((provider) => provider.id === "openrouter");
+  if (openRouterKey && codexBinary && (!routerStatus?.validation || Date.now() - routerStatus.validation.checkedAt > 5 * 60_000)) {
+    routerStatus = (await generationCredentials.probe("openrouter")).find((provider) => provider.id === "openrouter");
+  }
+  const routerValidation = routerStatus?.validation?.state;
 
   const claudeConnected = claude.subscriptionLoggedIn || claude.apiKeyConfigured;
   const codexConnected = codexBinary !== null && codexStatus?.loggedIn === true;
-  const routerConnected = codexBinary !== null && Boolean(openRouterKey);
+  const routerConnected = codexBinary !== null && routerValidation === "valid";
   return [
     {
       id: "claude",
@@ -452,7 +473,7 @@ async function agentProviderStatuses(): Promise<AgentProviderStatus[]> {
       connected: claude.binaryReady && claudeConnected,
       detail: claude.subscriptionLoggedIn
         ? `Signed in with ${claude.subscriptionAuthMethod ?? "Claude"}`
-        : claude.apiKeyConfigured ? "Anthropic API key ready" : "Claude login required",
+        : claude.apiKeyConfigured ? "Anthropic API key saved; authentication not checked" : "Claude login required",
       models: CLAUDE_MODELS,
       defaultModel: "sonnet",
     },
@@ -467,7 +488,7 @@ async function agentProviderStatuses(): Promise<AgentProviderStatus[]> {
       /* The version is on the row on purpose: when the server refuses a model to an outdated
          client, the only way to tell from the app is to see which CLI it is running. */
       detail: codex.unsupportedDefault
-        ? `${codex.unsupportedDefault} is not in this build's catalogue — pick a listed model`
+        ? `${codex.unsupportedDefault} is not in the current catalogue — pick a listed model`
         : codexBinary === null
           ? "Codex CLI not found"
           : [codexStatus?.detail ?? "Codex login required", codexVersion && `CLI ${codexVersion}`]
@@ -483,7 +504,11 @@ async function agentProviderStatuses(): Promise<AgentProviderStatus[]> {
       apiKeyConfigured: Boolean(openRouterKey),
       inheritedApiKey: inheritedOpenRouterKey !== null,
       connected: routerConnected,
-      detail: openRouterKey ? "OpenRouter API key ready" : "OpenRouter API key required",
+      detail: !openRouterKey ? "Add an OpenRouter key in Settings → Providers"
+        : !codexBinary ? "Install Codex in Settings → Agents to use OpenRouter chat"
+        : routerValidation === "valid" ? "OpenRouter authentication verified"
+        : routerValidation === "invalid" ? "OpenRouter rejected this key. Replace it in Settings → Providers"
+        : "OpenRouter could not be verified. Retry Test connection in Settings → Providers",
       models: routerModels,
       defaultModel: routerModels[0]?.id ?? "~openai/gpt-latest",
     },
@@ -875,7 +900,8 @@ function registerAgentIpc(): void {
     try {
       const operation = captureBridgeRoot();
       const request = parseAgentChatRequest(rawRequest);
-      const projectPath = request.project
+      const providerCredentials = await generationCredentials.capture();
+      const projectPath = request.project?.projectId
         ? await resolveProjectPath(
           operation.rootPath,
           request.project.workspaceId,
@@ -888,6 +914,7 @@ function registerAgentIpc(): void {
         const envelope: AgentChatEnvelope = {
           storeId: operation.storeId,
           chatId: request.chatId,
+          workspaceId: request.workspaceId ?? request.project?.workspaceId ?? null,
           provider: request.provider,
           event: chatEvent,
         };
@@ -909,7 +936,7 @@ function registerAgentIpc(): void {
           if (!status?.loggedIn) throw new Error("Sign in to Claude before sending");
         }
         assertBridgeRoot(operation);
-        const session = new ClaudeSession({ binary, emit });
+        const session = new ClaudeSession({ binary, emit, generationCredentials: providerCredentials });
         activeAgentSession = session;
         try {
           await session.run({
@@ -945,7 +972,7 @@ function registerAgentIpc(): void {
         if (!openRouterApiKey) throw new Error("Add an OpenRouter API key before sending");
       }
       assertBridgeRoot(operation);
-      const session = new CodexSession({ binary, emit });
+      const session = new CodexSession({ binary, emit, generationCredentials: providerCredentials });
       activeAgentSession = session;
       try {
         await session.run({
@@ -1076,7 +1103,7 @@ function registerAgentIpc(): void {
       project: row.project ?? null,
       workspaceId: row.workspaceId ?? null,
     });
-    const projectPath = request.project
+    const projectPath = request.project?.projectId
       ? await resolveProjectPath(
         operation.rootPath,
         request.project.workspaceId,
@@ -1369,6 +1396,16 @@ function calendarReaderForCurrentRoot() {
       assertBridgeRoot(operation);
       return result;
     },
+    connect: async (workspaceId, credential, account) => {
+      assertBridgeRoot(operation);
+      const result = await canvasCli(ralphyBin, operation.rootPath, workspaceId)([
+        "postiz", "connect", "--workspace", workspaceId, "--stdin",
+        ...(account ? ["--account", account.accountId, "--expected-row-version", String(account.expectedRowVersion)] : []),
+      ], undefined, credential) as { connected?: boolean; imported?: number; skipped?: number };
+      assertBridgeRoot(operation);
+      if (result.connected !== true || !Number.isSafeInteger(result.imported) || result.imported! < 0 || !Number.isSafeInteger(result.skipped) || result.skipped! < 0) throw new Error("Invalid Postiz connection response");
+      return { imported: result.imported!, skipped: result.skipped! };
+    },
     mint: async (absolutePath, mime, expectedBytes) => {
       const minted = await mediaState.fileAccess.mintTrustedLocator(
         operation.rootPath,
@@ -1473,7 +1510,6 @@ function registerProjectDomainIpc(): void {
       const client = ralphySession.client;
       await client.request("workspace.show", { context: { workspaceId }, workspaceId });
       const credentials = await generationCredentials.capture();
-      const openRouterApiKey = credentials.OPENROUTER_API_KEY;
       assertBridgeRoot(operation);
       return {
         root: operation.rootPath, workspaceId,
@@ -1483,22 +1519,6 @@ function registerProjectDomainIpc(): void {
         mint: async (path, mime, bytes) => {
           const minted = await mediaState.fileAccess.mintTrustedLocator(operation.rootPath, path, mime, bytes, () => assertBridgeRoot(operation));
           return { url: `ralphy-media://asset/${minted.token}` };
-        },
-        text: async (model, prompt, signal) => {
-          const binary = await resolveCodexBinary();
-          if (!binary || !openRouterApiKey) throw new Error("Connect OpenRouter in agent settings to run a text model");
-          assertBridgeRoot(operation);
-          let text = "", error: string | null = null;
-          const session = new CodexSession({ binary, emit: (event) => { if (event.type === "text-delta") text += event.text; if (event.type === "error") error = event.message; } });
-          const stop = () => session.stop();
-          signal.addEventListener("abort", stop, { once: true });
-          try {
-            signal.throwIfAborted();
-            await session.run({ rootPath: operation.rootPath, provider: "openrouter", model, openRouterApiKey, permissionMode: "plan", prompt: `Respond with the requested text only. Do not use tools or execute commands.\n\n${prompt}` });
-            signal.throwIfAborted();
-            if (error) throw new Error(error);
-            return text;
-          } finally { signal.removeEventListener("abort", stop); }
         },
       };
     },
@@ -1529,6 +1549,69 @@ function registerProjectDomainIpc(): void {
   /* Which bundled items a workspace took, kept beside the app's own state: it
      describes this machine's choices, not the library's contents, so it does not
      belong in the library root that `--root` and an import can move. */
+  securedHandle(AGENT_CHAT_STORAGE_CHANNELS.load, async (_event, storeId, workspaceId) => {
+    const operation = captureBridgeRoot();
+    if (storeId !== operation.storeId) throw new Error("The library changed. Reopen this workspace.");
+    const result = await loadAgentChatStore(operation.rootPath, workspaceId);
+    assertBridgeRoot(operation);
+    return result;
+  });
+  securedHandle(AGENT_CHAT_STORAGE_CHANNELS.save, async (_event, storeId, workspaceId, data, expectedRevision) => {
+    const operation = captureBridgeRoot();
+    if (storeId !== operation.storeId) throw new Error("The library changed. Reopen this workspace.");
+    return saveAgentChatStore(operation.rootPath, workspaceId, data, expectedRevision, () => assertBridgeRoot(operation));
+  });
+  const createEntry = async (kind: "workspace" | "project", name: unknown, workspace?: unknown) => {
+    const operation = captureBridgeRoot();
+    const workspaceId = kind === "project" ? parseString(workspace, "Workspace id", 256) : undefined;
+    const bin = resolveRalphyExecutable({ isPackaged: app.isPackaged, appPath: app.getAppPath(), resourcesPath: process.resourcesPath, env: process.env });
+    const id = await createLibraryEntry(canvasCli(bin, operation.rootPath, workspaceId), kind, name);
+    assertBridgeRoot(operation);
+    await refreshCatalog(mediaState.captureActive(operation.rootPath), operation.rootPath);
+    assertBridgeRoot(operation);
+    return id;
+  };
+  securedHandle(DESKTOP_SYSTEM_CHANNELS.createWorkspace, (_event, name) => createEntry("workspace", name));
+  securedHandle(DESKTOP_SYSTEM_CHANNELS.createProject, (_event, workspace, name) => createEntry("project", name, workspace));
+  securedHandle(DESKTOP_SYSTEM_CHANNELS.exportWorkspace, async (_event, workspace) => {
+    const operation = captureBridgeRoot();
+    const client = ralphySession.client;
+    return exportWorkspaceFile({ root: operation.rootPath, workspaceId: parseString(workspace, "Workspace id", 256),
+      request: (method, params) => { assertBridgeRoot(operation); return client.request(method, params); },
+      assertCurrent: () => assertBridgeRoot(operation),
+      choose: async (name) => (await dialog.showSaveDialog({ title: "Export workspace with media and chats", defaultPath: name, filters: [{ name: "Ralphy workspace archive", extensions: ["tar"] }] })).filePath ?? null,
+    });
+  });
+  securedHandle(DESKTOP_SYSTEM_CHANNELS.importWorkspace, async () => {
+    const operation = captureBridgeRoot();
+    const result = await importWorkspaceFile({ cli: canvasCli(ralphyBin, operation.rootPath), assertCurrent: () => assertBridgeRoot(operation),
+      choose: async () => (await dialog.showOpenDialog({ title: "Import workspace archive", properties: ["openFile"], filters: [{ name: "Ralphy workspace archive", extensions: ["tar"] }] })).filePaths[0] ?? null,
+    });
+    if (result) await refreshCatalog(mediaState.captureActive(operation.rootPath), operation.rootPath);
+    return result;
+  });
+  securedHandle(DESKTOP_SYSTEM_CHANNELS.info, async () => {
+    const root = ralphySession.root;
+    const storage = await probeLibrary(root);
+    return {
+      libraryPath: root, ...storage,
+      cacheBytes: await electronSession.defaultSession.getCacheSize(),
+      shell: process.env.SHELL || "/bin/zsh",
+      versions: { desktop: app.getVersion(), electron: process.versions.electron, node: process.versions.node, chrome: process.versions.chrome, core: ralphySession.hello?.coreVersion ?? null },
+    };
+  });
+  securedHandle(DESKTOP_SYSTEM_CHANNELS.clearCache, async () => {
+    const beforeBytes = await electronSession.defaultSession.getCacheSize();
+    await electronSession.defaultSession.clearCache();
+    return { beforeBytes, afterBytes: await electronSession.defaultSession.getCacheSize() };
+  });
+  securedHandle(DESKTOP_SYSTEM_CHANNELS.revealFolder, async (_event, folder) => {
+    if (folder !== "library" && folder !== "logs") throw new Error("Invalid folder");
+    const path = folder === "library" ? captureBridgeRoot().rootPath : app.getPath("logs");
+    await mkdir(path, { recursive: true });
+    const error = await shell.openPath(path);
+    if (error) throw new Error("Folder could not be opened");
+  });
   registerMarketplaceInstallIpc({
     handle: (channel, listener) => {
       registerIpcHandle(channel, listener);
@@ -1654,6 +1737,9 @@ function registerProjectDomainIpc(): void {
       rawInput as never,
     )
   ));
+  securedHandle(MEDIA_CHANNELS.connectCalendar, (_event, rawWorkspaceId: unknown, rawCredential: unknown) => (
+    calendarReaderForCurrentRoot().connect(parseString(rawWorkspaceId, "Workspace identifier", 256), parseString(rawCredential, "Postiz API key", 4096))
+  ));
   securedHandle(MEDIA_CHANNELS.reconnectCalendarAccount, (_event, rawWorkspaceId: unknown, rawInput: unknown) => (
     calendarReaderForCurrentRoot().reconnect(
       parseString(rawWorkspaceId, "Workspace identifier", 256),
@@ -1683,7 +1769,7 @@ function registerProjectDomainIpc(): void {
     MEDIA_CHANNELS.loadDocumentPreview,
     (_event, rawProject: unknown, rawRevisionId: unknown) => (
       projectReaderForCurrentRoot().loadDocumentPreview(
-        parseProjectReference(rawProject),
+        parseUnitScope(rawProject),
         parseString(rawRevisionId, "Document revision identifier", 256),
       )
     ),
@@ -1747,7 +1833,7 @@ function registerProjectDomainIpc(): void {
     MEDIA_CHANNELS.resolveCompositionOutputPreview,
     (_event, rawProject: unknown, rawRevisionId: unknown) => (
       projectReaderForCurrentRoot().resolveCompositionOutputPreview(
-        parseProjectReference(rawProject),
+        parseUnitScope(rawProject),
         parseString(rawRevisionId, "artifact revision id", 256),
       )
     ),

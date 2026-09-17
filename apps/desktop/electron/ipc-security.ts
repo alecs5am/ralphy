@@ -18,12 +18,29 @@ const SAFE_ERROR_CODES = new Set([
   "E_BRIDGE_VERSION",
 ]);
 
+// Fixed recovery messages keep runtime stderr, filesystem paths and credentials out of IPC.
+const RECOVERY_MESSAGES: Record<string, string> = {
+  E_DEP_MISSING: "Video rendering needs Bun (bunx), Node.js 22 or newer, and FFmpeg (ffmpeg and ffprobe). Install the missing tools, run `bunx hyperframes --help`, then restart Ralphy and retry. Your saved timeline is preserved.",
+  E_RUNTIME_MISSING: "The Ralphy runtime could not start. For a source checkout, install Bun and run the repository setup. For an installed app, reinstall the matching Ralphy release, then retry.",
+  E_BRIDGE_START: "The Ralphy runtime could not start. Check the runtime installation and executable permissions, then retry.",
+  E_BRIDGE_EXITED: "The Ralphy runtime stopped unexpectedly. Retry opening the library. If it happens again, restart the app and check Diagnostics.",
+  E_BRIDGE_NOT_READY: "The library is not connected. Reopen the library and try again.",
+  EACCES: "Ralphy cannot read or write its library. Check folder permissions and available access, then retry.",
+  EPERM: "macOS denied access to the library. Check folder permissions and Privacy & Security settings, then retry.",
+  ENOSPC: "The disk is full. Free some space and retry; your existing library has not been replaced.",
+  SQLITE_BUSY: "The library is busy in another process. Finish that operation and retry.",
+  SQLITE_CORRUPT: "The library database could not be read. Keep the original files and restore a verified backup before continuing.",
+  SQLITE_NOTADB: "The library database is not valid. Keep the original files and restore a verified backup before continuing.",
+};
+
 export async function toIpcResult<Value>(
   run: () => Value | Promise<Value>,
 ): Promise<IpcResult<Value>> {
   try {
     return { ok: true, value: await run() };
   } catch (error) {
+    const code = error instanceof Error && "code" in error && typeof error.code === "string" ? error.code : null;
+    if (code && RECOVERY_MESSAGES[code]) return { ok: false, error: { code, message: RECOVERY_MESSAGES[code] } };
     if (
       error instanceof Error
       && "code" in error

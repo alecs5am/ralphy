@@ -133,7 +133,7 @@ describe("Workspace screen", () => {
     pending.resolve(overview);
     await loading;
     const markup = renderToStaticMarkup(<WorkspaceScreenView controller={controller} snapshot={controller.getSnapshot()} catalogProjects={[]} {...workspaceViewProps} />);
-    expect(markup).toContain("Connected accounts were not returned by Core");
+    expect(markup).toContain("Connected accounts could not be loaded");
     expect(markup).not.toContain("Documents");
     expect(markup).not.toContain("Final renders");
     expect(markup).not.toContain("Indexed project spend");

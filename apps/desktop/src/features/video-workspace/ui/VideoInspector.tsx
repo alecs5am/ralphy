@@ -7,8 +7,14 @@ import type { VideoEditor } from "../model/useVideoWorkspace";
 import { changeTiming, elementName, TRACKS, videoElement } from "../lib/composition";
 import { videoAssetMetadata } from "../lib/media";
 
-function NumberField({ label, value, min = 0, max = 10000, step = 1, onChange }: { label: string; value: number; min?: number; max?: number; step?: number; onChange(value: number): void }) {
-  return <label className="video-number-field"><span>{label}</span><input aria-label={label} type="number" min={min} max={max} step={step} value={Number(value.toFixed(3))} onChange={(event) => { if (event.currentTarget.value !== "" && Number.isFinite(event.currentTarget.valueAsNumber)) onChange(Math.max(min, Math.min(max, event.currentTarget.valueAsNumber))); }} /></label>;
+export function NumberField({ label, value, min = 0, max = 10000, step = 1, onChange }: { label: string; value: number; min?: number; max?: number; step?: number; onChange(value: number): void }) {
+  return <label className="video-number-field"><span>{label}</span><input key={`${label}:${value}`} aria-label={label} type="number" min={min} max={max} step={step} defaultValue={Number(value.toFixed(3))} onBlur={(event) => {
+    const input = event.currentTarget;
+    const parsed = input.value.trim() === "" ? NaN : Number(input.value);
+    const next = Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : value;
+    input.value = String(Number(next.toFixed(3)));
+    if (next !== value) onChange(next);
+  }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} /></label>;
 }
 export function VideoInspector({ editor, at }: { editor: VideoEditor; at: number }) {
   const replacement = useRef<HTMLInputElement>(null);

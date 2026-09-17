@@ -1,8 +1,7 @@
 // Unit tests for `ralphy memory retire` + `curate` (#116).
 //
 // LLM stubbed at fetch level (#072 rule). Pins:
-//   • retire MOVES every version file of an active slug to archived/ and
-//     drops the slug from the index — no version resurfaces, nothing unlinked
+//   • retire archives the active head and retains every immutable revision
 //   • curate stages overlap-merges as the SURVIVOR slug's next proposed
 //     version, never touches active entries, and drops hallucinated slugs
 //   • --dry-run stages nothing; flags pass through
@@ -17,11 +16,13 @@ import {
   writeEntry,
   listEntries,
   retireEntry,
-  indexPath,
-  memoryDir,
+  listEntryHistory,
+  recall,
   type TierRef,
 } from "../../cli/lib/memory/store.js";
 import { curateMemory } from "../../cli/lib/memory/curate.js";
+import { closeDomainDb } from "../../cli/lib/store/db.js";
+import { clearCommandContext } from "../../cli/lib/context-state.js";
 
 const GLOBAL: TierRef = { tier: "global" };
 const originalFetch = globalThis.fetch;
@@ -43,6 +44,8 @@ function stubLLM(payload: unknown): void {
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-curate-"));
   setRoot(tmpRoot);
+  closeDomainDb();
+  clearCommandContext();
   process.env.OPENROUTER_API_KEY = "test-or-key";
   fs.mkdirSync(path.join(tmpRoot, ".ralphy"), { recursive: true });
 });
@@ -51,27 +54,27 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
   if (originalKey === undefined) delete process.env.OPENROUTER_API_KEY;
   else process.env.OPENROUTER_API_KEY = originalKey;
+  closeDomainDb();
+  clearCommandContext();
   setRoot(originalCwd);
   fs.rmSync(tmpRoot, { recursive: true, force: true });
 });
 
 describe("memory retire (#116)", () => {
-  test("moves ALL version files to archived/, drops the index line, keeps other slugs", async () => {
-    await writeEntry({ text: "V1 of the rule.", ref: GLOBAL, status: "active", slug: "doomed" });
-    await writeEntry({ text: "V2 of the rule.", ref: GLOBAL, status: "active", slug: "doomed" });
+  test("archives the current head without losing history or resurfacing an older version", async () => {
+    const first = await writeEntry({ text: "V1 of the rule.", ref: GLOBAL, status: "active", slug: "doomed" });
+    const second = await writeEntry({ text: "V2 of the rule.", ref: GLOBAL, status: "active", slug: "doomed" });
     await writeEntry({ text: "Unrelated survivor.", ref: GLOBAL, status: "active", slug: "keeper" });
 
     const moves = await retireEntry("doomed", GLOBAL);
-    expect(moves).toHaveLength(2); // both versions moved — v1 must NOT resurface in active
-    for (const m of moves!) expect(fs.existsSync(m.to)).toBe(true); // archived, not unlinked
+    expect(moves).toEqual([{ slug: "doomed", entryId: first.entry.id, revisionId: second.entry.revisionId, versioned: false }]);
 
     const active = await listEntries(GLOBAL, "active");
     expect(active.map((e) => e.slug)).toEqual(["keeper"]);
-    const idx = fs.readFileSync(indexPath(GLOBAL), "utf-8");
-    expect(idx).not.toContain("doomed");
-
-    const archivedDir = path.join(memoryDir(GLOBAL), "archived");
-    expect(fs.readdirSync(archivedDir).sort()).toEqual(["doomed.md", "doomed.v2.md"]);
+    expect((await recall({ full: true })).entries.map((entry) => entry.slug)).toEqual(["keeper"]);
+    const history = await listEntryHistory(first.entry.id!);
+    expect(history.map((entry) => entry.body)).toEqual([second.entry.body, first.entry.body]);
+    expect(history.every((entry) => entry.status === "archived")).toBe(true);
   });
 
   test("unknown slug returns null", async () => {
@@ -127,7 +130,7 @@ describe("memory curate (#116)", () => {
     expect(dry.staged).toHaveLength(0);
 
     // Empty store: no LLM call (fetch would throw if hit).
-    fs.rmSync(memoryDir(GLOBAL), { recursive: true, force: true });
+    await retireEntry("solo", GLOBAL);
     globalThis.fetch = (async () => {
       throw new Error("LLM must not be called on an empty store");
     }) as unknown as typeof fetch;

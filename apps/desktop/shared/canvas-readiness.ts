@@ -48,7 +48,8 @@ export function canvasReadiness(canvas: WorkflowCanvas, models?: CanvasModelDesc
     else if (["connector", "step", "variation", "output"].includes(node.kind)) {
       const joined = node.config?.operation === "join-text";
       if (selected) {
-        if (history && !selectedResult) issues.push("Choose an available result");
+        if (history && !selectedResult) issues.push("Selected result is missing from saved history. Restore a backup or choose another result.");
+        if (selectedResult && selectedResult.unavailableReason) issues.push(selectedResult.unavailableReason);
         outputTypes = selectedResult ? [selectedResult.kind] : ["any"];
       } else {
         if (!incoming.length && !(joined && node.value.trim())) issues.push("Connect an upstream result");

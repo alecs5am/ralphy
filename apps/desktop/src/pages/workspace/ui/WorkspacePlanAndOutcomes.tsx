@@ -163,13 +163,13 @@ function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
       {events.slice(0, 5).map((event) => <ContentEvent key={`${event.unitId}:${event.scheduledAt}`} event={event} onOpenCalendar={onOpenCalendar} onOpenUnit={onOpenUnit} onOpenUnits={onOpenUnits} />)}
     </ol>}
     {events.length > 5 && <button id="workspace-more-calendar" className={ACTION_QUIET} type="button" onClick={() => onOpenCalendar({ label: "Upcoming releases", date: events[5]!.scheduledAt }, "workspace-more-calendar")}>{events.length - 5} more in Calendar <ArrowUpRight size={13} aria-hidden="true" /></button>}
-    <details className="workspace-ready-unscheduled grid gap-1.5 px-2 py-2 type-sm text-muted">
+    {(value.coverage.status === "ready" || value.coverage.status === "partial" || value.readyUnscheduled.status === "ready" || value.readyUnscheduled.status === "partial") && <details className="workspace-ready-unscheduled grid gap-1.5 px-2 py-2 type-sm text-muted">
       <summary className="cursor-pointer">Readiness & cadence details</summary>
-      <p className="type-xs text-muted">Dates and times use this device’s timezone; workspace timezone is not available from the current Core contract.</p>
+      <p className="type-xs text-muted">Dates and times use this device’s timezone.</p>
       <PlanCoverage value={value.coverage} />
       <h3 className={SUBSECTION_TITLE}>Ready, not scheduled</h3>
       <ReadyUnscheduled value={value.readyUnscheduled} onOpenUnit={onOpenUnit} onOpenUnits={onOpenUnits} />
-    </details>
+    </details>}
   </section>;
 }
 

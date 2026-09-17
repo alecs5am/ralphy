@@ -195,8 +195,8 @@ describe("Marketplace browse surfaces", () => {
     expect(markup).toContain("Alpha model");
     expect(markup).not.toMatch(/rating|trending|recommended for you|downloads|likes/i);
     expect(markup).not.toContain("Useful for your current work");
-    expect(markup).toContain("Community contributions");
-    expect(markup).toContain("Community collections and publishing aren&#x27;t available in this build.");
+    expect(markup).not.toContain("Community contributions");
+    expect(markup).not.toContain("Not available yet");
   });
 
   test("orders Recently updated by valid source timestamps before taking six", () => {

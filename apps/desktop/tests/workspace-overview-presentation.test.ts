@@ -183,8 +183,8 @@ describe("workspace overview presentation", () => {
 
   test("does not infer cadence gaps or top performers from bounded totals", () => {
     const value = presentWorkspaceOverview({ overview: populatedOverview, catalogProjects: [], description: "", now: 1 });
-    expect(value.plan.coverage).toMatchObject({ status: "unavailable", reason: expect.stringContaining("cadence") });
-    expect(value.outcomes).toMatchObject({ status: "unavailable", reason: expect.stringContaining("benchmark") });
+    expect(value.plan.coverage).toMatchObject({ status: "unavailable", reason: expect.stringContaining("posting targets") });
+    expect(value.outcomes).toMatchObject({ status: "unavailable", reason: expect.stringContaining("comparisons") });
   });
 
   test("marks truncated account, project, and publication pages as partial", () => {
@@ -250,18 +250,18 @@ describe("workspace overview presentation", () => {
     });
     expect(incompleteLookups.plan.upcoming).toMatchObject({ status: "partial", value: [expect.objectContaining({ unit: null, project: null, accounts: [] })] });
     if (incompleteLookups.plan.upcoming.status === "partial") {
-      expect(incompleteLookups.plan.upcoming.reason).toContain("connected accounts were not returned by Core");
-      expect(incompleteLookups.plan.upcoming.reason).toContain("returned Core Unit page");
-      expect(incompleteLookups.plan.upcoming.reason).toContain("projects were not returned by Core");
+      expect(incompleteLookups.plan.upcoming.reason).toContain("Some publishing account names could not be loaded");
+      expect(incompleteLookups.plan.upcoming.reason).toContain("outside this overview");
+      expect(incompleteLookups.plan.upcoming.reason).toContain("Some project names could not be loaded");
     }
     const scheduledOverview = {
       ...populatedOverview,
       publications: { items: [{ ...publication, state: "scheduled" as const, scheduledAt: now }], nextCursor: null },
     };
     const complementaryLookupLimits = [
-      [presentWorkspaceOverview({ overview: { ...scheduledOverview, accounts: { ...populatedOverview.accounts!, nextCursor: "more-accounts" } }, catalogProjects: [], description: "", now }).plan.upcoming, "returned Core account page"],
-      [presentWorkspaceOverview({ overview: { ...scheduledOverview, units: undefined }, catalogProjects: [], description: "", now }).plan.upcoming, "Units were not returned by Core"],
-      [presentWorkspaceOverview({ overview: { ...scheduledOverview, projects: { items: [], nextCursor: "more-projects" } }, catalogProjects: [], description: "", now }).plan.upcoming, "returned Core project page"],
+      [presentWorkspaceOverview({ overview: { ...scheduledOverview, accounts: { ...populatedOverview.accounts!, nextCursor: "more-accounts" } }, catalogProjects: [], description: "", now }).plan.upcoming, "outside this overview"],
+      [presentWorkspaceOverview({ overview: { ...scheduledOverview, units: undefined }, catalogProjects: [], description: "", now }).plan.upcoming, "Some content names could not be loaded"],
+      [presentWorkspaceOverview({ overview: { ...scheduledOverview, projects: { items: [], nextCursor: "more-projects" } }, catalogProjects: [], description: "", now }).plan.upcoming, "outside this overview"],
     ] as const;
     for (const [upcoming, reason] of complementaryLookupLimits) {
       expect(upcoming).toMatchObject({ status: "partial" });

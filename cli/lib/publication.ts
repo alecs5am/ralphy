@@ -711,9 +711,11 @@ function readDocument(context: QueryContext, revisionId: string): string {
 
 export function createPostizPublicationAdapter(
   fetchImpl: FetchLike = fetch,
+  credentialFor?: (publicationId: string) => Promise<string | null>,
 ): PublicationProviderAdapter {
   return {
     async submit(request) {
+      const credential = await credentialFor?.(request.publicationId);
       if (!request.socialAccountExternalId) {
         throw new Error("Postiz submission requires a social account");
       }
@@ -723,7 +725,7 @@ export function createPostizPublicationAdapter(
       }
       const media = [];
       for (const objectPath of request.mediaPaths) {
-        const uploaded = await postizUpload(objectPath, fetchImpl);
+        const uploaded = await postizUpload(objectPath, fetchImpl, undefined, credential);
         media.push({ id: uploaded.id, path: uploaded.path });
       }
       const optionDefaults = isRecord(request.options) ? request.options : {};
@@ -775,8 +777,11 @@ export function createPostizPublicationAdapter(
         shortLink: false,
         tags: [],
         posts: [post],
-      }, fetchImpl);
+      }, fetchImpl, undefined, credential);
       const providerPublicationId = rows[0]?.postId ?? rows[0]?.id ?? null;
+      if (typeof providerPublicationId !== "string" || !providerPublicationId.trim() || providerPublicationId.length > 512) {
+        throw new Error("Postiz did not confirm a publication identifier; the submission outcome is unknown");
+      }
       return {
         state: scheduled ? "scheduled" : "submitted",
         providerPublicationId,
@@ -786,18 +791,19 @@ export function createPostizPublicationAdapter(
     },
     async lookup(request) {
       const publication = request.publication;
+      const credential = await credentialFor?.(publication.id);
       if (!publication.providerPublicationId) {
-        throw new Error("Postiz lookup requires a provider Publication ID");
+        return { state: "unknown", operationState: "succeeded", error: "Postiz did not confirm a post ID. Check the post directly in Postiz; its status cannot be verified automatically. Do not resubmit while its outcome is uncertain." };
       }
       const center = publication.scheduledAt ?? publication.submittedAt ?? publication.createdAt;
       const rows = await postizListPosts(
         new Date(center - 86_400_000).toISOString(),
         new Date(center + 86_400_000).toISOString(),
-        fetchImpl,
+        fetchImpl, undefined, credential,
       );
       const row = rows.find((candidate) => candidate.id === publication.providerPublicationId);
       if (!row) {
-        return { state: "failed", operationState: "succeeded", error: "Publication was not found" };
+        return { state: "reconciliation_required", operationState: "succeeded", error: "Postiz did not return this publication. Check its remote status before retrying." };
       }
       if (row.releaseURL) {
         return {
@@ -807,12 +813,12 @@ export function createPostizPublicationAdapter(
           publishedAt: Date.now(),
         };
       }
-      return { state: publication.state, operationState: "succeeded" } as PublicationOutcome;
+      return { state: publication.state, operationState: "succeeded", ...(publication.state === "unknown" || publication.state === "reconciliation_required" ? { error: "Postiz found the post but has not confirmed its publication status. Check it in Postiz before retrying or changing the schedule." } : {}) } as PublicationOutcome;
     },
     async cancel(request) {
       const id = request.publication.providerPublicationId;
       if (!id) throw new Error("Postiz cancellation requires a provider Publication ID");
-      await postizDeletePost(id, fetchImpl);
+      await postizDeletePost(id, fetchImpl, undefined, await credentialFor?.(request.publication.id));
       return { state: "cancelled", operationState: "succeeded", response: { cancelled: true } };
     },
   };

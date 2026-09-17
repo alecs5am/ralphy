@@ -1,4 +1,4 @@
-import type { CanvasModelCatalog, CanvasRun } from "./canvas-runtime";
+import type { CanvasModelCatalog, CanvasRun, CanvasRunPage, CanvasRunResult } from "./canvas-runtime";
 import type { CanvasAsset } from "./workflow-canvas";
 
 export type GenerationKind = "image" | "video" | "voiceover" | "music" | "sfx";
@@ -55,6 +55,7 @@ export interface GenerationProviderStatus {
   configured: boolean;
   stored: boolean;
   inherited: boolean;
+  validation?: { state: "valid" | "invalid" | "unreachable" | "missing" | "untested"; checkedAt: number };
 }
 export const GENERATION_PROVIDERS_CHANGED_EVENT = "ralphy:generation-providers-changed";
 export function isGenerationProviderId(value: unknown): value is GenerationProviderStatus["id"] {
@@ -64,18 +65,26 @@ export interface GenerationBridge {
   loadGenerationProviders(): Promise<GenerationProviderStatus[]>;
   setGenerationProviderKey(provider: GenerationProviderStatus["id"], apiKey: string): Promise<GenerationProviderStatus[]>;
   clearGenerationProviderKey(provider: GenerationProviderStatus["id"]): Promise<GenerationProviderStatus[]>;
+  probeGenerationProvider(provider: GenerationProviderStatus["id"]): Promise<GenerationProviderStatus[]>;
   loadGenerationCatalog(workspaceId: string): Promise<GenerationCatalog>;
   loadGenerationVoices(workspaceId: string): Promise<GenerationVoice[]>;
   loadGenerationDraft(workspaceId: string): Promise<GenerationDraft | null>;
   saveGenerationDraft(workspaceId: string, draft: GenerationDraft): Promise<void>;
   startGeneration(workspaceId: string, draft: GenerationDraft, mode: "preview" | "execute"): Promise<CanvasRun>;
-  loadGenerationRuns(workspaceId: string): Promise<CanvasRun[]>;
+  loadGenerationRuns(workspaceId: string, before?: string | null): Promise<CanvasRunPage>;
   cancelGenerationRun(workspaceId: string, id: string): Promise<CanvasRun>;
   exportGenerationAsset(workspaceId: string, asset: CanvasAsset): Promise<boolean>;
 }
 
 export const GENERATION_CANVAS_ID = "generation-studio";
 export const GENERATION_INPUT_ROLES = ["refs", "firstFrame", "lastFrame", "refVideos"] as const;
+
+export function generationOutputs(run: CanvasRun): CanvasRunResult[] {
+  if (run.mode !== "execute") return [];
+  const references = new Set(run.nodes.filter((entry) => run.snapshot.nodes.some((node) => node.id === entry.nodeId && node.kind === "media")).flatMap((entry) => entry.results.map((result) => result.id)));
+  const outputs = run.nodes.filter((entry) => run.snapshot.nodes.some((node) => node.id === entry.nodeId && (node.kind === "model" || node.kind === "output"))).flatMap((entry) => entry.results).filter((result) => result.asset && !references.has(result.id));
+  return [...new Map(outputs.map((result) => [result.id, result])).values()];
+}
 
 export function generationDraftFromRun(run: CanvasRun): GenerationDraft | null {
   if (run.canvasId !== GENERATION_CANVAS_ID) return null;

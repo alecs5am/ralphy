@@ -1,4 +1,4 @@
-import { Bookmark, FolderInput, TriangleAlert } from "@/shared/ui/icons";
+import { FolderInput, TriangleAlert } from "@/shared/ui/icons";
 import type { LocalModelMachine } from "../../../../electron/media/types";
 import type { MarketplaceLibrarySection } from "../model/navigation";
 import { LIBRARY_COPY, LIBRARY_MONO, LIBRARY_PLATE, LIBRARY_ROUTE, LIBRARY_TITLE, LIBRARY_UNAVAILABLE } from "../lib/detail-chrome";
@@ -25,20 +25,19 @@ const CATEGORY_LABEL: Record<MarketplacePackItemPresentation["category"], string
   components: "Component",
 };
 
-/* What this workspace took off the bundled shelf. Enabled and disabled are both
-   installed, so both are listed here and the row says which. */
+/* Legacy enabled and disabled selections are both retained as saved references. */
 function MarketplaceInstalledPackItems({ items, workspaceName, onOpenItem }: {
   items: MarketplacePackItemPresentation[];
   workspaceName: string | null;
   onOpenItem(key: string): void;
 }) {
   return <section className={`marketplace-installed-pack ${LIBRARY_ROUTE}`} aria-labelledby="marketplace-installed-pack-title">
-    <span><small>My Library · Bundled</small><h2 className={LIBRARY_TITLE} id="marketplace-installed-pack-title">Installed in this workspace</h2></span>
+    <span><small>My Library · Bundled documents</small><h2 className={LIBRARY_TITLE} id="marketplace-installed-pack-title">Saved for this workspace</h2></span>
     <p className={LIBRARY_COPY}>{workspaceName === null
-      ? "No workspace is selected, so no installs are claimed."
-      : `Recorded by this app for “${workspaceName}”. The documents themselves ship with the app.`}</p>
+      ? "Create a workspace to save bundled documents for later."
+      : `Bookmarks for “${workspaceName}” on this Mac. Saving a document does not change agent capabilities.`}</p>
     {items.length === 0
-      ? <div className={LIBRARY_PLATE} role="status">Nothing from the bundled catalog is installed here.</div>
+      ? <div className={LIBRARY_PLATE} role="status">No saved documents yet. Browse a category and choose Save to workspace.</div>
       : <ul className="m-0 flex list-none flex-col gap-2 p-0" role="list">{items.map((item) => <li key={item.key}>
         <button
           className="flex min-h-16 w-full min-w-0 items-center justify-between gap-4 rounded-cell bg-surface px-3.5 py-3 text-left text-ink hover:bg-surface-hover"
@@ -50,7 +49,7 @@ function MarketplaceInstalledPackItems({ items, workspaceName, onOpenItem }: {
             <strong className="truncate font-normal">{item.name}</strong>
             <small className={LIBRARY_MONO}>{CATEGORY_LABEL[item.category]} · {item.pack.slug}</small>
           </span>
-          <em className={`${LIBRARY_MONO} shrink-0`}>{item.install.status === "installed" && item.install.enabled ? "Enabled" : "Disabled"}</em>
+          <span className={`${LIBRARY_MONO} shrink-0`}>Saved</span>
         </button>
       </li>)}</ul>}
   </section>;
@@ -63,15 +62,10 @@ export function MarketplaceMyLibrary({ section, machine, installedItems, workspa
   workspaceName: string | null;
   onOpenItem(key: string): void;
 }) {
-  if (section === "installed") return <>
-    <MarketplaceInstalledModels machine={machine} />
-    <MarketplaceInstalledPackItems items={installedItems} workspaceName={workspaceName} onOpenItem={onOpenItem} />
-  </>;
+  if (section === "installed") return <MarketplaceInstalledModels machine={machine} />;
+  if (section === "saved") return <MarketplaceInstalledPackItems items={installedItems} workspaceName={workspaceName} onOpenItem={onOpenItem} />;
   if (section === "downloads") return <MarketplaceDownloads presentation={{ availability: "unavailable", reason: "Downloads are unavailable because there is no persistent background-download contract" }} />;
   if (section === "updates") return <MarketplaceUpdateConflictReview />;
-  if (section === "saved") return <UnavailableLibrarySection title="Saved" reason="Saved items are unavailable because there is no persistent saved-state contract">
-    <p className={REASON_ROW}><Bookmark className={REASON_GLYPH} aria-hidden="true" />Local forks are unavailable because there is no persistent fork-state contract.</p>
-  </UnavailableLibrarySection>;
   if (section === "added") return <UnavailableLibrarySection title="Added to workspaces and projects" reason="Added items are unavailable because there is no persistent workspace/project addition-state contract">
     <p className={REASON_ROW}><FolderInput className={REASON_GLYPH} aria-hidden="true" />Adding is unavailable without a Core mutation contract.</p>
   </UnavailableLibrarySection>;

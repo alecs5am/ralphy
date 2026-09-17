@@ -20,6 +20,8 @@ interface Capture {
   openrouterKey: string | null;
   openaiKey: string | null;
   codexKey: string | null;
+  falKey: string | null;
+  elevenlabsKey: string | null;
   requests: { method: string; params: Record<string, unknown> }[];
 }
 
@@ -53,6 +55,8 @@ const state = {
   openrouterKey: process.env.OPENROUTER_API_KEY ?? null,
   openaiKey: process.env.OPENAI_API_KEY ?? null,
   codexKey: process.env.CODEX_API_KEY ?? null,
+  falKey: process.env.FAL_KEY ?? null,
+  elevenlabsKey: process.env.ELEVENLABS_API_KEY ?? null,
   requests: [],
 };
 const save = () => fs.writeFileSync(process.env.RALPHY_TEST_CAPTURE, JSON.stringify(state));
@@ -171,6 +175,7 @@ describe("CodexSession", () => {
     const fake = await fakeCodex();
     const session = new CodexSession({
       binary: fake.binary,
+      generationCredentials: { FAL_KEY: "fal-nonfunctional-test-key", ELEVENLABS_API_KEY: "elevenlabs-nonfunctional-test-key" },
       env: {
         PATH: process.env.PATH ?? "/usr/bin:/bin",
         RALPHY_TEST_CAPTURE: fake.capture,
@@ -189,6 +194,11 @@ describe("CodexSession", () => {
 
     const capture = await read(fake.capture);
     expect(capture.openrouterKey).toBe("sk-or-v1-test-key-123456789");
+    expect(capture.falKey).toBe("fal-nonfunctional-test-key");
+    expect(capture.elevenlabsKey).toBe("elevenlabs-nonfunctional-test-key");
+    expect(capture.args).toContain("shell_environment_policy.ignore_default_excludes=true");
+    expect(capture.args.find((arg) => arg.startsWith("shell_environment_policy.include_only="))).toContain("FAL_KEY");
+    expect(JSON.stringify([capture.args, capture.requests])).not.toContain("fal-nonfunctional-test-key");
     expect(capture.args).toContain('model_provider="openrouter"');
     expect(capture.args).toContain('model_providers.openrouter.base_url="https://openrouter.ai/api/v1"');
     expect(capture.args).toContain('model_providers.openrouter.wire_api="responses"');

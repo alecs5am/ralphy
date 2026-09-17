@@ -209,7 +209,7 @@ describe("Marketplace unavailable surfaces", () => {
     }
   });
 
-  test("opens the read-only contribution shells from a real Discover control", async () => {
+  test("keeps unavailable community publishing out of Discover navigation", async () => {
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
     const navigate = vi.fn();
@@ -223,15 +223,8 @@ describe("Marketplace unavailable surfaces", () => {
     try {
       await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible snapshot={snapshot()} onBack={() => undefined} onNavigate={navigate} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       const entry = host.container.querySelectorAll("button").find((button) => button.textContent?.includes("Community contributions"));
-      expect(entry).not.toBeUndefined();
-      await act(async () => entry!.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
-      expect(navigate).toHaveBeenCalledWith({
-        ...location,
-        route: { kind: "collection" },
-        selectedItemId: null,
-        scrollTop: 0,
-        focusId: "marketplace-heading",
-      });
+      expect(entry).toBeUndefined();
+      expect(navigate).not.toHaveBeenCalled();
       await act(async () => root.render(<MarketplaceScreenView catalog={null} location={{ ...location, route: { kind: "collection" }, scrollTop: 0 }} sidebarVisible snapshot={snapshot()} onBack={() => undefined} onNavigate={navigate} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       expect(host.container.textContent).toContain("Community collection contract is unavailable");
       expect(host.container.textContent).toContain("Creator identity and published-item contracts are unavailable");

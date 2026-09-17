@@ -45,7 +45,7 @@ async function mount(runs: CanvasRun[] = []) {
   vi.spyOn(bridge, "loadGenerationCatalog").mockResolvedValue({ models: [imageModel, otherModel, voiceModel], providers: [{ id: "test", label: "Test provider", available: true, capabilities: ["image", "voice"] }], errors: [] });
   vi.spyOn(bridge, "loadGenerationDraft").mockResolvedValue(structuredClone(draft));
   const save = vi.spyOn(bridge, "saveGenerationDraft").mockResolvedValue();
-  vi.spyOn(bridge, "loadGenerationRuns").mockResolvedValue(runs);
+  vi.spyOn(bridge, "loadGenerationRuns").mockResolvedValue({ items: runs, nextCursor: null });
   vi.spyOn(bridge, "loadCanvasAssetPreview").mockResolvedValue(null);
   const start = vi.spyOn(bridge, "startGeneration").mockResolvedValue(run("estimated", "preview", draft.prompt));
   const exportAsset = vi.spyOn(bridge, "exportGenerationAsset").mockResolvedValue(true);
@@ -56,6 +56,49 @@ async function mount(runs: CanvasRun[] = []) {
   await act(async () => root.render(<GenerationScreen workspaceId="workspace" workspaceName="Test studio" rootEpoch={1} onOpenProviders={onOpenProviders} />));
   return { host, root, save, start, exportAsset, onOpenProviders, async close() { await act(async () => root.unmount()); host.restore(); } };
 }
+
+test.each([{ failed: false, video: false }, { failed: false, video: true }, { failed: true, video: false }])("references stay separate from creations and default detail output (%j)", async ({ failed, video }) => {
+  const created: CanvasRunResult = video ? { ...output, kind: "video", asset: { path: "/workspace/output.mp4", name: "output.mp4", kind: "video" } } : output;
+  const generated = run("referenced", "execute", "Referenced prompt", failed ? [] : [created, { ...created, id: "second", label: "Second variation" }]);
+  if (video) generated.snapshot.nodes[0].config!.modality = "video";
+  const source = { ...output, id: "reference", nodeId: "input", label: "Source image", previewUrl: "ralphy-media://asset/source" };
+  generated.snapshot.nodes.unshift({ id: "input", kind: "media", title: "Reference", value: "", x: 0, y: 0, config: { asset: source.asset } });
+  generated.nodes.unshift({ ...generated.nodes[0], nodeId: "input", results: [source] });
+  if (failed) { generated.status = "failed"; generated.error = "Request rejected before output"; }
+  const mounted = await mount([generated]);
+  try {
+    if (video) await click(mounted.host.container, "Video");
+    expect(mounted.host.container.querySelectorAll(".generation-output-card")).toHaveLength(failed ? 0 : 2);
+    await click(mounted.host.container, "History"); await click(mounted.host.container, "Referenced prompt");
+    expect(mounted.host.container.querySelectorAll("section").find((node) => node.getAttribute("aria-label") === "Input references")?.textContent).toContain("Source image");
+    if (failed) {
+      expect(mounted.host.container.textContent).toContain("No output was produced by this run.");
+      expect(mounted.host.container.querySelectorAll("[role='group']").find((node) => node.getAttribute("aria-label") === "Output variations")).toBeUndefined();
+      expect(mounted.host.container.querySelectorAll("button").some((node) => node.textContent === "Export" || node.textContent.startsWith("Use as"))).toBe(false);
+    } else {
+      expect(mounted.host.container.querySelector(`.generation-preview ${video ? "video" : "img"}`)?.getAttribute("src")).toBe(created.previewUrl);
+      expect(mounted.host.container.querySelectorAll("[role='group']").find((node) => node.getAttribute("aria-label") === "Output variations")?.querySelectorAll("button")).toHaveLength(2);
+      await click(mounted.host.container, "Export"); expect(mounted.exportAsset).toHaveBeenCalledWith("workspace", created.asset);
+    }
+  } finally { await mounted.close(); }
+});
+
+test("completed partial output survives a failed run and older-page controls expose retained creations", async () => {
+  const partial = { ...run("partial", "execute", "Partial prompt", [output]), status: "failed" as const, error: "Second variant failed" };
+  const mounted = await mount([]);
+  const load = vi.mocked(bridge.loadGenerationRuns);
+  try {
+    load.mockResolvedValueOnce({ items: [], nextCursor: "older-page" });
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    load.mockResolvedValueOnce({ items: [partial], nextCursor: null });
+    await click(mounted.host.container, "Load older runs");
+    expect(load).toHaveBeenLastCalledWith("workspace", "older-page");
+    expect(mounted.host.container.querySelectorAll(".generation-output-card")).toHaveLength(1);
+    await click(mounted.host.container, "Open Generated frame");
+    expect(mounted.host.container.textContent).toContain("Second variant failed");
+    await click(mounted.host.container, "Export"); expect(mounted.exportAsset).toHaveBeenCalledWith("workspace", output.asset);
+  } finally { await mounted.close(); }
+});
 
 test("renders model schema fields, switches schemas, and opens unavailable provider settings", async () => {
   const mounted = await mount();

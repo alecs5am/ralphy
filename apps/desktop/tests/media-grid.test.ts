@@ -626,7 +626,7 @@ describe("mounted media tiles", () => {
     const onOpen = vi.fn();
     const view = await mounted(tile(mediaCard("accessible"), 211, async () => null, project, onSelect, onOpen));
     try {
-      const selection = byLabel(view.host.container, "image/png");
+      const selection = byLabel(view.host.container, "Source file · cessible");
       selection.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
       dispatchKey(selection, "keydown", "Enter");
       dispatchKey(selection, "keydown", " ");

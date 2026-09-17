@@ -35,19 +35,13 @@ function voiceFields(id: string): GenerationField[] {
 
 /** The CLI matrix describes connector coverage; public model discovery alone cannot promise it. */
 export async function loadGenerationCatalog(cli: CanvasCli, fetcher: typeof fetch): Promise<GenerationCatalog> {
-  const [base, matrix] = await Promise.allSettled([loadCanvasModelCatalog(cli, fetcher), cli(["provider", "matrix"])]);
+  const coverageRequest = cli(["provider", "matrix"]);
+  const [base, matrix] = await Promise.allSettled([loadCanvasModelCatalog(cli, fetcher, coverageRequest), coverageRequest]);
   const catalog: GenerationCatalog = base.status === "fulfilled" ? { models: [], providers: base.value.providers, errors: [...base.value.errors] } : { models: [], providers: [], errors: ["Model discovery is unavailable."] };
   const entries = matrix.status === "fulfilled" && Array.isArray(record(matrix.value).entries) ? (record(matrix.value).entries as unknown[]).slice(0, 1500).map(record) : [];
   if (matrix.status === "rejected") catalog.errors.push("Provider parameter discovery is unavailable.");
   const coverage = (provider: string, id: string) => entries.find((row) => row.provider === provider && row.model === id);
   const candidates = base.status === "fulfilled" ? base.value.models.filter((model) => model.modality === "image" || model.modality === "video") : [];
-  for (const row of entries) {
-    if (row.provider !== "fal" || row.capability !== "video" || typeof row.model !== "string") continue;
-    const seedance = row.model === "bytedance/seedance-2.0/reference-to-video";
-    if (!seedance && row.model !== "fal-ai/kling-video/o3/pro/reference-to-video") continue;
-    // These two constraints are the installed prompt pack's documented fal connector contract.
-    candidates.push({ id: row.model, provider: "fal", name: names[row.model]!, modality: "video", description: seedance ? "Generate video with image references. Local video references require a project in the installed runtime." : "Generate video from reference images and optional start/end frames.", available: catalog.providers.some((item) => item.id === "fal" && item.available), parameters: { durations: Array.from({ length: seedance ? 12 : 13 }, (_, index) => index + (seedance ? 4 : 3)), resolutions: seedance ? ["480p", "720p", "1080p"] : ["720p", "1080p"], aspects: seedance ? ["auto", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"] : ["16:9", "9:16", "1:1"], frames: seedance ? [] : ["first_frame", "last_frame"] } });
-  }
   for (const model of candidates) {
     // Specialized editing/upscaling models need input contracts this CLI does not expose.
     if (model.modality === "video" && (!model.parameters.durations?.length || !model.parameters.resolutions?.length || !model.parameters.aspects?.length)) continue;

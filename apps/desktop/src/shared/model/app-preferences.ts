@@ -24,6 +24,7 @@ export const APP_PREFERENCE_DEFAULTS = {
   "appearance.motion": true,
   "appearance.previews": "On hover",
   "agents.defaultHarness": "codex",
+  "permissions.mode": "plan",
   "permissions.posture": "Ask for writes and shell",
   "permissions.filesystem": true,
   "permissions.shell": true,

@@ -1,15 +1,16 @@
 import { constants } from "node:fs";
 import { copyFile, open } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, extname, join } from "node:path";
 import { GENERATION_CANVAS_ID } from "../../shared/generation-studio";
 import { canvasId, type CanvasAsset } from "../../shared/workflow-canvas";
 import { guardedAtomicWrite } from "../media/atomic-write";
 import { MEDIA_CHANNELS } from "../media/types";
 import { loadGenerationCatalog } from "./generation-catalog";
 import { loadGenerationVoices } from "./generation-voices";
+import { registerGenerationUnitIpc } from "./generation-units";
 import { generationRevision, generationSnapshot, parseGenerationDraft, preflightGeneration, validateGenerationDraft } from "./generation-draft";
 import { createCanvasRuntime, type RuntimeDependencies } from "./runtime";
-import { canvasAssetMime, runtimeDirectory, validateCanvasAsset } from "./runtime-files";
+import { canvasAssetMime, readCanvasText, runtimeDirectory, validateCanvasAsset } from "./runtime-files";
 
 const DRAFT_BYTES = 1_048_576;
 const draftPath = async (runtime: RuntimeDependencies) => join(await runtimeDirectory(runtime.root, runtime.workspaceId, "generation"), "draft.json");
@@ -20,13 +21,17 @@ export function registerGenerationIpc(deps: {
   fetcher: typeof fetch;
   chooseExport(name: string): Promise<string | null>;
 }) {
+  registerGenerationUnitIpc(deps);
   const capture = (workspaceId: unknown) => deps.capture(canvasId(workspaceId));
   const saves = new Map<string, Promise<unknown>>();
   const assetFile = async (runtime: RuntimeDependencies, value: unknown) => {
     const asset = value as CanvasAsset;
-    if (!asset || typeof asset.path !== "string" || typeof asset.name !== "string" || !["image", "video", "audio"].includes(asset.kind)) throw new Error("Choose a generated media file");
+    if (!asset || typeof asset.path !== "string" || typeof asset.name !== "string" || !["text", "image", "video", "audio"].includes(asset.kind)) throw new Error("Choose a generated file");
     const checked = await validateCanvasAsset(runtime.root, asset, runtime.workspaceId);
-    if (!canvasAssetMime(checked.path)?.startsWith(`${asset.kind}/`)) throw new Error("The file does not match its media type");
+    if (asset.kind === "text") {
+      if (![".txt", ".md", ".json"].includes(extname(checked.path).toLowerCase())) throw new Error("The file does not match its text type");
+      await readCanvasText(runtime.root, runtime.workspaceId, asset);
+    } else if (!canvasAssetMime(checked.path)?.startsWith(`${asset.kind}/`)) throw new Error("The file does not match its media type");
     runtime.assertCurrent();
     return checked.path;
   };
@@ -82,15 +87,15 @@ export function registerGenerationIpc(deps: {
     runtime.assertCurrent();
     return createCanvasRuntime(runtime).startSnapshot(generationSnapshot(draft, model.name), { mode, expectedRevision: generationRevision(draft), nodeId: "generation" });
   });
-  deps.handle(MEDIA_CHANNELS.loadGenerationRuns, async (workspaceId) => {
+  deps.handle(MEDIA_CHANNELS.loadGenerationRuns, async (workspaceId, before) => {
     const runtime = await capture(workspaceId);
-    const runs = await createCanvasRuntime(runtime).list(GENERATION_CANVAS_ID);
+    const runs = await createCanvasRuntime(runtime).list(GENERATION_CANVAS_ID, { before: before as string | undefined });
     runtime.assertCurrent();
     return runs;
   });
   deps.handle(MEDIA_CHANNELS.cancelGenerationRun, async (workspaceId, value) => {
     const runtime = await capture(workspaceId), id = canvasId(value), engine = createCanvasRuntime(runtime);
-    if (!(await engine.list(GENERATION_CANVAS_ID)).some((run) => run.id === id)) throw new Error("This generation is no longer available");
+    if (!(await engine.list(GENERATION_CANVAS_ID)).items.some((run) => run.id === id)) throw new Error("This generation is no longer available");
     runtime.assertCurrent();
     return engine.cancel(id);
   });

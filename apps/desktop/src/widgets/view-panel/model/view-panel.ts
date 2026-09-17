@@ -120,14 +120,14 @@ export interface OpenViewRequest {
   label: string;
 }
 
-export function unitViewRequest(project: ProjectReference, unitId: string, label: string): OpenViewRequest {
-  return { type: "unit", targetId: `${project.workspaceId}/${project.projectId}/${unitId}`, label };
+export function unitViewRequest(project: ProjectReference, unitId: string, label: string, revisionId?: string): OpenViewRequest {
+  return { type: "unit", targetId: `${project.workspaceId}/${project.projectId ?? ""}/${unitId}${revisionId ? `/${revisionId}` : ""}`, label };
 }
 
-export function readUnitViewTarget(value: unknown): (ProjectReference & { unitId: string }) | null {
+export function readUnitViewTarget(value: unknown): (ProjectReference & { unitId: string; revisionId?: string }) | null {
   const parts = typeof value === "string" ? value.split("/") : [];
-  if (parts.length !== 3 || parts.some((part) => !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(part))) return null;
-  return { workspaceId: parts[0], projectId: parts[1], unitId: parts[2] };
+  if (![3, 4].includes(parts.length) || parts.some((part, index) => !(index === 1 && part === "") && !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(part))) return null;
+  return { workspaceId: parts[0], projectId: parts[1] || null, unitId: parts[2], ...(parts[3] ? { revisionId: parts[3] } : {}) };
 }
 
 /**

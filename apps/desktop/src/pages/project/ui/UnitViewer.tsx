@@ -106,6 +106,7 @@ export function UnitViewer({
   const lifecycle = unit && !showOriginal ? unitLifecycle({ unit, revision, compositionRevision: productionRevision, builds: snapshot.compositionBuilds.items, publications }) : null;
   const pending = snapshot.unitMutation !== "idle" || snapshot.compositionMutation !== "idle";
   const surface = useRef<HTMLDivElement>(null);
+  const revisionStrip = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const [media, setMedia] = useState<UnitMedia[]>([]);
   const targets = useMemo(() => unit ? socialTargets(unit.format, snapshot.unitPresentations.items) : [], [snapshot.unitPresentations.items, unit]);
@@ -138,6 +139,10 @@ export function UnitViewer({
     const rows = revision && !snapshot.unitRevisions.items.some(({ id }) => id === revision.id) ? [...snapshot.unitRevisions.items, revision] : snapshot.unitRevisions.items;
     return rows.filter((item) => item.id !== unit?.sourceRevisionId).sort((a, b) => a.revisionNo - b.revisionNo);
   }, [revision, snapshot.unitRevisions.items, unit?.sourceRevisionId]);
+
+  useEffect(() => {
+    if (open) revisionStrip.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [open, showOriginal, revision?.id, revisions.length]);
 
   useEffect(() => {
     if (!open || !revision) return;
@@ -259,8 +264,8 @@ export function UnitViewer({
         <i className="unit-revisions-rule mx-5 h-px flex-none bg-divider" aria-hidden="true" />
         <section className="unit-revisions min-w-0 flex-none px-5 pb-3.5 pt-3" aria-label="Unit revisions">
           <span className="mb-2 flex items-center justify-between gap-3"><label className="font-code type-meta tracking-block text-muted">REVISIONS · {revisions.length + (unit?.sourceRevisionId ? 1 : 0)}</label><span className="type-xs text-muted">Click a version to compare</span></span>
-          <div className="flex gap-2 overflow-x-auto p-px" role="listbox" aria-label="Unit revisions list">
-            {unit?.sourceRevisionId && <button type="button" role="option" aria-label="View revision 0" aria-selected={showOriginal} onClick={() => setOriginalUnitId(unit.id)} onKeyDown={(event) => { if (event.key === "ArrowRight" && revisions[0]) { event.preventDefault(); setOriginalUnitId(null); void controller.inspectUnitRevision(revisions[0].id); } }} className={`unit-original-revision relative grid w-revision-card min-w-revision-card-min shrink-0 gap-2 rounded-cell p-1.5 text-left ring-1 ring-inset ring-brand ${showOriginal ? "is-viewing bg-brand/10 text-ink" : "bg-surface text-ink hover:bg-surface-hover"}`}>
+          <div ref={revisionStrip} className="flex gap-2 overflow-x-auto p-px" role="listbox" aria-label="Unit revisions list">
+            {unit?.sourceRevisionId && <button type="button" role="option" aria-label="View revision 0" aria-selected={showOriginal} onClick={() => setOriginalUnitId(unit.id)} onKeyDown={(event) => { if (event.key === "ArrowRight" && revisions[0]) { event.preventDefault(); setOriginalUnitId(null); void controller.inspectUnitRevision(revisions[0].id); } }} className={`unit-original-revision relative grid w-revision-card min-w-revision-card-min shrink-0 gap-2 rounded-cell p-1.5 text-left ring-1 ring-inset ${showOriginal ? "is-viewing bg-brand/10 text-ink ring-brand" : "bg-surface text-ink ring-transparent hover:ring-divider hover:bg-surface-hover"}`}>
               <UnitRevisionPreview project={snapshot.domain.project} revisionId={unit.sourceRevisionId} className="unit-revision-thumb aspect-video w-full rounded-field" />
               <span className="truncate px-1 type-xs text-secondary">{unit.sourceLabel ?? "Source creative"}</span>
               <span className="flex items-center justify-between gap-2 px-1 pb-1"><strong className="font-code type-sm">R0</strong><span className="rounded-chip bg-brand px-2 py-1 font-code type-xs text-brand-ink">ORIGINAL</span></span>

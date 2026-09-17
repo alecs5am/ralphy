@@ -588,7 +588,7 @@ describe("domain document store", () => {
       searchDocuments({ context, query: "shorter", limit: 50 }).items[0],
     ).toMatchObject({
       revisionId: v2.id,
-      documentTitle: "Brief",
+      documentTitle: "Launch brief",
       title: null,
     });
     expect(() =>

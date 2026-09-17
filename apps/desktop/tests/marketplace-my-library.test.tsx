@@ -30,14 +30,14 @@ describe("Marketplace My Library", () => {
     expect(markup).not.toContain("Diffusers local");
   });
 
-  test("distinguishes unavailable saved, added, forked, download, update, and attention state", () => {
+  test("shows the saved empty state and keeps legacy unavailable routes honest", () => {
     const saved = renderToStaticMarkup(<MarketplaceMyLibrary section="saved" machine={machine} installedItems={[]} workspaceName="UX Testing Lab" onOpenItem={() => undefined} />);
     const added = renderToStaticMarkup(<MarketplaceMyLibrary section="added" machine={machine} installedItems={[]} workspaceName="UX Testing Lab" onOpenItem={() => undefined} />);
     const downloads = renderToStaticMarkup(<MarketplaceMyLibrary section="downloads" machine={machine} installedItems={[]} workspaceName="UX Testing Lab" onOpenItem={() => undefined} />);
     const updates = renderToStaticMarkup(<MarketplaceMyLibrary section="updates" machine={machine} installedItems={[]} workspaceName="UX Testing Lab" onOpenItem={() => undefined} />);
     const attention = renderToStaticMarkup(<MarketplaceMyLibrary section="attention" machine={machine} installedItems={[]} workspaceName="UX Testing Lab" onOpenItem={() => undefined} />);
-    expect(saved).toContain("Saved items are unavailable because there is no persistent saved-state contract");
-    expect(saved).toContain("Local forks are unavailable because there is no persistent fork-state contract");
+    expect(saved).toContain("No saved documents yet");
+    expect(saved).toContain("Save to workspace");
     expect(added).toContain("Added items are unavailable because there is no persistent workspace/project addition-state contract");
     expect(downloads).toContain("Downloads are unavailable because there is no persistent background-download contract");
     expect(updates).toContain("Current version");

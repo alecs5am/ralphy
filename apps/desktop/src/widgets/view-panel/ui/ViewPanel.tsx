@@ -95,6 +95,7 @@ export interface ViewPanelProps {
      unmounted on every tab switch would lose the page the operator opened it for. */
   browser?: ReactNode;
   expanded?: boolean;
+  compact?: boolean;
   onToggleExpanded?(): void;
   children: ReactNode;
 }
@@ -142,7 +143,7 @@ function TabButton({ tab, active, onSelect, onClose }: {
   </span>;
 }
 
-export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, browser, children, expanded, onToggleExpanded }: ViewPanelProps) {
+export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, browser, children, expanded, compact, onToggleExpanded }: ViewPanelProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const plus = useRef<HTMLButtonElement>(null);
@@ -202,7 +203,7 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, brows
       >
         <Plus size={14} strokeWidth={2} aria-hidden="true" />
       </button>
-      {onToggleExpanded && <button className={`${CIRCLE} size-6 flex-none text-muted hover:bg-chip hover:text-ink`} type="button" aria-label={expanded ? "Restore split view" : "Expand workspace panel"} title={expanded ? "Restore split view" : "Expand workspace panel"} aria-pressed={expanded} onClick={onToggleExpanded}>{expanded ? <Minimize2 size={13} aria-hidden="true" /> : <Maximize2 size={13} aria-hidden="true" />}</button>}
+      {onToggleExpanded && <button className={`${CIRCLE} size-6 flex-none text-muted hover:bg-chip hover:text-ink`} type="button" aria-label={compact ? "Back to chat" : expanded ? "Restore split view" : "Expand workspace panel"} title={compact ? "Back to chat" : expanded ? "Restore split view" : "Expand workspace panel"} aria-pressed={expanded} onClick={onToggleExpanded}>{expanded ? <Minimize2 size={13} aria-hidden="true" /> : <Maximize2 size={13} aria-hidden="true" />}</button>}
     </div>
     <div className={`view-panel-page relative ${WINDOW_BODY}`}>
       {children}

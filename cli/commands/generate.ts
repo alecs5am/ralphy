@@ -83,6 +83,7 @@ import type { GenerateResult } from "../lib/providers/types.js";
 import type { ArtifactKind } from "../lib/store/types.js";
 import { providerCompletionFacts } from "../lib/artifact-production.js";
 import { generationInput, generationParameter } from "../lib/generation-input.js";
+import { registerGenerateText } from "./generate-text.js";
 
 // Re-export for unit tests (single import target).
 export { buildVariantItems } from "../lib/generate-batch.js";
@@ -183,6 +184,9 @@ function maybeEnqueue(
   project: string | undefined,
 ): boolean {
   if (!opts.queue) return false;
+  if (process.env.RALPHY_APP_CREDENTIALS !== undefined) {
+    raiseError("E_INPUT_INVALID", { field: "queue", detail: "Desktop generation must run directly to use the connection selected in Settings. Omit --queue; Create and Canvas keep their own run history.", verb: "generate" });
+  }
   const credentialProviderId = credentialProviderForQueuedGeneration(
     kind,
     opts.provider,
@@ -567,13 +571,13 @@ async function runImageBatch(args: {
   count: number;
   totalCostUsd: number;
   slots: Array<{ slot: string; artifactId: string; revisionId: string; runId: string;
-    model: string; costUsd: number; latencyMs: number }>;
+    model: string; costUsd: number; costSource?: GenerateResult["costSource"]; providerRequestId?: string; latencyMs: number }>;
   failures: Array<{ slot: string; error: string }>;
 }> {
   const conn = resolveConnector("image", args.provider);
   const total = args.items.length;
   const results: Array<{ slot: string; artifactId: string; revisionId: string; runId: string;
-    model: string; costUsd: number; latencyMs: number }> = [];
+    model: string; costUsd: number; costSource?: GenerateResult["costSource"]; providerRequestId?: string; latencyMs: number }> = [];
   const failures: Array<{ slot: string; error: string }> = [];
   let done = 0;
 
@@ -612,6 +616,7 @@ async function runImageBatch(args: {
       done += 1;
       results.push({ slot, artifactId: completed.artifact.id, revisionId: completed.revision.id,
         runId: completed.run.id, model: result.model, costUsd: result.costUsd,
+        costSource: result.costSource, providerRequestId: result.providerRequestId,
         latencyMs: result.latencyMs });
       process.stderr.write(
         `[${done}/${total}] ${slot} → ok ($${result.costUsd.toFixed(3)}, ${(result.latencyMs / 1000).toFixed(1)}s)\n`,
@@ -639,7 +644,8 @@ async function runImageBatch(args: {
 export function generateCmd() {
   const cmd = new Command("generate")
     .alias("gen")
-    .description("Generate a single asset (image / video / voiceover / music / captions). Logs cost + path automatically.");
+    .description("Generate text or media (image / video / voiceover / music / captions). Records run results and available costs.");
+  registerGenerateText(cmd);
 
   // ── image ───────────────────────────────────────────────────────────────
   const imageCmd = cmd
@@ -928,6 +934,7 @@ export function generateCmd() {
         runId: completed.run.id,
         model: result.model,
         costUsd: result.costUsd,
+        costSource: result.costSource, providerRequestId: result.providerRequestId,
         latencyMs: result.latencyMs,
       });
     });
@@ -1291,6 +1298,7 @@ export function generateCmd() {
         model: result.model,
         durationSec: opts.duration,
         costUsd: result.costUsd,
+        costSource: result.costSource, providerRequestId: result.providerRequestId,
         latencyMs: result.latencyMs,
       });
     });

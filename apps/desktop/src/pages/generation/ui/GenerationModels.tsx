@@ -23,7 +23,7 @@ export function GenerationModels({ catalog, draft, opener, onChoose, onClose }: 
       <div className="px-2 py-2 font-code type-mono-xs text-muted" role="status">{models.length} {models.length === 1 ? "model" : "models"}</div>
       {models.map((model) => <button key={`${model.provider}:${model.id}`} type="button" title={model.name} aria-pressed={draft.modelId === model.id && draft.provider === model.provider} className="generation-model-option group" onClick={() => onChoose(model)}>
         <span className="generation-model-tile"><GenerationModelIcon model={model} /></span>
-        <span className="generation-row-copy"><strong>{model.name}</strong><small>{catalog.providers.find((item) => item.id === model.provider)?.label ?? model.provider} · {model.available ? "Connected" : "Connection needed"} · {model.kind === "voiceover" ? "Voice" : model.kind}</small></span>
+        <span className="generation-row-copy"><strong>{model.name}</strong><small>{catalog.providers.find((item) => item.id === model.provider)?.label ?? model.provider} · {model.available ? "Key present" : "Connection needed"} · {model.kind === "voiceover" ? "Voice" : model.kind}</small></span>
         <Check size={12} className="shrink-0 text-ink opacity-0 group-aria-pressed:opacity-100" aria-hidden="true" />
       </button>)}
       {!models.length && <p className="p-4 type-sm leading-relaxed text-muted">No matching models. Try another name or provider.</p>}

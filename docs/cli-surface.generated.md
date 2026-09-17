@@ -221,13 +221,16 @@ ____        __      __
 
 Usage: ralphy generate|gen [options] [command]
 
-Generate a single asset (image / video / voiceover / music / captions). Logs
-cost + path automatically.
+Generate text or media (image / video / voiceover / music / captions). Records
+run results and available costs.
 
 Options:
   -h, --help             display help for command
 
 Commands:
+  text [options]         Generate text with the scoped connector, recording one
+                         attempt without automatic retries. Cost remains unknown
+                         unless the provider reports it.
   image [options]        Generate one image via OpenRouter (default:
                          google/gemini-3-pro-image-preview — nano-banana-pro,
                          multi-ref consistency, ≥4 concurrent). Pass --model
@@ -1617,6 +1620,8 @@ Options:
   -h, --help                     display help for command
 
 Commands:
+  import [options]               Import a complete workspace archive as a new
+                                 workspace
   create [options] <name>        Create a Workspace
   list [options]                 List Workspaces
   show <id>                      Show a Workspace
@@ -1812,7 +1817,8 @@ Options:
   -h, --help         display help for command
 
 Commands:
-  connect [options]  Import a scoped Postiz key from stdin and verify it
+  connect [options]  Verify a Postiz key, save it encrypted, and import
+                     supported social accounts
   status [options]   Verify the saved workspace connection and list public
                      account metadata (read-only)
   help [command]     display help for command

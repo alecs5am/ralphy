@@ -263,7 +263,7 @@ describe("Shared Library non-mutating workflows", () => {
     }
   });
 
-  test("opens Add and Promote from the page and all artifact-specific previews without inventing audio suggestion evidence", async () => {
+  test("keeps unfinished workflow previews out of the production shared library", async () => {
     vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue({ items: [artifact()], nextCursor: null });
     vi.spyOn(bridge, "loadSharedLibraryArtifact").mockResolvedValue(artifact());
     vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({ items: [], nextCursor: null });
@@ -274,40 +274,23 @@ describe("Shared Library non-mutating workflows", () => {
     await act(async () => { root.render(<SharedLibraryScreen workspaceId="workspace-1" workspaceName="Studio" rootEpoch={1} />); await settle(); });
     await act(async () => { await settle(); });
     try {
-      await click(button(host.container, "Add artifact"));
-      expect((document.body as unknown as HostNode).textContent).toContain("Upload cannot persist with this Core version");
-      await click(buttonByAria(document.body as unknown as HostNode, "Close Add artifact"));
-      await click(button(host.container, "Promote from project"));
-      expect((document.body as unknown as HostNode).textContent).toContain("Source project artifact");
-      await click(buttonByAria(document.body as unknown as HostNode, "Close Promote from project"));
-
-      await click(buttonByAria(host.container, "Select brand-hook identity and open inspector"));
-      await click(button(host.container, "More workflow previews"));
-      for (const [buttonText, dialogText] of [
-        ["Preview duplicate workflow", "Same content identity"],
-        ["Preview metadata suggestions", "Suggested from file content"],
-        ["Preview archive impact", "Archive impact"],
-        ["Preview revision update review", "Update compatible usages"],
-      ]) {
-        await click(button(host.container, buttonText));
-        expect((document.body as unknown as HostNode).textContent).toContain(dialogText);
-        if (buttonText === "Preview metadata suggestions") {
-          const suggestionText = (document.body as unknown as HostNode).textContent;
-          expect(suggestionText).toContain("Core exposes no suggestion evidence");
-          expect(suggestionText).not.toMatch(/rooftop|EXIF|matches existing artifacts/i);
-        }
-        await click(buttonByAria(document.body as unknown as HostNode, `Close ${dialogText === "Same content identity" ? "Duplicate review" : dialogText === "Suggested from file content" ? "Suggested from file content" : dialogText === "Archive impact" ? "Archive impact" : "Revision update review"}`));
-      }
+      expect(host.container.textContent).not.toContain("Add artifact");
+      expect(host.container.textContent).not.toContain("Promote from project");
+      await click(buttonByAria(host.container, "Select brand-hook and open inspector"));
+      expect(host.container.textContent).not.toContain("More workflow previews");
+      expect(host.container.textContent).not.toContain("Use in project");
+      expect(host.container.textContent).toContain("Revisions");
+      expect(host.container.textContent).toContain("Open original");
     } finally {
       await act(async () => root.unmount());
       host.restore();
     }
   });
 
-  test("disables and describes Add and Promote during the pre-effect bootstrap render", () => {
+  test("omits unsupported writes during bootstrap", () => {
     const markup = renderToStaticMarkup(<SharedLibraryScreen workspaceId="workspace-1" workspaceName="Studio" rootEpoch={1} />);
-    expect(markup.match(/disabled=""/g)).toHaveLength(2);
-    expect(markup.match(/aria-describedby="shared-library-initializing-actions"/g)).toHaveLength(2);
-    expect(markup).toContain("Workflow previews are unavailable while the Shared Library is initializing.");
+    expect(markup).not.toContain("Add artifact");
+    expect(markup).not.toContain("Promote from project");
+    expect(markup).toContain("Loading Shared Library");
   });
 });

@@ -75,7 +75,7 @@ async function renderWorkspace(
 }
 
 describe("workspace overview shell", () => {
-  test("clicking the lab preview toggles sample analytics and restores workspace values", async () => {
+  test("shows real workspace values even when the workspace has the test lab name", async () => {
     const overview = { ...populatedOverview, workspace: { ...populatedOverview.workspace, name: "UX Testing Lab" } };
     const controller = createWorkspaceScreenController({ loadWorkspaceOverview: vi.fn(async () => overview) }, overview.workspace.id);
     await controller.start();
@@ -84,15 +84,8 @@ describe("workspace overview shell", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => root.render(<WorkspaceScreenView controller={controller} snapshot={controller.getSnapshot()} catalogProjects={[]} workspaceDescription="Testing" onOpenPage={() => undefined} onOpenUnit={() => undefined} onOpenProject={() => undefined} />));
-      const toggle = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Preview demo analytics")!;
-      expect(toggle.getAttribute("aria-pressed")).toBe("false");
-      await act(async () => toggle.dispatchEvent(new Event("click", { bubbles: true })));
-      expect(toggle.getAttribute("aria-pressed")).toBe("true");
-      expect(toggle.textContent).toBe("Use workspace data");
-      expect(host.container.textContent).toContain("128.4K");
-      expect(host.container.textContent).toContain("Demo · 7 sample days");
-      await act(async () => toggle.dispatchEvent(new Event("click", { bubbles: true })));
-      expect(toggle.getAttribute("aria-pressed")).toBe("false");
+      expect(host.container.textContent).not.toContain("Preview demo analytics");
+      expect(host.container.textContent).not.toContain("Demo · 7 sample days");
       expect(host.container.textContent).not.toContain("128.4K");
       expect(host.container.textContent).toContain("Latest available totals");
     } finally { await act(async () => root.unmount()); host.restore(); }
@@ -278,7 +271,7 @@ describe("workspace overview shell", () => {
     }, { error: "Refresh unavailable" });
 
     expect(markup).toContain("Partial data");
-    expect(markup).toContain("Connected accounts are limited to the returned Core page");
+    expect(markup).toContain("Connected accounts shown here are a preview");
     expect(markup).toContain("Refresh unavailable");
     expect(markup).toContain("Workspace momentum");
   });
@@ -291,8 +284,9 @@ describe("workspace overview shell", () => {
     expect(markup).toContain("Watch time");
     expect(markup).toContain('aria-label="Views: 100"');
     expect(markup).toContain('aria-label="60 seconds watch time"');
-    expect(markup).toContain("Trend unavailable");
-    expect(markup).toContain("Account metrics are not available from the current Core contract");
+    expect(markup).not.toContain("Trend unavailable");
+    expect(markup).not.toContain("Core contract");
+    expect(markup).toContain("Connect an account");
     expect(markup).toContain('aria-label="Account portfolio"');
     expect(markup).toContain("Connected");
     expect(markup).toContain("Updated <time");
@@ -330,8 +324,8 @@ describe("workspace overview shell", () => {
     });
 
     expect(markup).toContain("Relink required");
-    expect(markup).toContain("Connected accounts are limited to the returned Core page");
-    expect(markup).toContain("Account metrics are not available from the current Core contract");
+    expect(markup).toContain("Connected accounts shown here are a preview");
+    expect(markup).not.toContain("Core contract");
   });
 
   test("labels a complete account page with no connected accounts", async () => {
@@ -340,7 +334,7 @@ describe("workspace overview shell", () => {
       accounts: { items: [], nextCursor: null },
     });
 
-    expect(markup).toContain("No connected accounts were returned by Core");
+    expect(markup).toContain("Connect a publishing account to schedule and share your content");
     expect(markup).not.toContain('aria-label="Account portfolio"');
   });
 
@@ -351,6 +345,7 @@ describe("workspace overview shell", () => {
     );
     await controller.start();
     const openPage = vi.fn();
+    const navigate = vi.fn();
     const host = createReactHost();
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
@@ -362,34 +357,36 @@ describe("workspace overview shell", () => {
           catalogProjects={[]}
           workspaceDescription="Short-form launches"
           onOpenPage={openPage}
+          onNavigate={navigate}
           onOpenUnit={() => undefined}
           onOpenProject={() => undefined}
         />,
       ));
+      const connect = [...host.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Connect an account"));
+      await act(async () => connect!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ page: "calendar", context: { label: "Connect an account", accountAction: "connect" } }), expect.any(Object));
       const accountButton = [...host.container.querySelectorAll("button")]
         .find((button) => button.textContent?.includes("@launch"));
       expect(accountButton).toBeTruthy();
       await act(async () => accountButton!.dispatchEvent(new Event("click", { bubbles: true })));
 
       const drawer = document.body.querySelector("[role=dialog]");
-      expect(drawer?.textContent).toContain("Performance");
-      expect(drawer?.textContent).toContain("Top Units");
-      expect(drawer?.textContent).toContain("Upcoming");
-      expect(drawer?.textContent).toContain("Recent publication failures");
+      expect(drawer?.textContent).toContain("Publishing access");
+      expect(drawer?.textContent).toContain("Connected");
+      expect(drawer?.textContent).toContain("Publications");
+      expect(drawer?.textContent).not.toContain("Top Units");
       expect(drawer?.textContent).toContain("Data freshness");
-      expect(drawer?.textContent).toContain("Account metrics are not available from the current Core contract");
-      expect(drawer?.textContent).toContain("Top Units are not available from the current Core contract");
-      expect(drawer?.textContent).toContain("Upcoming content is not available by account from the current Core contract");
-      expect(drawer?.textContent).toContain("Publication failures are not available by account from the current Core contract");
-      expect(drawer?.textContent).toContain("Account management is not available from the current desktop contract");
+      expect(drawer?.textContent).not.toMatch(/Core|contract|not available/);
       const manageAccount = [...document.body.querySelectorAll("button")]
         .find((button) => button.textContent?.includes("Manage account"));
-      expect(manageAccount?.disabled).toBe(true);
+      expect(manageAccount?.disabled).toBe(false);
+      await act(async () => manageAccount!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ page: "calendar", context: expect.objectContaining({ accountId: "account-1", accountAction: "manage" }) }), expect.any(Object));
 
       const openCalendar = [...drawer!.querySelectorAll("button")]
         .find((button) => button.textContent?.includes("Open Calendar"));
       await act(async () => openCalendar!.dispatchEvent(new Event("click", { bubbles: true })));
-      expect(openPage).toHaveBeenCalledWith("calendar", "workspace-account-account-1");
+      expect(navigate).toHaveBeenLastCalledWith(expect.objectContaining({ page: "calendar", context: expect.objectContaining({ accountId: "account-1" }) }), expect.any(Object));
     } finally {
       await act(async () => root.unmount());
       host.restore();
@@ -401,9 +398,9 @@ describe("workspace overview shell", () => {
 
     expect(markup).toContain("Content plan");
     expect(markup).toContain("Next 14 days");
-    expect(markup).toContain("Dates and times use this device’s timezone");
-    expect(markup).toContain("Cadence targets are not configured in the current Core contract");
-    expect(markup).toContain("Ready, not scheduled");
+    expect(markup).toContain("Your local timezone");
+    expect(markup).not.toContain("Readiness &amp; cadence details");
+    expect(markup).not.toContain("Ready, not scheduled");
     expect(markup.match(/scheduled content events?"/g)).toHaveLength(14);
     expect(markup).not.toContain("workspace-unit-outcomes");
     expect(markup).not.toContain("Top performers");
@@ -440,8 +437,8 @@ describe("workspace overview shell", () => {
       onOpenPage={() => undefined}
       onOpenUnit={() => undefined}
     />);
-    expect(emptyPlanValues).toContain("No plan coverage");
-    expect(emptyPlanValues).toContain("No ready Units");
+    expect(emptyPlanValues).not.toContain("Readiness &amp; cadence details");
+    expect(emptyPlanValues).not.toContain("Ready, not scheduled");
 
     const plan = {
       days: planDays,
@@ -536,7 +533,7 @@ describe("workspace overview shell", () => {
     });
 
     expect(markup).toContain("Partial publishing data");
-    expect(markup).toContain("Upcoming publications are limited to the returned Core page");
+    expect(markup).toContain("This is a preview of upcoming publications");
     expect(markup).toContain("Scheduled");
   });
 
@@ -695,15 +692,15 @@ describe("workspace overview shell", () => {
       const dialog = document.body.querySelector("[role=dialog]");
       expect(dialog?.textContent).toContain("Unit outcome detail");
       expect(dialog?.textContent).toContain("Result");
-      expect(dialog?.textContent).toContain("Normalized result is not available from the current Core contract");
+      expect(dialog?.textContent).toContain("Normalized result has not been reported");
       expect(dialog?.textContent).toContain("Benchmark method");
-      expect(dialog?.textContent).toContain("Benchmark method is not available from the current Core contract");
+      expect(dialog?.textContent).toContain("Benchmark method has not been reported");
       expect(dialog?.textContent).toContain("Child publications");
-      expect(dialog?.textContent).toContain("Child publication metrics are not available from the current Core contract");
+      expect(dialog?.textContent).toContain("Child publication metrics have not been reported");
       expect(dialog?.textContent).toContain("Observation window");
-      expect(dialog?.textContent).toContain("Observation windows are not available from the current Core contract");
+      expect(dialog?.textContent).toContain("Observation windows have not been reported");
       expect(dialog?.textContent).toContain("Destination");
-      expect(dialog?.textContent).toContain("Destination outcomes are not available from the current Core contract");
+      expect(dialog?.textContent).toContain("Destination outcomes have not been reported");
     } finally {
       await act(async () => root.unmount());
       host.restore();
@@ -1170,7 +1167,7 @@ describe("workspace overview shell", () => {
       expect(attentionRows).toHaveLength(2);
       for (const row of attentionRows) {
         expect(row.querySelectorAll("button")).toHaveLength(1);
-        expect(row.querySelector("button")?.textContent).toMatch(/Review publications|Review account publications/);
+        expect(row.querySelector("button")?.textContent).toMatch(/Review publications|Relink account|Connect account/);
       }
       expect(host.container.querySelector(".workspace-active-project-list")!.querySelectorAll("li")).toHaveLength(4);
       expect(host.container.textContent).not.toContain("Project 4");

@@ -13,7 +13,9 @@ export { selectedCanvasNodes } from "../../shared/workflow-canvas";
 
 export function modelPrompt(node: CanvasNode, inputs: CanvasRunResult[]): string {
   const connected = inputs.filter((result) => result.kind === "text");
-  return connected.length ? connected.map((result) => result.text ?? "").join("\n\n") : node.value;
+  const prompt = connected.length ? connected.map((result) => result.text ?? "").join("\n\n") : node.value;
+  if (prompt.length > 100_000) throw new Error("Combined model instructions exceed 100,000 characters. Shorten the connected text before generating.");
+  return prompt;
 }
 
 export function generationArguments(node: CanvasNode, inputs: CanvasRunResult[], slot: string, roles = new Map<string, string>()): string[] {
@@ -49,8 +51,13 @@ export function generationArguments(node: CanvasNode, inputs: CanvasRunResult[],
   const videos = inputs.filter((result) => result.asset?.kind === "video").map((result) => result.asset!.path);
   if (modality === "image" && images.length) args.push("--ref", ...images);
   if (modality === "video") {
-    if (images.length) args.push("--first-frame", images[0]!);
-    if (images.length > 1) args.push("--ref", ...images.slice(1));
+    if (provider === "fal" && config.modelId === "bytedance/seedance-2.0/reference-to-video") {
+      if (images.length) args.push("--ref", ...images);
+    } else {
+      if (images.length) args.push("--first-frame", images[0]!);
+      if (images.length > 1) args.push("--ref", ...images.slice(1));
+    }
+    if (provider === "fal" && videos.length) throw new Error("Video references for fal require a project workflow. Use reference images in Canvas.");
     if (videos.length) args.push("--ref-video", ...videos);
   }
   return args;

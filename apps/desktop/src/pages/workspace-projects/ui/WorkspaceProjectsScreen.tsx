@@ -1,3 +1,4 @@
+import { CreateLibraryEntry } from "@/shared/ui/CreateLibraryEntry";
 import { PageHeader } from "@/shared/ui/PageHeader";
 import { FolderOpen, Pin, Search } from "@/shared/ui/icons";
 
@@ -20,6 +21,7 @@ export const workspaceProjectsInstrumentStates = defineInstrumentScreenStates({
 } as const);
 
 interface WorkspaceProjectsScreenProps {
+  workspaceId?: string;
   workspaceName: string;
   workspaceDescription: string;
   projects: ProjectSummary[];
@@ -153,6 +155,7 @@ function ProjectCard({ project, rootEpoch, pinned, onOpen, onTogglePin }: { proj
 }
 
 export function WorkspaceProjectsScreen({
+  workspaceId,
   workspaceName,
   workspaceDescription,
   projects,
@@ -186,7 +189,7 @@ export function WorkspaceProjectsScreen({
   return (
     <InstrumentScreenRoot descriptor={workspaceProjectsInstrumentStates} state={projects.length === 0 ? "empty" : "ready"}>
     <main className="main-region workspace-projects-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 type-base text-ink">
-      <PageHeader title="Projects" icon={FolderOpen} meta={`${projects.length} · ${workspaceName}`} description={workspaceDescription || "Projects in this workspace"}>
+      <PageHeader title="Projects" icon={FolderOpen} meta={`${projects.length} · ${workspaceName}`} description={workspaceDescription || "Projects in this workspace"}>{workspaceId && <CreateLibraryEntry workspaceId={workspaceId} /> }
         <label className="page-header-search flex h-8 min-w-0 items-center gap-2 rounded-full bg-card px-3 text-muted focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-ink"><Search size={14} className="shrink-0" aria-hidden="true" /><input className="min-w-0 flex-1 bg-transparent type-xs text-ink outline-none" ref={searchRef} type="search" value={query} placeholder="Filter projects" aria-label="Filter projects" onChange={(event) => setQuery(event.target.value)} /><Keycap tokens={["⌘", "F"]} /></label>
       </PageHeader>
 

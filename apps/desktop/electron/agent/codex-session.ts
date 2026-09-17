@@ -3,6 +3,8 @@ import {
   spawn,
   type ChildProcess,
 } from "node:child_process";
+import { agentErrorMessage as codexErrorMessage } from "../../shared/agent-error";
+export { codexErrorMessage };
 import { constants } from "node:fs";
 import { access, readFile, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -11,6 +13,7 @@ import { createInterface } from "node:readline";
 import { promisify } from "node:util";
 
 import { agentPreamble, type AgentMemoryDigest } from "./context";
+import { appCredentialEnvironment } from "../canvas/app-credentials";
 import type {
   AgentChatEvent,
   AgentPermissionMode,
@@ -61,6 +64,7 @@ export interface CodexAuthStatus {
 interface CodexSessionOptions {
   binary: string;
   env?: NodeJS.ProcessEnv;
+  generationCredentials?: Partial<Record<"OPENROUTER_API_KEY" | "ELEVENLABS_API_KEY" | "FAL_KEY", string>>;
   emit(event: AgentChatEvent): void;
 }
 
@@ -126,6 +130,8 @@ const SILENT_ITEMS = new Set([
  * answer would be appended a second time in full.
  */
 type SentLengths = Map<string, number>;
+
+
 
 export function normalizedEvents(
   method: string,
@@ -196,7 +202,7 @@ export function normalizedEvents(
 
   if (method === "error") {
     const error = objectFrom(params.error);
-    const message = boundedString(error?.message, MAX_STDERR_BYTES);
+    const message = codexErrorMessage(error?.message);
     /* A retry is Codex's own business and not a failed turn. */
     return params.willRetry === true
       ? []
@@ -289,9 +295,7 @@ export async function readCodexAuthStatus(
   return { loggedIn: /^Logged in\b/i.test(detail), detail };
 }
 
-/* The catalogue this binary ships. `--bundled` skips the refresh, so it neither reaches the
-   network nor rewrites the shared cache file -- and what it prints is exactly the set of models
-   the CLI itself knows how to send. */
+/* An offline fallback, read from the chosen CLI itself rather than the app's shared cache. */
 export async function readCodexBundledCatalog(
   binary: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -308,11 +312,32 @@ export async function readCodexBundledCatalog(
   }
 }
 
+const codexCatalogCache = new Map<string, { expiresAt: number; result: Promise<unknown | null> }>();
+/** The selected CLI refreshes account availability using its own version and authentication. */
+export function readCodexCatalog(binary: string, env: NodeJS.ProcessEnv = process.env): Promise<unknown | null> {
+  const key = JSON.stringify([binary, env.CODEX_HOME || join(env.HOME || homedir(), ".codex")]);
+  const cached = codexCatalogCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.result;
+  const result = (async () => {
+    try {
+      const { stdout } = await execFileAsync(binary, ["debug", "models"], {
+        env: codexEnvironment(env), timeout: 8000, maxBuffer: 8 * 1024 * 1024,
+      });
+      const catalog = JSON.parse(stdout) as { models?: unknown[] };
+      if (!Array.isArray(catalog?.models) || !catalog.models.length) throw new Error("Empty Codex catalog");
+      return catalog;
+    } catch { return readCodexBundledCatalog(binary, env); }
+  })();
+  if (codexCatalogCache.size >= 16) codexCatalogCache.delete(codexCatalogCache.keys().next().value!);
+  codexCatalogCache.set(key, { expiresAt: Date.now() + 5 * 60_000, result });
+  return result;
+}
+
 /* The model a bare `codex` would use. Read, never written: it is the operator's file. A top-level
    `model = "..."` is the whole contract here, so it is a line match rather than a TOML dependency;
    a profile override or a nested key is not what "Codex default" means in this menu. */
-export async function readCodexConfiguredModel(home = homedir()): Promise<string | null> {
-  const source = await readFile(join(home, ".codex", "config.toml"), "utf8").catch(() => null);
+export async function readCodexConfiguredModel(home = homedir(), env: NodeJS.ProcessEnv = process.env): Promise<string | null> {
+  const source = await readFile(join(env.CODEX_HOME || join(home, ".codex"), "config.toml"), "utf8").catch(() => null);
   if (source === null) return null;
   for (const line of source.split("\n")) {
     if (/^\s*\[/.test(line)) break;
@@ -326,14 +351,15 @@ export async function readCodexConfiguredModel(home = homedir()): Promise<string
 export async function readCodexVersion(
   binary: string,
   env: NodeJS.ProcessEnv = process.env,
+  timeout = 10_000,
 ): Promise<string | null> {
   try {
     const { stdout } = await execFileAsync(binary, ["--version"], {
       env: codexEnvironment(env),
-      timeout: 10_000,
+      timeout,
       maxBuffer: 64 * 1024,
     });
-    return /(\d+\.\d+\.\d+)/.exec(stdout)?.[1] ?? null;
+    return /(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)/.exec(stdout)?.[1] ?? null;
   } catch {
     return null;
   }
@@ -348,39 +374,45 @@ export async function loginCodex(
     timeout: 10 * 60_000,
     maxBuffer: 1024 * 1024,
   });
+  codexCatalogCache.clear();
 }
 
 export async function resolveCodexBinary(
   env: NodeJS.ProcessEnv = process.env,
   home = homedir(),
 ): Promise<string | null> {
+  const executable = async (candidate: string) => {
+    try { await access(candidate, constants.X_OK); return await realpath(candidate); }
+    catch { return null; }
+  };
+  if (env.RALPHY_CODEX_PATH) {
+    const explicit = await executable(env.RALPHY_CODEX_PATH);
+    if (explicit) return explicit;
+  }
   const candidates = [
-    env.RALPHY_CODEX_PATH,
-    /* What Codex itself calls the installed version. Its own updater repoints this symlink, while
-       `~/.local/bin/codex` can stay pinned to the release it was installed with -- on this machine
-       that left the app on 0.142.4 while 0.149.1 was installed, and the server refuses a 5.6 model
-       to an old client with "requires a newer version of Codex". The app must run the Codex the
-       operator has, not the one their shell PATH happens to point at. */
-    join(home, ".codex", "packages", "standalone", "current", "bin", "codex"),
+    ...["/Applications", join(home, "Applications")].flatMap((directory) => ["ChatGPT.app", "Codex.app"].map((name) => join(directory, name, "Contents", "Resources", "codex"))),
+    join(env.CODEX_HOME || join(home, ".codex"), "packages", "standalone", "current", "bin", "codex"),
     join(home, ".local", "bin", "codex"),
     "/opt/homebrew/bin/codex",
     "/usr/local/bin/codex",
     ...(env.PATH ?? "").split(":").filter(Boolean).map((part) => join(part, "codex")),
-  ].filter((candidate): candidate is string => Boolean(candidate));
-  for (const candidate of [...new Set(candidates)]) {
-    try {
-      await access(candidate, constants.X_OK);
-      return await realpath(candidate);
-    } catch {
-      // Try the next normal installation location.
-    }
-  }
-  return null;
+  ];
+  const paths = [...new Set((await Promise.all(candidates.map(executable))).filter((value): value is string => value !== null))];
+  const versions = await Promise.all(paths.map(async (path) => ({ path, version: await readCodexVersion(path, env, 1500) })));
+  // Prefer a newer installed app binary without modifying any CLI installation or PATH.
+  versions.sort((a, b) => {
+    const left = a.version?.split(/[.-]/).slice(0, 3).map(Number) ?? [0, 0, 0];
+    const right = b.version?.split(/[.-]/).slice(0, 3).map(Number) ?? [0, 0, 0];
+    for (let index = 0; index < 3; index++) if (left[index] !== right[index]) return right[index]! - left[index]!;
+    return Number(Boolean(a.version?.includes("-"))) - Number(Boolean(b.version?.includes("-")));
+  });
+  return versions[0]?.path ?? null;
 }
 
 export class CodexSession {
   readonly #binary: string;
   readonly #env: NodeJS.ProcessEnv;
+  readonly #generationCredentials: CodexSessionOptions["generationCredentials"];
   readonly #emit: (event: AgentChatEvent) => void;
   #process: ChildProcess | null = null;
   #stopping = false;
@@ -390,6 +422,7 @@ export class CodexSession {
   constructor(options: CodexSessionOptions) {
     this.#binary = options.binary;
     this.#env = { ...(options.env ?? process.env) };
+    this.#generationCredentials = options.generationCredentials;
     this.#emit = options.emit;
   }
 
@@ -403,7 +436,7 @@ export class CodexSession {
       throw new Error("Invalid Codex session id");
     }
     const context = await canonicalContext(request);
-    const env = codexEnvironment(this.#env);
+    const env = appCredentialEnvironment(codexEnvironment(this.#env), this.#generationCredentials ?? {});
     if (request.provider === "openrouter") {
       env.OPENROUTER_API_KEY = validateOpenRouterApiKey(request.openRouterApiKey ?? "");
     } else if (request.provider !== "codex") {
@@ -416,6 +449,13 @@ export class CodexSession {
        desktop client uses, and it emits `item/agentMessage/delta` as the model writes. */
     const child = spawn(this.#binary, [
       ...(request.provider === "openrouter" ? openRouterArgs() : []),
+      // Codex normally filters KEY/SECRET/TOKEN from shell tools. Admit only the selected
+      // generation keys; values stay in the native environment, never argv or the prompt.
+      ...(this.#generationCredentials ? [
+        "-c", "shell_environment_policy.ignore_default_excludes=true",
+        "-c", 'shell_environment_policy.set={}',
+        "-c", `shell_environment_policy.include_only=${JSON.stringify(Object.keys(env).filter((name) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && (!/key|secret|token/i.test(name) || ["OPENROUTER_API_KEY", "ELEVENLABS_API_KEY", "FAL_KEY"].includes(name.replace(/^RALPHY_APP_/, "")) && Object.hasOwn(this.#generationCredentials!, name.replace(/^RALPHY_APP_/, "")))))}`,
+      ] : []),
       "app-server",
     ], { cwd: context.cwd, env, stdio: ["pipe", "pipe", "pipe"] });
     this.#process = child;
@@ -494,7 +534,7 @@ export class CodexSession {
             finish({
               type: "error",
               code: "codex-turn",
-              message: boundedString(failure?.message, MAX_STDERR_BYTES) || "Codex turn failed",
+              message: codexErrorMessage(failure?.message, "Codex turn failed"),
             });
           } else {
             finish({
@@ -553,16 +593,14 @@ export class CodexSession {
           : {
             type: "error",
             code: "codex-exit",
-            message: stderr.trim() || "Codex stopped without finishing the turn",
+            message: codexErrorMessage(stderr, "Codex stopped without finishing the turn"),
           });
       }
     } catch (error) {
       finish({
         type: "error",
         code: "codex-exit",
-        message: boundedString(error instanceof Error ? error.message : "", MAX_STDERR_BYTES)
-          || stderr.trim()
-          || "Codex failed to start",
+        message: codexErrorMessage(error instanceof Error ? error.message : stderr, "Codex failed to start"),
       });
     } finally {
       for (const slot of pending.values()) slot.reject(new Error("Codex stopped"));

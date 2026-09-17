@@ -2,6 +2,7 @@ import type { Database } from "bun:sqlite";
 import {
   cancelPublication,
   publishPresentation,
+  reconcilePublication,
   type PublicationProviderAdapter,
 } from "../publication.js";
 import { postizAvailable } from "../providers/postiz.js";
@@ -42,6 +43,7 @@ export type CalendarChannelPublicationDto = {
   accountId: string | null;
   account: string;
   status: CalendarChannelStatus;
+  needsReconciliation?: boolean;
   at: number | null;
   postUrl: string | null;
   error: string | null;
@@ -402,6 +404,11 @@ export async function submitCalendarEvent(input: {
     if (scope.projectId !== null && event.projectId !== scope.projectId) {
       throw new Error("Calendar event is outside the active scope");
     }
+    const publications = currentPublications(publicationsFor(db, event.unitRevisionId));
+    assertKnownPublicationOutcomes(publications);
+    if (event.scheduledAt !== null && publications.some((publication) => publication.state !== "draft" && publication.state !== "cancelled")) {
+      throw new Error("This Calendar entry was already submitted. Use retry or reschedule after checking its channel status.");
+    }
     const channels = calendarMetadata(event.metadataJson).channels ?? [];
     if (channels.length === 0) throw new Error("Calendar event has no selected channels");
     const now = Date.now();
@@ -460,7 +467,8 @@ export async function retryCalendarEvent(input: {
   expectedRowVersion: number;
 }, adapter?: PublicationProviderAdapter): Promise<CalendarEventDto> {
   const prepared = reserveEventMutation(input, "calendar.entry.retried", (event, publications) => {
-    if (!publications.some((publication) => channelStatus(publication.state) === "failed")) {
+    assertKnownPublicationOutcomes(publications);
+    if (!publications.some((publication) => publication.state === "failed")) {
       throw new Error("Calendar event has no failed channels");
     }
     return {
@@ -469,7 +477,7 @@ export async function retryCalendarEvent(input: {
     };
   });
   const failed = prepared.publications.filter((publication) =>
-    channelStatus(publication.state) === "failed"
+    publication.state === "failed"
   );
   for (const publication of failed) {
     await publishPresentation({
@@ -486,6 +494,24 @@ export async function retryCalendarEvent(input: {
   return refreshedEvent(prepared);
 }
 
+export async function reconcileCalendarEvent(input: {
+  context: QueryContext;
+  eventId: string;
+  expectedRowVersion: number;
+}, adapter?: PublicationProviderAdapter): Promise<CalendarEventDto> {
+  const prepared = reserveEventMutation(input, "calendar.entry.status_checked", (event, publications) => {
+    if (!publications.some((publication) => publication.state === "unknown" || publication.state === "reconciliation_required")) {
+      throw new Error("This Calendar entry has no uncertain publication status to check");
+    }
+    return { scheduledAt: event.scheduledAt, state: event.scheduledAt === null ? "queued" : "scheduled" };
+  });
+  for (const publication of prepared.publications) {
+    if (publication.state !== "unknown" && publication.state !== "reconciliation_required") continue;
+    await reconcilePublication({ context: prepared.context, publicationId: publication.id, expectedState: publication.state }, adapter);
+  }
+  return refreshedEvent(prepared);
+}
+
 export async function rescheduleCalendarEvent(input: {
   context: QueryContext;
   eventId: string;
@@ -495,11 +521,9 @@ export async function rescheduleCalendarEvent(input: {
   if (!Number.isInteger(input.at) || input.at < 0) {
     throw new Error("Calendar event time is invalid");
   }
-  const prepared = reserveEventMutation(input, "calendar.entry.rescheduled", () => ({
-    scheduledAt: input.at,
-    state: "scheduled",
-  }));
+  const prepared = reserveEventMutation(input, "calendar.entry.reschedule_requested", preserveScheduleUntilCancelled);
   await cancelScheduledPublications(prepared, adapter);
+  const moved = reserveEventMutation({ ...input, expectedRowVersion: prepared.event.rowVersion }, "calendar.entry.rescheduled", () => ({ scheduledAt: input.at, state: "scheduled" }));
   const channels = eventChannelInputs(prepared.event, prepared.publications);
   for (const channel of channels) {
     const previous = prepared.publications.find((publication) =>
@@ -517,7 +541,7 @@ export async function rescheduleCalendarEvent(input: {
       idempotencyKey: `calendar:move:${prepared.event.id}:${channel.presentationId}:${channel.socialAccountId}:${input.at}`,
     }, adapter);
   }
-  return refreshedEvent(prepared);
+  return refreshedEvent(moved);
 }
 
 export async function removeCalendarEvent(input: {
@@ -525,12 +549,10 @@ export async function removeCalendarEvent(input: {
   eventId: string;
   expectedRowVersion: number;
 }, adapter?: PublicationProviderAdapter): Promise<CalendarEventDto> {
-  const prepared = reserveEventMutation(input, "calendar.entry.removed", () => ({
-    scheduledAt: null,
-    state: "queued",
-  }));
+  const prepared = reserveEventMutation(input, "calendar.entry.removal_requested", preserveScheduleUntilCancelled);
   await cancelScheduledPublications(prepared, adapter);
-  return refreshedEvent(prepared);
+  const removed = reserveEventMutation({ ...input, expectedRowVersion: prepared.event.rowVersion }, "calendar.entry.removed", () => ({ scheduledAt: null, state: "queued" }));
+  return refreshedEvent(removed);
 }
 
 export function deriveCalendarEventStatus(
@@ -799,12 +821,25 @@ async function cancelScheduledPublications(
 ): Promise<void> {
   for (const publication of prepared.publications) {
     if (publication.state !== "scheduled" && publication.state !== "submitted") continue;
-    await cancelPublication({
+    const result = await cancelPublication({
       context: prepared.context,
       publicationId: publication.id,
       expectedState: publication.state,
     }, adapter);
+    if (result.publication.state !== "cancelled") throw new Error("Postiz cancellation was not confirmed. Check Postiz and reconcile the publication before retrying.");
   }
+}
+
+function assertKnownPublicationOutcomes(publications: PublicationRow[]): void {
+  if (publications.some((publication) => ["submitting", "unknown", "reconciliation_required"].includes(publication.state))) {
+    throw new Error("A publication outcome is uncertain. Check Postiz and reconcile it before retrying, moving, or removing this entry.");
+  }
+}
+
+function preserveScheduleUntilCancelled(event: CalendarRow, publications: PublicationRow[]): { scheduledAt: number | null; state: "queued" | "scheduled" } {
+  assertKnownPublicationOutcomes(publications);
+  if (publications.some((publication) => publication.state === "published")) throw new Error("Published posts cannot be moved or removed from Calendar. Manage the published post in Postiz.");
+  return { scheduledAt: event.scheduledAt, state: event.scheduledAt === null ? "queued" : "scheduled" };
 }
 
 function eventChannelInputs(
@@ -836,6 +871,7 @@ function channelDto(row: PublicationRow): CalendarChannelPublicationDto {
     accountId: row.socialAccountId,
     account: row.displayName ?? row.username ?? row.externalId ?? row.platform,
     status: row.relinkRequired === 1 ? "disconnected" : channelStatus(row.state),
+    ...(row.state === "unknown" || row.state === "reconciliation_required" ? { needsReconciliation: true } : {}),
     at: row.scheduledAt,
     postUrl: row.url,
     error: row.error,
@@ -962,18 +998,8 @@ function mergeDraftChannels(
 }
 
 const SETTINGS_KEYS: Record<string, ReadonlySet<string>> = {
-  tiktok: new Set([
-    "privacy", "comments", "duet", "stitch", "brandedContent", "trendingAudio",
-  ]),
-  instagram: new Set([
-    "publishAs", "shareToFeed", "collaborator", "location",
-  ]),
-  youtube: new Set([
-    "title", "description", "visibility", "madeForKids", "playlist",
-  ]),
-  x: new Set([
-    "replyAudience", "thread", "copyAltText",
-  ]),
+  tiktok: new Set(["madeWithAi"]), instagram: new Set(["instagramPostType"]),
+  youtube: new Set(["youtubeVisibility"]), x: new Set(["madeWithAi"]), telegram: new Set(),
 };
 
 function checkedPlatformSettings(platform: string, value: JsonValue): JsonValue {
@@ -985,6 +1011,12 @@ function checkedPlatformSettings(platform: string, value: JsonValue): JsonValue 
   const keys = Object.keys(value);
   const unknown = keys.find((key) => !allowed.has(key));
   if (unknown) throw new Error(`Unknown Calendar platform setting: ${unknown}`);
+  const options = value as Record<string, JsonValue>;
+  if (("madeWithAi" in options && typeof options.madeWithAi !== "boolean")
+    || ("instagramPostType" in options && !["post", "story"].includes(String(options.instagramPostType)))
+    || ("youtubeVisibility" in options && !["public", "unlisted", "private"].includes(String(options.youtubeVisibility)))) {
+    throw new Error("Invalid Calendar platform setting");
+  }
   const encoded = JSON.stringify(value);
   if (encoded.length > 16_384) throw new Error("Calendar platform settings are too large");
   return JSON.parse(encoded) as JsonValue;

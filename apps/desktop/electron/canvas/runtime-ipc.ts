@@ -1,7 +1,7 @@
 import type { CanvasAsset } from "../../shared/workflow-canvas";
 import { isAbsolute } from "node:path";
 import { canvasId } from "../../shared/workflow-canvas";
-import type { CanvasRunOptions } from "../../shared/canvas-runtime";
+import type { CanvasRunOptions, CanvasHistoryQuery } from "../../shared/canvas-runtime";
 import { MEDIA_CHANNELS } from "../media/types";
 import { createCanvasRuntime, type RuntimeDependencies } from "./runtime";
 import { canvasAssetMime, importCanvasFile, validateCanvasAsset } from "./runtime-files";
@@ -45,6 +45,6 @@ export function registerCanvasRuntimeIpc(deps: {
     return preview.url;
   });
   deps.handle(MEDIA_CHANNELS.startCanvasRun, async (workspaceId, canvas, options) => createCanvasRuntime(await capture(workspaceId)).start(canvasId(canvas), options as CanvasRunOptions));
-  deps.handle(MEDIA_CHANNELS.loadCanvasRuns, async (workspaceId, canvas) => createCanvasRuntime(await capture(workspaceId)).list(canvasId(canvas)));
+  deps.handle(MEDIA_CHANNELS.loadCanvasRuns, async (workspaceId, canvas, query) => createCanvasRuntime(await capture(workspaceId)).list(canvasId(canvas), query as CanvasHistoryQuery | undefined));
   deps.handle(MEDIA_CHANNELS.cancelCanvasRun, async (workspaceId, run) => createCanvasRuntime(await capture(workspaceId)).cancel(canvasId(run)));
 }

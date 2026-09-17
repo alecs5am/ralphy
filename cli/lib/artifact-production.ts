@@ -127,6 +127,8 @@ export function providerCompletionFacts(
   mime: string,
 ): Record<string, JsonValue> {
   const facts: Record<string, JsonValue> = { model, mime };
+  if (evidence.costSource === "provider" || evidence.costSource === "estimate") facts.costSource = evidence.costSource;
+  if (typeof evidence.providerRequestId === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(evidence.providerRequestId)) facts.providerRequestId = evidence.providerRequestId;
   if (safeNumber(evidence.latencyMs) !== null) facts.latencyMs = safeNumber(evidence.latencyMs)!;
   const preprocess = safePreprocess(evidence.preprocess);
   if (preprocess) facts.preprocess = preprocess;

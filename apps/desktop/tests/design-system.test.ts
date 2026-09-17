@@ -160,7 +160,7 @@ const activity: ActivityDto = {
 
 type ProjectMarkup = Record<"documents" | "media" | "units" | "activity" | "memory", string>;
 
-async function activeScreenMarkup(): Promise<{ workspace: string } & ProjectMarkup> {
+async function activeScreenMarkup(): Promise<{ workspace: string; documentsEditing: string } & ProjectMarkup> {
   const workspaceValue = {
     workspace: { id: "workspace-1", slug: "launch", name: "Launch Studio", rowVersion: 1, createdAt: 1, updatedAt: 2 },
     accounts: { items: [], nextCursor: null },
@@ -238,6 +238,11 @@ async function activeScreenMarkup(): Promise<{ workspace: string } & ProjectMark
     controller: projectController,
     snapshot: projectController.getSnapshot(),
   }));
+  projectController.beginDocumentEdit();
+  const documentsEditing = renderToStaticMarkup(createElement(ProjectScreenView, {
+    project, controller: projectController, snapshot: projectController.getSnapshot(),
+  }));
+  projectController.cancelDocumentEdit();
   await projectController.selectTab("units");
   await projectController.openUnit(unit.id);
   const units = renderToStaticMarkup(createElement(ProjectScreenView, { project, controller: projectController, snapshot: projectController.getSnapshot() }));
@@ -253,7 +258,7 @@ async function activeScreenMarkup(): Promise<{ workspace: string } & ProjectMark
       <article class="memory-rule my-1 overflow-hidden rounded-cell bg-surface-sunken is-open"><button class="memory-rule-head flex min-h-14 w-full items-center gap-2 bg-transparent px-3 py-2 text-left type-base text-ink focus-visible:-outline-offset-2">Open memory</button><div class="memory-rule-body grid gap-4.75 bg-surface px-4 pb-4 pt-3 type-base leading-5 text-ink">Body</div></article>
     </div></div></section>
   </main>`;
-  return { workspace, media, documents, units, activity: activityMarkup, memory };
+  return { workspace, media, documents, documentsEditing, units, activity: activityMarkup, memory };
 }
 
 type GeometryResult = {
@@ -304,7 +309,19 @@ type GeometryResult = {
   memoryBodyBorder: string | null;
 };
 
-async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): Promise<GeometryResult[]> {
+type NarrowDocumentGeometry = {
+  width: number;
+  mode: string;
+  overflows: string[];
+  horizontalOffsets: number[];
+  headingWidth: number;
+  headingBeforeActions: boolean;
+  actionsContained: boolean;
+  canvasContained: boolean;
+  headingFocused: boolean;
+};
+
+async function chromiumGeometry(markup: { workspace: string; documentsEditing: string } & ProjectMarkup): Promise<{ screens: GeometryResult[]; narrowDocuments: NarrowDocumentGeometry[] }> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-geometry-"));
   const resultPath = join(directory, "harness-result.json");
   try {
@@ -459,7 +476,37 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
                 memoryBodyBorder: style(".memory-rule-body")?.borderTopWidth ?? null };
             })()\`));
         }
-        require("node:fs").writeFileSync(RESULT_PATH, JSON.stringify(results));
+        const narrowDocuments = [];
+        for (const width of [400, 440]) for (const mode of ["documents", "documentsEditing"]) {
+          narrowDocuments.push(await win.webContents.executeJavaScript(\`(async () => {
+            const width = \${width}, mode = \${JSON.stringify(mode)};
+            const root = document.getElementById("root"), template = document.getElementById(mode);
+            const host = document.createElement("div");
+            host.style.cssText = "position:fixed;left:40px;top:40px;height:600px;width:" + width + "px;container-type:inline-size;container-name:project-domain";
+            host.append(template.content.querySelector(".documents-workbench").cloneNode(true));
+            root.replaceChildren(host);
+            const heading = host.querySelector(".document-detail-heading");
+            heading.textContent = "A long document title for a campaign with detailed production notes";
+            const prose = host.querySelector(".markdown-view");
+            if (prose) { const paragraph = document.createElement("p"); paragraph.textContent = "https://example.com/" + "unbroken-document-reference".repeat(12); prose.append(paragraph); }
+            heading.focus({ preventScroll: true });
+            await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            const selectors = [".documents-workbench", ".documents-detail-window", ".document-detail-header", ".documents-detail"];
+            const overflows = selectors.filter((selector) => { const element = host.querySelector(selector); return element.scrollWidth > element.clientWidth + 1; });
+            const horizontalOffsets = selectors.map((selector) => host.querySelector(selector).scrollLeft);
+            const header = host.querySelector(".document-detail-header").getBoundingClientRect();
+            const actions = host.querySelector(".document-header-actions").getBoundingClientRect();
+            const title = heading.getBoundingClientRect();
+            const body = host.querySelector(".documents-detail").getBoundingClientRect();
+            const canvas = host.querySelector(".markdown-view, .document-editor").getBoundingClientRect();
+            return { width, mode, overflows, horizontalOffsets, headingWidth: title.width,
+              headingBeforeActions: title.right <= actions.left,
+              actionsContained: actions.left >= header.left && actions.right <= header.right,
+              canvasContained: canvas.left >= body.left && canvas.right <= body.right,
+              headingFocused: document.activeElement === heading };
+          })()\`));
+        }
+        require("node:fs").writeFileSync(RESULT_PATH, JSON.stringify({ screens: results, narrowDocuments }));
         app.quit();
       }).catch((error) => { console.error(error); app.exit(1); });
     `);
@@ -475,7 +522,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
     // Results travel through a file: a large JSON line on a pipe is truncated when several
     // Electron children run at once, which made this harness flake only in the full suite.
     if (!existsSync(resultPath)) throw new Error(`Electron geometry smoke returned no results: ${output}`);
-    return JSON.parse(readFileSync(resultPath, "utf8")) as GeometryResult[];
+    return JSON.parse(readFileSync(resultPath, "utf8"));
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -699,7 +746,7 @@ async function sharedLibraryGeometry(): Promise<SharedGeometrySmoke> {
             // A field wrapped in a container shows the ring on the container (see reset.css), so
             // the search field is probed where the ring actually lands.
             grid: [".shared-artifact-identity", ".shared-library-search", ".shared-library-view-toggle button", ".shared-library-select"],
-            list: [".shared-library-audit-scroll", ".shared-library-audit-row", ".shared-library-audit-row input"],
+            list: [".shared-library-audit-scroll", ".shared-library-audit-row", ".shared-library-audit-row .shared-artifact-identity"],
             inspector: [".shared-inspector-head button", ".shared-inspector-section > summary"],
             viewer: [".shared-viewer-head button", ".image-zoom-controls button", ".shared-viewer-context > button"],
           })[state];
@@ -1178,7 +1225,18 @@ describe("design system contract", () => {
   });
 
   test("renders active surfaces with visible focus in Chromium", async () => {
-    const results = await chromiumGeometry(await activeScreenMarkup());
+    const { screens: results, narrowDocuments } = await chromiumGeometry(await activeScreenMarkup());
+
+    expect(narrowDocuments).toHaveLength(4);
+    for (const result of narrowDocuments) {
+      expect(result.overflows, `${result.mode} at ${result.width}px`).toEqual([]);
+      expect(result.horizontalOffsets).toEqual([0, 0, 0, 0]);
+      expect(result.headingWidth).toBeGreaterThanOrEqual(64);
+      expect(result.headingBeforeActions).toBe(true);
+      expect(result.actionsContained).toBe(true);
+      expect(result.canvasContained).toBe(true);
+      expect(result.headingFocused).toBe(true);
+    }
 
     expect(results).toHaveLength(18);
     for (const screen of ["documents", "media", "units", "activity", "memory"] as const) {
@@ -1934,7 +1992,7 @@ describe("design system contract", () => {
       "Appearance",
       "Keyboard shortcuts",
       "Agents",
-      "Generation providers",
+      "Providers & publishing",
       "Storage & media",
       "Permissions & privacy",
       "Terminal & environment",

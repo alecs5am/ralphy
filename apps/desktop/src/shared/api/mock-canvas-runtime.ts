@@ -8,7 +8,7 @@ export function mockCanvasRuntime(): CanvasRuntimeBridge {
     importCanvasAsset: native,
     loadCanvasAssetPreview: async () => null,
     startCanvasRun: native,
-    loadCanvasRuns: async () => [],
+    loadCanvasRuns: async () => ({ items: [], nextCursor: null }),
     cancelCanvasRun: native,
   };
 }

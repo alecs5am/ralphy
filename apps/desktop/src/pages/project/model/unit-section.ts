@@ -18,7 +18,7 @@ export type UnitActions = Pick<ProjectScreenController,
   | "loadMoreUnitPresentations" | "selectInspectedUnitRevision">;
 
 
-export function createUnitSection(store: ProjectScreenStore, compositions: CompositionSection): ProjectScreenSection<UnitActions> {
+export function createUnitSection(store: ProjectScreenStore, compositions: CompositionSection): ProjectScreenSection<UnitActions> & { refresh(): Promise<void> } {
   let unitRequest = 0;
   let unitRevisionPageRequest = 0;
   let unitExactRevisionRequest = 0;
@@ -122,7 +122,7 @@ export function createUnitSection(store: ProjectScreenStore, compositions: Compo
         throw new Error("Invalid Unit production link");
       }
       store.patch({ inspectedUnitRevision: { status: "ready", value, error: null } });
-      const production = value.compositionRevisionId && compositionId
+      const production = value.compositionRevisionId && compositionId && store.snapshot.domain.project.projectId !== null
         ? compositions.load(compositionId, value.compositionRevisionId)
         : Promise.resolve(compositions.resetProduction());
       await Promise.all([
@@ -139,7 +139,7 @@ export function createUnitSection(store: ProjectScreenStore, compositions: Compo
     }
   };
 
-  const loadUnit = async (unitId: string) => {
+  const loadUnit = async (unitId: string, previous?: { viewed: string | null; latest: string | null }) => {
     if (!unitId) return;
     const requestId = ++unitRequest;
     unitRevisionPageRequest += 1;
@@ -188,7 +188,8 @@ export function createUnitSection(store: ProjectScreenStore, compositions: Compo
         || store.snapshot.unitId !== unitId) return;
       store.patch({ unitRevisions: { status: "error", items: [], nextCursor: null, requestedCursor: null, error: errorMessage(error) } });
     }
-    const preferred = value.selectedRevisionId ?? value.latestRevisionId ?? revisions[0]?.id ?? null;
+    const preferred = (previous?.viewed === previous?.latest && previous?.latest ? value.latestRevisionId : previous?.viewed)
+      ?? value.selectedRevisionId ?? value.latestRevisionId ?? revisions[0]?.id ?? null;
     if (preferred && !store.disposed && requestId === unitRequest && store.snapshot.unitId === unitId) {
       await loadUnitRevision(preferred, revisions.find(({ id }) => id === preferred));
     }
@@ -336,6 +337,12 @@ export function createUnitSection(store: ProjectScreenStore, compositions: Compo
   };
   return {
     actions,
+    async refresh() {
+      const { unitId, unit, inspectedUnitRevisionId, unitMutation, compositionMutation } = store.snapshot;
+      if (unitId && unitMutation === "idle" && compositionMutation === "idle") {
+        await loadUnit(unitId, { viewed: inspectedUnitRevisionId, latest: unit.value?.latestRevisionId ?? null });
+      }
+    },
     dispose() {
       unitRequest += 1;
       unitRevisionPageRequest += 1;

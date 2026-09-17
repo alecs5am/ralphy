@@ -9,6 +9,38 @@ import { createReactHost } from "./react-host";
 const card = '<UnitCard workspaceId="ws_demo" projectId="proj_demo" unitId="unit_demo" title="Creative 1" />';
 
 describe("agent MDX unit cards", () => {
+  test("refreshes an existing card on activity and preserves expanded versions", async () => {
+    vi.useFakeTimers();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    let count = 4;
+    let activity: Parameters<typeof bridge.onMediaEvent>[0] = () => undefined;
+    vi.spyOn(bridge, "onMediaEvent").mockImplementation((callback) => { activity = callback; return () => undefined; });
+    const load = vi.spyOn(bridge, "loadProjectUnit").mockImplementation(async () => ({ id: "unit_demo", slug: "creative", latestRevisionId: `r${count}` } as never));
+    vi.spyOn(bridge, "loadProjectUnitRevision").mockImplementation(async (_scope, _id, id) => ({ id, unitId: "unit_demo", revisionNo: count } as never));
+    vi.spyOn(bridge, "loadProjectUnitPage").mockImplementation(async (_scope, request): Promise<any> => ({ items: request.kind === "revisions" ? Array.from({ length: count }, (_, index) => ({ id: `r${count - index}`, unitId: "unit_demo", revisionNo: count - index, sealedAt: 1 })) : [], nextCursor: null }));
+    try {
+      await act(async () => root.render(<AgentMessage markdown={card} workspaceId="ws_demo" onOpenUnit={() => undefined} />));
+      expect(host.container.textContent).toContain("4 versions");
+      for (const next of [8, 16]) {
+        count = next;
+        await act(async () => { activity({ type: "activity-refresh", storeId: "store", rootEpoch: 1, sequence: next }); await vi.advanceTimersByTimeAsync(200); });
+        expect(host.container.textContent).toContain(`${next} versions`);
+      }
+      await act(async () => host.container.querySelector(".agent-unit-more")!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(host.container.querySelectorAll(".agent-unit-variant")).toHaveLength(16);
+      await act(async () => { activity({ type: "activity-refresh", storeId: "store", rootEpoch: 1, sequence: 17 }); await vi.advanceTimersByTimeAsync(200); });
+      expect(host.container.querySelectorAll(".agent-unit-variant")).toHaveLength(16);
+      load.mockRejectedValue(new Error("Missing unit"));
+      await act(async () => { activity({ type: "activity-refresh", storeId: "store", rootEpoch: 1, sequence: 18 }); await vi.advanceTimersByTimeAsync(200); });
+      expect(host.container.textContent).toContain("Unit unavailable");
+      expect(host.container.querySelectorAll(".agent-unit-variant")).toHaveLength(0);
+    } finally {
+      await act(async () => root.unmount());
+      vi.restoreAllMocks(); vi.useRealTimers(); host.restore();
+    }
+  });
+
   test("keeps prose and fenced examples while recognizing only inert unit references", () => {
     expect(parseAgentMessage(`Created.\n\n${card}\n\nCompare the versions.`).map((part) => part.kind)).toEqual(["markdown", "unit", "markdown"]);
     expect(parseAgentMessage(`\`\`\`mdx\n${card}\n\`\`\``)).toMatchObject([{ kind: "markdown" }]);
