@@ -1,0 +1,138 @@
+/* shard: effects
+ *
+ * Three DOM/SVG effects with no shader between them. Every per-item number a rule needs -- a
+ * confetti piece's launch vector and flutter period, a spoke's index angle and wobble, the arrow's
+ * clip geometry -- is baked inline by the markup, so these keyframes are shared by every item and
+ * no selector ever counts children. */
+
+/* @scene confetti */
+.rv-c-confetti .rv-stage { background: var(--p-bg); }
+.rv-c-confetti .rv-cf {
+  position: absolute; inset: 0; pointer-events: none;
+  animation: confetti-life var(--rv-run) linear infinite both;
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed));
+}
+.rv-c-confetti .rv-cf-a {
+  position: absolute; left: calc(var(--ox) * 1em); top: calc(var(--oy) * 1em);
+  animation: confetti-fly var(--rv-run) linear infinite both;
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed));
+}
+.rv-c-confetti .rv-cf-b {
+  position: absolute; left: calc(var(--w) * -0.5em); top: calc(var(--w) * -0.31em);
+  width: calc(var(--w) * 1em); height: calc(var(--w) * 0.62em);
+  border-radius: 2em; background: var(--c);
+  animation:
+    confetti-fall var(--rv-run) cubic-bezier(0.333, 0, 0.667, 0.333) infinite both,
+    confetti-spin var(--rv-run) linear infinite both,
+    confetti-flutter calc(var(--rv-run) * var(--fp)) linear infinite both;
+  animation-delay:
+    calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed)),
+    calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed)),
+    calc(var(--rv-seek) + var(--cf-phase) / var(--rv-speed));
+}
+@keyframes confetti-life { 0% { opacity: 0 } 3.7%, 58.333% { opacity: 1 } 83.333%, 100% { opacity: 0 } }
+@keyframes confetti-fly { 0% { translate: 0 0 } 83.333%, 100% { translate: calc(var(--x) * 1em) calc(var(--yl) * 1em) } }
+@keyframes confetti-fall { 0% { translate: 0 0 } 83.333%, 100% { translate: 0 calc(var(--yq) * 1em) } }
+@keyframes confetti-spin { 0% { rotate: calc(var(--r0) * 1rad) } 83.333%, 100% { rotate: calc(var(--r1) * 1rad) } }
+@keyframes confetti-flutter {
+  0%, 100% { scale: 1 1 } 12.5%, 87.5% { scale: 0.707 1 } 25%, 75% { scale: 0 1 }
+  37.5%, 62.5% { scale: -0.707 1 } 50% { scale: -1 1 }
+}
+/* @end */
+
+/* @scene radial-burst */
+.rv-c-radial-burst .rv-stage { background: var(--p-bg); }
+.rv-c-radial-burst .rv-rb-plane { position: absolute; left: 50%; top: 50%; width: 0; height: 0; animation: radial-burst-plane var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-radial-burst .rv-rb-spin { position: absolute; width: 0; height: 0; transform: scale(var(--rb-r)); animation: radial-burst-spin var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-radial-burst .rv-rb-dot { position: absolute; margin: -13.875em 0 0 -13.875em; width: 27.75em; height: 27.75em; border-radius: 50%; background: var(--p-text); animation: radial-burst-dot var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-radial-burst .rv-rb-spoke { position: absolute; margin-left: -58.425em; margin-top: calc(-5.625em * var(--rb-t)); width: 116.85em; height: calc(11.25em * var(--rb-t)); border-radius: calc(5.625em * var(--rb-t)); background: var(--c); animation: radial-burst-spoke var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-radial-burst .rv-rb-svg { position: absolute; margin: -135em 0 0 -240em; width: 480em; height: 270em; overflow: visible; }
+.rv-c-radial-burst .rv-rb-ring { fill: none; stroke: var(--c); animation: radial-burst-ring var(--rv-run) linear infinite both; animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed)); }
+@keyframes radial-burst-plane {
+  0%, 15% { transform: translate(0em, 0em) rotate(0deg) scaleY(1) }
+  20% { transform: translate(4.755em, -2.341em) rotate(9.889deg) scaleY(0.654) } 25% { transform: translate(9.328em, -4.592em) rotate(18.809deg) scaleY(0.568) }
+  35% { transform: translate(17.236em, -8.485em) rotate(30.434deg) scaleY(0.541) } 45% { transform: translate(22.52em, -11.087em) rotate(30.434deg) scaleY(0.54) }
+  55% { transform: translate(24.375em, -12em) rotate(18.809deg) scaleY(0.54) } 65% { transform: translate(22.52em, -11.087em) rotate(0deg) scaleY(0.54) }
+  75% { transform: translate(17.236em, -8.485em) rotate(-18.809deg) scaleY(0.54) } 80% { transform: translate(13.542em, -6.667em) rotate(-25.889deg) scaleY(0.54) }
+  85% { transform: translate(9.328em, -4.592em) rotate(-30.434deg) scaleY(0.618) } 90% { transform: translate(4.755em, -2.341em) rotate(-32deg) scaleY(0.951) }
+  95%, 100% { transform: translate(0em, 0em) rotate(-30.434deg) scaleY(1) }
+}
+@keyframes radial-burst-spin { 0%, 28.3333% { rotate: 0deg } 70%, 100% { rotate: 135deg } }
+@keyframes radial-burst-dot {
+  0%, 1.6667% { transform: scale(0, 0) } 5% { transform: scale(1.098, 0.864) } 8.3333% { transform: scale(1.307, 0.922) }
+  11.6667% { transform: scale(1.101, 0.866) } 15% { transform: scale(0.997, 0.997) } 17.5% { transform: scale(0.072, 0.072) }
+  20% { transform: scale(0.002, 0.002) } 22.5%, 100% { transform: scale(0, 0) }
+}
+@keyframes radial-burst-spoke {
+  0%, 15% { opacity: 0; rotate: calc((var(--a) + var(--m) * 0) * 1deg); transform: translateX(calc(10.5em * (1 + var(--k) * 0))) scale(0.039, 1) }
+  17.5% { opacity: 0.988; rotate: calc((var(--a) + var(--m) * 0.142) * 1deg); transform: translateX(calc(35.291em * (1 + var(--k) * 0.142))) scale(0.269, 1.189) }
+  20% { opacity: 1; rotate: calc((var(--a) + var(--m) * 0.282) * 1deg); transform: translateX(calc(69.147em * (1 + var(--k) * 0.282))) scale(0.432, 1.375) }
+  25% { opacity: 1; rotate: calc((var(--a) + var(--m) * 0.541) * 1deg); transform: translateX(calc(86.251em * (1 + var(--k) * 0.541))) scale(0.658, 1.72) }
+  30% { opacity: 1; rotate: calc((var(--a) + var(--m) * 0.756) * 1deg); transform: translateX(calc(78.743em * (1 + var(--k) * 0.756))) scale(0.82, 2.005) }
+  37.5% { opacity: 1; rotate: calc((var(--a) + var(--m) * 0.959) * 1deg); transform: translateX(calc(78.547em * (1 + var(--k) * 0.959))) scale(0.97, 2.275) }
+  45% { opacity: 1; rotate: calc((var(--a) + var(--m) * 0.99) * 1deg); transform: translateX(calc(75.287em * (1 + var(--k) * 0.99))) scale(0.993, 2.252) }
+  52.5% { opacity: 1; rotate: calc((var(--a) + var(--m) * 0.841) * 1deg); transform: translateX(calc(58.312em * (1 + var(--k) * 0.841))) scale(0.883, 1.776) }
+  60% { opacity: 0.667; rotate: calc((var(--a) + var(--m) * 0.541) * 1deg); transform: translateX(calc(53.82em * (1 + var(--k) * 0.541))) scale(0.662, 1.379) }
+  65% { opacity: 0.333; rotate: calc((var(--a) + var(--m) * 0.282) * 1deg); transform: translateX(calc(53.55em * (1 + var(--k) * 0.282))) scale(0.471, 1.1) }
+  70%, 100% { opacity: 0; rotate: calc((var(--a) + var(--m) * 0) * 1deg); transform: translateX(calc(53.55em * (1 + var(--k) * 0))) scale(0.263, 0.8) }
+}
+@keyframes radial-burst-ring {
+  0%, 40% { r: 78.459px; stroke-width: calc(11.217px * var(--sw)); stroke-dasharray: 7.75 4.75; opacity: 0 }
+  50% { r: 63.188px; stroke-width: calc(9.861px * var(--sw)); stroke-dasharray: 7.75 4.75; opacity: 0 }
+  55% { r: 55.826px; stroke-width: calc(9.203px * var(--sw)); stroke-dasharray: 7.75 4.75; opacity: calc(var(--o) * 0.35) }
+  60% { r: 53.82px; stroke-width: calc(9.024px * var(--sw)); stroke-dasharray: 7.75 4.75; opacity: calc(var(--o) * 0.7) }
+  65% { r: 53.55px; stroke-width: calc(9px * var(--sw)); stroke-dasharray: 10.698 1.802; opacity: var(--o) }
+  70% { r: 53.55px; stroke-width: calc(9px * var(--sw)); stroke-dasharray: 12.5 0; opacity: var(--o) }
+  80% { r: 44.982px; stroke-width: calc(12.375px * var(--sw)); stroke-dasharray: 12.5 0; opacity: var(--o) }
+  85% { r: 59.761px; stroke-width: calc(13.086px * var(--sw)); stroke-dasharray: 12.5 0; opacity: var(--o) }
+  90% { r: 134.584px; stroke-width: calc(16.687px * var(--sw)); stroke-dasharray: 12.5 0; opacity: var(--o) }
+  95%, 100% { r: 302.113px; stroke-width: calc(24.75px * var(--sw)); stroke-dasharray: 12.5 0; opacity: var(--o) }
+}
+/* @end */
+
+/* @scene ink-arrow */
+.rv-c-ink-arrow .rv-stage { background: var(--p-bg); }
+.rv-c-ink-arrow .rv-ink { position: absolute; inset: 0; }
+.rv-c-ink-arrow .rv-ink-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.rv-c-ink-arrow path { fill: var(--p-text); opacity: 0.85; }
+.rv-c-ink-arrow .rv-ink-shaft {
+  position: absolute; inset: 0;
+  animation: ink-arrow-shaft var(--rv-run) step-end infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-ink-arrow .rv-ink-arm-a {
+  position: absolute; inset: 0;
+  animation: ink-arrow-arm-a var(--rv-run) step-end infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-ink-arrow .rv-ink-arm-b {
+  position: absolute; inset: 0;
+  animation: ink-arrow-arm-b var(--rv-run) step-end infinite both;
+  animation-delay: var(--rv-seek);
+}
+@keyframes ink-arrow-shaft {
+  0% { clip-path: circle(0em at calc(var(--cx) * 1em) calc(var(--cy) * 1em)) }
+  3.3333% { clip-path: circle(calc(var(--r) * 0.1288em) at calc(var(--cx) * 1em) calc(var(--cy) * 1em)) }
+  6.6667% { clip-path: circle(calc(var(--r) * 0.2499em) at calc(var(--cx) * 1em) calc(var(--cy) * 1em)) }
+  10% { clip-path: circle(calc(var(--r) * 0.3326em) at calc(var(--cx) * 1em) calc(var(--cy) * 1em)) }
+  13.3333% { clip-path: circle(calc(var(--r) * 0.41em) at calc(var(--cx) * 1em) calc(var(--cy) * 1em)) }
+  16.6667% { clip-path: circle(calc(var(--r) * 0.4834em) at calc(var(--cx) * 1em) calc(var(--cy) * 1em)) }
+  20% { clip-path: circle(calc(var(--r) * 0.577em) at calc(var(--cx) * 1em) calc(var(--cy) * 1em)) }
+  23.3333% { clip-path: circle(calc(var(--r) * 0.6451em) at calc(var(--cx) * 1em) calc(var(--cy) * 1em)) }
+  26.6667% { clip-path: circle(calc(var(--r) * 0.7122em) at calc(var(--cx) * 1em) calc(var(--cy) * 1em)) }
+  30% { clip-path: circle(calc(var(--r) * 0.7789em) at calc(var(--cx) * 1em) calc(var(--cy) * 1em)) }
+  33.3333% { clip-path: circle(calc(var(--r) * 0.8675em) at calc(var(--cx) * 1em) calc(var(--cy) * 1em)) }
+  36.6667% { clip-path: circle(calc(var(--r) * 0.9338em) at calc(var(--cx) * 1em) calc(var(--cy) * 1em)) }
+  40%, 100% { clip-path: circle(calc(var(--r) * 1em) at calc(var(--cx) * 1em) calc(var(--cy) * 1em)) }
+}
+@keyframes ink-arrow-arm-a {
+  0% { clip-path: circle(0em at calc(var(--ax) * 1em) calc(var(--ay) * 1em)) }
+  43.3333% { clip-path: circle(calc(var(--ar) * 0.6571em) at calc(var(--ax) * 1em) calc(var(--ay) * 1em)) }
+  46.6667%, 100% { clip-path: circle(calc(var(--ar) * 1em) at calc(var(--ax) * 1em) calc(var(--ay) * 1em)) }
+}
+@keyframes ink-arrow-arm-b {
+  0% { clip-path: circle(0em at calc(var(--ax) * 1em) calc(var(--ay) * 1em)) }
+  50% { clip-path: circle(calc(var(--ar) * 0.6571em) at calc(var(--ax) * 1em) calc(var(--ay) * 1em)) }
+  53.3333%, 100% { clip-path: circle(calc(var(--ar) * 1em) at calc(var(--ax) * 1em) calc(var(--ay) * 1em)) }
+}
+/* @end */

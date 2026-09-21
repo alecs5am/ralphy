@@ -1,0 +1,113 @@
+/* shard: typography-b2 */
+
+/* @scene typewriter */
+/* The cover starts over the whole line and slides right by exactly the text width, one character
+   per step, finishing at 25.6% of the 75-frame run. The caret sits on its leading edge, so it
+   walks with the text and then parks. The blink is upstream's square wave: solid while typing,
+   then a hard cut every 15 frames (20% of the run), never a fade. */
+.rv-c-typewriter .rv-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rv-c-typewriter .rv-line {
+  font-size: calc(var(--rv-u) * var(--fs));
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  white-space: pre;
+}
+.rv-c-typewriter .rv-tape {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  padding-right: 0.22em;
+}
+.rv-c-typewriter .rv-cover {
+  position: absolute;
+  top: 0;
+  right: 0.22em;
+  bottom: 0;
+  left: 0;
+  background: var(--p-bg);
+  animation: typewriter-tape var(--rv-run) infinite both;
+  animation-timing-function: var(--steps);
+  animation-delay: var(--rv-seek);
+}
+.rv-c-typewriter .rv-caret {
+  position: absolute;
+  top: 0.1em;
+  left: 0;
+  width: 0.08em;
+  height: 1em;
+  background: var(--p-text);
+  animation: typewriter-blink var(--rv-run) linear infinite both;
+  animation-delay: var(--rv-seek);
+}
+@keyframes typewriter-tape {
+  0% { translate: 0 0; }
+  25.6%, 100% { translate: 100% 0; }
+}
+@keyframes typewriter-blink {
+  0%, 25.6% { opacity: 1; }
+  25.7%, 40% { opacity: 0; }
+  40.1%, 60% { opacity: 1; }
+  60.1%, 80% { opacity: 0; }
+  80.1%, 100% { opacity: 1; }
+}
+/* @end */
+
+/* @scene rolling-number */
+/* Two independent motions per place: the strip rolls its own cell distance under a
+   one-cell window on the shared quartic-out ramp (done at 80% of the run), and a leading place
+   fades and rises 0.32em into view from its own `--rv-own` offset. The ones place is always
+   visible, so it carries no reveal animation at all. */
+.rv-c-rolling-number .rv-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rv-c-rolling-number .rv-odo {
+  display: flex;
+  align-items: flex-start;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: calc(var(--rv-u) * var(--fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.rv-c-rolling-number .rv-col {
+  width: 0.62em;
+  height: 1.1em;
+  overflow: hidden;
+  text-align: center;
+}
+.rv-c-rolling-number .rv-lead {
+  animation: rolling-number-reveal var(--rv-run) linear infinite both;
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed));
+}
+.rv-c-rolling-number .rv-gap {
+  width: 0.34em;
+  height: 1.1em;
+}
+.rv-c-rolling-number .rv-strip {
+  display: flex;
+  flex-direction: column;
+  animation: rolling-number-roll var(--rv-run) linear infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-rolling-number .rv-strip i {
+  flex: none;
+  height: 1.1em;
+  font-style: normal;
+  line-height: 1.1em;
+}
+@keyframes rolling-number-roll {
+  0% { translate: 0 0; animation-timing-function: cubic-bezier(0.25, 1, 0.5, 1); }
+  80%, 100% { translate: 0 calc(var(--travel) * -1.1em); }
+}
+@keyframes rolling-number-reveal {
+  0% { opacity: 0; translate: 0 0.32em; animation-timing-function: cubic-bezier(0.37, 0, 0.63, 1); }
+  6.2%, 100% { opacity: 1; translate: 0 0; }
+}
+/* @end */

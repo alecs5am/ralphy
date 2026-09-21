@@ -1,0 +1,120 @@
+/**
+ * The only non-bespoke scene CSS. Everything here is mechanism; nothing here is a look.
+ *
+ * One clock drives all four states. A scene rule always writes
+ *   animation: <name> var(--rv-run) linear infinite both;
+ *   animation-delay: var(--rv-seek);
+ * A paused animation sitting at a negative delay renders exactly the frame at `--rv-t`, so the
+ * frozen card, the hovered card, the detail view and an exported seek are one set of declarations.
+ */
+
+@property --rv-t {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+.rv-scene {
+  --rv-speed: 1;
+  --rv-cycle: 1s;
+  --rv-hold: 0s;
+  --rv-still: 0.5;
+  --rv-run: calc((var(--rv-cycle) + var(--rv-hold)) / var(--rv-speed));
+  --rv-t: var(--rv-still);
+  --rv-seek: calc(-1 * var(--rv-t) * var(--rv-run));
+
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  container-type: size;
+  color: var(--p-text, inherit);
+  background: var(--p-bg, transparent);
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-weight: var(--rv-font-weight, 600);
+}
+
+.rv-scene *, .rv-scene *::before, .rv-scene *::after { box-sizing: border-box; }
+
+/**
+ * The reference stage. `1em` inside it is exactly one authored stage pixel, so a scene writes its
+ * geometry in the same units its upstream source uses and the card, the detail, the baked still and
+ * the export are the same image at four sizes. A scene must never set `font-size` in `em` — that
+ * would compound the unit; it uses `calc(var(--rv-u) * N)`.
+ */
+.rv-stage {
+  --rv-u: min(100cqw / var(--rv-stage-wn, 480), 100cqh / var(--rv-stage-hn, 270));
+  position: relative;
+  width: calc(var(--rv-stage-wn, 480) * 1em);
+  height: calc(var(--rv-stage-hn, 270) * 1em);
+  overflow: hidden;
+  font-size: var(--rv-u);
+  transform: scale(var(--rv-font-scale, 1));
+}
+
+/**
+ * Paused is the default; only an explicitly playing scene runs.
+ *
+ * `!important` is load-bearing, not laziness. Scene rules use the `animation` shorthand, which
+ * resets `animation-play-state` to `running`, and they are authored at the same specificity and
+ * later in the sheet — so without it every shard silently defeats the freeze. Unlike the old
+ * `animation: none !important` reset this keeps the pose: the frame at `--rv-t` stays on screen.
+ * Scene CSS may not set `animation-play-state` at all; the lint enforces that.
+ */
+.rv-scene:not([data-playing="true"]) * { animation-play-state: paused !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rv-scene:not([data-motion="manual"]) * { animation-play-state: paused !important; }
+}
+
+/* Paint engines fill the stage; their backing buffers are always constant stage px. */
+.rv-canvas, .rv-gl, .rv-paper {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.rv-paper > * { width: 100%; height: 100%; }
+/* The upstream-authored no-WebGL path, revealed only when the real shader cannot run. */
+.rv-scene:not([data-gl="ready"]) .rv-gl { display: none; }
+.rv-scene[data-gl="ready"] .rv-gl-fallback { display: none; }
+
+/* Shared element primitives. Shards give these their look; the layout contract lives here. */
+.rv-ch, .rv-w, .rv-ln { display: inline-block; white-space: pre; }
+.rv-ln { display: block; }
+.rv-cell { display: block; }
+.rv-caret { display: inline-block; vertical-align: text-bottom; }
+.rv-plate { position: relative; overflow: hidden; }
+
+/* Chrome. Stripped before the distinctness hash, so it can never stand in for a real difference. */
+.rv-kicker, .rv-caption, .rv-index {
+  position: absolute;
+  z-index: 8;
+  font-size: 2.2cqw;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.rv-kicker { top: 5%; left: 7%; }
+.rv-caption { left: 7%; right: 20%; bottom: 5%; line-height: 1.35; opacity: 0.72; text-transform: none; letter-spacing: 0; }
+.rv-index { right: 7%; bottom: 5%; font-weight: 800; }
+
+.rv-scene[data-format="wide"] :is(.rv-kicker, .rv-index) { font-size: 1.5cqw; }
+.rv-scene[data-format="wide"] .rv-caption { font-size: 1.4cqw; }
+
+/**
+ * A component id with no registry row after its group has migrated. This is a CI failure, never a
+ * shipping state: it exists so the gap is loud rather than silently rendering a neighbour's scene.
+ */
+.rv-unported {
+  display: grid;
+  place-items: center;
+  gap: 1rem;
+  padding: 8%;
+  text-align: center;
+  font-size: 3cqw;
+  opacity: 0.6;
+}

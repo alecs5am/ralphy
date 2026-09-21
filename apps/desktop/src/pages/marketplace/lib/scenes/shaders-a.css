@@ -1,0 +1,79 @@
+/* shard: shaders-a */
+
+/* @scene shader-mesh-gradient */
+/* Soft field, soft type: the title sits in the middle of the mesh behind a vignette that only
+   darkens the edges, so the wells still read through it. No keyframes -- the shader is the motion. */
+.rv-c-shader-mesh-gradient .rv-stage {
+  display: grid;
+  place-items: center;
+}
+.rv-c-shader-mesh-gradient .rv-veil {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(118% 92% at 50% 56%, transparent 0 34%, var(--p-bg) 100%);
+  opacity: 0.74;
+}
+.rv-c-shader-mesh-gradient .rv-title {
+  position: relative;
+  margin: 0;
+  max-width: 76%;
+  text-align: center;
+  font-size: calc(var(--rv-u) * 54);
+  line-height: 1;
+  letter-spacing: -0.035em;
+  color: var(--p-text);
+}
+/* @end */
+
+/* @scene shader-dithering */
+/* The field is exactly two colours with hard cell edges, and a solid label would merge into whichever
+   of them it sat on. So the band is the back colour boxed in the front colour: over the dense part of
+   the wave the dark fill separates it, over the sparse part the bright rule does. */
+.rv-c-shader-dithering .rv-stage {
+  display: grid;
+  align-content: end;
+  justify-items: start;
+  padding: 0 0 34em 36em;
+}
+.rv-c-shader-dithering .rv-band {
+  position: relative;
+  margin: 0;
+  padding: 7em 13em 9em;
+  border: 3em solid var(--p-accent);
+  background: var(--p-bg);
+}
+.rv-c-shader-dithering .rv-title {
+  font-size: calc(var(--rv-u) * 28);
+  letter-spacing: 0.015em;
+  text-transform: uppercase;
+  color: var(--p-text);
+}
+/* @end */
+
+/* @scene shader-caustics */
+/* The shader lights the bottom of the frame at 1.25x and the top at 0.55x, so the type sits in the
+   quiet middle-left rather than on the pool of light, and a soft shadow in the floor colour keeps it
+   readable when a filament crosses it. The hairline is the filament light, the one bright value here. */
+.rv-c-shader-caustics .rv-stage {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 11em;
+  padding: 0 44em;
+}
+.rv-c-shader-caustics .rv-seam {
+  position: relative;
+  width: 76em;
+  height: 1em;
+  background: var(--p-light);
+}
+.rv-c-shader-caustics .rv-title {
+  position: relative;
+  margin: 0;
+  font-size: calc(var(--rv-u) * 25);
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--p-text);
+  text-shadow: 0 0 12em var(--p-bg);
+}
+/* @end */

@@ -1,0 +1,50 @@
+/* shard: ui-a2 */
+
+/* @scene dropdown-menu */
+/* Closed for 0.4s, open over 0.4s of ease-out, held open for 1.2s, closed on the same curve. The
+   panel is absolutely placed at top: 48em so it never moves the trigger, and it scales from its
+   own top edge, which is what makes the open read as a drop rather than a fade. The chevron is the
+   only other channel and shares the tween exactly. */
+.rv-c-dropdown-menu .rv-stage {
+  display: flex; align-items: flex-start; justify-content: center; padding-top: 23em;
+}
+.rv-c-dropdown-menu .rv-wrap { position: relative; width: 240em; }
+.rv-c-dropdown-menu .rv-trigger {
+  display: flex; align-items: center; justify-content: space-between; gap: 12em;
+  width: 240em; height: 40em; padding: 0 16em; box-sizing: border-box;
+  background: var(--p-panel); border: 1em solid var(--p-border); border-radius: 10em;
+}
+.rv-c-dropdown-menu .rv-tl {
+  font-size: calc(var(--rv-u) * 15); font-weight: 500; letter-spacing: -0.01em;
+}
+.rv-c-dropdown-menu .rv-chev {
+  width: 16em; height: 16em; flex-shrink: 0; color: var(--p-muted);
+  animation: dropdown-menu-chevron var(--rv-run) cubic-bezier(0.33, 1, 0.68, 1) infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-dropdown-menu .rv-panel {
+  position: absolute; top: 48em; left: 0; width: 240em; box-sizing: border-box;
+  transform-origin: top; padding: 4em; display: flex; flex-direction: column; gap: 2em;
+  background: var(--p-panel); border: 1em solid var(--p-border); border-radius: 12em;
+  box-shadow: 0 12em 32em -8em var(--p-shadow);
+  animation: dropdown-menu-panel var(--rv-run) cubic-bezier(0.33, 1, 0.68, 1) infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-dropdown-menu .rv-item {
+  display: flex; align-items: center; width: 232em; height: 32em; padding: 0 8em;
+  box-sizing: border-box; border-radius: 6em;
+}
+.rv-c-dropdown-menu .rv-item span {
+  font-size: calc(var(--rv-u) * 14); letter-spacing: -0.01em;
+}
+.rv-c-dropdown-menu .rv-hover { background: var(--p-accent); }
+.rv-c-dropdown-menu .rv-press { background: var(--p-border); }
+@keyframes dropdown-menu-panel {
+  0%, 13.33% { opacity: 0; translate: 0 -4em; scale: 0.96; }
+  26.67%, 66.67% { opacity: 1; translate: 0 0; scale: 1; }
+  80%, 100% { opacity: 0; translate: 0 -4em; scale: 0.96; }
+}
+@keyframes dropdown-menu-chevron {
+  0%, 13.33% { rotate: 0deg; } 26.67%, 66.67% { rotate: 180deg; } 80%, 100% { rotate: 0deg; }
+}
+/* @end */

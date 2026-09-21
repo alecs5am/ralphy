@@ -27,7 +27,6 @@ const adapters: Record<string, { css: string; markup: string; timeline: string }
   ai: { css: ".terminal { width:74%; padding:5%; border-radius:18px; background:#111; border:1px solid #fff4; font-family:ui-monospace,monospace; } .cursor { display:inline-block; width:.6em; height:1em; background:hsl(var(--h) 90% 70%); vertical-align:middle; }", markup: '<section class="terminal">&gt; generate motion<span class="cursor"></span></section>', timeline: 'timeline.fromTo(".terminal", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: d }).to(".cursor", { opacity: 0, repeat: -1, yoyo: true, duration: .45 });' },
   craft: { css: ".paper { width:58%; padding:11%; color:#28231d; background:#f3ead9; box-shadow:12px 16px 0 #0004; transform:rotate(-4deg); }", markup: '<section class="paper">Made by hand</section>', timeline: 'timeline.fromTo(".paper", { yPercent: -130, rotate: -18 }, { yPercent: 0, rotate: -4, duration: d, ease: "bounce.out" });' },
   templates: { css: ".frames { display:flex; width:76%; gap:12px; } .frames i { flex:1; aspect-ratio:9/16; background:linear-gradient(145deg,hsl(var(--h) 78% 65%),#111); }", markup: '<section class="frames"><i></i><i></i><i></i></section>', timeline: 'timeline.fromTo(".frames i", { yPercent: 90, opacity: 0 }, { yPercent: 0, opacity: 1, stagger: d / 5, duration: d });' },
-  guides: { css: ".guide { width:70%; padding:7%; border-left:4px solid hsl(var(--h) 90% 70%); background:#fff1; } .rule { height:1px; margin-top:22px; background:#fff8; }", markup: '<section class="guide">Production notes<i class="rule"></i></section>', timeline: 'timeline.fromTo(".guide", { xPercent: -35, opacity: 0 }, { xPercent: 0, opacity: 1, duration: d });' },
 };
 
 function artifact(entry: RemocnEntry, reference: string) {
@@ -51,18 +50,22 @@ ${entry.source}
 --></body></html>`;
 }
 
-/** MIT-licensed Remocn references, bundled as source material rather than runtime code. */
+/**
+ * MIT-licensed Remocn references, bundled as source material rather than runtime code.
+ *
+ * The upstream `guides` group is excluded: those fourteen entries are `content/docs/guides/*.mdx`
+ * prose, not components, so a Visuals card for one could only show motion its source never had.
+ */
 export function studioRemocnMotion(): StudioEntry[] {
-  return (remocnData as RemocnEntry[]).map((entry) => {
+  return (remocnData as RemocnEntry[]).filter((entry) => entry.group !== "guides").map((entry) => {
     const reference = `${repository}/blob/${upstreamCommit}/${entry.sourcePath}`;
-    const isGuide = entry.group === "guides";
     return {
       id: entry.id,
       name: entry.title,
       summary: entry.summary,
       tags: ["remocn", `remocn:${entry.group}`, entry.group],
-      format: isGuide ? "Production guide" : `Remocn ${formatLabels[entry.group] ?? entry.group.replace(/s$/, "")}`,
-      duration: isGuide ? "Reference" : "Source reference",
+      format: `Remocn ${formatLabels[entry.group] ?? entry.group.replace(/s$/, "")}`,
+      duration: "Source reference",
       settings: { title: entry.title, speed: 1, format: "portrait" },
       remocnVisual: remocnVisualDefinition(entry),
       mediaCredit: "Remocn · MIT",

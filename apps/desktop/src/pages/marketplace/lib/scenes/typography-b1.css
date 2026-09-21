@@ -1,0 +1,48 @@
+/* shard: typography-b1 */
+
+/* @scene marker-highlight */
+/* The bar is `spring({ damping: 14 })` starting at frame 15 of a 75-frame run, sampled every two
+   frames: 20% is frame 15, 52% is frame 39 where it has settled. The 37.3% row is the 104.6%
+   overshoot at frame 28 — the one value a cubic-bezier could not have produced. */
+.rv-c-marker-highlight .rv-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6%;
+}
+.rv-c-marker-highlight .rv-line {
+  font-size: calc(var(--rv-u) * var(--fs));
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  text-align: center;
+}
+.rv-c-marker-highlight .rv-mark {
+  position: relative;
+  display: inline-block;
+}
+.rv-c-marker-highlight .rv-ink {
+  position: absolute;
+  inset: 0 -0.1em;
+  z-index: 0;
+  background: var(--p-accent);
+  transform-origin: left center;
+  animation: marker-highlight-sweep var(--rv-run) linear infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-marker-highlight .rv-hl {
+  position: relative;
+  z-index: 1;
+}
+@keyframes marker-highlight-sweep {
+  0%, 20% { scale: 0 1; }
+  22.7% { scale: 0.161 1; }
+  25.3% { scale: 0.458 1; }
+  28% { scale: 0.726 1; }
+  30.7% { scale: 0.907 1; }
+  33.3% { scale: 1.005 1; }
+  37.3% { scale: 1.046 1; }
+  44% { scale: 1.02 1; }
+  49.3% { scale: 1.002 1; }
+  52%, 100% { scale: 1 1; }
+}
+/* @end */

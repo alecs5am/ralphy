@@ -1,0 +1,71 @@
+/* shard: typography-a1 */
+
+/* @scene blur-out-up */
+/* Percentages are over the whole 2.43 s run: enter 17f = 23.3%, exit opens at 80.8%, and the
+   exit's own travel only starts 8 frames into it (91.8%) — the word hangs, then lifts. Lengths are
+   in em of the headline's own font size, which is where upstream's px are measured from. */
+.rv-c-blur-out-up .rv-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6%;
+}
+.rv-c-blur-out-up .rv-line {
+  font-size: calc(var(--rv-u) * var(--fs));
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  text-align: center;
+}
+.rv-c-blur-out-up .rv-w {
+  transform-origin: 50% 55%;
+  animation:
+    blur-out-up-haze var(--rv-run) linear infinite both,
+    blur-out-up-lift var(--rv-run) linear infinite both;
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed));
+}
+@keyframes blur-out-up-haze {
+  0% { opacity: 0; filter: blur(0.0833em); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  23.3% { opacity: 1; filter: blur(0); }
+  80.8% { opacity: 1; filter: blur(0); animation-timing-function: cubic-bezier(0.64, 0, 0.78, 0); }
+  100% { opacity: 0; filter: blur(0.1111em); }
+}
+@keyframes blur-out-up-lift {
+  0% { translate: 0 0.1389em; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  8.2% { translate: 0 0; }
+  91.8% { translate: 0 0; animation-timing-function: cubic-bezier(0.64, 0, 0.78, 0); }
+  100% { translate: 0 -0.1944em; }
+}
+/* @end */
+
+/* @scene per-character-rise */
+/* Over a 2.3 s run: opacity takes 21f = 30.4%, the travel only 10f = 14.5%, and the two use
+   different curves — the travel curve ends at 0.85 rather than 1, so a glyph arrives slack. */
+.rv-c-per-character-rise .rv-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6%;
+}
+.rv-c-per-character-rise .rv-line {
+  font-size: calc(var(--rv-u) * var(--fs));
+  letter-spacing: -0.05em;
+  line-height: 1.1;
+  text-align: center;
+}
+.rv-c-per-character-rise .rv-ch {
+  backface-visibility: hidden;
+  transform-origin: 50% 55%;
+  animation:
+    per-character-rise-in var(--rv-run) linear infinite both,
+    per-character-rise-lift var(--rv-run) linear infinite both;
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed));
+}
+@keyframes per-character-rise-in {
+  0% { opacity: 0; animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
+  30.4%, 100% { opacity: 1; }
+}
+@keyframes per-character-rise-lift {
+  0% { translate: 0 var(--rise); animation-timing-function: cubic-bezier(0.2, 0.8, 0.6, 0.85); }
+  14.5%, 100% { translate: 0 0; }
+}
+/* @end */

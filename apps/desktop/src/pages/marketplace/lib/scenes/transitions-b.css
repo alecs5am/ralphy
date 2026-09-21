@@ -1,0 +1,118 @@
+/* shard: transitions-b */
+
+/* @scene wave-wipe */
+/* The outgoing scene drifts up 70% on ease-in-cubic (p 0 -> 0.70) while its own opacity falls over
+   p 0.30 -> 0.50; the wave field -- upstream's own GrainGradient, mounted by the paper engine --
+   fades in over p 0.18 -> 0.45; the incoming scene climbs a full frame from below, overshoots 3.5%
+   at p 0.82 and settles at p 1. Percentages are p * 1.2 / 2.0 * 100. */
+.rv-c-wave-wipe .rv-out, .rv-c-wave-wipe .rv-in, .rv-c-wave-wipe .rv-field { position: absolute; inset: 0; }
+.rv-c-wave-wipe .rv-plate { position: absolute; inset: 0; }
+.rv-c-wave-wipe .rv-plate-dusk { background: linear-gradient(196deg, var(--p-plateA), var(--p-wave3)); }
+.rv-c-wave-wipe .rv-plate-dusk i {
+  position: absolute; top: 23%; width: 15%; background: var(--p-ink); opacity: 0.8;
+  left: calc(12% + var(--i) * 25%); height: calc(22% + var(--i) * 15%);
+}
+.rv-c-wave-wipe .rv-plate-dawn { background: var(--p-plateB); }
+.rv-c-wave-wipe .rv-plate-dawn i {
+  position: absolute; left: 50%; translate: -50% 0; border-radius: 999em; background: var(--p-accent);
+  top: calc(28% + var(--i) * 10%); width: calc(108em - var(--i) * 40em); height: calc(108em - var(--i) * 40em);
+}
+/* The field itself is upstream's own GrainGradient, mounted by the paper paint engine; the only
+   thing CSS owns here is the opacity ramp the presentation wraps it in. */
+.rv-c-wave-wipe .rv-field {
+  overflow: hidden;
+  animation: wave-wipe-field var(--rv-run) linear infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-wave-wipe .rv-out { animation: wave-wipe-exit var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-wave-wipe .rv-out .rv-plate { animation: wave-wipe-fade var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-wave-wipe .rv-in { animation: wave-wipe-rise var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+@keyframes wave-wipe-field { 0%, 10.8% { opacity: 0; animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1); } 27%, 100% { opacity: 1; } }
+@keyframes wave-wipe-exit { 0% { translate: 0 0; animation-timing-function: cubic-bezier(0.32, 0, 0.67, 0); } 42%, 100% { translate: 0 -70%; } }
+@keyframes wave-wipe-fade { 0%, 18% { opacity: 1; animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1); } 30%, 100% { opacity: 0; } }
+@keyframes wave-wipe-rise {
+  0%, 24% { translate: 0 100%; animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1); }
+  49.2% { translate: 0 -3.5%; animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1); }
+  60%, 100% { translate: 0 0; }
+}
+/* @end */
+
+/* @scene whip-pan */
+/* One move carries both scenes through the frame. --wp-travel is p through upstream's own
+   cubic-bezier(0.7, 0, 0.2, 1); --wp-v is sin(PI * travel) sampled at seven stops, and it drives
+   the directional stretch and the motion blur together, so both peak exactly at mid-transition.
+   The exiting pass sits at travel * 110%, the entering one at (travel - 1) * 110%: the 110% rather
+   than 100% is what guarantees no seam. Percentages are p * 0.9 / 2.0 * 100. */
+@property --wp-travel { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --wp-v { syntax: "<number>"; inherits: true; initial-value: 0; }
+.rv-c-whip-pan .rv-stage {
+  animation: whip-pan-travel var(--rv-run) cubic-bezier(0.7, 0, 0.2, 1) infinite both,
+    whip-pan-velocity var(--rv-run) linear infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-whip-pan .rv-out, .rv-c-whip-pan .rv-in {
+  position: absolute;
+  inset: 0;
+  scale: calc(1 + var(--wp-sx) * var(--wp-v) * 0.12) calc(1 + var(--wp-sy) * var(--wp-v) * 0.12);
+  filter: blur(calc(var(--wp-v) * var(--wp-blur)));
+}
+.rv-c-whip-pan .rv-out { translate: calc(var(--wp-x) * var(--wp-travel) * 110%) calc(var(--wp-y) * var(--wp-travel) * 110%); }
+.rv-c-whip-pan .rv-in { translate: calc(var(--wp-x) * (var(--wp-travel) - 1) * 110%) calc(var(--wp-y) * (var(--wp-travel) - 1) * 110%); }
+.rv-c-whip-pan .rv-plate { position: absolute; inset: 0; }
+.rv-c-whip-pan .rv-plate-stripe { background: var(--p-accent); }
+.rv-c-whip-pan .rv-plate-stripe i {
+  position: absolute; top: -24%; bottom: -24%; width: 12%; rotate: 15deg; opacity: 0.9;
+  left: calc(9% + var(--i) * 26%); background: var(--p-text);
+}
+.rv-c-whip-pan .rv-plate-column { background: var(--p-bg); }
+.rv-c-whip-pan .rv-plate-column i {
+  position: absolute; width: 14%; bottom: 20%; background: var(--p-panel); border-radius: 7em 7em 0 0;
+  left: calc(9% + var(--i) * 21%); top: calc(20% + var(--i) * 7%);
+}
+@keyframes whip-pan-travel { 0% { --wp-travel: 0; } 45%, 100% { --wp-travel: 1; } }
+@keyframes whip-pan-velocity {
+  0% { --wp-v: 0; }
+  13.32% { --wp-v: 0.321; }
+  18.05% { --wp-v: 0.774; }
+  20.81% { --wp-v: 1; }
+  23.88% { --wp-v: 0.774; }
+  29.52% { --wp-v: 0.321; }
+  45%, 100% { --wp-v: 0; }
+}
+/* @end */
+
+/* @scene zoom-blur */
+/* A depth punch-in: the outgoing plate pushes through the viewer (scale 1 -> 1.12, blur 0 -> 16,
+   opacity 1 -> 0) while the incoming one resolves out of blur (scale 0.9 -> 1, blur 16 -> 0,
+   opacity 0 -> 1). Upstream eases none of this itself, so every ramp is a straight lerp between two
+   stops and all the shaping is in the driving clock. Percentages are p * 0.9 / 1.8 * 100. */
+.rv-c-zoom-blur .rv-out, .rv-c-zoom-blur .rv-in { position: absolute; inset: 0; }
+.rv-c-zoom-blur .rv-plate { position: absolute; inset: 0; }
+.rv-c-zoom-blur .rv-plate-tunnel { background: radial-gradient(circle at 50% 50%, var(--p-core), var(--p-bg) 74%); }
+.rv-c-zoom-blur .rv-plate-tunnel i {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%; border-radius: 999em;
+  border: 4em solid var(--p-ring); opacity: calc(0.92 - var(--i) * 0.16);
+  width: calc(56em + var(--i) * 78em); height: calc(56em + var(--i) * 78em);
+}
+.rv-c-zoom-blur .rv-plate-slab { background: var(--p-card); }
+.rv-c-zoom-blur .rv-plate-slab i {
+  position: absolute; left: 21%; background: var(--p-accent); border-radius: 7em;
+  top: calc(22% + var(--i) * 46%); width: calc(58% - var(--i) * 24%); height: calc(36% - var(--i) * 26%);
+}
+.rv-c-zoom-blur .rv-out {
+  animation: zoom-blur-out var(--rv-run) cubic-bezier(0.33, 1, 0.68, 1) infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-zoom-blur .rv-in {
+  animation: zoom-blur-in var(--rv-run) cubic-bezier(0.33, 1, 0.68, 1) infinite both;
+  animation-delay: var(--rv-seek);
+}
+@keyframes zoom-blur-out {
+  0% { opacity: 1; transform: scale(1) translateY(0em); filter: blur(0em); }
+  50%, 100% { opacity: 0; transform: scale(1.12) translateY(calc(var(--zb-rise) * -1)); filter: blur(var(--zb-blur)); }
+}
+@keyframes zoom-blur-in {
+  0% { opacity: 0; transform: scale(0.9) translateY(var(--zb-rise)); filter: blur(var(--zb-blur)); }
+  50%, 100% { opacity: 1; transform: scale(1) translateY(0em); filter: blur(0em); }
+}
+/* @end */

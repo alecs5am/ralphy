@@ -1,0 +1,433 @@
+/* shard: templates-craft-comp */
+
+/* @scene release-teaser */
+/* Percentages are over the 16 s film: the five statement windows close at 10.83 / 21.67 / 33.96 /
+   46.46 / 63.54 %, and the release lockup owns the last 36.46 % — 5.83 s of hold, which is what
+   makes the film read as a teaser rather than a slideshow. The per-shot curves are not in our
+   dataset, so each statement gets one 0.35 s dissolve and a small lift instead of an invented move. */
+.rv-c-release-teaser .rv-stage { display: grid; place-items: center; background: var(--p-bg); }
+.rv-c-release-teaser .rv-stage::before,
+.rv-c-release-teaser .rv-stage::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 34em; z-index: 3; background: var(--p-bg);
+}
+.rv-c-release-teaser .rv-stage::before { top: 0; }
+.rv-c-release-teaser .rv-stage::after { bottom: 0; }
+.rv-c-release-teaser .edge {
+  position: absolute; top: 0; bottom: 0; left: -40%; width: 60%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--p-accent) 20%, transparent), transparent);
+  animation: release-teaser-edge var(--rv-run) linear infinite both;
+  animation-delay: var(--rv-seek);
+}
+@keyframes release-teaser-edge { from { translate: 0 } to { translate: 240% } }
+.rv-c-release-teaser .st {
+  position: absolute; max-width: 76%; text-align: center; line-height: 1.1; color: var(--p-text);
+  font-size: calc(var(--rv-u) * 64); font-weight: 500; letter-spacing: -0.025em;
+  animation: release-teaser-s1 var(--rv-run) cubic-bezier(0.22, 1, 0.36, 1) infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-release-teaser .s2 { animation-name: release-teaser-s2; }
+.rv-c-release-teaser .s3 { animation-name: release-teaser-s3; }
+.rv-c-release-teaser .s4 { animation-name: release-teaser-s4; }
+.rv-c-release-teaser .s5 { animation-name: release-teaser-s5; }
+@keyframes release-teaser-s1 { 0% { opacity: 0; translate: 0 14em } 2.2%, 8.6% { opacity: 1; translate: 0 0 } 10.8%, 100% { opacity: 0; translate: 0 -14em } }
+@keyframes release-teaser-s2 { 0%, 10.8% { opacity: 0; translate: 0 14em } 13%, 19.5% { opacity: 1; translate: 0 0 } 21.7%, 100% { opacity: 0; translate: 0 -14em } }
+@keyframes release-teaser-s3 { 0%, 21.7% { opacity: 0; translate: 0 14em } 23.9%, 31.8% { opacity: 1; translate: 0 0 } 34%, 100% { opacity: 0; translate: 0 -14em } }
+@keyframes release-teaser-s4 { 0%, 34% { opacity: 0; translate: 0 14em } 36.2%, 44.3% { opacity: 1; translate: 0 0 } 46.5%, 100% { opacity: 0; translate: 0 -14em } }
+@keyframes release-teaser-s5 { 0%, 46.5% { opacity: 0; translate: 0 14em } 48.7%, 61.4% { opacity: 1; translate: 0 0 } 63.5%, 100% { opacity: 0; translate: 0 -14em } }
+.rv-c-release-teaser .lock {
+  position: absolute; display: grid; justify-items: center; gap: 14em; color: var(--p-text);
+  animation: release-teaser-lock var(--rv-run) cubic-bezier(0.16, 1, 0.3, 1) infinite both;
+  animation-delay: var(--rv-seek);
+}
+@keyframes release-teaser-lock { 0%, 63.5% { opacity: 0; scale: 0.94 } 66.7%, 100% { opacity: 1; scale: 1 } }
+.rv-c-release-teaser .mark {
+  width: 34em; height: 34em; rotate: 45deg; background: var(--p-accent);
+  box-shadow: 0 0 40em color-mix(in srgb, var(--p-accent) 55%, transparent);
+}
+.rv-c-release-teaser .lock b { font-size: calc(var(--rv-u) * 84); font-weight: 600; letter-spacing: -0.05em; }
+.rv-c-release-teaser .lock sup { font-size: calc(var(--rv-u) * 30); color: var(--p-accent); vertical-align: super; }
+.rv-c-release-teaser .lock em { font-size: calc(var(--rv-u) * 20); font-style: normal; letter-spacing: 0.02em; color: var(--p-hair); }
+/* @end */
+
+/* @scene brand-guidelines */
+/* Over 17.87 s: identity 0–11.01 %, palette 11.01–30.41 %, typography 27.42–75.18 %, collage
+   57.27–75.18 %, closing 75.18–100 %. Two upstream facts are kept literally: typography opens
+   0.53 s before palette ends, so that handoff is a dissolve rather than a cut, and the collage is
+   nested inside the specimen's window and leaves on the same frame it does. */
+.rv-c-brand-guidelines .rv-stage { background: var(--p-bg); color: var(--p-text); }
+.rv-c-brand-guidelines .sh {
+  position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 18em;
+  animation: brand-guidelines-identity var(--rv-run) cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-brand-guidelines .swatches { animation-name: brand-guidelines-swatches; grid-auto-flow: column; gap: 14em; }
+.rv-c-brand-guidelines .specimen { animation-name: brand-guidelines-specimen; }
+.rv-c-brand-guidelines .collage { animation-name: brand-guidelines-collage; grid-auto-flow: column; gap: 26em; }
+.rv-c-brand-guidelines .closing { animation-name: brand-guidelines-closing; gap: 12em; }
+@keyframes brand-guidelines-identity { 0% { opacity: 0 } 2.2%, 8.8% { opacity: 1 } 11%, 100% { opacity: 0 } }
+@keyframes brand-guidelines-swatches { 0%, 11% { opacity: 0 } 13.2%, 28.2% { opacity: 1 } 30.4%, 100% { opacity: 0 } }
+@keyframes brand-guidelines-specimen { 0%, 27.4% { opacity: 0 } 29.6%, 73% { opacity: 1 } 75.2%, 100% { opacity: 0 } }
+@keyframes brand-guidelines-collage { 0%, 57.3% { opacity: 0 } 59.5%, 73% { opacity: 1 } 75.2%, 100% { opacity: 0 } }
+@keyframes brand-guidelines-closing { 0%, 75.2% { opacity: 0 } 77.4%, 100% { opacity: 1 } }
+.rv-c-brand-guidelines .mark { width: 88em; height: 88em; border-radius: 50%; background: var(--p-accent); }
+.rv-c-brand-guidelines .identity b { font-size: calc(var(--rv-u) * 54); font-weight: 800; letter-spacing: -0.04em; }
+.rv-c-brand-guidelines .swatches i {
+  width: 122em; height: 218em; border-radius: 4em; background: var(--c);
+  animation: brand-guidelines-rise var(--rv-run) cubic-bezier(0.16, 1, 0.3, 1) infinite both;
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed));
+}
+@keyframes brand-guidelines-rise { 0%, 11% { translate: 0 34em } 15.5%, 100% { translate: 0 0 } }
+.rv-c-brand-guidelines .specimen b { font-size: calc(var(--rv-u) * 210); font-weight: 800; line-height: 0.9; letter-spacing: -0.06em; color: var(--p-accent); }
+.rv-c-brand-guidelines .specimen em { font-size: calc(var(--rv-u) * 18); font-style: italic; letter-spacing: 0.06em; text-transform: uppercase; }
+.rv-c-brand-guidelines .collage i {
+  width: 168em; height: 228em; background: var(--c); border: 7em solid var(--p-bg); box-shadow: 0 16em 40em var(--p-hair);
+  animation: brand-guidelines-travel var(--rv-run) cubic-bezier(0.16, 1, 0.3, 1) infinite both;
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed));
+}
+@keyframes brand-guidelines-travel { 0%, 57.3% { translate: 46em 0 } 75.2%, 100% { translate: -46em 0 } }
+.rv-c-brand-guidelines .closing b { font-size: calc(var(--rv-u) * 62); font-weight: 800; letter-spacing: -0.04em; }
+.rv-c-brand-guidelines .rule { width: 176em; height: 4em; background: var(--p-accent); }
+.rv-c-brand-guidelines .closing em { font-size: calc(var(--rv-u) * 15); font-style: normal; letter-spacing: 0.26em; text-transform: uppercase; }
+/* @end */
+
+/* @scene workflow-console */
+/* 46.83 s of shot rhythm, drawn as rhythm. Each of the 18 rail segments takes its beat length in
+   seconds as `flex`, so the cadence upstream actually has — command beats of 1.45–1.85 s against
+   result beats of 2.6–4.5 s — is legible standing still, and one linear sweep lights them in order.
+   The bars fill inside the `stats` shot, 27.8–31.4 s, which is 59.4–67 % of the run. */
+.rv-c-workflow-console .rv-stage {
+  display: grid; grid-template-rows: 1fr auto; gap: 10em; padding: 14em;
+  background: var(--p-bg); color: var(--p-text);
+}
+.rv-c-workflow-console .win {
+  display: grid; grid-template-rows: auto 1fr; overflow: hidden;
+  border: 1em solid var(--p-hair); border-radius: 6em;
+}
+.rv-c-workflow-console .tb {
+  display: flex; align-items: center; gap: 4em; height: 22em; padding: 0 8em;
+  border-bottom: 1em solid var(--p-hair);
+}
+.rv-c-workflow-console .tb i { width: 5em; height: 5em; border-radius: 50%; background: var(--p-dim); }
+.rv-c-workflow-console .tb em {
+  margin-left: calc(var(--rv-u) * 6); font-size: calc(var(--rv-u) * 8); font-style: normal;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--p-dim);
+}
+.rv-c-workflow-console .tm {
+  padding: calc(var(--rv-u) * 10) calc(var(--rv-u) * 12); line-height: 1.8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: calc(var(--rv-u) * 9);
+}
+.rv-c-workflow-console .tm p { margin: 0; }
+.rv-c-workflow-console .cmd b { margin-right: calc(var(--rv-u) * 4); color: var(--p-accent); }
+.rv-c-workflow-console .out { color: var(--p-dim); }
+.rv-c-workflow-console .cr {
+  display: inline-block; width: calc(var(--rv-u) * 4); height: calc(var(--rv-u) * 10);
+  margin-left: calc(var(--rv-u) * 2); vertical-align: text-bottom; background: var(--p-accent);
+  animation: workflow-console-caret var(--rv-run-caret) steps(1, end) infinite both;
+  animation-delay: var(--rv-seek);
+}
+@keyframes workflow-console-caret { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
+.rv-c-workflow-console .pb { display: flex; align-items: flex-end; gap: calc(var(--rv-u) * 5); height: calc(var(--rv-u) * 60); margin-top: calc(var(--rv-u) * 10); }
+.rv-c-workflow-console .pb i {
+  flex: 1; height: var(--lv); border-radius: calc(var(--rv-u) * 2); transform-origin: 50% 100%;
+  background: linear-gradient(180deg, var(--p-accent) 0%, color-mix(in srgb, var(--p-accent) 28%, transparent) 100%);
+  animation: workflow-console-fill var(--rv-run) cubic-bezier(0.16, 1, 0.3, 1) infinite both;
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed));
+}
+@keyframes workflow-console-fill { 0%, 59.4% { scale: 1 0 } 67%, 95% { scale: 1 1 } 100% { scale: 1 0 } }
+.rv-c-workflow-console .rail { position: relative; display: flex; gap: 2em; height: 9em; }
+.rv-c-workflow-console .rail i { flex: var(--d); border-radius: 2em; background: var(--p-hair); }
+.rv-c-workflow-console .lit {
+  position: absolute; inset: 0; overflow: hidden; border-right: 1em solid var(--p-accent);
+  animation: workflow-console-sweep var(--rv-run) linear infinite both;
+  animation-delay: var(--rv-seek);
+}
+@keyframes workflow-console-sweep { from { width: 0 } to { width: 100% } }
+.rv-c-workflow-console .inner { display: flex; gap: 2em; width: 452em; height: 100%; }
+.rv-c-workflow-console .inner i { background: var(--p-accent); }
+/* @end */
+
+/* @scene brush */
+/* No time term exists upstream: `progress` defaults to 1 and nothing else moves, so this scene
+   declares `static` and animates nothing. The mark itself is the real library output — a closed
+   variable-width ribbon built in the markup, displaced by the module's own fractalNoise filter. */
+.rv-c-brush .rv-stage { background: var(--p-bg); }
+.rv-c-brush .rv-stage::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 48% 42%, transparent 44%, color-mix(in srgb, var(--p-text) 9%, transparent) 100%);
+}
+.rv-c-brush .ink { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rv-c-brush .a path { fill: var(--p-text); }
+.rv-c-brush .b path { fill: var(--p-accent); }
+/* @end */
+
+/* @scene stop-motion */
+/* `DEFAULT_STEP = 3`, so every quantity is resampled on every third frame: ten poses a second,
+   100 ms each, held by `steps(1, end)` rather than tweened. The per-pose offsets are the module's
+   own `paperJitter` output — +/-1.4 px and +/-0.35 deg, seeded off the scene id and baked onto each
+   cut as `--x0 --y0 --r0` … so one shared keyframe track drives four differently-wobbling shapes. */
+.rv-c-stop-motion .rv-stage {
+  display: grid; grid-template-rows: 1fr auto auto; gap: 12em; padding: 22em 24em;
+  background: var(--p-bg); color: var(--p-text);
+}
+.rv-c-stop-motion .sheet { position: relative; }
+.rv-c-stop-motion .cut {
+  position: absolute; display: block;
+  animation: stop-motion-pose var(--rv-run) steps(1, end) infinite both;
+  animation-delay: var(--rv-seek);
+}
+@keyframes stop-motion-pose {
+  0%, 100% { translate: var(--x0) var(--y0); rotate: var(--r0) }
+  10% { translate: var(--x1) var(--y1); rotate: var(--r1) }
+  20% { translate: var(--x2) var(--y2); rotate: var(--r2) }
+  30% { translate: var(--x3) var(--y3); rotate: var(--r3) }
+  40% { translate: var(--x4) var(--y4); rotate: var(--r4) }
+  50% { translate: var(--x5) var(--y5); rotate: var(--r5) }
+  60% { translate: var(--x6) var(--y6); rotate: var(--r6) }
+  70% { translate: var(--x7) var(--y7); rotate: var(--r7) }
+  80% { translate: var(--x8) var(--y8); rotate: var(--r8) }
+  90% { translate: var(--x9) var(--y9); rotate: var(--r9) }
+}
+.rv-c-stop-motion .sq { left: 22em; top: 14em; width: 98em; height: 98em; background: var(--p-cool); }
+.rv-c-stop-motion .ci { left: 152em; top: 30em; width: 86em; height: 86em; border-radius: 50%; background: var(--p-accent); }
+.rv-c-stop-motion .tr { left: 268em; top: 16em; width: 106em; height: 98em; background: var(--p-warm); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.rv-c-stop-motion .st { left: 34em; top: 132em; width: 344em; height: 22em; background: var(--p-text); clip-path: polygon(0 0, 100% 18%, 100% 100%, 0 82%); }
+.rv-c-stop-motion .ticks { display: flex; gap: 6em; }
+.rv-c-stop-motion .ticks i {
+  flex: 1; height: 6em; border-radius: 3em; background: var(--p-text);
+  animation: stop-motion-tick var(--rv-run) steps(1, end) infinite both;
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed) - var(--rv-run));
+}
+@keyframes stop-motion-tick { 0% { opacity: 1 } 10%, 100% { opacity: 0.16 } }
+.rv-c-stop-motion .rate {
+  font-size: calc(var(--rv-u) * 12); font-style: normal; letter-spacing: 0.18em;
+  text-transform: uppercase; opacity: 0.55;
+}
+/* @end */
+
+/* @scene scene-motion */
+/* The module is a table of curves, so the scene is the table. All five rails travel the same
+   distance over the same 0.8 s so the shapes are comparable: EXPO and FADE are the upstream
+   beziers verbatim, and the two springs that overshoot get sampled tracks instead — SETTLE peaks
+   at 1.0108 on frame 15 and settles on frame 20, SETTLE_MARK peaks at 1.1248 on frame 10 and
+   settles on frame 24. Percentages are over the 1.7 s run: frame 24 is 47.06 %. */
+.rv-c-scene-motion .rv-stage {
+  display: grid; grid-template-rows: repeat(5, auto) 1fr; align-content: center; gap: 14em;
+  padding: 22em 26em; background: var(--p-bg); color: var(--p-text);
+}
+.rv-c-scene-motion .rail { position: relative; height: 24em; border-bottom: 1em solid var(--p-grid); }
+.rv-c-scene-motion .rail em {
+  position: absolute; left: 0; bottom: calc(var(--rv-u) * 5); font-size: calc(var(--rv-u) * 10);
+  font-style: normal; letter-spacing: 0.14em; opacity: 0.66;
+}
+.rv-c-scene-motion .dot {
+  --len: 262em;
+  position: absolute; left: 130em; bottom: 3em; width: 12em; height: 12em;
+  border-radius: 50%; background: var(--p-accent);
+  animation: scene-motion-travel var(--rv-run) linear infinite both;
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed) - var(--rv-run));
+}
+.rv-c-scene-motion .r1 .dot { animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+.rv-c-scene-motion .r2 .dot { animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+.rv-c-scene-motion .r3 .dot { animation-name: scene-motion-settle; }
+.rv-c-scene-motion .r4 .dot { animation-timing-function: cubic-bezier(0.33, 0.9, 0.45, 1); }
+.rv-c-scene-motion .r5 .dot { animation-name: scene-motion-mark; }
+@keyframes scene-motion-travel { 0% { translate: 0; opacity: 0 } 5% { opacity: 1 } 47.06%, 94% { translate: var(--len); opacity: 1 } 100% { translate: var(--len); opacity: 0 } }
+@keyframes scene-motion-settle {
+  0% { translate: 0; opacity: 0; animation-timing-function: cubic-bezier(0.22, 0.9, 0.32, 1) }
+  5% { opacity: 1 }
+  29.41% { translate: calc(var(--len) * 1.0108) }
+  39.2%, 94% { translate: var(--len); opacity: 1 }
+  100% { translate: var(--len); opacity: 0 }
+}
+@keyframes scene-motion-mark {
+  0% { translate: 0; opacity: 0; animation-timing-function: cubic-bezier(0.2, 0.86, 0.3, 1) }
+  5% { opacity: 1 }
+  19.6% { translate: calc(var(--len) * 1.1248) }
+  47.06%, 94% { translate: var(--len); opacity: 1 }
+  100% { translate: var(--len); opacity: 0 }
+}
+.rv-c-scene-motion .ruler { position: relative; border-top: 1em solid var(--p-grid); }
+.rv-c-scene-motion .ruler i { position: absolute; top: 0; left: var(--at); width: 2em; height: 15em; background: var(--p-accent); opacity: 0.85; }
+.rv-c-scene-motion .ruler em {
+  position: absolute; left: 0; bottom: calc(var(--rv-u) * 2); font-size: calc(var(--rv-u) * 10);
+  font-style: normal; letter-spacing: 0.1em; opacity: 0.5;
+}
+/* @end */
+
+/* @scene ecosystem-constellation */
+/* The orbits are elliptical, so a plain rotate cannot draw them. Each satellite is a spoke rotating
+   inside a container squashed to `--sy` = rY/rX: the spoke IS the connector line, and a non-uniform
+   scale maps a straight centre-to-point line onto the correct elliptical position. The chip undoes
+   the rotation and the squash in that order, so it rides the ellipse upright. Periods are per orbit
+   — `--k` is 0.012 / (0.012 - 0.0008 i), which is 17.45 s at the centre out to 26.18 s outside —
+   and the 6 s base run is the data pulse, one satellite firing per second. */
+.rv-c-ecosystem-constellation .rv-stage { background: var(--p-bg); }
+.rv-c-ecosystem-constellation .glow {
+  position: absolute; left: 640em; top: 360em; translate: -50% -50%;
+  border-radius: 50%; background: var(--p-accent);
+  animation: ecosystem-constellation-pulse var(--rv-run-pulse) ease-in-out infinite both;
+  animation-delay: var(--rv-seek);
+}
+@keyframes ecosystem-constellation-pulse { 0%, 100% { scale: 1 } 50% { scale: var(--gs) } }
+.rv-c-ecosystem-constellation .g1 { --gs: 1.114; width: 140em; height: 140em; opacity: 0.12; }
+.rv-c-ecosystem-constellation .g2 { --gs: 1.08; width: 100em; height: 100em; opacity: 0.2; }
+.rv-c-ecosystem-constellation .orb { position: absolute; left: 640em; top: 360em; width: 0; height: 0; scale: 1 var(--sy); }
+.rv-c-ecosystem-constellation .arm {
+  position: absolute; left: 0; top: -1em; width: var(--rx); height: 2em; border-radius: 1em;
+  transform-origin: 0 50%; background: var(--p-accent);
+  animation: ecosystem-constellation-spin calc(var(--rv-run-orbit) * var(--k)) linear infinite both,
+    ecosystem-constellation-beam var(--rv-run) linear infinite both;
+  animation-delay: calc(var(--rv-seek) - var(--ph) / var(--rv-speed)), calc(var(--rv-seek) + var(--pd) / var(--rv-speed));
+}
+@keyframes ecosystem-constellation-spin { from { rotate: 0deg } to { rotate: 360deg } }
+@keyframes ecosystem-constellation-beam { 0% { opacity: 0.15 } 4.44%, 12.22% { opacity: 0.9 } 16.67%, 100% { opacity: 0.15 } }
+.rv-c-ecosystem-constellation .chip {
+  position: absolute; left: 100%; top: 50%; width: 0; height: 0; scale: 1 var(--isy);
+  animation: ecosystem-constellation-counter calc(var(--rv-run-orbit) * var(--k)) linear infinite both;
+  animation-delay: calc(var(--rv-seek) - var(--ph) / var(--rv-speed));
+}
+@keyframes ecosystem-constellation-counter { from { rotate: 0deg } to { rotate: -360deg } }
+.rv-c-ecosystem-constellation .face {
+  position: absolute; left: -28em; top: -28em; width: 56em; height: 56em; border-radius: 14em;
+  display: grid; place-items: center; color: var(--p-text);
+  background: linear-gradient(180deg, var(--p-sheen) 0%, transparent 62%), var(--brand);
+  border: 1em solid var(--p-sheen); box-shadow: 0 8em 30em var(--p-shadow);
+  animation: ecosystem-constellation-ping var(--rv-run) linear infinite both;
+  animation-delay: calc(var(--rv-seek) + var(--pd) / var(--rv-speed));
+}
+@keyframes ecosystem-constellation-ping { 0% { scale: 1 } 4.44%, 12.22% { scale: 1.1 } 16.67%, 100% { scale: 1 } }
+.rv-c-ecosystem-constellation .face svg { width: 28em; height: 28em; fill: currentColor; }
+.rv-c-ecosystem-constellation .core {
+  position: absolute; left: calc(var(--rv-u) * 640); top: calc(var(--rv-u) * 360);
+  width: calc(var(--rv-u) * 96); height: calc(var(--rv-u) * 96);
+  margin: calc(var(--rv-u) * -48) 0 0 calc(var(--rv-u) * -48);
+  display: grid; place-items: center; border-radius: calc(var(--rv-u) * 24); color: var(--p-text);
+  font-size: calc(var(--rv-u) * 52); font-weight: 800; letter-spacing: -0.05em;
+  background: linear-gradient(180deg, var(--p-accent) 0%, color-mix(in srgb, var(--p-accent) 80%, transparent) 100%);
+  border: calc(var(--rv-u) * 1) solid var(--p-sheen); box-shadow: 0 0 calc(var(--rv-u) * 60) color-mix(in srgb, var(--p-accent) 40%, transparent);
+  animation: ecosystem-constellation-core var(--rv-run-pulse) ease-in-out infinite both;
+  animation-delay: var(--rv-seek);
+}
+@keyframes ecosystem-constellation-core { 0%, 100% { scale: 1 } 50% { scale: 1.06 } }
+/* @end */
+
+/* @scene infinite-bento-pan */
+/* The camera is the whole timeline: `t` is a bare linear interpolate over the composition, so the
+   3500x2500 super-canvas drifts 2220 px right and 1780 px down at constant velocity and nothing
+   eases. Card life is a separate 6.283 s sine (`sin(frame / 30 + i)`), phase-shifted one radian per
+   card index and 0.8 per bar, which is why no two cards breathe together. The counters and stats
+   hold their own frame-zero value — upstream animates the digits, and CSS cannot. */
+.rv-c-infinite-bento-pan .rv-stage { background: var(--p-bg); }
+.rv-c-infinite-bento-pan .sky {
+  position: absolute; left: 0; top: 0; width: var(--sw); height: var(--sh);
+  animation: infinite-bento-pan-drift var(--rv-run) linear infinite both;
+  animation-delay: var(--rv-seek);
+}
+@keyframes infinite-bento-pan-drift { from { translate: 0 0 } to { translate: calc(-1 * var(--px)) calc(-1 * var(--py)) } }
+.rv-c-infinite-bento-pan .vg {
+  position: absolute; inset: 0; z-index: 2;
+  background: radial-gradient(circle at center, transparent 30%, var(--p-shade) 80%, var(--p-deep) 100%);
+}
+.rv-c-infinite-bento-pan .bc {
+  position: absolute; left: var(--x); top: var(--y); width: var(--w); height: var(--h);
+  display: flex; flex-direction: column; overflow: hidden; padding: 18em;
+  border: 1em solid var(--p-hair); border-radius: 18em; color: var(--p-text);
+  background: linear-gradient(180deg, var(--p-cardA) 0%, var(--p-cardB) 100%);
+}
+.rv-c-infinite-bento-pan .kg, .rv-c-infinite-bento-pan .kl { padding: 0; }
+.rv-c-infinite-bento-pan .kg { background: radial-gradient(circle at 30% 30%, var(--g1) 0%, var(--g2) 50%, var(--p-cardB) 100%); }
+.rv-c-infinite-bento-pan .lb {
+  margin-bottom: calc(var(--rv-u) * 8); font-size: calc(var(--rv-u) * 12); font-style: normal; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--p-label);
+}
+.rv-c-infinite-bento-pan .bd { position: relative; flex: 1; min-height: 0; }
+.rv-c-infinite-bento-pan .cv {
+  width: 100%; height: 100%; transform-origin: 50% 100%;
+  animation: infinite-bento-pan-breathe var(--rv-run-life) ease-in-out infinite both;
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed) - var(--rv-run-life));
+}
+@keyframes infinite-bento-pan-breathe { 0%, 50%, 100% { scale: 1 1 } 25% { scale: 1 1.12 } 75% { scale: 1 0.88 } }
+.rv-c-infinite-bento-pan .ln { fill: none; stroke: var(--p-accent); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.rv-c-infinite-bento-pan .ar { fill: var(--p-wash); stroke: none; }
+.rv-c-infinite-bento-pan .kb .bd { display: flex; align-items: flex-end; gap: 6em; }
+.rv-c-infinite-bento-pan .br {
+  flex: 1; height: 100%; border-radius: 4em; transform-origin: 50% 100%;
+  background: linear-gradient(180deg, var(--p-accent) 0%, var(--p-fade) 100%);
+  animation: infinite-bento-pan-pump var(--rv-run-life) ease-in-out infinite both;
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed) - var(--rv-run-life));
+}
+@keyframes infinite-bento-pan-pump { 0%, 50%, 100% { scale: 1 0.6 } 25% { scale: 1 0.95 } 75% { scale: 1 0.25 } }
+.rv-c-infinite-bento-pan .kd .bd { display: flex; flex-direction: column; justify-content: center; gap: 8em; }
+.rv-c-infinite-bento-pan .pl { height: 8em; width: var(--w); margin-left: var(--in); border-radius: 3em; background: var(--c); opacity: 0.7; }
+.rv-c-infinite-bento-pan .kn .bd, .rv-c-infinite-bento-pan .ks .bd { display: flex; flex-direction: column; justify-content: center; }
+.rv-c-infinite-bento-pan .kn b { font-size: calc(var(--rv-u) * 56); font-weight: 700; letter-spacing: -0.04em; }
+.rv-c-infinite-bento-pan .kn em { font-size: calc(var(--rv-u) * 12); font-style: normal; color: var(--p-accent); }
+.rv-c-infinite-bento-pan .ks b { font-size: calc(var(--rv-u) * 48); font-weight: 700; letter-spacing: -0.03em; }
+.rv-c-infinite-bento-pan .ks em { font-size: calc(var(--rv-u) * 20); font-style: normal; color: var(--p-dim); }
+.rv-c-infinite-bento-pan .kl .bd { display: grid; place-items: center; }
+.rv-c-infinite-bento-pan .tile {
+  width: 80em; height: 80em; border-radius: 20em; box-shadow: 0 10em 30em var(--p-cast);
+  background: linear-gradient(135deg, var(--p-accent) 0%, var(--g1) 100%);
+}
+/* @end */
+
+/* @scene live-code-compilation */
+/* 1.6 characters a frame with a 5-frame dwell, so each line reveals over its own `--k` share of the
+   run from its own `--rv-own`. The UI snaps land on frames 79 / 99 / 123 / 148 / 169 / 206 and are
+   cut with `steps(1, end)` because upstream applies them in one frame with `transition: none`.
+   Reveal and snaps run once per pass, as the composition does; the caret stops dead at frame 206. */
+.rv-c-live-code-compilation .rv-stage { display: flex; background: var(--p-bg); color: var(--p-text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.rv-c-live-code-compilation .back { position: absolute; inset: 0; background: radial-gradient(ellipse at 20% 30%, var(--p-wash), transparent 60%), radial-gradient(ellipse at 80% 70%, var(--p-haze), transparent 60%); }
+.rv-c-live-code-compilation .pane { position: relative; flex: 1; }
+.rv-c-live-code-compilation .code { display: flex; align-items: center; justify-content: center; padding: 48em; }
+.rv-c-live-code-compilation .win {
+  width: 100%; max-width: 560em; overflow: hidden; border-radius: 14em; background: var(--p-panel);
+  border: 1em solid var(--p-rim); box-shadow: 0 30em 80em color-mix(in srgb, var(--p-bg) 82%, transparent);
+}
+.rv-c-live-code-compilation .tb { display: flex; align-items: center; gap: 8em; height: 38em; padding: 0 16em; border-bottom: 1em solid var(--p-hair); }
+.rv-c-live-code-compilation .tb i { width: 11em; height: 11em; border-radius: 50%; opacity: 0.6; background: var(--c); }
+.rv-c-live-code-compilation .tb em { margin-left: calc(var(--rv-u) * 12); font-size: calc(var(--rv-u) * 12); font-style: normal; color: var(--p-dim); }
+.rv-c-live-code-compilation .src { min-height: calc(var(--rv-u) * 360); padding: calc(var(--rv-u) * 20) calc(var(--rv-u) * 22); line-height: 1.65; font-size: calc(var(--rv-u) * 14); }
+.rv-c-live-code-compilation .ln { display: flex; }
+.rv-c-live-code-compilation .tx i { font-style: normal; }
+.rv-c-live-code-compilation .ln > em { flex: none; width: calc(var(--rv-u) * 28); font-style: normal; color: var(--p-gut); }
+.rv-c-live-code-compilation .tx {
+  display: inline-block; overflow: hidden; white-space: pre;
+  animation: live-code-compilation-type calc(var(--rv-run) * var(--k)) linear 1 both;
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed));
+}
+@keyframes live-code-compilation-type { from { clip-path: inset(0 100% 0 0) } to { clip-path: inset(0 0 0 0) } }
+.rv-c-live-code-compilation .cr {
+  display: inline-block; width: calc(var(--rv-u) * 8); height: calc(var(--rv-u) * 16);
+  margin-left: calc(var(--rv-u) * 1); vertical-align: text-bottom; background: var(--p-accent);
+  animation: live-code-compilation-blink var(--rv-run-caret) steps(1, end) infinite both,
+    live-code-compilation-stop var(--rv-run) steps(1, end) 1 both;
+  animation-delay: var(--rv-seek), var(--rv-seek);
+}
+@keyframes live-code-compilation-blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
+@keyframes live-code-compilation-stop { 0%, 81.1% { scale: 1 } 81.2%, 100% { scale: 0 } }
+.rv-c-live-code-compilation .view { display: grid; place-items: center; border-left: 1em solid var(--p-hair);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--p-hair) 30%, transparent) 0deg 90deg, transparent 90deg 180deg) 0 0 / 28em 28em; }
+.rv-c-live-code-compilation .badge {
+  position: absolute; top: calc(var(--rv-u) * 24); left: calc(var(--rv-u) * 24); display: flex; align-items: center; gap: calc(var(--rv-u) * 8); color: var(--p-dim);
+  font-size: calc(var(--rv-u) * 11); font-style: normal; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.rv-c-live-code-compilation .badge i { width: calc(var(--rv-u) * 8); height: calc(var(--rv-u) * 8); border-radius: 50%; background: var(--p-live); box-shadow: 0 0 calc(var(--rv-u) * 8) var(--p-live); }
+.rv-c-live-code-compilation .bt {
+  display: grid; place-items: center; border: calc(var(--rv-u) * 1) dashed var(--p-rim); font-size: calc(var(--rv-u) * 18);
+  animation: live-code-compilation-snap var(--rv-run) steps(1, end) 1 both;
+  animation-delay: var(--rv-seek);
+}
+@keyframes live-code-compilation-snap {
+  0% { background: var(--p-btn); color: var(--p-btnInk); padding: calc(var(--rv-u) * 10) calc(var(--rv-u) * 20); border-radius: calc(var(--rv-u) * 4); font-weight: 400; border-style: dashed; box-shadow: none }
+  31.1% { background: var(--p-accent); border-style: none; box-shadow: 0 calc(var(--rv-u) * 10) calc(var(--rv-u) * 30) var(--p-glow) }
+  38.98% { color: var(--p-text) }
+  48.43% { padding: calc(var(--rv-u) * 12) calc(var(--rv-u) * 28) }
+  58.27% { border-radius: calc(var(--rv-u) * 999) }
+  66.54% { font-weight: 600 }
+}
+.rv-c-live-code-compilation .bt em { grid-area: 1 / 1; font-style: normal; animation: live-code-compilation-was var(--rv-run) steps(1, end) 1 both; animation-delay: var(--rv-seek); }
+.rv-c-live-code-compilation .bt .l1 { animation-name: live-code-compilation-now; }
+@keyframes live-code-compilation-was { 0%, 81.1% { opacity: 1 } 81.2%, 100% { opacity: 0 } }
+@keyframes live-code-compilation-now { 0%, 81.1% { opacity: 0 } 81.2%, 100% { opacity: 1 } }
+/* @end */

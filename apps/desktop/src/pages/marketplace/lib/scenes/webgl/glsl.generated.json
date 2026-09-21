@@ -1,0 +1,403 @@
+{
+ "ascii-render": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_scene": "sampler2D",
+   "u_atlas": "sampler2D",
+   "u_cell": "vec2",
+   "u_glyph_count": "float",
+   "u_colored": "float",
+   "u_ink": "vec3",
+   "u_intensity": "float"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_scene;\nuniform sampler2D u_atlas;\nuniform vec2 u_cell;\nuniform float u_glyph_count;\nuniform float u_colored;\nuniform vec3 u_ink;\nuniform float u_intensity;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nconst int TAPS = 3;\n\nvec4 cellAverage(vec2 center, vec2 cell) {\n  vec4 sum = vec4(0.0);\n  for (int y = 0; y < TAPS; y++) {\n    for (int x = 0; x < TAPS; x++) {\n      vec2 offset = (vec2(float(x), float(y)) + 0.5) / float(TAPS) - 0.5;\n      sum += texture(u_scene, center + offset * cell);\n    }\n  }\n  return sum / float(TAPS * TAPS);\n}\n\nvoid main() {\n  vec2 cell = max(u_cell, vec2(0.001));\n  vec2 origin = floor(v_uv / cell) * cell;\n  vec4 sampled = cellAverage(origin + cell * 0.5, cell);\n\n  float luma = dot(sampled.rgb, vec3(0.299, 0.587, 0.114));\n  float index = min(floor(luma * u_glyph_count), u_glyph_count - 1.0);\n\n  vec2 local = clamp((v_uv - origin) / cell, 0.008, 0.992);\n  float mask =\n    texture(u_atlas, vec2((index + local.x) / u_glyph_count, local.y)).r;\n\n  vec3 glyph = mix(u_ink, sampled.rgb, u_colored) * mask;\n  vec4 source = texture(u_scene, v_uv);\n  float amount = clamp(u_intensity, 0.0, 1.0);\n\n  outColor = vec4(\n    mix(source.rgb, glyph, amount),\n    mix(source.a, max(mask, sampled.a), amount)\n  );\n}"
+ },
+ "camera-lens": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_scene": "sampler2D",
+   "u_aspect": "float",
+   "u_softness": "float",
+   "u_bloom": "float",
+   "u_aberration": "float",
+   "u_vignette": "float",
+   "u_distortion": "float"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_scene;\nuniform float u_aspect;\nuniform float u_softness;\nuniform float u_bloom;\nuniform float u_aberration;\nuniform float u_vignette;\nuniform float u_distortion;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nconst int SOFT_TAPS = 6;\nconst int GLARE_TAPS = 8;\nconst float GOLDEN = 2.39996323;\n\nvec2 lensUv(vec2 direction, float distance) {\n  vec2 q = direction * distance;\n  q.x /= u_aspect;\n  return q * 0.5 + 0.5;\n}\n\nvec2 spiral(int index, int count, float radius, float turn) {\n  float angle = float(index) * GOLDEN + turn;\n  float step = sqrt((float(index) + 0.5) / float(count)) * radius;\n  return vec2(cos(angle) * step / u_aspect, sin(angle) * step);\n}\n\nvec4 softSample(vec2 uv, float radius) {\n  vec4 sum = texture(u_scene, uv);\n  if (radius <= 0.00002) {\n    return sum;\n  }\n  for (int i = 0; i < SOFT_TAPS; i++) {\n    sum += texture(u_scene, uv + spiral(i, SOFT_TAPS, radius, 0.0));\n  }\n  return sum / float(SOFT_TAPS + 1);\n}\n\nvoid main() {\n  vec2 p = (v_uv - 0.5) * 2.0;\n  p.x *= u_aspect;\n\n  float span = sqrt(u_aspect * u_aspect + 1.0);\n  float reach = length(p);\n  float radius = reach / span;\n  vec2 direction = reach > 0.0001 ? p / reach : vec2(0.0);\n\n  float bend = 1.0 / (1.0 + clamp(u_distortion, 0.0, 1.0) * radius * radius);\n  float focused = reach * bend;\n  vec2 base = lensUv(direction, focused);\n\n  float soft = u_softness * 0.011 * smoothstep(0.22, 1.0, radius);\n  float split = u_aberration * 0.0035 * radius;\n\n  vec4 mid = softSample(base, soft);\n  float red = softSample(lensUv(direction, focused * (1.0 + split)), soft).r;\n  float blue = softSample(lensUv(direction, focused * (1.0 - split)), soft).b;\n  vec3 color = vec3(red, mid.g, blue);\n\n  vec3 glare = vec3(0.0);\n  for (int i = 0; i < GLARE_TAPS; i++) {\n    vec3 tap =\n      texture(u_scene, base + spiral(i, GLARE_TAPS, u_bloom * 0.026, 0.7)).rgb;\n    glare += max(tap - 0.62, vec3(0.0));\n  }\n  color += (glare / float(GLARE_TAPS)) * u_bloom * 1.4;\n\n  float falloff = pow(cos(min(radius, 1.0) * 0.55), 4.0);\n  color *= mix(1.0, falloff, clamp(u_vignette, 0.0, 1.5));\n\n  outColor = vec4(clamp(color, 0.0, 1.0), mid.a);\n}"
+ },
+ "crt-screen": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_scene": "sampler2D",
+   "u_frame": "float",
+   "u_curvature": "float",
+   "u_scanlines": "float",
+   "u_mask_scale": "float",
+   "u_vignette": "float"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_scene;\nuniform float u_frame;\nuniform float u_curvature;\nuniform float u_scanlines;\nuniform float u_mask_scale;\nuniform float u_vignette;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nconst float PI = 3.141592653589793;\nconst float SCAN_LINES = 240.0;\n\nvec2 warpTube(vec2 uv, float k) {\n  vec2 p = uv * 2.0 - 1.0;\n  float x2 = p.x * p.x;\n  float y2 = p.y * p.y;\n  p.x *= 1.0 + k * 0.11 * y2;\n  p.y *= 1.0 + k * 0.17 * x2;\n  p /= 1.0 + k * 0.045;\n  return p * 0.5 + 0.5;\n}\n\nvec3 phosphorMask(float x, float scale) {\n  float sub = mod(floor(x / max(scale, 1.0)), 3.0);\n  vec3 lit = vec3(\n    step(sub, 0.5),\n    step(0.5, sub) * step(sub, 1.5),\n    step(1.5, sub)\n  );\n  return mix(vec3(0.34), vec3(1.0), lit);\n}\n\nvoid main() {\n  vec2 uv = warpTube(v_uv, u_curvature);\n\n  vec2 edge =\n    smoothstep(vec2(0.0), vec2(0.005), uv) *\n    smoothstep(vec2(0.0), vec2(0.005), 1.0 - uv);\n  float inside = edge.x * edge.y;\n\n  vec4 base = texture(u_scene, uv);\n\n  vec3 spread = vec3(0.0);\n  for (int i = -2; i <= 2; i++) {\n    spread += texture(u_scene, uv + vec2(float(i) * 0.0018, 0.0)).rgb;\n  }\n  spread /= 5.0;\n  vec3 bloom = max(spread - 0.5, vec3(0.0));\n\n  vec3 color = base.rgb;\n  color *= phosphorMask(gl_FragCoord.x, u_mask_scale);\n  color += bloom * 0.75;\n\n  float scan = mix(1.0, 0.5 + 0.5 * cos(uv.y * SCAN_LINES * PI * 2.0), 0.55);\n  color *= mix(1.0, scan, clamp(u_scanlines, 0.0, 1.5));\n\n  vec2 vc = uv * 2.0 - 1.0;\n  float radius = length(vc * vec2(0.86, 1.0));\n  color *= mix(1.0, smoothstep(1.6, 0.35, radius), clamp(u_vignette, 0.0, 1.5));\n\n  color *= 1.0 + 0.012 * sin(u_frame * PI / 30.0);\n  color *= inside;\n\n  outColor = vec4(clamp(color, 0.0, 1.0), max(base.a, 1.0 - inside));\n}"
+ },
+ "displacement": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_from": "sampler2D",
+   "u_to": "sampler2D",
+   "u_progress": "float",
+   "u_aspect": "float",
+   "u_cells": "vec2",
+   "u_shift": "float",
+   "u_aberration": "float",
+   "u_grain": "float",
+   "u_stagger": "float"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_from;\nuniform sampler2D u_to;\nuniform float u_progress;\nuniform float u_aspect;\nuniform vec2 u_cells;\nuniform float u_shift;\nuniform float u_aberration;\nuniform float u_grain;\nuniform float u_stagger;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nconst float PI = 3.141592653589793;\n\nfloat hash(vec2 p) {\n  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);\n}\n\nvoid main() {\n  vec2 cell = floor(v_uv * u_cells);\n  float h1 = hash(cell);\n  float h2 = hash(cell + 7.3);\n  float h3 = hash(cell + 13.1);\n\n  float delay = h3 * u_stagger;\n  float phase =\n    clamp((u_progress - delay) / max(1.0 - u_stagger, 0.1), 0.0, 1.0);\n  float shear = sin(phase * PI);\n\n  vec2 aim = vec2((h1 - 0.5) * 2.0, (h2 - 0.5) * 0.7);\n  vec2 dir = aim / max(length(aim), 0.0001);\n  vec2 slide = dir * shear * u_shift * 1.4;\n  vec2 off = slide / u_cells;\n  vec2 fringe = off * u_aberration * 0.35;\n\n  float swap = smoothstep(0.34, 0.66, phase);\n\n  vec4 mid = mix(\n    texture(u_from, v_uv - off),\n    texture(u_to, v_uv - off),\n    swap\n  );\n  float red = mix(\n    texture(u_from, v_uv - off - fringe).r,\n    texture(u_to, v_uv - off - fringe).r,\n    swap\n  );\n  float blue = mix(\n    texture(u_from, v_uv - off + fringe).b,\n    texture(u_to, v_uv - off + fringe).b,\n    swap\n  );\n\n  vec4 col = vec4(red, mid.g, blue, mid.a);\n\n  float tick = floor(u_progress * 30.0);\n  float speck =\n    hash(floor(v_uv * vec2(u_aspect, 1.0) * 460.0) + tick * 1.7) - 0.5;\n  col.rgb += vec3(speck * u_grain * shear * 0.5) * col.a;\n  col.rgb *= 1.0 - 0.12 * shear;\n\n  outColor = col;\n}"
+ },
+ "ember-burn": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_from": "sampler2D",
+   "u_to": "sampler2D",
+   "u_progress": "float",
+   "u_aspect": "float",
+   "u_patches": "float",
+   "u_softness": "float",
+   "u_content": "float",
+   "u_heat": "float",
+   "u_glow": "vec3",
+   "u_embers": "float"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_from;\nuniform sampler2D u_to;\nuniform float u_progress;\nuniform float u_aspect;\nuniform float u_patches;\nuniform float u_softness;\nuniform float u_content;\nuniform float u_heat;\nuniform vec3 u_glow;\nuniform float u_embers;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nconst float EMBER_GRID = 110.0;\n\nfloat hash(vec2 p) {\n  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);\n}\n\nfloat noise(vec2 p) {\n  vec2 i = floor(p);\n  vec2 f = fract(p);\n  vec2 u = f * f * (3.0 - 2.0 * f);\n  return mix(\n    mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),\n    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),\n    u.y\n  );\n}\n\nfloat fbm(vec2 p) {\n  float sum = 0.0;\n  float amp = 0.5;\n  for (int i = 0; i < 5; i++) {\n    sum += noise(p) * amp;\n    p *= 2.03;\n    amp *= 0.5;\n  }\n  return sum * 1.032;\n}\n\nfloat luma(vec3 c) {\n  return dot(c, vec3(0.2126, 0.7152, 0.0722));\n}\n\nvoid main() {\n  vec2 skewed = vec2(v_uv.x * u_aspect, v_uv.y);\n  float alive =\n    smoothstep(0.0, 0.06, u_progress) * smoothstep(1.0, 0.94, u_progress);\n\n  float brightness = luma(texture(u_from, v_uv).rgb);\n  float field = clamp(\n    clamp(fbm(skewed * u_patches), 0.0, 1.0) *\n      (1.0 - u_content * brightness * 0.9),\n    0.0,\n    1.0\n  );\n\n  float soft = max(u_softness, 0.004);\n  float margin = soft * 3.0 + 0.02;\n  float front = mix(-margin, 1.0 + margin, pow(u_progress, 1.2));\n  float depth = field - front;\n\n  float intact = smoothstep(-soft, soft, depth);\n  float arrived = 1.0 - intact;\n\n  vec2 shimmer = vec2(\n    noise(skewed * u_patches * 2.4 + vec2(0.0, u_progress * 3.1)) - 0.5,\n    noise(skewed * u_patches * 2.4 + vec2(5.2, 1.7 + u_progress * 4.3)) - 0.5\n  );\n  float heatBand = depth / (soft * 6.0);\n  float boil = exp(-heatBand * heatBand) * alive * u_heat * 0.14;\n  vec4 from = texture(u_from, v_uv + shimmer * boil * intact);\n  vec4 to = texture(u_to, v_uv - shimmer * boil * arrived);\n\n  float ramp = depth / (soft * 2.2);\n  float charBand = (ramp - 0.55) * 1.5;\n  float moltenBand = (ramp + 0.55) * 1.5;\n  float rimBand = depth / (soft * 1.1);\n  float charred = intact * exp(-charBand * charBand) * alive;\n  float molten = arrived * exp(-moltenBand * moltenBand) * alive;\n  float rim = exp(-rimBand * rimBand);\n\n  float since = clamp(-depth / (soft * 3.0), 0.0, 1.0);\n  float emberBand = depth / (soft * 2.6);\n  vec2 emberSpace = skewed + vec2(0.0, u_progress * 0.42);\n  float cellSeed = hash(floor(emberSpace * EMBER_GRID));\n  float ember =\n    step(1.0 - u_embers * 0.08, cellSeed) *\n    arrived *\n    exp(-emberBand * emberBand) *\n    alive;\n  vec3 sparkSource = texture(u_from, v_uv + vec2(0.0, since * 0.07)).rgb;\n\n  vec4 color = mix(to, from, intact);\n  color.rgb *= 1.0 - charred * 0.92;\n  color.rgb += (color.rgb * 1.2 + u_glow * 0.6) * molten;\n\n  vec3 spark = mix(u_glow, sparkSource * 1.4 + u_glow * 0.3, 0.5);\n  float light = min(rim * 0.85, 1.4);\n  color.rgb += u_glow * light + spark * ember * 1.3;\n  color.a = clamp(color.a + light + molten + ember, 0.0, 1.0);\n\n  outColor = color;\n}"
+ },
+ "glitch-cut": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_from": "sampler2D",
+   "u_to": "sampler2D",
+   "u_progress": "float",
+   "u_intensity": "float",
+   "u_slices": "float",
+   "u_rgb_split": "float",
+   "u_block_noise": "float"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_from;\nuniform sampler2D u_to;\nuniform float u_progress;\nuniform float u_intensity;\nuniform float u_slices;\nuniform float u_rgb_split;\nuniform float u_block_noise;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nconst float PI = 3.141592653589793;\nconst float STEPS = 22.0;\nconst float BLOCK_COLUMNS = 16.0;\n\nfloat hash(vec2 p) {\n  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);\n}\n\nvec4 sampleSplit(sampler2D tex, vec2 uv, float split) {\n  vec4 center = texture(tex, uv);\n  float r = texture(tex, vec2(uv.x + split, uv.y)).r;\n  float b = texture(tex, vec2(uv.x - split, uv.y)).b;\n  return vec4(r, center.g, b, center.a);\n}\n\nvoid main() {\n  float energy = pow(max(sin(u_progress * PI), 0.0), 0.7);\n  float clock = floor(u_progress * STEPS);\n\n  float row = floor(v_uv.y * u_slices);\n  float torn = step(0.45, hash(vec2(row, clock)));\n  float amount = hash(vec2(row + 17.0, clock * 1.7 + 3.0)) - 0.5;\n  float sliceShift = amount * 0.3 * u_intensity * energy * torn;\n\n  vec2 block = vec2(floor(v_uv.x * BLOCK_COLUMNS), row);\n  float corrupt = step(\n    1.0 - u_block_noise * 0.5 * energy,\n    hash(block + clock * 7.3)\n  );\n  float blockShift =\n    (hash(block + clock * 3.1 + 5.0) - 0.5) * 0.2 * u_intensity * corrupt;\n\n  vec2 uv = vec2(fract(v_uv.x + sliceShift + blockShift), v_uv.y);\n  float split = u_rgb_split * 0.018 * energy * (0.35 + abs(amount));\n\n  float cut = 0.5 + (hash(vec2(row, 91.0)) - 0.5) * 0.32;\n  float handed = step(cut, u_progress);\n\n  vec4 from = sampleSplit(u_from, uv, split);\n  vec4 to = sampleSplit(u_to, uv, split);\n  vec4 color = mix(from, to, handed);\n  vec4 leaked = mix(to, from, handed);\n\n  float leak = corrupt * step(0.55, hash(block + clock * 11.0 + 13.0));\n  color = mix(color, leaked, leak * 0.8);\n\n  color.rgb +=\n    vec3(0.05, 0.015, 0.09) *\n    energy *\n    torn *\n    hash(vec2(row, clock + 41.0)) *\n    color.a;\n\n  outColor = color;\n}"
+ },
+ "grid-wave": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_from": "sampler2D",
+   "u_to": "sampler2D",
+   "u_progress": "float",
+   "u_aspect": "float",
+   "u_grid": "vec2",
+   "u_wave": "float",
+   "u_lift": "float",
+   "u_gap": "float",
+   "u_tint": "vec3",
+   "u_dir": "vec2",
+   "u_radial": "float"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_from;\nuniform sampler2D u_to;\nuniform float u_progress;\nuniform float u_aspect;\nuniform vec2 u_grid;\nuniform float u_wave;\nuniform float u_lift;\nuniform float u_gap;\nuniform vec3 u_tint;\nuniform vec2 u_dir;\nuniform float u_radial;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nfloat hash(vec2 p) {\n  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);\n}\n\nfloat waveCoord(vec2 p) {\n  vec2 off = (p - 0.5) * vec2(u_aspect, 1.0);\n  float ring = length(off) / (0.5 * sqrt(u_aspect * u_aspect + 1.0));\n  float sweep = clamp(dot(p - 0.5, u_dir) + 0.5, 0.0, 1.0);\n  return mix(sweep, ring, u_radial);\n}\n\nvoid main() {\n  float front = u_progress * (1.0 + 6.0 * u_wave) - 3.0 * u_wave;\n\n  float selfPass =\n    smoothstep(-u_wave * 0.4, u_wave * 0.4, front - waveCoord(v_uv));\n  vec4 base = mix(texture(u_from, v_uv), texture(u_to, v_uv), selfPass);\n\n  float edge = 0.5 - u_gap * 0.5;\n  vec2 anchor = floor(v_uv * u_grid);\n\n  vec4 face = vec4(0.0);\n  float depth = -1.0;\n\n  for (int oy = -1; oy <= 1; oy++) {\n    for (int ox = -1; ox <= 1; ox++) {\n      vec2 cell = anchor + vec2(float(ox), float(oy));\n      vec2 centre = (cell + 0.5) / u_grid;\n\n      float stagger = (hash(cell) - 0.5) * u_wave * 0.4;\n      float w = front - waveCoord(centre) + stagger;\n      float band = w / u_wave;\n      float pulse = exp(-band * band);\n      if (pulse <= depth) {\n        continue;\n      }\n\n      float rise = pulse * u_lift;\n      vec2 lean = centre - 0.5;\n      lean = lean / max(length(lean), 0.0001) * rise * 0.15;\n      float grow = 1.0 + rise * 0.5;\n\n      vec2 q = (v_uv - centre) * u_grid;\n      vec2 top = (q - lean) / grow;\n      float onTop = max(abs(top.x), abs(top.y));\n      float onFoot = max(abs(q.x), abs(q.y));\n      bool lit = onTop <= edge;\n      if (!lit && onFoot > edge) {\n        continue;\n      }\n      depth = pulse;\n\n      float pass = smoothstep(-u_wave * 0.4, u_wave * 0.4, w);\n      vec2 local = lit ? top : clamp(top, -edge, edge);\n      vec2 src = centre + local / u_grid;\n      vec4 col = mix(texture(u_from, src), texture(u_to, src), pass);\n\n      if (lit) {\n        col.rgb = mix(col.rgb, u_tint, pulse * 0.12);\n        col.rgb *= 1.0 + pulse * 0.06;\n      } else {\n        col.rgb = mix(col.rgb, u_tint, pulse * 0.06);\n        col.rgb *= 1.0 - pulse * 0.24;\n      }\n\n      face = col;\n    }\n  }\n\n  outColor = face + base * (1.0 - face.a);\n}"
+ },
+ "halftone-print": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_scene": "sampler2D",
+   "u_aspect": "float",
+   "u_cell": "float",
+   "u_angle": "float",
+   "u_shift": "float",
+   "u_paper": "vec3"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_scene;\nuniform float u_aspect;\nuniform float u_cell;\nuniform float u_angle;\nuniform float u_shift;\nuniform vec3 u_paper;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nconst vec3 CYAN_ABSORB = vec3(0.92, 0.12, 0.02);\nconst vec3 MAGENTA_ABSORB = vec3(0.10, 0.88, 0.06);\nconst vec3 YELLOW_ABSORB = vec3(0.03, 0.10, 0.90);\n\nvec2 toSquare(vec2 uv) {\n  return vec2(uv.x * u_aspect, uv.y);\n}\n\nvec2 fromSquare(vec2 p) {\n  return vec2(p.x / u_aspect, p.y);\n}\n\nfloat screenInk(float angle, vec2 drift, vec3 pick) {\n  vec2 p = toSquare(v_uv);\n  float s = sin(angle);\n  float c = cos(angle);\n  vec2 r = vec2(p.x * c - p.y * s, p.x * s + p.y * c);\n\n  vec2 center = (floor(r / u_cell) + 0.5) * u_cell;\n  vec2 unrotated =\n    vec2(center.x * c + center.y * s, -center.x * s + center.y * c);\n\n  vec4 texel = texture(u_scene, fromSquare(unrotated + drift));\n  vec3 straight = texel.rgb / max(texel.a, 0.004);\n  float ink = clamp(1.0 - dot(straight, pick), 0.0, 1.0) * texel.a;\n\n  float radius = sqrt(ink) * u_cell * 0.72;\n  float aa = u_cell * 0.045;\n  float coverage = 1.0 - smoothstep(radius - aa, radius + aa, length(r - center));\n  return coverage * step(0.002, ink);\n}\n\nvoid main() {\n  vec4 source = texture(u_scene, v_uv);\n\n  float cyan =\n    screenInk(u_angle + 0.2618, u_shift * vec2(1.0, 0.0), vec3(1.0, 0.0, 0.0));\n  float magenta =\n    screenInk(u_angle + 1.3090, u_shift * vec2(-0.5, 0.866), vec3(0.0, 1.0, 0.0));\n  float yellow =\n    screenInk(u_angle, u_shift * vec2(-0.5, -0.866), vec3(0.0, 0.0, 1.0));\n\n  vec3 color = u_paper;\n  color *= 1.0 - cyan * CYAN_ABSORB;\n  color *= 1.0 - magenta * MAGENTA_ABSORB;\n  color *= 1.0 - yellow * YELLOW_ABSORB;\n\n  outColor = vec4(color * source.a, source.a);\n}"
+ },
+ "hologram": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_scene": "sampler2D",
+   "u_aspect": "float",
+   "u_frame": "float",
+   "u_tint": "vec3",
+   "u_glow": "float",
+   "u_ghost": "float",
+   "u_flicker": "float",
+   "u_intensity": "float"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_scene;\nuniform float u_aspect;\nuniform float u_frame;\nuniform vec3 u_tint;\nuniform float u_glow;\nuniform float u_ghost;\nuniform float u_flicker;\nuniform float u_intensity;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nconst float PI = 3.141592653589793;\nconst float TAU = 6.28318530718;\nconst float GOLDEN = 2.39996323;\nconst int HALO_TAPS = 8;\nconst vec3 LUMA = vec3(0.299, 0.587, 0.114);\n\nfloat hash(vec2 p) {\n  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453123);\n}\n\nfloat lumaAt(vec2 uv) {\n  return dot(texture(u_scene, uv).rgb, LUMA);\n}\n\nvoid main() {\n  vec4 src = texture(u_scene, v_uv);\n  float amount = clamp(u_intensity, 0.0, 1.0);\n\n  if (!(amount > 0.001)) {\n    outColor = src;\n    return;\n  }\n\n  float row = floor(v_uv.y * 300.0);\n  float clock = floor(u_frame);\n  float slip =\n    (hash(vec2(row, clock)) - 0.5) * u_ghost * 0.006 * step(0.55, hash(vec2(row, clock + 3.0)));\n  vec2 base = vec2(v_uv.x + slip / u_aspect, v_uv.y);\n\n  vec4 held = texture(u_scene, base);\n  float lit = dot(held.rgb, LUMA);\n\n  vec2 apart = vec2(u_ghost * 0.0045 / u_aspect, u_ghost * 0.0035);\n  vec3 twin = texture(u_scene, base + apart).rgb;\n\n  float step2 = 0.0022;\n  float gx =\n    lumaAt(base + vec2(step2 / u_aspect, 0.0)) -\n    lumaAt(base - vec2(step2 / u_aspect, 0.0));\n  float gy = lumaAt(base + vec2(0.0, step2)) - lumaAt(base - vec2(0.0, step2));\n  float rim = clamp(length(vec2(gx, gy)) * 7.0, 0.0, 1.0);\n\n  vec3 halo = vec3(0.0);\n  for (int i = 0; i < HALO_TAPS; i++) {\n    float angle = float(i) * GOLDEN;\n    float reach = sqrt((float(i) + 0.5) / float(HALO_TAPS)) * u_glow * 0.022;\n    vec2 at = base + vec2(cos(angle) * reach / u_aspect, sin(angle) * reach);\n    halo += max(texture(u_scene, at).rgb - 0.34, vec3(0.0));\n  }\n  halo /= float(HALO_TAPS);\n\n  vec3 core = u_tint * (0.12 + lit * 1.55);\n  core = mix(core, held.rgb * u_tint * 1.9, 0.12);\n  core += u_tint * rim * 1.9 * u_glow;\n  core += halo * u_tint * 2.4 * u_glow;\n  core += twin * u_tint * 0.5 * u_ghost;\n\n  float interlace = mod(row, 2.0) < 1.0 ? 1.0 : 0.58;\n  core *= interlace;\n\n  float blink =\n    1.0 -\n    u_flicker *\n      (0.04 + 0.05 * hash(vec2(clock, 7.0))) *\n      (0.5 + 0.5 * sin(u_frame * TAU / 15.0));\n  core *= blink;\n\n  float presence = clamp(lit * 1.5 + rim * 0.8 + 0.03, 0.0, 1.0);\n  vec3 painted = clamp(u_tint * 0.035 + core * presence, 0.0, 1.0);\n\n  outColor = vec4(mix(src.rgb, painted, amount), src.a);\n}"
+ },
+ "particle-dissolve": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_from": "sampler2D",
+   "u_to": "sampler2D",
+   "u_progress": "float",
+   "u_aspect": "float",
+   "u_cells": "float",
+   "u_scatter": "float",
+   "u_shimmer": "float",
+   "u_aberration": "float",
+   "u_stagger": "float",
+   "u_dir": "vec2",
+   "u_radial": "float"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_from;\nuniform sampler2D u_to;\nuniform float u_progress;\nuniform float u_aspect;\nuniform float u_cells;\nuniform float u_scatter;\nuniform float u_shimmer;\nuniform float u_aberration;\nuniform float u_stagger;\nuniform vec2 u_dir;\nuniform float u_radial;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nconst float PI = 3.141592653589793;\n\nfloat hash(vec2 p) {\n  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);\n}\n\nfloat noise(vec2 p) {\n  vec2 i = floor(p);\n  vec2 f = fract(p);\n  vec2 u = f * f * (3.0 - 2.0 * f);\n  return mix(\n    mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),\n    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),\n    u.y\n  );\n}\n\nfloat fbm(vec2 p) {\n  float sum = 0.0;\n  float amp = 0.5;\n  for (int i = 0; i < 4; i++) {\n    sum += noise(p) * amp;\n    p *= 2.03;\n    amp *= 0.5;\n  }\n  return sum * 1.0667;\n}\n\nfloat luma(vec3 c) {\n  return dot(c, vec3(0.2126, 0.7152, 0.0722));\n}\n\nvec4 grab(sampler2D tex, vec2 uv, vec2 dir, float amount) {\n  vec4 centre = texture(tex, uv);\n  float r = texture(tex, uv + dir * amount).r;\n  float b = texture(tex, uv - dir * amount).b;\n  return vec4(r, centre.g, b, centre.a);\n}\n\nvoid main() {\n  vec2 grid = vec2(u_cells * u_aspect, u_cells);\n  vec2 skewed = vec2(v_uv.x * u_aspect, v_uv.y);\n  vec2 centred = skewed - vec2(0.5 * u_aspect, 0.5);\n\n  float spatial = u_radial > 0.5\n    ? clamp(length(centred) / 0.62, 0.0, 1.0)\n    : clamp(dot(v_uv - 0.5, u_dir) + 0.5, 0.0, 1.0);\n  float blob = fbm(skewed * 2.2);\n  float order = mix(blob, spatial, 0.55) * u_stagger;\n  float span = max(1.0 - u_stagger, 0.08);\n  float phase = clamp((u_progress - order) / span, 0.0, 1.0);\n  float dust = sin(phase * PI);\n\n  vec2 flow = vec2(\n    fbm(skewed * 3.0 + vec2(0.0, u_progress * 0.8)),\n    fbm(skewed * 3.0 + vec2(5.3, 2.7 - u_progress * 0.7))\n  ) - 0.5;\n  vec2 aim =\n    flow * 2.0 + normalize(centred + 0.0001) * 0.7 * u_radial + u_dir;\n  vec2 heading = aim / max(length(aim), 0.0001);\n\n  float bright = luma(texture(u_from, v_uv).rgb);\n  float travel = u_scatter * dust * (0.18 + bright * 1.25);\n  vec2 drift = vec2(heading.x / u_aspect, heading.y) * travel;\n\n  float split = u_aberration * dust * 0.35;\n  vec4 leaving = grab(u_from, v_uv - drift, drift, split);\n  vec4 arriving = grab(u_to, v_uv + drift, -drift, split);\n\n  vec4 base = mix(leaving, arriving, smoothstep(0.25, 0.75, phase));\n  base.rgb = mix(base.rgb, vec3(luma(base.rgb)), dust);\n  base.rgb *= 1.0 - dust * 0.25;\n\n  vec2 g = (v_uv - drift) * grid;\n  vec2 origin = floor(g);\n  float cover = 0.0;\n  float light = 0.0;\n  for (int oy = -1; oy <= 1; oy++) {\n    for (int ox = -1; ox <= 1; ox++) {\n      vec2 cell = origin + vec2(float(ox), float(oy));\n      vec2 jitter = vec2(hash(cell + 3.1), hash(cell + 8.7));\n      float mote = hash(cell + 13.7);\n      float twinkle =\n        0.5 + 0.5 * sin(u_progress * (12.0 + mote * 30.0) + mote * 6.2831);\n      float radius =\n        (0.36 + 0.46 * hash(cell + 21.3)) * (0.65 + 0.6 * twinkle);\n      float reach = length(g - (cell + jitter));\n      float hit = 1.0 - smoothstep(radius * 0.45, radius, reach);\n      cover = max(cover, hit);\n      light = max(light, hit * mote * twinkle);\n    }\n  }\n  cover = mix(1.0, cover, dust);\n  light *= dust;\n\n  vec4 speck = vec4(\n    base.rgb + vec3(0.36 * light * u_shimmer) * base.a,\n    base.a\n  );\n  vec4 gap = vec4(base.rgb * (1.0 - dust * 0.6), base.a);\n  outColor = mix(gap, speck, cover);\n}"
+ },
+ "pixelate-region": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_scene": "sampler2D",
+   "u_regions": "vec4",
+   "u_region_count": "int",
+   "u_cell": "vec2"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_scene;\nuniform vec4 u_regions[8];\nuniform int u_region_count;\nuniform vec2 u_cell;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nconst int TAPS = 3;\n\nvec4 cellAverage(vec2 center, vec2 cell) {\n  vec4 sum = vec4(0.0);\n  for (int y = 0; y < TAPS; y++) {\n    for (int x = 0; x < TAPS; x++) {\n      vec2 offset =\n        (vec2(float(x), float(y)) + 0.5) / float(TAPS) - 0.5;\n      sum += texture(u_scene, center + offset * cell);\n    }\n  }\n  return sum / float(TAPS * TAPS);\n}\n\nvoid main() {\n  vec4 result = texture(u_scene, v_uv);\n  vec2 cell = max(u_cell, vec2(0.0005));\n\n  for (int i = 0; i < 8; i++) {\n    if (i >= u_region_count) {\n      continue;\n    }\n    vec4 region = u_regions[i];\n    vec2 lo = region.xy;\n    vec2 hi = region.xy + region.zw;\n    vec2 hit = step(lo, v_uv) * step(v_uv, hi);\n    if (hit.x * hit.y < 0.5) {\n      continue;\n    }\n    vec2 center = lo + (floor((v_uv - lo) / cell) + 0.5) * cell;\n    result = vec4(cellAverage(center, cell).rgb, 1.0);\n  }\n\n  outColor = result;\n}"
+ },
+ "security-cam": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_scene": "sampler2D",
+   "u_frame": "float",
+   "u_cell": "vec2",
+   "u_compression": "float",
+   "u_noise": "float",
+   "u_intensity": "float"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_scene;\nuniform float u_frame;\nuniform vec2 u_cell;\nuniform float u_compression;\nuniform float u_noise;\nuniform float u_intensity;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nconst float PI = 3.141592653589793;\n\nfloat hash(vec2 p) {\n  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453123);\n}\n\nfloat lumaOf(vec3 c) {\n  return dot(c, vec3(0.299, 0.587, 0.114));\n}\n\nvec2 chromaOf(vec3 c) {\n  return vec2(c.b - lumaOf(c), c.r - lumaOf(c));\n}\n\nvec3 fromLumaChroma(float y, vec2 cbcr) {\n  return vec3(y + cbcr.y, y - 0.194 * cbcr.x - 0.509 * cbcr.y, y + cbcr.x);\n}\n\nvec3 blockMean(vec2 origin, vec2 cell) {\n  vec3 total = vec3(0.0);\n  for (int y = 0; y < 2; y++) {\n    for (int x = 0; x < 2; x++) {\n      vec2 at = origin + (vec2(float(x), float(y)) + 0.5) * cell * 0.5;\n      total += texture(u_scene, at).rgb;\n    }\n  }\n  return total * 0.25;\n}\n\nvoid main() {\n  vec4 src = texture(u_scene, v_uv);\n  float amount = clamp(u_intensity, 0.0, 1.0);\n\n  if (!(amount > 0.001)) {\n    outColor = src;\n    return;\n  }\n\n  vec2 cell = max(u_cell, vec2(0.0008));\n  vec2 wide = cell * 2.0;\n\n  vec3 lumaBlock = blockMean(floor(v_uv / cell) * cell, cell);\n  vec3 chromaBlock = blockMean(floor(v_uv / wide) * wide, wide);\n\n  float squeeze = clamp(u_compression, 0.0, 1.0) * amount;\n\n  float y = mix(lumaOf(src.rgb), lumaOf(lumaBlock), squeeze * 0.8);\n  float levels = mix(255.0, 20.0, squeeze);\n  y = floor(y * levels + 0.5) / levels;\n\n  vec2 cbcr = mix(chromaOf(src.rgb), chromaOf(chromaBlock), squeeze);\n  cbcr *= mix(1.0, 0.62, amount);\n\n  vec3 color = fromLumaChroma(y, cbcr);\n\n  float pump = 1.0 + 0.03 * sin(u_frame * PI / 45.0) * amount;\n  color = clamp((color * pump - 0.05 * amount) / (1.0 - 0.14 * amount), 0.0, 1.0);\n\n  float clock = mod(u_frame, 64.0);\n  float shadow = 1.0 - smoothstep(0.0, 0.55, y);\n  float grain =\n    hash(v_uv + vec2(clock * 0.017, clock * 0.029)) - 0.5;\n  color += grain * 0.16 * u_noise * amount * (0.25 + shadow);\n\n  outColor = vec4(clamp(color, 0.0, 1.0), src.a);\n}"
+ },
+ "shader-caustics": {
+  "stage": "FRAG",
+  "stages": [
+   "FRAG"
+  ],
+  "uniforms": {
+   "u_res": "vec2",
+   "u_time": "float",
+   "u_scale": "float",
+   "u_intensity": "float",
+   "u_floor": "vec3",
+   "u_light": "vec3",
+   "u_accent": "vec3",
+   "u_accentAmt": "float"
+  },
+  "source": "precision highp float;\n\nuniform vec2 u_res;\nuniform float u_time;\nuniform float u_scale;\nuniform float u_intensity;\nuniform vec3 u_floor;\nuniform vec3 u_light;\nuniform vec3 u_accent;\nuniform float u_accentAmt;\n\nfloat hash(vec2 p) {\n  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);\n}\n\nvoid main() {\n  vec2 uv = gl_FragCoord.xy / u_res;\n  float aspect = u_res.x / u_res.y;\n  vec2 p = vec2(uv.x * aspect, uv.y) * u_scale;\n\n  // Iterative trigonometric warp: each pass bends the sample point by the\n  // previous pass, and the reciprocal distance to the warped axes\n  // accumulates into the caustic web.\n  float t = u_time * 0.35;\n  vec2 i = p;\n  float c = 0.0;\n  for (int n = 0; n < 4; n++) {\n    float phase = t * (1.0 - 3.2 / float(n + 2));\n    i = p + vec2(\n      cos(phase - i.x) + sin(phase + i.y),\n      sin(phase - i.y) + cos(phase + i.x)\n    );\n    c += 1.0 / length(vec2(\n      p.x / (sin(i.x + phase) * 90.0),\n      p.y / (cos(i.y + phase) * 90.0)\n    ));\n  }\n  c /= 4.0;\n  c = 1.24 - pow(abs(c), 1.35);\n  // |c| collapses to zero along thin branching veins — that zero-crossing\n  // set IS the caustic web. Light the veins with an exponential falloff\n  // (sharp core + a soft halo) and leave everything else near-black.\n  float web = exp(-abs(c) * 0.5) + 0.22 * exp(-abs(c) * 0.12);\n  web = web / (1.0 + 0.6 * web);\n\n  // The light lands on the base: filaments read stronger low in the frame.\n  float ground = mix(1.25, 0.55, uv.y);\n  web *= ground * u_intensity;\n\n  // Vignette keeps the corners quiet so type always wins.\n  vec2 v = uv - 0.5;\n  float vig = 1.0 - dot(v, v) * 1.1;\n  web *= clamp(vig, 0.0, 1.0);\n\n  vec3 filament = mix(u_light, u_accent, clamp(u_accentAmt, 0.0, 1.0));\n  vec3 col = u_floor + filament * web;\n\n  // A whisper of living grain, time-derived so it stays deterministic.\n  col += (hash(gl_FragCoord.xy + floor(u_time * 9.0)) - 0.5) * 0.012;\n\n  gl_FragColor = vec4(col, 1.0);\n}"
+ },
+ "shader-light-tunnel": {
+  "stage": "HERO_FIELD",
+  "stages": [
+   "HERO_FIELD",
+   "HERO_HALFTONE"
+  ],
+  "uniforms": {
+   "iResolution": "vec2",
+   "iTime": "float",
+   "uLightMode": "float",
+   "uDarkBackground": "vec3",
+   "uLightBackground": "vec3"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform vec2 iResolution;\nuniform float iTime;\nuniform float uLightMode;\nuniform vec3 uDarkBackground;\nuniform vec3 uLightBackground;\nout vec4 fragColor;\n\nconst float HUE = 0.663466752;\nconst float HUE_SPREAD = 0.314346701;\nconst float HUE_TRAVEL = 1.65112376;\nconst float CHROMA = 0.160295546;\nconst float LIGHTNESS = 0.537409723;\nconst float COLOUR_CYCLE = 0.124862425;\nconst float THETA = 2.12986207;\nconst float SHEAR = 0.968176901;\nconst float SHRINK = 0.955401778;\nconst float LAYERS = 72.0;\nconst float WARP_FREQ_X = 0.439311415;\nconst float WARP_FREQ_Y = 2.87923527;\nconst float WARP_AMP_X = 0.156202048;\nconst float WARP_AMP_Y = 0.0256033838;\nconst float ASPECT_X = 2.23183894;\nconst float ASPECT_Y = 0.15731883;\nconst float OFFSET_X = 0.375628948;\nconst float OFFSET_Y = -0.017801486;\nconst float TILT = 1.63293767;\nconst float ZOOM = 0.93135649;\nconst float CENTRE_X = -0.0956316143;\nconst float CENTRE_Y = -0.520057321;\nconst float GLOW_SIZE = 0.00201825937;\nconst float FALLOFF = 0.352821857;\nconst float VIGNETTE = 0.136085436;\nconst float FLOW_SPEED = 0.391012281;\nconst float FLOW_DIRECTION = 1.0;\nconst float BREATH_RATE = 0.382053256;\nconst float BREATH_AMOUNT = 0.0873704553;\nconst float PHASE = 56.3862724;\nconst float ECHO = 0.0;\nconst float ECHO_SHIFT = 0.178754866;\nconst float SOFTNESS = 0.00164903817;\nconst float LIGHT_SWING = 0.149726808;\n\nconst float TAU = 6.28318530718;\n\nvec3 oklchToLinear(float L, float C, float h) {\n  float a = C * cos(h), b = C * sin(h);\n  float l_ = L + 0.3963377774 * a + 0.2158037573 * b;\n  float m_ = L - 0.1055613458 * a - 0.0638541728 * b;\n  float s_ = L - 0.0894841775 * a - 1.2914855480 * b;\n  vec3 lms = vec3(l_, m_, s_);\n  lms = lms * lms * lms;\n  return mat3(4.0767416621, -1.2684380046, -0.0041960863,\n              -3.3077115913, 2.6097574011, -0.7034186147,\n              0.2309699292, -0.3413193965, 1.7076147010) * lms;\n}\n\nfloat blueNoise(vec2 p, float frame) {\n  p += 5.588238 * mod(frame, 64.0);\n  return fract(52.9829189 * fract(0.06711056 * p.x + 0.00583715 * p.y));\n}\n\nvoid main() {\n  vec2 R = iResolution.xy;\n  vec2 pos = (gl_FragCoord.xy - 0.5 * R) / R.y;\n  float t = iTime * FLOW_SPEED * FLOW_DIRECTION + PHASE;\n  float breath = (-sin(iTime * BREATH_RATE * 1.5) + sin(iTime * BREATH_RATE + 1.0)) * 0.25 + 0.5;\n\n  vec2 u = (pos - vec2(CENTRE_X, CENTRE_Y)) * (ZOOM - breath * BREATH_AMOUNT);\n  float ct = cos(TILT), st = sin(TILT);\n  u = mat2(ct, st, -st, ct) * u;\n\n  mat2 fold = mat2(cos(THETA), sin(THETA), -SHEAR, cos(THETA));\n\n  float hue0 = HUE * TAU;\n  float hue1 = hue0 + HUE_SPREAD * TAU;\n  vec3 color = vec3(0.0);\n\n  for (float i = 1.0; i <= 96.0; i += 1.0) {\n    if (i > LAYERS) break;\n    u.x += -sin(u.y * WARP_FREQ_X + t + i * 0.007) * WARP_AMP_X;\n    u.y += -sin(u.x * WARP_FREQ_Y - t + i * 0.02) * WARP_AMP_Y;\n    u = fold * u * SHRINK;\n\n    vec2 q = u - vec2(OFFSET_X + breath * 0.1, OFFSET_Y);\n    vec2 s = vec2(q.x * ASPECT_X, q.y * ASPECT_Y);\n    float glow = GLOW_SIZE / (dot(s, s) + SOFTNESS);\n#ifndef SKIP_ECHO\n    vec2 e = vec2((q.x - ECHO_SHIFT) * ASPECT_X, s.y);\n    glow += ECHO * GLOW_SIZE / (dot(e, e) + SOFTNESS);\n#endif\n    glow *= 0.25 + breath * 0.4;\n\n    float r = length(u);\n    float k = sin(i * COLOUR_CYCLE + t * 1.2 + r * HUE_TRAVEL) * 0.5 + 0.5;\n    vec3 tint = clamp(oklchToLinear(LIGHTNESS + LIGHT_SWING * k, CHROMA * (0.75 + 0.35 * k), mix(hue0, hue1, k)), 0.0, 1.0);\n    color += glow * tint * exp2(-r * FALLOFF);\n  }\n\n  vec3 x = max(color, 0.0);\n  color = (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14);\n  color = pow(clamp(color, 0.0, 1.0), vec3(0.85, 0.92, 0.98));\n\n  float edge = smoothstep(0.5, 1.6, length(pos));\n  color *= 1.0 - edge * VIGNETTE;\n\n  vec3 dark = uDarkBackground + color * (1.0 - uDarkBackground);\n  float strength = max(color.r, max(color.g, color.b));\n  vec3 light = uLightBackground * (1.0 - strength) + color * 0.96;\n  color = mix(dark, light, uLightMode);\n\n  color += (blueNoise(gl_FragCoord.xy, floor(iTime * 24.0)) - 0.5) / 255.0;\n  fragColor = vec4(clamp(color, 0.0, 1.0), 1.0);\n}"
+ },
+ "shader-seam": {
+  "stage": "FIELD_SHADER",
+  "stages": [
+   "FIELD_SHADER",
+   "RARITY_SHADER",
+   "DISSOLVE_COMPOSITE"
+  ],
+  "uniforms": {
+   "iResolution": "vec2",
+   "iTime": "float",
+   "uLightMode": "float",
+   "uDarkBackground": "vec3",
+   "uLightBackground": "vec3"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform vec2 iResolution;\nuniform float iTime;\nuniform float uLightMode;\nuniform vec3 uDarkBackground;\nuniform vec3 uLightBackground;\nout vec4 fragColor;\n\nconst float HUE = 0.663466752;\nconst float HUE_SPREAD = 0.314346701;\nconst float HUE_TRAVEL = 1.65112376;\nconst float CHROMA = 0.160295546;\nconst float LIGHTNESS = 0.537409723;\nconst float COLOUR_CYCLE = 0.124862425;\nconst float THETA = 2.12986207;\nconst float SHEAR = 0.968176901;\nconst float SHRINK = 0.955401778;\nconst float LAYERS = 72.0;\nconst float WARP_FREQ_X = 0.439311415;\nconst float WARP_FREQ_Y = 2.87923527;\nconst float WARP_AMP_X = 0.156202048;\nconst float WARP_AMP_Y = 0.0256033838;\nconst float ASPECT_X = 2.23183894;\nconst float ASPECT_Y = 0.15731883;\nconst float OFFSET_X = 0.375628948;\nconst float OFFSET_Y = -0.017801486;\nconst float TILT = 1.63293767;\nconst float ZOOM = 0.93135649;\nconst float CENTRE_X = -0.0956316143;\nconst float CENTRE_Y = -0.520057321;\nconst float GLOW_SIZE = 0.00201825937;\nconst float FALLOFF = 0.352821857;\nconst float VIGNETTE = 0.136085436;\nconst float FLOW_SPEED = 0.391012281;\nconst float FLOW_DIRECTION = 1.0;\nconst float BREATH_RATE = 0.382053256;\nconst float BREATH_AMOUNT = 0.0873704553;\nconst float PHASE = 56.3862724;\nconst float ECHO = 0.0;\nconst float ECHO_SHIFT = 0.178754866;\nconst float SOFTNESS = 0.00164903817;\nconst float LIGHT_SWING = 0.149726808;\n\nconst float TAU = 6.28318530718;\n\nvec3 oklchToLinear(float L, float C, float h) {\n  float a = C * cos(h), b = C * sin(h);\n  float l_ = L + 0.3963377774 * a + 0.2158037573 * b;\n  float m_ = L - 0.1055613458 * a - 0.0638541728 * b;\n  float s_ = L - 0.0894841775 * a - 1.2914855480 * b;\n  vec3 lms = vec3(l_, m_, s_);\n  lms = lms * lms * lms;\n  return mat3(4.0767416621, -1.2684380046, -0.0041960863,\n              -3.3077115913, 2.6097574011, -0.7034186147,\n              0.2309699292, -0.3413193965, 1.7076147010) * lms;\n}\n\nfloat blueNoise(vec2 p, float frame) {\n  p += 5.588238 * mod(frame, 64.0);\n  return fract(52.9829189 * fract(0.06711056 * p.x + 0.00583715 * p.y));\n}\n\nvoid main() {\n  vec2 R = iResolution.xy;\n  vec2 pos = (gl_FragCoord.xy - 0.5 * R) / R.y;\n  float t = iTime * FLOW_SPEED * FLOW_DIRECTION + PHASE;\n  float breath = (-sin(iTime * BREATH_RATE * 1.5) + sin(iTime * BREATH_RATE + 1.0)) * 0.25 + 0.5;\n\n  vec2 u = (pos - vec2(CENTRE_X, CENTRE_Y)) * (ZOOM - breath * BREATH_AMOUNT);\n  float ct = cos(TILT), st = sin(TILT);\n  u = mat2(ct, st, -st, ct) * u;\n\n  mat2 fold = mat2(cos(THETA), sin(THETA), -SHEAR, cos(THETA));\n\n  float hue0 = HUE * TAU;\n  float hue1 = hue0 + HUE_SPREAD * TAU;\n  vec3 color = vec3(0.0);\n\n  for (float i = 1.0; i <= 96.0; i += 1.0) {\n    if (i > LAYERS) break;\n    u.x += -sin(u.y * WARP_FREQ_X + t + i * 0.007) * WARP_AMP_X;\n    u.y += -sin(u.x * WARP_FREQ_Y - t + i * 0.02) * WARP_AMP_Y;\n    u = fold * u * SHRINK;\n\n    vec2 q = u - vec2(OFFSET_X + breath * 0.1, OFFSET_Y);\n    vec2 s = vec2(q.x * ASPECT_X, q.y * ASPECT_Y);\n    float glow = GLOW_SIZE / (dot(s, s) + SOFTNESS);\n#ifndef SKIP_ECHO\n    vec2 e = vec2((q.x - ECHO_SHIFT) * ASPECT_X, s.y);\n    glow += ECHO * GLOW_SIZE / (dot(e, e) + SOFTNESS);\n#endif\n    glow *= 0.25 + breath * 0.4;\n\n    float r = length(u);\n    float k = sin(i * COLOUR_CYCLE + t * 1.2 + r * HUE_TRAVEL) * 0.5 + 0.5;\n    vec3 tint = clamp(oklchToLinear(LIGHTNESS + LIGHT_SWING * k, CHROMA * (0.75 + 0.35 * k), mix(hue0, hue1, k)), 0.0, 1.0);\n    color += glow * tint * exp2(-r * FALLOFF);\n  }\n\n  vec3 x = max(color, 0.0);\n  color = (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14);\n  color = pow(clamp(color, 0.0, 1.0), vec3(0.85, 0.92, 0.98));\n\n  float edge = smoothstep(0.5, 1.6, length(pos));\n  color *= 1.0 - edge * VIGNETTE;\n\n  vec3 dark = uDarkBackground + color * (1.0 - uDarkBackground);\n  float strength = max(color.r, max(color.g, color.b));\n  vec3 light = uLightBackground * (1.0 - strength) + color * 0.96;\n  color = mix(dark, light, uLightMode);\n\n  color += (blueNoise(gl_FragCoord.xy, floor(iTime * 24.0)) - 0.5) / 255.0;\n  fragColor = vec4(clamp(color, 0.0, 1.0), 1.0);\n}"
+ },
+ "shader-strata": {
+  "stage": "FRAG",
+  "stages": [
+   "FRAG"
+  ],
+  "uniforms": {
+   "u_res": "vec2",
+   "u_time": "float",
+   "u_layers": "float",
+   "u_amp": "float",
+   "u_c0": "vec3",
+   "u_c1": "vec3",
+   "u_c2": "vec3",
+   "u_c3": "vec3",
+   "u_accent": "vec3",
+   "u_accentAmt": "float"
+  },
+  "source": "precision highp float;\n\nuniform vec2 u_res;\nuniform float u_time;\nuniform float u_layers;\nuniform float u_amp;\nuniform vec3 u_c0;\nuniform vec3 u_c1;\nuniform vec3 u_c2;\nuniform vec3 u_c3;\nuniform vec3 u_accent;\nuniform float u_accentAmt;\n\nfloat hash(vec2 p) {\n  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);\n}\n\nfloat noise(vec2 p) {\n  vec2 i = floor(p);\n  vec2 f = fract(p);\n  vec2 u = f * f * (3.0 - 2.0 * f);\n  return mix(\n    mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),\n    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),\n    u.y\n  );\n}\n\nfloat fbm(vec2 p) {\n  float v = 0.0;\n  float a = 0.5;\n  for (int i = 0; i < 4; i++) {\n    v += a * noise(p);\n    p *= 2.03;\n    a *= 0.5;\n  }\n  return v;\n}\n\nvoid main() {\n  vec2 uv = gl_FragCoord.xy / u_res;\n  float aspect = u_res.x / u_res.y;\n\n  // Deeper layers drift faster — parallax without per-band recursion.\n  float drift = u_time * (0.012 + 0.05 * (1.0 - uv.y));\n  float w = fbm(vec2(uv.x * 2.6 * aspect + drift, uv.y * 2.2 - u_time * 0.01));\n\n  float yd = uv.y + (w - 0.5) * u_amp;\n  float band = yd * u_layers;\n  float idx = floor(band);\n  float f = fract(band);\n\n  // Per-band value jitter + a soft sediment shadow at each band's lower edge.\n  float j = hash(vec2(idx, 7.0));\n  float edge = smoothstep(0.0, 0.4, f) * (1.0 - 0.3 * smoothstep(0.8, 1.0, f));\n\n  float depth = clamp(idx / u_layers, 0.0, 1.0);\n  vec3 col = mix(u_c0, u_c1, smoothstep(0.0, 0.4, depth));\n  col = mix(col, u_c2, smoothstep(0.35, 0.75, depth));\n  col = mix(col, u_c3, smoothstep(0.7, 1.0, depth));\n  col *= 0.84 + 0.16 * j;\n  col *= 0.92 + 0.08 * edge;\n\n  // The accent rises from the deep strata and thins toward the surface.\n  float mask = (1.0 - uv.y);\n  mask *= mask;\n  col = mix(col, u_accent, clamp(u_accentAmt, 0.0, 1.0) * mask * 0.38);\n\n  // A whisper of living grain, time-derived so it stays deterministic.\n  col += (hash(gl_FragCoord.xy + floor(u_time * 9.0)) - 0.5) * 0.012;\n\n  gl_FragColor = vec4(col, 1.0);\n}"
+ },
+ "shader-weave": {
+  "stage": "FRAG",
+  "stages": [
+   "FRAG"
+  ],
+  "uniforms": {
+   "u_res": "vec2",
+   "u_time": "float",
+   "u_scale": "float",
+   "u_warp": "float",
+   "u_c0": "vec3",
+   "u_c1": "vec3",
+   "u_c2": "vec3",
+   "u_c3": "vec3",
+   "u_accent": "vec3",
+   "u_accentAmt": "float"
+  },
+  "source": "precision highp float;\n\nuniform vec2 u_res;\nuniform float u_time;\nuniform float u_scale;\nuniform float u_warp;\nuniform vec3 u_c0;\nuniform vec3 u_c1;\nuniform vec3 u_c2;\nuniform vec3 u_c3;\nuniform vec3 u_accent;\nuniform float u_accentAmt;\n\nfloat hash(vec2 p) {\n  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);\n}\n\nfloat noise(vec2 p) {\n  vec2 i = floor(p);\n  vec2 f = fract(p);\n  vec2 u = f * f * (3.0 - 2.0 * f);\n  return mix(\n    mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),\n    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),\n    u.y\n  );\n}\n\nfloat fbm(vec2 p) {\n  float v = 0.0;\n  float a = 0.5;\n  for (int i = 0; i < 4; i++) {\n    v += a * noise(p);\n    p *= 2.03;\n    a *= 0.5;\n  }\n  return v;\n}\n\n// A thin ridge line at every integer of x — the profile of one thread.\nfloat thread(float x, float sharp) {\n  float f = fract(x);\n  float d = min(f, 1.0 - f);\n  return smoothstep(sharp, 0.0, d);\n}\n\nvoid main() {\n  vec2 uv = gl_FragCoord.xy / u_res;\n  float aspect = u_res.x / u_res.y;\n\n  // Domain warp — bend the weave so it reads hand-made, not a CSS grid. The\n  // warp field drifts very slowly; the grid lattice itself stays put.\n  vec2 q = uv + u_warp * vec2(\n    fbm(uv * 3.0 + vec2(u_time * 0.03, 0.0)) - 0.5,\n    fbm(uv * 3.0 + vec2(7.3, -u_time * 0.02)) - 0.5\n  );\n\n  float qx = q.x * u_scale * aspect;\n  float qy = q.y * u_scale;\n\n  float tw = thread(qx, 0.09); // warp (vertical threads)\n  float tf = thread(qy, 0.09); // weft (horizontal threads)\n\n  // Interlace: per cell, one direction sits over the other.\n  float over = mod(floor(qx) + floor(qy), 2.0);\n  float warpB = tw * (over < 0.5 ? 1.0 : 0.5);\n  float weftB = tf * (over < 0.5 ? 0.5 : 1.0);\n  float weave = max(warpB, weftB);\n\n  // Sheen — light travelling across a still cloth (this is the only motion).\n  float sheen = fbm(q * 1.7 + vec2(u_time * 0.05, u_time * 0.028));\n  weave *= 0.3 + 0.95 * sheen;\n\n  // Fabric ground: near-black, faintly breathing between the shadow stops.\n  vec3 base = mix(u_c0, u_c1, smoothstep(0.15, 0.8, sheen));\n  base = mix(base, u_c2, smoothstep(0.62, 1.0, sheen) * 0.5);\n\n  // Threads sit a touch above the ground.\n  vec3 col = mix(base, u_c3, clamp(weave, 0.0, 1.0) * 0.55);\n\n  // The accent runs through the threads — a violet thread across the cloth.\n  float amt = clamp(u_accentAmt, 0.0, 1.0);\n  col = mix(col, u_accent, amt * (0.08 + 0.34 * weave));\n  col += u_accent * amt * 0.015;\n\n  // A whisper of living grain, time-derived so it stays deterministic.\n  col += (hash(gl_FragCoord.xy + floor(u_time * 9.0)) - 0.5) * 0.012;\n\n  gl_FragColor = vec4(col, 1.0);\n}"
+ },
+ "shader-text-reveal": {
+  "stage": "HERO_FIELD",
+  "stages": [
+   "HERO_FIELD",
+   "HERO_HALFTONE",
+   "FRAGMENT"
+  ],
+  "uniforms": {
+   "iResolution": "vec2",
+   "iTime": "float",
+   "uLightMode": "float",
+   "uDarkBackground": "vec3",
+   "uLightBackground": "vec3"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform vec2 iResolution;\nuniform float iTime;\nuniform float uLightMode;\nuniform vec3 uDarkBackground;\nuniform vec3 uLightBackground;\nout vec4 fragColor;\n\nconst float HUE = 0.663466752;\nconst float HUE_SPREAD = 0.314346701;\nconst float HUE_TRAVEL = 1.65112376;\nconst float CHROMA = 0.160295546;\nconst float LIGHTNESS = 0.537409723;\nconst float COLOUR_CYCLE = 0.124862425;\nconst float THETA = 2.12986207;\nconst float SHEAR = 0.968176901;\nconst float SHRINK = 0.955401778;\nconst float LAYERS = 72.0;\nconst float WARP_FREQ_X = 0.439311415;\nconst float WARP_FREQ_Y = 2.87923527;\nconst float WARP_AMP_X = 0.156202048;\nconst float WARP_AMP_Y = 0.0256033838;\nconst float ASPECT_X = 2.23183894;\nconst float ASPECT_Y = 0.15731883;\nconst float OFFSET_X = 0.375628948;\nconst float OFFSET_Y = -0.017801486;\nconst float TILT = 1.63293767;\nconst float ZOOM = 0.93135649;\nconst float CENTRE_X = -0.0956316143;\nconst float CENTRE_Y = -0.520057321;\nconst float GLOW_SIZE = 0.00201825937;\nconst float FALLOFF = 0.352821857;\nconst float VIGNETTE = 0.136085436;\nconst float FLOW_SPEED = 0.391012281;\nconst float FLOW_DIRECTION = 1.0;\nconst float BREATH_RATE = 0.382053256;\nconst float BREATH_AMOUNT = 0.0873704553;\nconst float PHASE = 56.3862724;\nconst float ECHO = 0.0;\nconst float ECHO_SHIFT = 0.178754866;\nconst float SOFTNESS = 0.00164903817;\nconst float LIGHT_SWING = 0.149726808;\n\nconst float TAU = 6.28318530718;\n\nvec3 oklchToLinear(float L, float C, float h) {\n  float a = C * cos(h), b = C * sin(h);\n  float l_ = L + 0.3963377774 * a + 0.2158037573 * b;\n  float m_ = L - 0.1055613458 * a - 0.0638541728 * b;\n  float s_ = L - 0.0894841775 * a - 1.2914855480 * b;\n  vec3 lms = vec3(l_, m_, s_);\n  lms = lms * lms * lms;\n  return mat3(4.0767416621, -1.2684380046, -0.0041960863,\n              -3.3077115913, 2.6097574011, -0.7034186147,\n              0.2309699292, -0.3413193965, 1.7076147010) * lms;\n}\n\nfloat blueNoise(vec2 p, float frame) {\n  p += 5.588238 * mod(frame, 64.0);\n  return fract(52.9829189 * fract(0.06711056 * p.x + 0.00583715 * p.y));\n}\n\nvoid main() {\n  vec2 R = iResolution.xy;\n  vec2 pos = (gl_FragCoord.xy - 0.5 * R) / R.y;\n  float t = iTime * FLOW_SPEED * FLOW_DIRECTION + PHASE;\n  float breath = (-sin(iTime * BREATH_RATE * 1.5) + sin(iTime * BREATH_RATE + 1.0)) * 0.25 + 0.5;\n\n  vec2 u = (pos - vec2(CENTRE_X, CENTRE_Y)) * (ZOOM - breath * BREATH_AMOUNT);\n  float ct = cos(TILT), st = sin(TILT);\n  u = mat2(ct, st, -st, ct) * u;\n\n  mat2 fold = mat2(cos(THETA), sin(THETA), -SHEAR, cos(THETA));\n\n  float hue0 = HUE * TAU;\n  float hue1 = hue0 + HUE_SPREAD * TAU;\n  vec3 color = vec3(0.0);\n\n  for (float i = 1.0; i <= 96.0; i += 1.0) {\n    if (i > LAYERS) break;\n    u.x += -sin(u.y * WARP_FREQ_X + t + i * 0.007) * WARP_AMP_X;\n    u.y += -sin(u.x * WARP_FREQ_Y - t + i * 0.02) * WARP_AMP_Y;\n    u = fold * u * SHRINK;\n\n    vec2 q = u - vec2(OFFSET_X + breath * 0.1, OFFSET_Y);\n    vec2 s = vec2(q.x * ASPECT_X, q.y * ASPECT_Y);\n    float glow = GLOW_SIZE / (dot(s, s) + SOFTNESS);\n#ifndef SKIP_ECHO\n    vec2 e = vec2((q.x - ECHO_SHIFT) * ASPECT_X, s.y);\n    glow += ECHO * GLOW_SIZE / (dot(e, e) + SOFTNESS);\n#endif\n    glow *= 0.25 + breath * 0.4;\n\n    float r = length(u);\n    float k = sin(i * COLOUR_CYCLE + t * 1.2 + r * HUE_TRAVEL) * 0.5 + 0.5;\n    vec3 tint = clamp(oklchToLinear(LIGHTNESS + LIGHT_SWING * k, CHROMA * (0.75 + 0.35 * k), mix(hue0, hue1, k)), 0.0, 1.0);\n    color += glow * tint * exp2(-r * FALLOFF);\n  }\n\n  vec3 x = max(color, 0.0);\n  color = (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14);\n  color = pow(clamp(color, 0.0, 1.0), vec3(0.85, 0.92, 0.98));\n\n  float edge = smoothstep(0.5, 1.6, length(pos));\n  color *= 1.0 - edge * VIGNETTE;\n\n  vec3 dark = uDarkBackground + color * (1.0 - uDarkBackground);\n  float strength = max(color.r, max(color.g, color.b));\n  vec3 light = uLightBackground * (1.0 - strength) + color * 0.96;\n  color = mix(dark, light, uLightMode);\n\n  color += (blueNoise(gl_FragCoord.xy, floor(iTime * 24.0)) - 0.5) / 255.0;\n  fragColor = vec4(clamp(color, 0.0, 1.0), 1.0);\n}"
+ },
+ "sustained-glitch": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_scene": "sampler2D",
+   "u_frame": "float",
+   "u_intensity": "float",
+   "u_frequency": "float",
+   "u_slices": "float",
+   "u_seed": "float"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_scene;\nuniform float u_frame;\nuniform float u_intensity;\nuniform float u_frequency;\nuniform float u_slices;\nuniform float u_seed;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nconst float BLOCK_COLUMNS = 16.0;\n\nfloat hash(vec2 p) {\n  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);\n}\n\nvec4 sampleSplit(vec2 uv, float split) {\n  vec4 center = texture(u_scene, uv);\n  float r = texture(u_scene, fract(vec2(uv.x + split, uv.y))).r;\n  float b = texture(u_scene, fract(vec2(uv.x - split, uv.y))).b;\n  return vec4(r, center.g, b, center.a);\n}\n\nvoid main() {\n  float slotLength = max(30.0 / max(u_frequency, 0.1), 4.0);\n  float slot = floor(u_frame / slotLength);\n  float local = u_frame - slot * slotLength;\n\n  float burstLength = 2.0 + floor(hash(vec2(slot, u_seed + 2.0)) * 4.0);\n  float start =\n    floor(hash(vec2(slot, u_seed + 1.0)) * max(slotLength - burstLength, 1.0));\n  float fires = step(0.25, hash(vec2(slot, u_seed + 3.0)));\n\n  float age = local - start;\n  float live = fires * step(0.0, age) * step(age, burstLength - 1.0);\n  float energy =\n    max(u_intensity, 0.0) * live * (1.0 - age / burstLength);\n\n  if (energy <= 0.0) {\n    outColor = texture(u_scene, v_uv);\n    return;\n  }\n\n  float clock = mod(u_frame, 512.0) + u_seed;\n  float row = floor(v_uv.y * max(u_slices, 2.0));\n  float torn = step(0.45, hash(vec2(row, clock)));\n  float amount = hash(vec2(row + 17.0, clock * 1.7 + 3.0)) - 0.5;\n  float sliceShift = amount * 0.28 * energy * torn;\n\n  vec2 block = vec2(floor(v_uv.x * BLOCK_COLUMNS), row);\n  float corrupt = step(1.0 - 0.45 * min(energy, 1.0), hash(block + clock * 7.3));\n  vec2 jump =\n    vec2(\n      hash(block + clock * 3.1 + 5.0) - 0.5,\n      hash(block + clock * 9.7 + 11.0) - 0.5\n    ) *\n    vec2(0.62, 0.34) *\n    corrupt;\n\n  vec2 uv = fract(v_uv + vec2(sliceShift, 0.0) + jump);\n  float split = 0.02 * energy * (0.35 + abs(amount));\n\n  vec4 color = sampleSplit(uv, split);\n  color.rgb +=\n    vec3(0.05, 0.015, 0.09) *\n    energy *\n    torn *\n    hash(vec2(row, clock + 41.0)) *\n    color.a;\n\n  outColor = vec4(clamp(color.rgb, 0.0, 1.0), color.a);\n}"
+ },
+ "tv-power-off": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_scene": "sampler2D",
+   "u_resolution": "vec2",
+   "u_aspect": "float",
+   "u_progress": "float",
+   "u_gain": "float",
+   "u_afterglow": "float",
+   "u_phosphor": "vec3"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_scene;\nuniform vec2 u_resolution;\nuniform float u_aspect;\nuniform float u_progress;\nuniform float u_gain;\nuniform float u_afterglow;\nuniform vec3 u_phosphor;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nconst int TAPS = 32;\nconst int COLUMN_TAPS = 8;\nconst float GOLDEN = 0.6180339887;\nconst float COLLAPSE_END = 0.6000;\nconst float PINCH_END = 0.8200;\nconst float MIN_SQUASH = 0.00550;\nconst float MIN_PINCH = 0.00400;\nconst float CONCENTRATION = 0.3000;\nconst float DECAY_CURVE = 2.6000;\nconst float BLACKOUT_IN = 0.0600;\n\nvoid main() {\n  float p = u_progress;\n\n  if (p <= 0.0) {\n    outColor = texture(u_scene, v_uv);\n    return;\n  }\n  if (p >= 1.0) {\n    outColor = vec4(0.0, 0.0, 0.0, 1.0);\n    return;\n  }\n\n  float collapse = clamp(p / COLLAPSE_END, 0.0, 1.0);\n  float pinch = clamp((p - COLLAPSE_END) / (PINCH_END - COLLAPSE_END), 0.0, 1.0);\n  float decayed = clamp((p - PINCH_END) / (1.0 - PINCH_END), 0.0, 1.0);\n\n  vec2 scale = vec2(pow(MIN_PINCH, pinch), pow(MIN_SQUASH, collapse));\n  vec2 centered = (v_uv - 0.5) / scale + 0.5;\n  vec2 span = 1.0 / (scale * u_resolution);\n\n  vec3 sum = vec3(0.0);\n  for (int i = 0; i < TAPS; i++) {\n    float fi = float(i);\n    vec2 at = centered + vec2(\n      (fract(fi * GOLDEN + 0.5) - 0.5) * span.x,\n      ((fi + 0.5) / float(TAPS) - 0.5) * span.y\n    );\n    vec2 inside = step(vec2(0.0), at) * step(at, vec2(1.0));\n    sum += texture(u_scene, at).rgb * inside.x * inside.y;\n  }\n\n  float concentrate = pow(1.0 / (scale.x * scale.y), CONCENTRATION);\n  vec3 light =\n    (sum / float(TAPS)) * (1.0 + (concentrate - 1.0) * max(u_gain, 0.0));\n\n  float glow = max(u_afterglow, 0.0);\n  float bleed = smoothstep(0.2, 0.8, collapse) * (1.0 - pinch) * glow;\n\n  if (bleed > 0.0) {\n    vec3 column = vec3(0.0);\n    float cx = clamp(centered.x, 0.0, 1.0);\n    for (int i = 0; i < COLUMN_TAPS; i++) {\n      column +=\n        texture(u_scene, vec2(cx, (float(i) + 0.5) / float(COLUMN_TAPS))).rgb;\n    }\n    column /= float(COLUMN_TAPS);\n\n    float dy = v_uv.y - 0.5;\n    float reach = 0.02 + 0.03 * collapse;\n    light +=\n      column *\n      mix(vec3(1.0), u_phosphor, 0.65) *\n      exp(-(dy * dy) / (reach * reach)) *\n      bleed *\n      0.9;\n  }\n\n  if (pinch > 0.0) {\n    vec2 d = (v_uv - 0.5) * vec2(u_aspect, 1.0);\n    float radius = max(0.045 * glow, 0.0005);\n    light +=\n      u_phosphor *\n      exp(-dot(d, d) / (radius * radius)) *\n      smoothstep(0.0, 0.5, pinch) *\n      1.15;\n  }\n\n  light *= pow(max(1.0 - decayed, 0.0001), DECAY_CURVE);\n\n  float blackout = smoothstep(0.0, BLACKOUT_IN, p);\n  outColor = vec4(\n    clamp(light, 0.0, 1.0),\n    mix(texture(u_scene, v_uv).a, 1.0, blackout)\n  );\n}"
+ },
+ "underwater-ripple": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_scene": "sampler2D",
+   "u_aspect": "float",
+   "u_phase": "float",
+   "u_amplitude": "float",
+   "u_scale": "float",
+   "u_dispersion": "float"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_scene;\nuniform float u_aspect;\nuniform float u_phase;\nuniform float u_amplitude;\nuniform float u_scale;\nuniform float u_dispersion;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nvec2 fieldGradient(vec2 p, float phase) {\n  float scale = max(u_scale, 0.05);\n  vec2 k1 = vec2(1.0, 0.35);\n  vec2 k2 = vec2(-0.42, 1.0);\n  vec2 k3 = vec2(0.78, -0.63);\n  float f1 = 6.1 * scale;\n  float f2 = 8.7 * scale;\n  float f3 = 12.3 * scale;\n\n  vec2 g = vec2(0.0);\n  g += cos(dot(p, k1) * f1 + phase) * f1 * k1;\n  g += cos(dot(p, k2) * f2 - phase * 2.0) * f2 * k2;\n  g += cos(dot(p, k3) * f3 + phase * 3.0) * f3 * k3;\n\n  return g / (3.0 * f2);\n}\n\nvoid main() {\n  vec2 p = vec2(v_uv.x * u_aspect, v_uv.y);\n  vec2 grad = fieldGradient(p, u_phase);\n\n  vec2 offset = grad * u_amplitude;\n  float strength = length(grad);\n  vec2 direction = strength > 0.0001 ? grad / strength : vec2(0.0);\n  float spread = u_dispersion * u_amplitude * 0.3 * min(strength, 2.0);\n\n  vec2 base = v_uv + vec2(offset.x / u_aspect, offset.y);\n  vec2 lead = vec2(direction.x / u_aspect, direction.y) * spread;\n\n  vec4 center = texture(u_scene, base);\n  float r = texture(u_scene, base + lead).r;\n  float b = texture(u_scene, base - lead).b;\n\n  outColor = vec4(r, center.g, b, center.a);\n}"
+ },
+ "vhs-filter": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "u_scene": "sampler2D",
+   "u_frame": "float",
+   "u_time": "float",
+   "u_bleed": "float",
+   "u_wobble": "float",
+   "u_noise": "float",
+   "u_intensity": "float"
+  },
+  "source": "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_scene;\nuniform float u_frame;\nuniform float u_time;\nuniform float u_bleed;\nuniform float u_wobble;\nuniform float u_noise;\nuniform float u_intensity;\n\nin vec2 v_uv;\nout vec4 outColor;\n\nconst float PI = 3.141592653589793;\nconst float LINES = 486.0;\nconst int TAPS = 6;\n\nfloat hash(vec2 p) {\n  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);\n}\n\nfloat valueNoise(float x) {\n  float i = floor(x);\n  float f = fract(x);\n  float a = hash(vec2(i, 7.0));\n  float b = hash(vec2(i + 1.0, 7.0));\n  return mix(a, b, f * f * (3.0 - 2.0 * f));\n}\n\nvec3 rgb2yiq(vec3 c) {\n  return vec3(\n    dot(c, vec3(0.299, 0.587, 0.114)),\n    dot(c, vec3(0.5959, -0.2746, -0.3213)),\n    dot(c, vec3(0.2115, -0.5227, 0.3112))\n  );\n}\n\nvec3 yiq2rgb(vec3 c) {\n  return vec3(\n    c.x + 0.956 * c.y + 0.619 * c.z,\n    c.x - 0.272 * c.y - 0.647 * c.z,\n    c.x - 1.106 * c.y + 1.703 * c.z\n  );\n}\n\nvoid main() {\n  float line = floor(v_uv.y * LINES);\n  float clock = mod(u_frame, 64.0);\n\n  float drift =\n    sin(v_uv.y * 37.0 + u_time * 2.3) * 0.55 +\n    sin(v_uv.y * 96.0 - u_time * 1.1) * 0.25;\n  float jitter = valueNoise(line * 0.61 + u_time * 24.0) - 0.5;\n  float wobble = (drift * 0.35 + jitter * 0.9) * 0.007 * u_wobble * u_intensity;\n\n  float band = smoothstep(0.955, 0.994, v_uv.y);\n  float tear = valueNoise(line * 2.7 + u_time * 43.0) - 0.5;\n  float headSwitch = band * tear * 0.085 * u_intensity;\n\n  vec2 uv = vec2(v_uv.x + wobble + headSwitch, v_uv.y);\n  vec4 base = texture(u_scene, uv);\n  float luma = rgb2yiq(base.rgb).x;\n\n  float smear = u_bleed * 0.02 * u_intensity;\n  vec2 chroma = vec2(0.0);\n  float total = 0.0;\n  for (int i = 0; i < TAPS; i++) {\n    float t = float(i) / float(TAPS - 1);\n    float weight = 1.0 - t * 0.72;\n    vec3 tap = texture(u_scene, vec2(uv.x - smear * t, uv.y)).rgb;\n    chroma += rgb2yiq(tap).yz * weight;\n    total += weight;\n  }\n\n  vec3 color = yiq2rgb(vec3(luma, chroma / total));\n\n  float scan = 0.94 + 0.06 * cos(v_uv.y * LINES * PI);\n  color *= mix(1.0, scan, u_intensity);\n\n  float grain =\n    hash(vec2(v_uv.x * 640.0 + clock * 13.0, line + clock * 5.0)) - 0.5;\n  color += grain * 0.07 * u_noise * u_intensity;\n\n  color = mix(color, vec3(luma), band * 0.55 * u_intensity);\n  color += band * (hash(vec2(line, clock * 3.0)) - 0.5) * 0.26 * u_intensity;\n\n  outColor = vec4(clamp(color, 0.0, 1.0), base.a);\n}"
+ },
+ "rush-type": {
+  "stage": "FRAGMENT_SHADER",
+  "stages": [
+   "FRAGMENT_SHADER"
+  ],
+  "uniforms": {
+   "uText": "sampler2D",
+   "uRes": "vec2",
+   "uHalfPx": "vec2",
+   "uAtlasRows": "float",
+   "uSx": "float",
+   "uSyQ": "vec3",
+   "uCenterY": "float",
+   "uSwapU": "float",
+   "uHalfA": "float",
+   "uHalfB": "float",
+   "uK": "vec3",
+   "uSwapScl": "vec2",
+   "uShape": "float",
+   "uRoll": "float",
+   "uLag": "float",
+   "uThin": "float",
+   "uBloom": "float",
+   "uGain": "float",
+   "uExp": "float",
+   "uFocal": "float",
+   "uPos": "vec3",
+   "uRot": "vec4",
+   "uCrt": "float",
+   "uTime": "float",
+   "uGlow": "vec4",
+   "uGlowAmp": "float",
+   "uColor": "vec3",
+   "uBg": "vec3"
+  },
+  "source": "precision highp float;\nvarying vec2 vUv;\n\nuniform sampler2D uText;\nuniform vec2 uRes;\nuniform vec2 uHalfPx;\nuniform float uAtlasRows;\nuniform float uSx;\nuniform vec3 uSyQ;\nuniform float uCenterY;\nuniform float uSwapU;\nuniform float uHalfA;\nuniform float uHalfB;\nuniform vec3 uK;\nuniform vec2 uSwapScl;\nuniform float uShape;\nuniform float uRoll;\nuniform float uLag;\nuniform float uThin;\nuniform float uBloom;\nuniform float uGain;\nuniform float uExp;\nuniform float uFocal;\nuniform vec3 uPos;\nuniform vec4 uRot;\nuniform float uCrt;\nuniform float uTime;\nuniform vec4 uGlow;\nuniform float uGlowAmp;\nuniform vec3 uColor;\nuniform vec3 uBg;\n\n#define SAMPLES 28\n#define BLOOM_TAPS 4\n#define BLOOM_SPREAD 3.200\n#define BLOOM_BIAS 3.500\n#define TAU 6.2831853\n#define CRT_PITCH 5.000\n#define CRT_MASK 0.1600\n#define CRT_SCAN_PITCH 3.000\n#define CRT_SCAN 0.1200\n#define CRT_BEAM 0.7000\n#define CRT_HUM 0.0350\n#define CRT_HUM_SPEED 0.1400\n\nvec2 atlasUv(float sy, float halfIdx, vec2 wordPoint, out float inside) {\n  float sx = max(uSx, 1e-4);\n  float sv = max(abs(sy), 1e-4);\n  vec2 q = vec2(\n    (wordPoint.x / sx + uHalfPx.x * 0.5) / uHalfPx.x,\n    (wordPoint.y / sv + uHalfPx.y * 0.5) / uHalfPx.y\n  );\n  inside = step(0.0, q.x) * step(q.x, 1.0) * step(0.0, q.y) * step(q.y, 1.0);\n  return vec2(\n    clamp(q.x, 0.0, 1.0),\n    (clamp(q.y, 0.0, 1.0) + halfIdx) / uAtlasRows\n  );\n}\n\nfloat tap(float sy, float halfIdx, vec2 wordPoint, float front) {\n  float inside;\n  vec2 texturePoint = atlasUv(sy, halfIdx, wordPoint, inside);\n  float value = texture2D(uText, texturePoint).r * inside * front;\n  return value * mix(1.0, value, uThin);\n}\n\nfloat tapBlur(float sy, float halfIdx, vec2 wordPoint, float front) {\n  float inside;\n  vec2 texturePoint = atlasUv(sy, halfIdx, wordPoint, inside);\n  return texture2D(uText, texturePoint, BLOOM_BIAS).r * inside * front;\n}\n\nvoid main() {\n  vec2 pixel = vUv * uRes;\n  vec2 center = vec2(uRes.x * 0.5, uRes.y * uCenterY);\n  vec2 screenPoint = pixel - center;\n\n  float sinYaw = uRot.x;\n  float cosYaw = uRot.y;\n  float sinPitch = uRot.z;\n  float cosPitch = uRot.w;\n  float a1 = -(screenPoint.x * sinYaw + uFocal * cosYaw);\n  float b1 = sinPitch * (screenPoint.x * cosYaw - uFocal * sinYaw);\n  float c1 = uFocal * uPos.x - screenPoint.x * uPos.z;\n  float a2 = -screenPoint.y * sinYaw;\n  float b2 = screenPoint.y * sinPitch * cosYaw - uFocal * cosPitch;\n  float c2 = uFocal * uPos.y - screenPoint.y * uPos.z;\n  float determinant = a1 * b2 - a2 * b1;\n  float inverse = 1.0 / (abs(determinant) < 1e-4 ? 1e-4 : determinant);\n  float a = (c1 * b2 - c2 * b1) * inverse;\n  float b = (a1 * c2 - a2 * c1) * inverse;\n  float cameraZ = uPos.z - a * sinYaw + b * sinPitch * cosYaw;\n  vec2 wordPoint = vec2(a, b);\n  float front = step(uFocal * 0.05, cameraZ);\n  vec3 accumulated = vec3(0.0);\n\n  if (abs(uSyQ.y) + abs(uSyQ.z) < 1e-5) {\n    accumulated = vec3(tap(uSyQ.x, uHalfA, wordPoint, front));\n  } else {\n    float offset =\n      uLag * (wordPoint.x / uRes.x) - uRoll * (screenPoint.y / uRes.y);\n    float weightSum = 0.0;\n\n    for (int i = 0; i < SAMPLES; i++) {\n      float u = float(i) / float(SAMPLES - 1) - 0.5;\n      float weight = 1.0 - uShape * abs(u) * 2.0;\n      weightSum += weight;\n      float shiftedU = u + offset;\n      vec3 shutterU = shiftedU * uK;\n      vec3 sy = uSyQ.x + uSyQ.y * shutterU + uSyQ.z * shutterU * shutterU;\n      accumulated.r += weight * tap(\n        sy.r * (shutterU.r < uSwapU ? uSwapScl.x : uSwapScl.y),\n        shutterU.r < uSwapU ? uHalfA : uHalfB,\n        wordPoint,\n        front\n      );\n      accumulated.g += weight * tap(\n        sy.g * (shutterU.g < uSwapU ? uSwapScl.x : uSwapScl.y),\n        shutterU.g < uSwapU ? uHalfA : uHalfB,\n        wordPoint,\n        front\n      );\n      accumulated.b += weight * tap(\n        sy.b * (shutterU.b < uSwapU ? uSwapScl.x : uSwapScl.y),\n        shutterU.b < uSwapU ? uHalfA : uHalfB,\n        wordPoint,\n        front\n      );\n    }\n\n    accumulated /= max(weightSum, 1e-4);\n\n    vec3 halo = vec3(0.0);\n    for (int j = 0; j < BLOOM_TAPS; j++) {\n      float u =\n        (float(j) / float(BLOOM_TAPS - 1) - 0.5) * BLOOM_SPREAD + offset;\n      vec3 shutterU = u * uK;\n      vec3 sy = uSyQ.x + uSyQ.y * shutterU + uSyQ.z * shutterU * shutterU;\n      halo.r += tapBlur(\n        sy.r * (shutterU.r < uSwapU ? uSwapScl.x : uSwapScl.y),\n        shutterU.r < uSwapU ? uHalfA : uHalfB,\n        wordPoint,\n        front\n      );\n      halo.g += tapBlur(\n        sy.g * (shutterU.g < uSwapU ? uSwapScl.x : uSwapScl.y),\n        shutterU.g < uSwapU ? uHalfA : uHalfB,\n        wordPoint,\n        front\n      );\n      halo.b += tapBlur(\n        sy.b * (shutterU.b < uSwapU ? uSwapScl.x : uSwapScl.y),\n        shutterU.b < uSwapU ? uHalfA : uHalfB,\n        wordPoint,\n        front\n      );\n    }\n    accumulated += halo * (uBloom / float(BLOOM_TAPS));\n    accumulated *= uGain;\n  }\n\n  accumulated =\n    (1.0 - exp(-accumulated * uExp)) / (1.0 - exp(-uExp));\n\n  vec2 glowDistance =\n    (pixel - uGlow.xy) / max(uGlow.zw, vec2(1.0));\n  float ground =\n    uGlowAmp * (1.0 - smoothstep(0.0, 1.0, length(glowDistance)));\n  accumulated += ground * (1.0 - accumulated);\n\n  if (uCrt > 0.0) {\n    float luminance = max(max(accumulated.r, accumulated.g), accumulated.b);\n    vec3 maskWave = 0.5 + 0.5 * cos(\n      TAU * (pixel.x / CRT_PITCH - vec3(0.0, 0.33333, 0.66667))\n    );\n    vec3 mask = mix(vec3(1.0), maskWave * 2.0, CRT_MASK * uCrt);\n    float scanWave = 0.5 + 0.5 * cos(TAU * pixel.y / CRT_SCAN_PITCH);\n    float scan =\n      1.0 - CRT_SCAN * uCrt * (1.0 - CRT_BEAM * luminance) * (1.0 - scanWave);\n    float bar = 0.5 + 0.5 * cos(\n      TAU * (pixel.y / uRes.y - uTime * CRT_HUM_SPEED)\n    );\n    float hum = 1.0 + CRT_HUM * uCrt * (bar * 2.0 - 1.0);\n    accumulated *= mask * scan * hum;\n  }\n\n  gl_FragColor = vec4(uBg + (uColor - uBg) * accumulated, 1.0);\n}"
+ }
+}

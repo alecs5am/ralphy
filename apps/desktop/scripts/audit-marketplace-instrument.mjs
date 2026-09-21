@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isVerifiedMediaSource } from "./instrument-media-sources.mjs";
+import { isExportedComposition, isVerifiedMediaSource } from "./instrument-media-sources.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const legacyTokens = /var\(--(?:canvas|sunken|panel|panel-solid|raised|hover|selected|pressed|fg(?:-[234])?|accent(?:-soft|-fill|-line)?|ok|warn|line(?:-strong)?|field-[a-z-]+)\)/g;
@@ -27,7 +27,7 @@ export async function auditMarketplaceInstrument(base = root) {
     const file = relative(base, absolute);
     const source = await readFile(absolute, "utf8");
     if (file.includes("studio-catalog-remocn-")) continue;
-    if (!isVerifiedMediaSource(file, source)) {
+    if (!isVerifiedMediaSource(file, source) && !isExportedComposition(file)) {
       violations.push(...matches(source, colorLiteral, "raw-color", file));
       violations.push(...matches(source, bannedEffects, "depth-effect", file));
     }

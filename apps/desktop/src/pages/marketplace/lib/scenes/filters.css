@@ -1,0 +1,136 @@
+/* Remocn scenes for the filters shard.
+ *
+ * Every block here is the upstream component's own no-WebGL fallback, drawn over a CSS plate that
+ * stands in for the footage the shader would sample. The real GLSL still runs in `.rv-gl`; these
+ * rules are what a viewer sees whenever it cannot. */
+
+/* @scene vhs-filter */
+.rv-c-vhs-filter .rv-stage { background: var(--p-bg); }
+.rv-c-vhs-filter .rv-gl-fallback {
+  position: absolute; inset: 0;
+  --vhs-w: calc(var(--wobble) * var(--intensity));
+  --vhs-n: calc(var(--noise) * var(--intensity));
+}
+.rv-c-vhs-filter .rv-vhs-a, .rv-c-vhs-filter .rv-vhs-b, .rv-c-vhs-filter .rv-vhs-scan { position: absolute; inset: 0; }
+.rv-c-vhs-filter .rv-vhs-a {
+  filter: saturate(calc(1 + var(--bleed) * 0.3)) contrast(1.04) brightness(var(--vhs-f, 1)) blur(calc(0.3em * var(--intensity)));
+  animation: vhs-filter-shift var(--rv-run) step-end infinite both, vhs-filter-flicker var(--rv-run) step-end infinite both;
+  animation-delay: var(--rv-seek), var(--rv-seek);
+}
+.rv-c-vhs-filter .rv-vhs-b {
+  left: calc(-1 * (3em + var(--bleed) * 5em)); right: auto; width: 100%;
+  filter: saturate(2.2) blur(1.4em);
+  mix-blend-mode: screen; opacity: calc(0.24 * var(--bleed) * var(--intensity));
+  animation: vhs-filter-shift var(--rv-run) step-end infinite both; animation-delay: var(--rv-seek);
+}
+.rv-c-vhs-filter .rv-plate-tape {
+  position: absolute; inset: 0; padding-top: 168em;
+  background:
+    radial-gradient(23% 34% at 63% 44%, var(--p-sun), transparent 72%),
+    linear-gradient(to bottom, var(--p-sky) 0 30%, var(--p-accent) 52%, var(--p-bg) 52.5%);
+}
+.rv-c-vhs-filter .rv-plate-tape i {
+  display: block; height: 1.6em; margin-bottom: 22em;
+  background: linear-gradient(to right, transparent, var(--p-accent), transparent);
+}
+.rv-c-vhs-filter .rv-vhs-label {
+  position: absolute; left: 7%; top: 43%;
+  color: var(--p-text); font-size: calc(var(--rv-u) * 40); letter-spacing: -0.02em; text-shadow: 0 calc(var(--rv-u) * 2) calc(var(--rv-u) * 6) var(--p-shade);
+}
+.rv-c-vhs-filter .rv-vhs-scan {
+  --vhs-line: color-mix(in srgb, var(--p-shade) 22%, transparent);
+  background: repeating-linear-gradient(to bottom, var(--vhs-line) 0 1em, transparent 1em 3em);
+  opacity: var(--intensity);
+}
+.rv-c-vhs-filter .rv-vhs-band {
+  position: absolute; inset-inline: 0; bottom: 0; height: 3.6%;
+  --vhs-w: calc(var(--wobble) * var(--intensity) * 3);
+  background: color-mix(in srgb, var(--p-band) 13%, transparent);
+  mix-blend-mode: screen; opacity: var(--intensity);
+  animation: vhs-filter-shift var(--rv-run) step-end infinite both; animation-delay: var(--rv-seek);
+}
+@keyframes vhs-filter-shift {
+  0% { translate: calc(var(--vhs-w) * 0.74em); } 6.25% { translate: calc(var(--vhs-w) * -1.21em); } 12.5% { translate: calc(var(--vhs-w) * 1.58em); } 18.75% { translate: calc(var(--vhs-w) * -0.36em); }
+  25% { translate: calc(var(--vhs-w) * 0.95em); } 31.25% { translate: calc(var(--vhs-w) * -1.63em); } 37.5% { translate: calc(var(--vhs-w) * 0.28em); } 43.75% { translate: calc(var(--vhs-w) * 1.12em); }
+  50% { translate: calc(var(--vhs-w) * -0.81em); } 56.25% { translate: calc(var(--vhs-w) * 1.44em); } 62.5% { translate: calc(var(--vhs-w) * -0.19em); } 68.75% { translate: calc(var(--vhs-w) * -1.35em); }
+  75% { translate: calc(var(--vhs-w) * 0.61em); } 81.25% { translate: calc(var(--vhs-w) * 1.27em); } 87.5% { translate: calc(var(--vhs-w) * -0.97em); } 93.75% { translate: calc(var(--vhs-w) * 0.05em); }
+}
+@keyframes vhs-filter-flicker {
+  0% { --vhs-f: calc(1 + 0.021 * var(--vhs-n)); } 12.5% { --vhs-f: calc(1 - 0.031 * var(--vhs-n)); } 25% { --vhs-f: calc(1 + 0.033 * var(--vhs-n)); } 37.5% { --vhs-f: calc(1 - 0.012 * var(--vhs-n)); }
+  50% { --vhs-f: calc(1 + 0.007 * var(--vhs-n)); } 62.5% { --vhs-f: calc(1 - 0.028 * var(--vhs-n)); } 75% { --vhs-f: calc(1 + 0.029 * var(--vhs-n)); } 87.5% { --vhs-f: calc(1 - 0.018 * var(--vhs-n)); }
+}
+/* @end */
+
+/* @scene crt-screen */
+.rv-c-crt-screen .rv-stage { background: var(--p-bg); }
+.rv-c-crt-screen .rv-gl-fallback { position: absolute; inset: 0; }
+.rv-c-crt-screen .rv-crt-scan, .rv-c-crt-screen .rv-crt-triad, .rv-c-crt-screen .rv-crt-vignette { position: absolute; inset: 0; }
+.rv-c-crt-screen .rv-crt-tube {
+  position: absolute; inset: 0; overflow: hidden;
+  border-radius: calc(var(--curvature) * 4%) / calc(var(--curvature) * 6%);
+  transform: scale(0.957);
+  filter: saturate(1.1) contrast(1.06);
+  animation: crt-screen-hum var(--rv-run) linear infinite both; animation-delay: var(--rv-seek);
+}
+.rv-c-crt-screen .rv-plate-card {
+  position: absolute; inset: 0; padding-top: 176em;
+  background:
+    radial-gradient(48% 52% at 50% 36%, color-mix(in srgb, var(--p-text) 30%, transparent), transparent 76%),
+    linear-gradient(to bottom, transparent 0 62%, var(--p-shade) 62%),
+    linear-gradient(to right, var(--p-phosphorR) 0 14.3%, var(--p-phosphorG) 14.3% 28.6%, var(--p-phosphorB) 28.6% 42.9%, var(--p-text) 42.9% 57.1%, var(--p-accent) 57.1% 71.4%, var(--p-phosphorB) 71.4% 85.7%, var(--p-phosphorR) 85.7%);
+}
+.rv-c-crt-screen .rv-plate-card i {
+  display: block; width: 54%; height: 11em; margin: 0 auto 5em;
+  background: linear-gradient(to right, var(--p-shade), var(--p-text));
+}
+.rv-c-crt-screen .rv-crt-title {
+  position: absolute; inset-inline: 0; top: 24%; text-align: center;
+  color: var(--p-text); font-size: calc(var(--rv-u) * 46); letter-spacing: -0.03em; text-shadow: 0 0 calc(var(--rv-u) * 10) var(--p-shade);
+  padding: calc(var(--rv-u) * 6) 0; background: color-mix(in srgb, var(--p-shade) 62%, transparent);
+}
+.rv-c-crt-screen .rv-crt-scan {
+  --crt-line: color-mix(in srgb, var(--p-shade) 34%, transparent);
+  background: repeating-linear-gradient(to bottom, var(--crt-line) 0 1.5em, transparent 1.5em 3em);
+  opacity: min(1, var(--scanlines));
+}
+/* phosphorMask() lights one channel per stripe and holds the other two at 0.34. Multiplying by a
+ * pure primary at alpha a leaves the unlit channels at 1 - a, so a is 0.66 exactly -- not 0.34. */
+.rv-c-crt-screen .rv-crt-triad {
+  --crt-w: calc(var(--mask-scale) * 1em);
+  background: repeating-linear-gradient(to right, var(--p-phosphorR) 0 var(--crt-w), var(--p-phosphorG) var(--crt-w) calc(var(--crt-w) * 2), var(--p-phosphorB) calc(var(--crt-w) * 2) calc(var(--crt-w) * 3));
+  mix-blend-mode: multiply; opacity: 0.66;
+}
+.rv-c-crt-screen .rv-crt-vignette {
+  background: radial-gradient(ellipse 82% 78% at 50% 50%, transparent 45%, color-mix(in srgb, var(--p-shade) 72%, transparent));
+  opacity: min(1, var(--vignette));
+}
+/* The shader's only time term, `color *= 1 + 0.012 * sin(u_frame * PI / 30)`: one 60-frame mains
+ * hum over the whole tube. The base filter is restated so the shorthand does not drop it. */
+@keyframes crt-screen-hum {
+  0%, 50%, 100% { filter: saturate(1.1) contrast(1.06) brightness(1); }
+  25% { filter: saturate(1.1) contrast(1.06) brightness(1.012); }
+  75% { filter: saturate(1.1) contrast(1.06) brightness(0.988); }
+}
+/* @end */
+
+/* @scene ascii-render */
+.rv-c-ascii-render .rv-stage { background: var(--p-bg); }
+.rv-c-ascii-render .rv-gl-fallback { position: absolute; inset: 0; }
+.rv-c-ascii-render .rv-plate-field {
+  position: absolute; inset: 0; padding-top: 36.4em; opacity: calc(1 - var(--intensity));
+  background: radial-gradient(34.9% 62% at 44% 44%, color-mix(in srgb, var(--p-glow) 88%, transparent) 0 8%, transparent 100%);
+}
+.rv-c-ascii-render .rv-plate-field i {
+  display: block; height: 46em; margin-bottom: 24em;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--p-glow) 26%, transparent), transparent);
+}
+.rv-c-ascii-render .rv-ascii {
+  position: absolute; inset: 0; display: grid;
+  color: var(--p-text); opacity: var(--intensity);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+.rv-c-ascii-render .rv-cell {
+  display: grid; place-items: center;
+  font-size: calc(var(--rv-u) * 19.5); line-height: 1;
+}
+/* @end */

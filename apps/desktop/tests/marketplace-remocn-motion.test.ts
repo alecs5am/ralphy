@@ -13,14 +13,16 @@ const expectedGroups = {
   ai: 5,
   craft: 4,
   templates: 5,
-  guides: 14,
 };
 const upstreamCommit = "3903a46b3438da48c8c63083f0d1222ab814dde2";
 
 test("bundles every eligible Remocn motion reference with copied source and a local preview", () => {
   const entries = studioRemocnMotion();
 
-  expect(entries).toHaveLength(104);
+  // The upstream `guides` group is documentation prose, not components, so it is not a Visuals entry.
+  expect(entries.some((entry) => entry.tags.includes("guides"))).toBe(false);
+
+  expect(entries).toHaveLength(90);
   expect(new Set(entries.map((entry) => entry.id)).size).toBe(entries.length);
   expect(new Set(entries.map((entry) => entry.preview.url)).size).toBe(entries.length);
   expect(readFileSync(resolve("public/explore/remocn/motion/LICENSE"), "utf8")).toContain("MIT License");

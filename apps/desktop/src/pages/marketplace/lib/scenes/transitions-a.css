@@ -1,0 +1,78 @@
+/* shard: transitions-a */
+
+/* @scene ascii-dissolve */
+/* The outgoing plate fades (p 0.14 -> 0.30) and blurs (p 0.14 -> 0.36) while a monospace density
+   field rises over it; the field holds opaque long enough to be read as text, then drops back down
+   the ramp as the incoming plate resolves out of blur (p 0.62 -> 0.80 / 0.85 / 1.00). Percentages
+   are p * 1.2 / 2.1 * 100. The per-cell glyph ramp itself is painted by canvas/ascii-field.ts. */
+.rv-c-ascii-dissolve .rv-out, .rv-c-ascii-dissolve .rv-in { position: absolute; inset: 0; }
+.rv-c-ascii-dissolve .rv-plate { position: absolute; inset: 0; }
+.rv-c-ascii-dissolve .rv-plate-poster { background: linear-gradient(148deg, var(--p-plateA), var(--p-plateB)); }
+.rv-c-ascii-dissolve .rv-plate-poster i {
+  position: absolute; border: 3em solid var(--p-line); border-radius: 999em; opacity: 0.5;
+  top: calc(26em + var(--i) * 22em); left: calc(50% + var(--i) * 8em);
+  width: calc(168em - var(--i) * 44em); height: calc(168em - var(--i) * 44em);
+}
+.rv-c-ascii-dissolve .rv-plate-ledger { background: var(--p-plateB); }
+.rv-c-ascii-dissolve .rv-plate-ledger i {
+  position: absolute; left: 11%; height: 7em; background: var(--p-plateA);
+  top: calc(27% + var(--i) * 13%); width: calc(60% - var(--i) * 11%);
+}
+.rv-c-ascii-dissolve .rv-out {
+  animation: ascii-dissolve-out var(--rv-run) linear infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-ascii-dissolve .rv-in {
+  animation: ascii-dissolve-in var(--rv-run) linear infinite both;
+  animation-delay: var(--rv-seek);
+}
+@keyframes ascii-dissolve-out {
+  0%, 8% { opacity: 1; filter: blur(0em); }
+  17.14% { opacity: 0; filter: blur(5.82em); }
+  20.57%, 100% { opacity: 0; filter: blur(8em); }
+}
+@keyframes ascii-dissolve-in {
+  0%, 35.43% { opacity: 0; scale: 1.04; filter: blur(10em); }
+  45.71% { opacity: 1; scale: 1.006; filter: blur(2.17em); }
+  48.57% { opacity: 1; scale: 1.002; filter: blur(0em); }
+  57.14%, 100% { opacity: 1; scale: 1; filter: blur(0em); }
+}
+/* @end */
+
+/* @scene page-turn */
+/* The page holds perfectly still for the first half, then snaps through seven poses in the last
+   44%: pose = floor(p^3 * 8) / 7, lifted pose * 270 * 1.28 stage px and rotated angle * pose. The
+   stop boundaries are p = (k/8)^(1/3), scaled by 1.2 / 2.4 * 100. step-end is what keeps it
+   stop-motion; smoothing it would throw away the whole character of the effect. */
+@property --pt-pose { syntax: "<number>"; inherits: false; initial-value: 0; }
+.rv-c-page-turn .rv-under, .rv-c-page-turn .rv-page { position: absolute; inset: 0; }
+.rv-c-page-turn .rv-plate { position: absolute; inset: 0; }
+.rv-c-page-turn .rv-page {
+  --pt-lift: 345.6em;
+  z-index: 2;
+  translate: 0 calc(-1 * var(--pt-lift) * var(--pt-pose) / (var(--pt-poses) - 1));
+  rotate: calc(var(--pt-angle) * var(--pt-pose) / (var(--pt-poses) - 1));
+  animation: page-turn-flick var(--rv-run) step-end infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-page-turn .rv-plate-sheet { background: var(--p-paper); box-shadow: 0 6em 18em var(--p-shade); }
+.rv-c-page-turn .rv-plate-sheet i {
+  position: absolute; left: 14%; height: 6em; background: var(--p-rule);
+  top: calc(23% + var(--i) * 12%); width: calc(66% - var(--i) * 9%);
+}
+.rv-c-page-turn .rv-plate-leaf { background: var(--p-leaf); }
+.rv-c-page-turn .rv-plate-leaf i {
+  position: absolute; left: 14%; height: 11em; background: var(--p-accent); border-radius: 6em;
+  bottom: calc(16% + var(--i) * 15%); width: calc(24% + var(--i) * 19%);
+}
+@keyframes page-turn-flick {
+  0% { --pt-pose: 0; }
+  25% { --pt-pose: 1; }
+  31.5% { --pt-pose: 2; }
+  36.06% { --pt-pose: 3; }
+  39.69% { --pt-pose: 4; }
+  42.75% { --pt-pose: 5; }
+  45.43% { --pt-pose: 6; }
+  47.82%, 100% { --pt-pose: 7; }
+}
+/* @end */

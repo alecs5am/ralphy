@@ -9,7 +9,9 @@
   "license": "Apache-2.0",
   "private": true,
   "packageManager": "bun@1.4.2",
-  "engines": { "bun": ">=1.4.2" },
+  "engines": {
+    "bun": ">=1.4.2"
+  },
   "bin": {
     "ralphy": "./cli/index.ts"
   },
@@ -69,7 +71,7 @@
     "install:desktop": "bun install --cwd apps/desktop --frozen-lockfile",
     "build:desktop": "bun run --cwd apps/desktop build",
     "test:desktop": "bun run --cwd apps/desktop test",
-    "check:desktop": "bun run --cwd apps/desktop typecheck && bun run test:desktop && bun run build:desktop && bun run --cwd apps/desktop audit:arch && bun run --cwd apps/desktop audit:style",
+    "check:desktop": "bun run --cwd apps/desktop typecheck && bun run test:desktop && bun run build:desktop && bun run --cwd apps/desktop audit:arch && bun run --cwd apps/desktop audit:style && bun run --cwd apps/desktop lint:remocn-scenes",
     "package:mac": "bun run --cwd apps/desktop package:mac"
   }
 }

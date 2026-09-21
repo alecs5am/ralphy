@@ -14,3 +14,17 @@ export function isVerifiedMediaSource(path, source) {
   const expected = INSTRUMENT_MEDIA_SOURCE_SHA256[path.replaceAll("\\", "/")];
   return Boolean(expected && createHash("sha256").update(source).digest("hex") === expected);
 }
+
+// Ported Remocn scenes are exported compositions too, but there are 208 of them and they are
+// authored and revised independently, so pinning each one's bytes would be a lockfile nobody could
+// keep current. They are recognised by path instead. A faithful port has to carry its upstream's own
+// colours, shadows and gradients; what keeps that honest is scripts/lint-remocn-scenes.ts, which
+// holds scene CSS to var(--p-*) colours, one shared clock, and selectors scoped to a single scene.
+// The runtime mechanism beneath them is app code and stays inside every UI paint guard.
+const SCENE_ROOT = "src/pages/marketplace/lib/scenes/";
+const SCENE_MECHANISM = new Set(["types.ts", "shared.ts", "shared.css", "index.ts"].map((name) => `${SCENE_ROOT}${name}`));
+
+export function isExportedComposition(path) {
+  const normalized = path.replaceAll("\\", "/");
+  return normalized.startsWith(SCENE_ROOT) && !SCENE_MECHANISM.has(normalized);
+}

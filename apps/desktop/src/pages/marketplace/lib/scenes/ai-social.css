@@ -1,0 +1,228 @@
+/* shard: ai-social */
+
+/* @scene claude-code */
+/* A terminal window on a 1280x720 stage, all six literals (90/40/1100/620/40) upstream's. One run
+   is 5.5s: the window springs in ({14,110,0.7}, and note its opacity starts at 0.97 rather than 0 --
+   upstream sets opacity to the scale value, reproduced here rather than "fixed"), then the welcome
+   box, the right column and the prompt fade up on f6-22 / f12-30 / f18-36, then 43 characters type
+   at 18 cps from f48, then the block caret starts its 15-on / 15-off square wave. */
+.rv-c-claude-code .rv-win { position: absolute; left: 90em; top: 40em; width: 1100em; height: 620em; display: flex; flex-direction: column; overflow: hidden; border-radius: 12em; background: var(--p-body); box-shadow: 0 24em 60em -20em var(--p-shadow); transform-origin: center top; animation: claude-code-win var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-claude-code .rv-bar { height: 40em; flex-shrink: 0; display: flex; align-items: center; gap: 8em; padding-left: 16em; background: var(--p-bar); }
+.rv-c-claude-code .rv-bar i { width: 12em; height: 12em; border-radius: 50%; background: var(--dot); }
+.rv-c-claude-code .rv-body { flex: 1; padding: 28em; display: flex; flex-direction: column; font-family: ui-monospace, "JetBrains Mono", Menlo, monospace; }
+.rv-c-claude-code .rv-box { position: relative; padding: 28em 24em 24em; border: 1em dashed var(--p-accent); border-radius: 6em; animation: claude-code-box var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-claude-code .rv-legend { position: absolute; top: calc(var(--rv-u) * -11); left: calc(var(--rv-u) * 22); padding: 0 calc(var(--rv-u) * 10); background: var(--p-body); color: var(--p-accent); font-size: calc(var(--rv-u) * 16); font-weight: 700; }
+.rv-c-claude-code .rv-cols { display: flex; }
+.rv-c-claude-code .rv-left { width: 42%; padding-right: 24em; display: flex; flex-direction: column; align-items: flex-start; gap: 16em; }
+.rv-c-claude-code .rv-hi { font-size: calc(var(--rv-u) * 20); }
+.rv-c-claude-code .rv-mascot { align-self: center; width: 96em; height: 96em; color: var(--p-accent); }
+.rv-c-claude-code .rv-mascot svg { display: block; width: 100%; height: 100%; }
+.rv-c-claude-code .rv-meta { display: flex; flex-direction: column; gap: 4em; color: var(--p-muted); }
+.rv-c-claude-code .rv-meta span { font-size: calc(var(--rv-u) * 15); }
+.rv-c-claude-code .rv-right { width: 58%; padding-left: 24em; border-left: 1em dashed var(--p-accent); animation: claude-code-right var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-claude-code .rv-new { margin-bottom: calc(var(--rv-u) * 10); color: var(--p-accent); font-size: calc(var(--rv-u) * 15); font-weight: 700; }
+.rv-c-claude-code .rv-list { display: flex; flex-direction: column; gap: 6em; }
+.rv-c-claude-code .rv-list span { font-size: calc(var(--rv-u) * 14); }
+.rv-c-claude-code .rv-dim { color: var(--p-dim); }
+.rv-c-claude-code .rv-prompt { margin-top: 32em; animation: claude-code-prompt var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-claude-code .rv-rule { height: 1em; margin-bottom: 16em; background: var(--p-dim); opacity: 0.4; }
+.rv-c-claude-code .rv-line { display: flex; align-items: center; }
+.rv-c-claude-code .rv-sym, .rv-c-claude-code .rv-type, .rv-c-claude-code .rv-ph { font-size: calc(var(--rv-u) * 17); }
+.rv-c-claude-code .rv-sym { color: var(--p-muted); }
+.rv-c-claude-code .rv-ph { margin-left: calc(var(--rv-u) * 6); color: var(--p-muted); animation: claude-code-ph var(--rv-run) steps(1, end) infinite both; animation-delay: var(--rv-seek); }
+.rv-c-claude-code .rv-type .rv-ch { max-width: 0; overflow: hidden; vertical-align: bottom; animation: claude-code-key var(--rv-run) linear infinite both; animation-delay: calc(var(--rv-seek) + (1600ms + var(--rv-own, 0ms)) / var(--rv-speed)); }
+.rv-c-claude-code .rv-caret { width: 11em; height: 22em; margin-left: 2em; background: var(--p-text); animation: claude-code-caret var(--rv-run) steps(1, end) infinite both; animation-delay: var(--rv-seek); }
+@keyframes claude-code-win { 0% { opacity: 0.97; translate: 0 28em; scale: 0.97 } 2.424% { opacity: 0.987; translate: 0 12.21em; scale: 0.987 } 4.848% { opacity: 0.998; translate: 0 1.48em; scale: 0.998 } 7.273% { opacity: 1; translate: 0 -0.42em; scale: 1.0005 } 10.909%, 100% { opacity: 1; translate: 0 0; scale: 1 } }
+@keyframes claude-code-box { 0%, 3.636% { opacity: 0; translate: 0 12em } 13.333%, 100% { opacity: 1; translate: 0 0 } }
+@keyframes claude-code-right { 0%, 7.273% { opacity: 0; translate: 0 12em } 18.182%, 100% { opacity: 1; translate: 0 0 } }
+@keyframes claude-code-prompt { 0%, 10.909% { opacity: 0; translate: 0 12em } 21.818%, 100% { opacity: 1; translate: 0 0 } }
+@keyframes claude-code-key { 0% { max-width: 0 } 0.02%, 100% { max-width: 3em } }
+@keyframes claude-code-ph { 0% { opacity: 1 } 29.091% { opacity: 0 } }
+@keyframes claude-code-caret { 0% { opacity: 0.55 } 81.818% { opacity: 0 } 90.909% { opacity: 0.55 } }
+/* @end */
+
+/* @scene chat-gpt */
+/* A white composer pill, not a window: heading at y196, an 820x64 pill at y300 and a chip row at
+   y388, on the light theme the body hard-codes. Run is 4s. The heading and the pill each carry
+   their fade-up plus a fraction (0.4 / 0.6) of the shared intro spring's translate, so their
+   keyframes are the summed values. At f42 three things fire together: the type starts at 22 cps,
+   the voice button crossfades into the send button over five frames, and the chips wipe down. */
+.rv-c-chat-gpt .rv-head { position: absolute; left: 0; right: 0; top: 196em; text-align: center; animation: chat-gpt-head var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-chat-gpt .rv-head span { font-size: calc(var(--rv-u) * 40); font-weight: 700; }
+.rv-c-chat-gpt .rv-pill { position: absolute; left: 230em; top: 300em; width: 820em; height: 64em; display: flex; align-items: center; padding: 0 12em 0 20em; border: 1em solid var(--p-border); border-radius: 32em; background: var(--p-card); box-shadow: 0 8em 30em -14em var(--p-shadow); transform-origin: center top; animation: chat-gpt-pill var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-chat-gpt .rv-plus, .rv-c-chat-gpt .rv-mic { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rv-c-chat-gpt .rv-plus svg { width: 24em; height: 24em; }
+.rv-c-chat-gpt .rv-mic { width: 40em; height: 40em; color: var(--p-icon); }
+.rv-c-chat-gpt .rv-mic svg, .rv-c-chat-gpt .rv-morph svg { width: 22em; height: 22em; }
+.rv-c-chat-gpt .rv-slot { flex: 1; display: flex; align-items: center; margin-left: 14em; overflow: hidden; }
+.rv-c-chat-gpt .rv-type, .rv-c-chat-gpt .rv-ph { font-size: calc(var(--rv-u) * 19); white-space: nowrap; }
+.rv-c-chat-gpt .rv-ph { margin-left: calc(var(--rv-u) * 6); color: var(--p-muted); animation: chat-gpt-ph var(--rv-run) steps(1, end) infinite both; animation-delay: var(--rv-seek); }
+.rv-c-chat-gpt .rv-type .rv-ch { max-width: 0; overflow: hidden; vertical-align: bottom; animation: chat-gpt-key var(--rv-run) linear infinite both; animation-delay: calc(var(--rv-seek) + (1400ms + var(--rv-own, 0ms)) / var(--rv-speed)); }
+.rv-c-chat-gpt .rv-caret { width: 2em; height: 22em; margin-left: 2em; border-radius: 1em; background: var(--p-text); animation: chat-gpt-caret var(--rv-run) steps(1, end) infinite both; animation-delay: var(--rv-seek); }
+.rv-c-chat-gpt .rv-tools { display: flex; align-items: center; gap: 8em; flex-shrink: 0; }
+.rv-c-chat-gpt .rv-morph { position: relative; width: 44em; height: 44em; flex-shrink: 0; }
+.rv-c-chat-gpt .rv-morph i { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: 100%; color: var(--p-sendFg); }
+.rv-c-chat-gpt .rv-voice { background: var(--p-accent); animation: chat-gpt-voice var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-chat-gpt .rv-send { background: var(--p-send); animation: chat-gpt-send var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-chat-gpt .rv-chips { position: absolute; left: 0; right: 0; top: 388em; display: flex; justify-content: center; gap: 12em; animation: chat-gpt-chips var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-chat-gpt .rv-chip { display: inline-flex; align-items: center; gap: 8em; padding: 10em 16em; border: 1em solid var(--p-border); border-radius: 20em; color: var(--p-chip); }
+.rv-c-chat-gpt .rv-chip svg { width: 18em; height: 18em; }
+.rv-c-chat-gpt .rv-chip span { font-size: calc(var(--rv-u) * 15); }
+@keyframes chat-gpt-head { 0% { opacity: 0; translate: 0 23.2em } 3.333% { opacity: 0; translate: 0 16.88em } 6.667% { opacity: 0.25; translate: 0 9.59em } 10% { opacity: 0.5; translate: 0 5.83em } 15% { opacity: 0.875; translate: 0 1.5em } 16.667%, 100% { opacity: 1; translate: 0 0 } }
+@keyframes chat-gpt-pill { 0% { opacity: 0; translate: 0 28.8em; scale: 0.97 } 3.333% { opacity: 0; translate: 0 19.33em; scale: 0.987 } 6.667% { opacity: 0; translate: 0 12.89em; scale: 0.998 } 8.333% { opacity: 0; translate: 0 12em; scale: 1 } 15% { opacity: 0.5; translate: 0 6em; scale: 1 } 21.667%, 100% { opacity: 1; translate: 0 0; scale: 1 } }
+@keyframes chat-gpt-chips { 0%, 13.333% { opacity: 0; translate: 0 12em } 26.667%, 35% { opacity: 1; translate: 0 0 } 39.167%, 100% { opacity: 0; translate: 0 8em } }
+@keyframes chat-gpt-key { 0% { max-width: 0 } 0.02%, 100% { max-width: 3em } }
+@keyframes chat-gpt-ph { 0% { opacity: 1 } 35% { opacity: 0 } }
+@keyframes chat-gpt-caret { 0% { opacity: 1 } 70% { opacity: 0 } 75% { opacity: 1 } 87.5% { opacity: 0 } }
+@keyframes chat-gpt-voice { 0%, 35% { opacity: 1; scale: 1 } 39.167%, 100% { opacity: 0; scale: 0.9 } }
+@keyframes chat-gpt-send { 0%, 35% { opacity: 0; scale: 0.8 } 39.167%, 100% { opacity: 1; scale: 1 } }
+/* @end */
+
+/* @scene v0 */
+/* Near-black, and a box rather than a pill: 880x150 at y270 with a toolbar along its bottom edge
+   carrying the model cluster, the project cluster and a square 40x40 send tile. The prompt is 56
+   characters and wraps, so its slot is top-aligned. Run is 5s. The morph differs from its ChatGPT
+   sibling: the white tile never changes, only the glyph inside it swaps. */
+.rv-c-v0 .rv-head { position: absolute; left: 0; right: 0; top: 150em; text-align: center; animation: v0-head var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-v0 .rv-head span { font-size: calc(var(--rv-u) * 44); font-weight: 700; }
+.rv-c-v0 .rv-box { position: absolute; left: 200em; top: 270em; width: 880em; height: 150em; display: flex; flex-direction: column; border: 1em solid var(--p-border); border-radius: 16em; background: var(--p-panel); box-shadow: 0 8em 40em -16em var(--p-shadow); transform-origin: center top; animation: v0-box var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-v0 .rv-area { flex: 1; display: flex; align-items: flex-start; padding: 18em 20em; overflow: hidden; }
+.rv-c-v0 .rv-type, .rv-c-v0 .rv-ph { font-size: calc(var(--rv-u) * 18); white-space: pre-wrap; overflow-wrap: anywhere; }
+.rv-c-v0 .rv-ph { margin-left: calc(var(--rv-u) * 6); color: var(--p-muted); animation: v0-ph var(--rv-run) steps(1, end) infinite both; animation-delay: var(--rv-seek); }
+.rv-c-v0 .rv-type .rv-ch { max-width: 0; overflow: hidden; vertical-align: bottom; animation: v0-key var(--rv-run) linear infinite both; animation-delay: calc(var(--rv-seek) + (1400ms + var(--rv-own, 0ms)) / var(--rv-speed)); }
+.rv-c-v0 .rv-caret { width: 2em; height: 20em; margin-left: 2em; border-radius: 1em; background: var(--p-text); animation: v0-caret var(--rv-run) steps(1, end) infinite both; animation-delay: var(--rv-seek); }
+.rv-c-v0 .rv-tool { display: flex; align-items: center; justify-content: space-between; padding: 12em 16em; }
+.rv-c-v0 .rv-grp { display: inline-flex; align-items: center; gap: 10em; color: var(--p-icon); }
+.rv-c-v0 .rv-model { display: inline-flex; align-items: center; gap: 7em; color: var(--p-text); }
+.rv-c-v0 .rv-proj { display: inline-flex; align-items: center; gap: 4em; color: var(--p-muted); }
+.rv-c-v0 .rv-right { display: flex; align-items: center; gap: 12em; }
+.rv-c-v0 .rv-tool span span, .rv-c-v0 .rv-proj span { font-size: calc(var(--rv-u) * 15); font-weight: 500; }
+.rv-c-v0 .rv-grp > svg { width: 20em; height: 20em; }
+.rv-c-v0 .rv-model > svg { width: 18em; height: 18em; }
+.rv-c-v0 .rv-chev { display: inline-flex; color: var(--p-muted); }
+.rv-c-v0 .rv-chev svg { width: calc(var(--rv-u) * 14); height: calc(var(--rv-u) * 14); }
+.rv-c-v0 .rv-btn { position: relative; width: 40em; height: 40em; flex-shrink: 0; border-radius: 10em; background: var(--p-btn); color: var(--p-btnFg); }
+.rv-c-v0 .rv-btn i { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.rv-c-v0 .rv-btn svg { width: 20em; height: 20em; }
+.rv-c-v0 .rv-mic { animation: v0-mic var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-v0 .rv-arrow { animation: v0-arrow var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+@keyframes v0-head { 0% { opacity: 0; translate: 0 23.2em } 2.667% { opacity: 0; translate: 0 16.88em } 5.333% { opacity: 0.25; translate: 0 9.59em } 8% { opacity: 0.5; translate: 0 5.83em } 12% { opacity: 0.875; translate: 0 1.5em } 13.333%, 100% { opacity: 1; translate: 0 0 } }
+@keyframes v0-box { 0% { opacity: 0; translate: 0 28.8em; scale: 0.97 } 2.667% { opacity: 0; translate: 0 19.33em; scale: 0.987 } 5.333% { opacity: 0; translate: 0 12.89em; scale: 0.998 } 6.667% { opacity: 0; translate: 0 12em; scale: 1 } 12% { opacity: 0.5; translate: 0 6em; scale: 1 } 17.333%, 100% { opacity: 1; translate: 0 0; scale: 1 } }
+@keyframes v0-key { 0% { max-width: 0 } 0.02%, 100% { max-width: 3em } }
+@keyframes v0-ph { 0% { opacity: 1 } 28% { opacity: 0 } }
+@keyframes v0-caret { 0% { opacity: 1 } 78.667% { opacity: 0 } 80% { opacity: 1 } 90% { opacity: 0 } }
+@keyframes v0-mic { 0%, 28% { opacity: 1; scale: 1 } 31.333%, 100% { opacity: 0; scale: 0.92 } }
+@keyframes v0-arrow { 0%, 28% { opacity: 0; scale: 0.85 } 31.333%, 100% { opacity: 1; scale: 1 } }
+/* @end */
+
+/* @scene x-follow-card */
+/* A 600px profile card at x340/y70 with the Follow and Message buttons on a second inset layer that
+   rides the same bounce, and a synthetic pointer above both. Run is 5.5s. Three tracks: the
+   {12,120,0.8} card spring (it really does overshoot to -5.2px at f10), the nine-entry blur-in
+   table -- each window six frames long, staggered two, emitted per group as --rv-own -- and the
+   cursor, which rests at (1120,600) for 2.5s, eases to the button over f78-f110, fires a 16-frame
+   ripple and a 1 -> 0.9 -> 1 press triangle, and crossfades Follow into Following over f110-f120. */
+.rv-c-x-follow-card .rv-card { position: absolute; left: 340em; top: 70em; width: 600em; overflow: hidden; border: 1em solid var(--p-border); border-radius: 24em; background: var(--p-card); box-shadow: 0 12em 40em -16em var(--p-shadow); transform-origin: center top; animation: x-follow-card-bounce var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-x-follow-card .rv-btns { position: absolute; inset: 0; transform-origin: center top; animation: x-follow-card-bounce var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-x-follow-card .rv-g { animation: x-follow-card-blur var(--rv-run) linear infinite both; animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed)); }
+.rv-c-x-follow-card .rv-cover { height: 150em; background: linear-gradient(135deg, var(--p-accent) 0%, var(--p-accentSoft) 55%, var(--p-accentFaint) 100%); }
+.rv-c-x-follow-card .rv-pad { padding: 0 24em 24em; }
+.rv-c-x-follow-card .rv-avatar, .rv-c-x-follow-card .rv-pav { display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 4em solid var(--p-card); border-radius: 100%; background: var(--p-avatarBg); color: var(--p-accent); }
+.rv-c-x-follow-card .rv-avatar { width: 110em; height: 110em; margin-top: -55em; }
+.rv-c-x-follow-card .rv-avatar span { font-size: calc(var(--rv-u) * 44); font-weight: 700; }
+.rv-c-x-follow-card .rv-name { display: flex; align-items: center; gap: 6em; margin-top: 12em; }
+.rv-c-x-follow-card .rv-name span { font-size: calc(var(--rv-u) * 24); font-weight: 800; letter-spacing: -0.01em; }
+.rv-c-x-follow-card .rv-name svg { width: 22em; height: 22em; color: var(--p-accent); }
+.rv-c-x-follow-card .rv-handle { font-size: calc(var(--rv-u) * 16); color: var(--p-muted); }
+.rv-c-x-follow-card .rv-bio { margin: calc(var(--rv-u) * 8) 0 0; font-size: calc(var(--rv-u) * 16); line-height: 1.4; white-space: pre-line; }
+.rv-c-x-follow-card .rv-meta { display: flex; flex-wrap: wrap; gap: 16em; margin-top: 14em; color: var(--p-muted); }
+.rv-c-x-follow-card .rv-item { display: flex; align-items: center; gap: 6em; }
+.rv-c-x-follow-card .rv-item svg { width: 16em; height: 16em; }
+.rv-c-x-follow-card .rv-item span { font-size: calc(var(--rv-u) * 15); }
+.rv-c-x-follow-card .rv-link { color: var(--p-accent); }
+.rv-c-x-follow-card .rv-gap { height: 32em; }
+.rv-c-x-follow-card .rv-tabs { display: flex; column-gap: 32em; padding-bottom: 12em; border-bottom: 1em solid var(--p-divider); }
+.rv-c-x-follow-card .rv-tab { font-size: calc(var(--rv-u) * 15); font-weight: 500; color: var(--p-muted); }
+.rv-c-x-follow-card .rv-on { position: relative; font-weight: 700; color: var(--p-text); }
+.rv-c-x-follow-card .rv-on::after { content: ""; position: absolute; left: 0; bottom: calc(var(--rv-u) * -13); width: calc(var(--rv-u) * 56); height: calc(var(--rv-u) * 4); border-radius: calc(var(--rv-u) * 2); background: var(--p-accent); }
+.rv-c-x-follow-card .rv-post { display: flex; gap: 12em; margin-top: 16em; }
+.rv-c-x-follow-card .rv-pav { width: 44em; height: 44em; border-width: 2em; }
+.rv-c-x-follow-card .rv-pav span { font-size: calc(var(--rv-u) * 18); font-weight: 700; }
+.rv-c-x-follow-card .rv-pwho { display: flex; align-items: center; gap: 6em; }
+.rv-c-x-follow-card .rv-pwho b, .rv-c-x-follow-card .rv-pwho span, .rv-c-x-follow-card .rv-ptext p { font-size: calc(var(--rv-u) * 15); }
+.rv-c-x-follow-card .rv-pwho span { font-weight: 400; color: var(--p-muted); }
+.rv-c-x-follow-card .rv-ptext p { margin: calc(var(--rv-u) * 4) 0 0; line-height: 1.4; }
+.rv-c-x-follow-card .rv-pnums { display: flex; gap: 40em; margin-top: 10em; }
+.rv-c-x-follow-card .rv-pnums span { font-size: calc(var(--rv-u) * 13); color: var(--p-muted); }
+.rv-c-x-follow-card .rv-layer { position: absolute; inset: 0; }
+.rv-c-x-follow-card .rv-msg { position: absolute; left: 752em; top: 240em; width: 40em; height: 40em; display: flex; align-items: center; justify-content: center; border: 1em solid var(--p-border); border-radius: 20em; background: var(--p-card); }
+.rv-c-x-follow-card .rv-msg svg { width: 20em; height: 20em; }
+.rv-c-x-follow-card .rv-follow { position: absolute; left: 800em; top: 240em; width: 116em; height: 40em; animation: x-follow-card-press var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-x-follow-card .rv-follow span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: calc(var(--rv-u) * 20); font-size: calc(var(--rv-u) * 16); font-weight: 700; }
+.rv-c-x-follow-card .rv-f1 { background: var(--p-accent); color: var(--p-onAccent); animation: x-follow-card-off var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-x-follow-card .rv-f2 { border: calc(var(--rv-u) * 1) solid var(--p-border); background: var(--p-card); animation: x-follow-card-on var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-x-follow-card .rv-cursor { position: absolute; left: 0; top: 0; animation: x-follow-card-path var(--rv-run) cubic-bezier(0.42, 0, 0.58, 1) infinite both; animation-delay: var(--rv-seek); }
+.rv-c-x-follow-card .rv-ripple { position: absolute; left: -25.2em; top: -25.2em; width: 50.4em; height: 50.4em; border: 2em solid var(--p-accent); border-radius: 50%; animation: x-follow-card-ripple var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-x-follow-card .rv-ptr { position: absolute; left: 0; top: 0; width: 28em; height: 28em; overflow: visible; transform-origin: 0 0; filter: drop-shadow(0 1em 2em var(--p-drop)); animation: x-follow-card-press var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+@keyframes x-follow-card-bounce { 0% { translate: 0 60em; scale: 0.9 } 2.424% { translate: 0 22.5em; scale: 0.9625 } 4.848% { translate: 0 -3.54em; scale: 1.0059 } 6.061% { translate: 0 -5.22em; scale: 1.0087 } 8.485% { translate: 0 -1.74em; scale: 1.0029 } 10.909% { translate: 0 0.36em; scale: 0.9994 } 13.939%, 100% { translate: 0 0; scale: 1 } }
+@keyframes x-follow-card-blur { 0% { filter: blur(calc(var(--rv-u) * 8)); opacity: 0; translate: 0 calc(var(--rv-u) * 8) } 3.636%, 100% { filter: blur(0px); opacity: 1; translate: 0 0 } }
+@keyframes x-follow-card-press { 0%, 66.667% { scale: 1 } 69.091% { scale: 0.9 } 71.515%, 100% { scale: 1 } }
+@keyframes x-follow-card-off { 0%, 66.667% { opacity: 1 } 72.727%, 100% { opacity: 0 } }
+@keyframes x-follow-card-on { 0%, 66.667% { opacity: 0 } 72.727%, 100% { opacity: 1 } }
+@keyframes x-follow-card-path { 0%, 47.273% { translate: 1120em 600em } 66.667%, 100% { translate: 858em 260em } }
+@keyframes x-follow-card-ripple { 0%, 66.666% { opacity: 0; scale: 0 } 66.667% { opacity: 0.5; scale: 0 } 71.515% { opacity: 0.25; scale: 2.1875 } 76.364%, 100% { opacity: 0; scale: 2.5 } }
+/* @end */
+
+/* @scene github-stars */
+/* Two zones side by side: a 392px counter column at x80 and a 640x600 masked list at x560/y60.
+   Run is 7s, 6s of which is the timeline. The list rides one elastic ramp (Easing.elastic(0.8),
+   which is not a bezier -- the eleven sampled stops below are the curve, read linearly) and
+   overshoots 1.8% before settling. The counter runs the other way: cubic-bezier(.5,1,.5,1), locked
+   at 80% of the timeline so the number is final while the list is still recoiling. Each digit is a
+   wheel whose column is translated by its own --cells, so higher places turn slower, and the
+   underline widens on the counter's curve. */
+.rv-c-github-stars .rv-count { position: absolute; left: 80em; top: 0; width: 392em; height: 720em; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
+.rv-c-github-stars .rv-star { display: block; margin-bottom: 20em; color: var(--p-accent); }
+.rv-c-github-stars .rv-star svg { display: block; width: 64em; height: 64em; }
+.rv-c-github-stars .rv-odo { display: flex; align-items: flex-start; font-family: ui-monospace, "Geist Mono", Menlo, monospace; font-size: calc(var(--rv-u) * 120); font-weight: 800; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.rv-c-github-stars .rv-wheel { display: block; width: 0.62em; height: 1.1em; overflow: hidden; font-style: normal; }
+.rv-c-github-stars .rv-wheel span { display: block; animation: github-stars-wheel var(--rv-run) cubic-bezier(0.5, 1, 0.5, 1) infinite both; animation-delay: var(--rv-seek); }
+.rv-c-github-stars .rv-wheel b { display: block; height: 1.1em; text-align: center; font-weight: inherit; }
+.rv-c-github-stars .rv-comma { align-self: flex-end; width: 0.32em; font-size: 0.85em; font-style: normal; }
+.rv-c-github-stars .rv-late { animation: github-stars-place var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-github-stars .rv-underline { height: 4em; margin-top: 16em; border-radius: 2em; background: var(--p-accent); animation: github-stars-rule var(--rv-run) cubic-bezier(0.5, 1, 0.5, 1) infinite both; animation-delay: var(--rv-seek); }
+.rv-c-github-stars .rv-repo { display: flex; align-items: center; gap: 12em; margin-top: 20em; }
+.rv-c-github-stars .rv-repo i { width: 32em; height: 32em; border: 1em solid var(--p-border); border-radius: 50%; background: var(--p-subtle); }
+.rv-c-github-stars .rv-repo span { font-size: calc(var(--rv-u) * 24); font-weight: 500; color: var(--p-muted); }
+.rv-c-github-stars .rv-view { position: absolute; left: 560em; top: 60em; width: 640em; height: 600em; overflow: hidden; border: 1em solid var(--p-border); border-radius: 24em; background: var(--p-card); }
+.rv-c-github-stars .rv-track { animation: github-stars-scroll var(--rv-run) linear infinite both; animation-delay: var(--rv-seek); }
+.rv-c-github-stars .rv-row { display: flex; align-items: center; height: 88em; padding: 0 24em; border-bottom: 1em solid var(--p-border); }
+.rv-c-github-stars .rv-av { width: 56em; height: 56em; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 1em solid var(--p-border); border-radius: 50%; background: var(--p-subtle); color: var(--p-muted); }
+.rv-c-github-stars .rv-av span { font-size: calc(var(--rv-u) * 23); font-weight: 600; }
+.rv-c-github-stars .rv-who { flex: 1; min-width: 0; margin-left: 20em; }
+.rv-c-github-stars .rv-login { font-size: calc(var(--rv-u) * 28); font-weight: 600; }
+.rv-c-github-stars .rv-date { font-size: calc(var(--rv-u) * 18); color: var(--p-muted); }
+.rv-c-github-stars .rv-rank { display: flex; align-items: center; gap: 8em; color: var(--p-accent); }
+.rv-c-github-stars .rv-rank svg { display: block; width: 20em; height: 20em; }
+.rv-c-github-stars .rv-rank span { font-family: ui-monospace, "Geist Mono", Menlo, monospace; font-size: calc(var(--rv-u) * 18); color: var(--p-muted); font-variant-numeric: tabular-nums; }
+.rv-c-github-stars .rv-spacer { height: 176em; }
+.rv-c-github-stars .rv-fade { position: absolute; left: 0; right: 0; height: 72em; }
+.rv-c-github-stars .rv-fade-t { top: 0; background: linear-gradient(to bottom, var(--p-card), transparent); }
+.rv-c-github-stars .rv-fade-b { bottom: 0; background: linear-gradient(to top, var(--p-card), transparent); }
+@keyframes github-stars-scroll { 0% { translate: 0 0 } 8.571% { translate: 0 -41.3em } 17.143% { translate: 0 -151.5em } 25.714% { translate: 0 -298.1em } 34.286% { translate: 0 -441.3em } 42.857% { translate: 0 -548.9em } 51.429% { translate: 0 -608em } 60% { translate: 0 -627.1em } 68.571% { translate: 0 -624em } 77.143% { translate: 0 -617.2em } 85.714%, 100% { translate: 0 -616em } }
+@keyframes github-stars-wheel { 0% { translate: 0 0 } 68.571%, 100% { translate: 0 calc(var(--cells) * -1.1em) } }
+@keyframes github-stars-rule { 0% { width: 0 } 68.571%, 100% { width: 240em } }
+@keyframes github-stars-place { 0% { opacity: 0 } 6.2%, 100% { opacity: 1 } }
+/* @end */
+
+/* @scene logo-enter */
+/* Four overlapping 118px chips in a row, the first on top, each pulled 38px over its neighbour.
+   One spring per chip, {13,130,0.8}, staggered seven frames: opacity 0 -> 1, scale 0.5 -> 1 and a
+   22px vertical offset, all three driven off the same value, which is why the chip overshoots to
+   1.037 before settling. Nothing exits; the run's remaining second is the hold. */
+.rv-c-logo-enter .rv-row { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.rv-c-logo-enter .rv-chip { width: var(--d); height: var(--d); flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 5em solid var(--p-ring); border-radius: 50%; background: var(--chip-bg); color: var(--chip-fg); box-shadow: 0 20em 48em var(--p-shadow); animation: logo-enter-chip var(--rv-run) linear infinite both; animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed)); }
+.rv-c-logo-enter .rv-chip + .rv-chip { margin-left: var(--lead); }
+.rv-c-logo-enter .rv-chip svg { display: block; width: var(--mark); height: var(--mark); }
+@keyframes logo-enter-chip { 0% { opacity: 0; scale: 0.5; translate: 0 22em } 5.556% { opacity: 0.642; scale: 0.821; translate: 0 7.88em } 11.111% { opacity: 1; scale: 1.026; translate: 0 -1.14em } 13.889% { opacity: 1; scale: 1.037; translate: 0 -1.61em } 19.444% { opacity: 1; scale: 1.011; translate: 0 -0.46em } 25% { opacity: 1; scale: 0.998; translate: 0 0.11em } 33.333%, 100% { opacity: 1; scale: 1; translate: 0 0 } }
+/* @end */

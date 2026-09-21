@@ -1,0 +1,292 @@
+/* shard: ui-blocks-layout
+ *
+ * `1em` inside `.rv-stage` is one authored stage pixel, so every upstream length is written here
+ * unchanged. Elements that carry their own `font-size` write their lengths as
+ * `calc(var(--rv-u) * N)` instead, because `em` on such an element would compound the unit.
+ */
+
+/* @scene backdrop */
+.rv-c-backdrop .rv-fill { position: absolute; inset: 0; background: var(--p-bg); }
+.rv-c-backdrop .rv-frame {
+  position: absolute;
+  inset: calc(var(--pad) * 1em);
+  display: flex;
+  overflow: hidden;
+  border-radius: calc(var(--rad) * 1em);
+  background: var(--p-sheet);
+  box-shadow: 0 20em 60em var(--p-cast);
+}
+.rv-c-backdrop .rv-plate { width: 100%; height: 100%; background: linear-gradient(158deg, var(--p-sheet), var(--p-bg) 78%); }
+.rv-c-backdrop .rv-plate i { position: absolute; display: block; left: 6%; border-radius: 6em; background: var(--p-accent); }
+.rv-c-backdrop .rv-plate i:first-child { top: 13%; width: 24%; height: 6%; background: var(--p-text); }
+.rv-c-backdrop .rv-plate i:nth-child(2) { top: 26%; width: 56%; height: 4%; opacity: 0.75; }
+.rv-c-backdrop .rv-plate i:last-child { top: 40%; right: 6%; height: 44%; border-radius: 12em; opacity: 0.45; }
+/* @end */
+
+/* @scene drift */
+.rv-c-drift .rv-push {
+  position: absolute;
+  inset: 0;
+  animation-name: drift-push;
+  animation-duration: var(--rv-run);
+  animation-delay: var(--rv-seek);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+@keyframes drift-push { from { scale: 1; } to { scale: calc(1 + var(--grow)); } }
+.rv-c-drift .rv-plate { position: absolute; inset: 0; background: radial-gradient(118% 88% at 22% 16%, var(--p-accent), transparent 56%), linear-gradient(198deg, var(--p-deep), var(--p-bg) 72%); }
+.rv-c-drift .rv-plate i { position: absolute; display: block; bottom: 0; background: var(--p-haze); }
+.rv-c-drift .rv-plate i:first-child { left: -6%; width: 46%; height: 40%; clip-path: polygon(0 100%, 34% 6%, 74% 100%); }
+.rv-c-drift .rv-plate i:nth-child(2) { left: 26%; width: 54%; height: 62%; clip-path: polygon(0 100%, 48% 0, 100% 100%); }
+.rv-c-drift .rv-plate i:last-child { right: -4%; width: 40%; height: 32%; clip-path: polygon(0 100%, 42% 14%, 100% 100%); }
+.rv-c-drift .rv-lede {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 17%;
+  text-align: center;
+  color: var(--p-text);
+  font-size: calc(var(--rv-u) * 86);
+  letter-spacing: -0.035em;
+}
+/* @end */
+
+/* @scene chat-to-preview-layout */
+.rv-c-chat-to-preview-layout .rv-cols { position: absolute; inset: 0; display: flex; gap: 16em; padding: 32em; }
+.rv-c-chat-to-preview-layout .rv-cols > div {
+  flex: 0 0 auto;
+  position: relative;
+  overflow: hidden;
+  border: 1em solid var(--p-edge);
+  border-radius: 16em;
+  animation-duration: var(--rv-run);
+  animation-delay: var(--rv-seek);
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+.rv-c-chat-to-preview-layout .rv-chat { background: var(--p-chat); animation-name: chat-to-preview-layout-chat; }
+.rv-c-chat-to-preview-layout .rv-prev { background: var(--p-paper); animation-name: chat-to-preview-layout-prev; }
+@keyframes chat-to-preview-layout-chat { 0%, 10% { flex-basis: calc(var(--r0) * 100%); } 70%, 100% { flex-basis: calc(var(--r1) * 100%); } }
+@keyframes chat-to-preview-layout-prev {
+  0%, 10% { flex-basis: calc((1 - var(--r0)) * 100%); opacity: 0; translate: 40em 0; }
+  70%, 100% { flex-basis: calc((1 - var(--r1)) * 100%); opacity: 1; translate: 0 0; }
+}
+.rv-c-chat-to-preview-layout .rv-chat .rv-inner { position: absolute; inset: 0; min-width: 520em; display: flex; flex-direction: column; gap: 12em; padding: 24em; }
+.rv-c-chat-to-preview-layout .rv-prev .rv-inner { position: absolute; inset: 0; min-width: 720em; display: flex; flex-direction: column; }
+.rv-c-chat-to-preview-layout .rv-eyebrow {
+  color: var(--p-eyebrow);
+  font-size: calc(var(--rv-u) * 12);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: calc(var(--rv-u) * 8);
+}
+.rv-c-chat-to-preview-layout .rv-bub {
+  max-width: 85%;
+  color: var(--p-text);
+  font-size: calc(var(--rv-u) * 14);
+  padding: calc(var(--rv-u) * 10) calc(var(--rv-u) * 14);
+  border-radius: calc(var(--rv-u) * 14);
+}
+.rv-c-chat-to-preview-layout .rv-bub-user { align-self: flex-end; background: var(--p-accent); }
+.rv-c-chat-to-preview-layout .rv-bub-ai { align-self: flex-start; background: var(--p-ai); }
+.rv-c-chat-to-preview-layout .rv-bar { height: 36em; display: flex; align-items: center; gap: 6em; padding: 0 12em; background: var(--p-bar); border-bottom: 1em solid var(--p-barEdge); }
+.rv-c-chat-to-preview-layout .rv-dot { display: block; width: 10em; height: 10em; border-radius: 999em; }
+.rv-c-chat-to-preview-layout .rv-dot-a { background: var(--p-dotA); }
+.rv-c-chat-to-preview-layout .rv-dot-b { background: var(--p-dotB); }
+.rv-c-chat-to-preview-layout .rv-dot-c { background: var(--p-dotC); }
+.rv-c-chat-to-preview-layout .rv-page { flex: 1; display: flex; flex-direction: column; gap: 16em; padding: 32em; }
+.rv-c-chat-to-preview-layout .rv-h1 { color: var(--p-ink); font-size: calc(var(--rv-u) * 36); font-weight: 700; letter-spacing: -0.03em; }
+.rv-c-chat-to-preview-layout .rv-sub { color: var(--p-sub); font-size: calc(var(--rv-u) * 16); max-width: 22.5em; }
+.rv-c-chat-to-preview-layout .rv-cta {
+  align-self: flex-start;
+  background: var(--p-ink);
+  color: var(--p-paper);
+  font-size: calc(var(--rv-u) * 14);
+  font-weight: 600;
+  margin-top: calc(var(--rv-u) * 12);
+  padding: calc(var(--rv-u) * 10) calc(var(--rv-u) * 18);
+  border-radius: calc(var(--rv-u) * 10);
+}
+/* @end */
+
+/* @scene stage */
+.rv-c-stage .rv-stage { background: linear-gradient(145deg, var(--p-bg) 0%, var(--p-deep) 72%); }
+.rv-c-stage .rv-entry { position: absolute; inset: 0; animation-name: stage-fade; animation-duration: var(--rv-run); animation-delay: var(--rv-seek); animation-timing-function: linear; animation-iteration-count: infinite; animation-fill-mode: both; }
+@keyframes stage-fade { 0% { opacity: 0; } 10%, 100% { opacity: 1; } }
+/* The entry settle: Spring A over frames 0 - 24, which is 26.667% of the 3 s run. */
+.rv-c-stage .rv-lift { animation-duration: var(--rv-run); animation-delay: var(--rv-seek); animation-timing-function: cubic-bezier(0.294, 0.404, 0.155, 1); animation-iteration-count: infinite; animation-fill-mode: both; }
+.rv-c-stage .rv-mirror { position: absolute; left: 13%; top: 72%; width: 74%; height: 30%; opacity: var(--refl); background: linear-gradient(to bottom, var(--p-mirrorA), var(--p-mirrorB) 35%, transparent 76%); clip-path: polygon(7% 0, 93% 0, 78% 100%, 22% 100%); filter: blur(18em); transform-origin: center top; animation-name: stage-mirror; }
+@keyframes stage-mirror { 0% { transform: perspective(650em) rotateX(58deg) translateY(17.92em); } 26.667%, 100% { transform: perspective(650em) rotateX(58deg) translateY(0em); } }
+.rv-c-stage .rv-contact { position: absolute; left: 16%; top: 70%; width: 68%; height: 11%; border-radius: 50%; background: var(--p-contact); filter: blur(41em); animation-name: stage-contact; }
+@keyframes stage-contact { 0% { translate: 0 22.4em; } 26.667%, 100% { translate: 0 0; } }
+.rv-c-stage .rv-persp { position: absolute; inset: 0; perspective: calc(var(--persp) * 1em); perspective-origin: 50% 42%; }
+.rv-c-stage .rv-plane { position: absolute; left: calc(var(--pl) * 1em); top: calc(var(--pt) * 1em); width: calc(var(--pw) * 1em); height: calc(var(--ph) * 1em); overflow: hidden; border-radius: calc(var(--rad) * 1em); background: var(--p-sheet); transform-style: preserve-3d; animation-name: stage-plane; }
+@keyframes stage-plane {
+  0% { transform: translate3d(0, 64em, 0) scale(calc(var(--sc) * 0.94)) rotateX(calc(var(--rx) + 8deg)) rotateY(calc(var(--ry) - 5deg)); }
+  26.667%, 100% { transform: translate3d(0, 0, 0) scale(var(--sc)) rotateX(var(--rx)) rotateY(var(--ry)); }
+}
+.rv-c-stage .rv-spec { position: absolute; inset: 0; opacity: var(--light); mix-blend-mode: screen; background: radial-gradient(ellipse at 38% 7%, var(--p-specA), transparent 36%), linear-gradient(115deg, var(--p-specB), transparent 38%, var(--p-specC) 68%, var(--p-specD)); }
+.rv-c-stage .rv-plate { position: absolute; inset: 0; background: linear-gradient(150deg, var(--p-sheet), var(--p-deep) 82%); }
+.rv-c-stage .rv-plate i { position: absolute; display: block; left: 5%; border-radius: 5em; background: var(--p-accent); }
+.rv-c-stage .rv-plate i:first-child { top: 9%; width: 28%; height: 8%; background: var(--p-text); }
+.rv-c-stage .rv-plate i:nth-child(2) { top: 24%; width: 62%; height: 5%; opacity: 0.8; }
+.rv-c-stage .rv-plate i:last-child { top: 38%; right: 5%; height: 50%; border-radius: 12em; opacity: 0.4; }
+/* @end */
+
+/* @scene terminal-simulator */
+.rv-c-terminal-simulator .rv-stage { display: grid; place-items: center; }
+.rv-c-terminal-simulator .rv-win {
+  width: 900em;
+  height: 480em;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 12em;
+  background: var(--p-win);
+  box-shadow: 0 30em 80em var(--p-cast), 0 0 0 1em var(--p-ring);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.rv-c-terminal-simulator .rv-chrome { height: 40em; display: flex; align-items: center; gap: 8em; padding: 0 16em; background: var(--p-chrome); border-bottom: 1em solid var(--p-ring); }
+.rv-c-terminal-simulator .rv-dot { display: block; width: 12em; height: 12em; border-radius: 50%; opacity: 0.85; }
+.rv-c-terminal-simulator .rv-dot-a { background: var(--p-dotA); }
+.rv-c-terminal-simulator .rv-dot-b { background: var(--p-dotB); }
+.rv-c-terminal-simulator .rv-dot-c { background: var(--p-dotC); }
+.rv-c-terminal-simulator .rv-title { flex: 1; text-align: center; color: var(--p-dim); font-size: calc(var(--rv-u) * 13); }
+.rv-c-terminal-simulator .rv-body { flex: 1; position: relative; overflow: hidden; padding: 20em; }
+.rv-c-terminal-simulator .rv-buf { position: absolute; left: 20em; right: 20em; top: 20em; }
+.rv-c-terminal-simulator .rv-ln { display: flex; align-items: center; height: 29em; white-space: pre; color: var(--tone); }
+.rv-c-terminal-simulator .rv-p { color: var(--p-accent); font-size: calc(var(--rv-u) * var(--fs)); margin-right: calc(var(--rv-u) * 8); }
+.rv-c-terminal-simulator .rv-t {
+  display: block;
+  flex: none;
+  overflow: hidden;
+  box-sizing: content-box;
+  font-size: calc(var(--rv-u) * var(--fs));
+  border-right: 0 solid currentColor;
+  animation-duration: var(--rv-run), calc(var(--rv-run) * 0.05);
+  animation-delay: var(--rv-seek), var(--rv-seek);
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+@keyframes terminal-simulator-blink { 0% { border-right-color: currentColor; } 50% { border-right-color: transparent; } }
+@keyframes terminal-simulator-l0 { 0%, 3.333% { width: 0; border-right-width: 0; } 3.343% { width: 0; border-right-width: calc(var(--rv-u) * 9.9); } 7.667% { width: var(--cols); border-right-width: calc(var(--rv-u) * 9.9); } 7.677%, 100% { width: var(--cols); border-right-width: 0; } }
+@keyframes terminal-simulator-l1 { 0%, 9.667% { width: 0; border-right-width: 0; } 9.677% { width: 0; border-right-width: calc(var(--rv-u) * 9.9); } 18% { width: var(--cols); border-right-width: calc(var(--rv-u) * 9.9); } 18.01%, 100% { width: var(--cols); border-right-width: 0; } }
+@keyframes terminal-simulator-l2 { 0%, 25.333% { width: 0; border-right-width: 0; } 25.343% { width: 0; border-right-width: calc(var(--rv-u) * 9.9); } 32% { width: var(--cols); border-right-width: calc(var(--rv-u) * 9.9); } 32.01%, 100% { width: var(--cols); border-right-width: 0; } }
+@keyframes terminal-simulator-l3 { 0%, 33.333% { width: 0; border-right-width: 0; } 33.343% { width: 0; border-right-width: calc(var(--rv-u) * 9.9); } 37.333% { width: var(--cols); border-right-width: calc(var(--rv-u) * 9.9); } 37.343%, 100% { width: var(--cols); border-right-width: 0; } }
+@keyframes terminal-simulator-l4 { 0%, 41.333% { width: 0; border-right-width: 0; } 41.343% { width: 0; border-right-width: calc(var(--rv-u) * 9.9); } 45.333% { width: var(--cols); border-right-width: calc(var(--rv-u) * 9.9); } 45.343%, 100% { width: var(--cols); border-right-width: 0; } }
+@keyframes terminal-simulator-l5 { 0%, 56% { width: 0; border-right-width: 0; } 56.01% { width: 0; border-right-width: calc(var(--rv-u) * 9.9); } 65.667% { width: var(--cols); border-right-width: calc(var(--rv-u) * 9.9); } 65.677%, 100% { width: var(--cols); border-right-width: 0; } }
+@keyframes terminal-simulator-l6 { 0%, 69% { width: 0; border-right-width: 0; } 69.01% { width: 0; border-right-width: calc(var(--rv-u) * 9.9); } 79.333% { width: var(--cols); border-right-width: calc(var(--rv-u) * 9.9); } 79.343%, 100% { width: var(--cols); border-right-width: 0; } }
+@keyframes terminal-simulator-l7 { 0%, 83.333% { width: 0; border-right-width: 0; } 83.343% { width: 0; border-right-width: calc(var(--rv-u) * 9.9); } 93.333% { width: var(--cols); border-right-width: calc(var(--rv-u) * 9.9); } 93.343%, 100% { width: var(--cols); border-right-width: 0; } }
+/* @end */
+
+/* @scene animated-bar-chart */
+.rv-c-animated-bar-chart .rv-stage { display: grid; place-items: center; }
+.rv-c-animated-bar-chart .rv-chart { width: 1000em; height: 500em; overflow: visible; }
+.rv-c-animated-bar-chart .rv-base { stroke: var(--p-rule); stroke-width: 2; }
+.rv-c-animated-bar-chart .rv-bar {
+  fill: var(--p-accent);
+  filter: drop-shadow(0 4em 16em var(--p-glow));
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  animation-name: animated-bar-chart-grow;
+  animation-duration: var(--rv-run);
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed));
+  animation-timing-function: linear(0 0%, 0.196 7%, 0.538 14%, 0.818 21%, 0.983 29%, 1.049 36%, 1.057 43%, 1.041 50%, 1.021 57%, 1.007 64%, 0.999 71%, 0.997 79%, 0.997 86%, 0.998 93%, 0.999 100%);
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+@keyframes animated-bar-chart-grow { 0% { scale: 1 0; } 23.325%, 100% { scale: 1 1; } }
+/* @end */
+
+/* @scene polaroid */
+.rv-c-polaroid .rv-stage { display: grid; place-items: center; }
+.rv-c-polaroid .rv-print {
+  width: calc(var(--pw) * 1em);
+  height: calc(var(--ph) * 1em);
+  box-sizing: border-box;
+  padding-top: calc(var(--pad) * 1em);
+  background: var(--p-frame);
+  border-radius: 4em;
+  box-shadow: 0 8em 20em var(--p-cast), 0 2em 5em var(--p-castNear);
+}
+.rv-c-polaroid .rv-media { position: relative; width: calc(var(--mw) * 1em); height: calc(var(--mh) * 1em); margin: 0 auto; overflow: hidden; background: var(--p-media); }
+.rv-c-polaroid .rv-slot { position: relative; height: calc(var(--ch) * 1em); }
+.rv-c-polaroid .rv-cap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--p-text);
+  font-family: Caveat, "Bradley Hand", "Segoe Script", cursive;
+  font-size: calc(var(--rv-u) * var(--cs));
+  font-weight: 600;
+}
+.rv-c-polaroid .rv-ch {
+  rotate: calc(var(--r) * 1deg);
+  translate: 0 calc(var(--rv-u) * var(--y));
+  animation-name: polaroid-glyph;
+  animation-duration: var(--rv-run);
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed));
+  animation-timing-function: steps(1, end);
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+@keyframes polaroid-glyph { 0% { opacity: 0; scale: 1; } 0.01% { opacity: 1; scale: 1.06; } 4.8% { opacity: 1; scale: 1.06; } 4.81%, 100% { opacity: 1; scale: 1; } }
+.rv-c-polaroid .rv-plate { position: absolute; inset: 0; background: radial-gradient(88% 68% at 50% 26%, var(--p-accent), transparent 64%), linear-gradient(192deg, var(--p-media), var(--p-frame) 210%); }
+.rv-c-polaroid .rv-plate i { position: absolute; display: block; background: var(--p-frame); opacity: 0.16; }
+.rv-c-polaroid .rv-plate i:first-child { left: 11%; bottom: 0; width: 34%; height: 46%; border-radius: 50% 50% 0 0; }
+.rv-c-polaroid .rv-plate i:nth-child(2) { left: 37%; bottom: 0; width: 44%; height: 66%; border-radius: 46% 46% 0 0; opacity: 0.24; }
+.rv-c-polaroid .rv-plate i:last-child { left: 49%; top: 15%; width: 12%; height: 17%; border-radius: 50%; opacity: 0.42; }
+/* @end */
+
+/* @scene check-list */
+.rv-c-check-list .rv-stage { display: grid; place-items: center; }
+.rv-c-check-list .rv-list { display: flex; flex-direction: column; gap: calc(var(--fs) * 0.55em); }
+.rv-c-check-list .rv-row { display: flex; align-items: center; gap: calc(var(--gap) * 1em); height: calc(var(--row) * 1em); }
+.rv-c-check-list .rv-box { display: block; flex-shrink: 0; width: calc(var(--box) * 1em); height: calc(var(--box) * 1em); overflow: visible; }
+.rv-c-check-list .rv-lab { position: relative; flex-shrink: 0; width: calc(var(--lab) * 1em); height: calc(var(--row) * 1em); }
+.rv-c-check-list .rv-hw {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  color: var(--p-text);
+  font-family: Caveat, "Bradley Hand", "Segoe Script", cursive;
+  font-size: calc(var(--rv-u) * var(--fs));
+  font-weight: 600;
+}
+.rv-c-check-list .rv-strike { position: absolute; inset: 0; display: block; overflow: visible; }
+.rv-c-check-list path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation-name: check-list-draw;
+  animation-duration: var(--rv-run);
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed));
+  animation-timing-function: steps(1, end);
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+@keyframes check-list-draw { 0% { stroke-dashoffset: 1; } 2% { stroke-dashoffset: 0.125; } 4%, 100% { stroke-dashoffset: 0; } }
+.rv-c-check-list .rv-quad { stroke: var(--p-text); stroke-width: var(--sw); opacity: 0.9; }
+.rv-c-check-list .rv-tick { stroke: var(--p-accent); stroke-width: calc(var(--sw) + 1); }
+.rv-c-check-list .rv-strike path { stroke: var(--p-accent); stroke-width: var(--sw); opacity: 0.85; }
+.rv-c-check-list .rv-ch {
+  rotate: calc(var(--r) * 1deg);
+  translate: 0 calc(var(--rv-u) * var(--y));
+  animation-name: check-list-glyph;
+  animation-duration: var(--rv-run);
+  animation-delay: calc(var(--rv-seek) + var(--rv-own, 0ms) / var(--rv-speed));
+  animation-timing-function: steps(1, end);
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+@keyframes check-list-glyph { 0% { opacity: 0; scale: 1; } 0.01% { opacity: 1; scale: 1.06; } 2.5% { opacity: 1; scale: 1.06; } 2.51%, 100% { opacity: 1; scale: 1; } }
+/* @end */

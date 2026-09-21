@@ -1,0 +1,108 @@
+/* shard: ui-a1 */
+
+/* @scene button */
+/* One demo loop over 4.8s: idle (0.4s) -> hover -> hold -> press -> hold -> loading (1s of
+   spinner) -> success -> hold -> back to idle, each leg 0.267s of ease-out. The three co-located
+   layers cross-fade in place, exactly as upstream stacks them inside one relative span, and the
+   spinner turns on its own 2s period (--rv-run-spin) because upstream drives it from raw frames. */
+.rv-c-button .rv-row { position: absolute; inset: 0; display: flex; align-items: center; }
+.rv-c-button .rv-btn {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--gap); height: var(--h); padding: var(--px);
+  border: 1em solid transparent; border-radius: 10em;
+  background: var(--p-accent); color: var(--p-accentFg);
+  animation: button-body var(--rv-run) cubic-bezier(0.33, 1, 0.68, 1) infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-button .rv-slot { position: relative; display: inline-flex; }
+.rv-c-button .rv-label {
+  font-size: calc(var(--rv-u) * var(--fs)); font-weight: 500; letter-spacing: -0.01em;
+  animation: button-label var(--rv-run) linear infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-button .rv-spin, .rv-c-button .rv-check {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+}
+.rv-c-button .rv-spin {
+  animation: button-spinner var(--rv-run) linear infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-button .rv-check {
+  animation: button-check var(--rv-run) linear infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-button svg { width: var(--icon); height: var(--icon); }
+.rv-c-button .rv-spin svg {
+  animation: button-turn var(--rv-run-spin) linear infinite both;
+  animation-delay: var(--rv-seek);
+}
+@keyframes button-body {
+  0%, 8.33% { translate: 0 0; scale: 1; background: var(--p-accent); }
+  13.89%, 20.83% { translate: 0 -1em; scale: 1; background: var(--p-hover); }
+  26.39%, 29.17% { translate: 0 -1em; scale: 0.97; background: var(--p-press); }
+  34.72%, 55.56% { translate: 0 -1em; scale: 1; background: var(--p-hover); }
+  61.11%, 81.94% { translate: 0 -1em; scale: 1; background: var(--p-accent); }
+  87.5%, 100% { translate: 0 0; scale: 1; background: var(--p-accent); }
+}
+@keyframes button-label {
+  0%, 29.17% { opacity: 1; } 34.72%, 81.94% { opacity: 0; } 87.5%, 100% { opacity: 1; }
+}
+@keyframes button-spinner {
+  0%, 29.17% { opacity: 0; } 34.72%, 55.56% { opacity: 1; } 61.11%, 100% { opacity: 0; }
+}
+@keyframes button-check {
+  0%, 55.56% { opacity: 0; } 61.11%, 81.94% { opacity: 1; } 87.5%, 100% { opacity: 0; }
+}
+@keyframes button-turn { to { rotate: 360deg; } }
+/* @end */
+
+/* @scene dialog */
+/* The scrim is a real element beside the stage rather than a pseudo-element: it has to dim the
+   whole card the way upstream's `inset: 0` overlay dims its whole frame, and the shared pause rule
+   selects elements only. Popup channels are opacity, translateY 8px and scale 0.95, all on the one
+   0.4s ease-out tween, opened for 1.6s and closed on the identical curve. */
+.rv-c-dialog .rv-scrim {
+  position: absolute; inset: 0; z-index: 1; background: var(--p-scrim);
+  animation: dialog-scrim var(--rv-run) cubic-bezier(0.33, 1, 0.68, 1) infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-dialog .rv-stage { z-index: 2; display: flex; align-items: center; justify-content: center; }
+.rv-c-dialog .rv-pop {
+  position: relative; width: 440em; padding: 24em;
+  display: flex; flex-direction: column; gap: 8em;
+  background: var(--p-panel); color: var(--p-text); border: 1em solid var(--p-border);
+  border-radius: 16em; box-shadow: 0 24em 48em -12em var(--p-shadow);
+  animation: dialog-pop var(--rv-run) cubic-bezier(0.33, 1, 0.68, 1) infinite both;
+  animation-delay: var(--rv-seek);
+}
+.rv-c-dialog .rv-x {
+  position: absolute; top: 16em; right: 16em; width: 28em; height: 28em;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 10em; color: var(--p-muted);
+}
+.rv-c-dialog .rv-x svg { width: 16em; height: 16em; }
+.rv-c-dialog .rv-ttl {
+  font-size: calc(var(--rv-u) * 18); font-weight: 500; letter-spacing: -0.01em;
+  padding-right: calc(var(--rv-u) * 28);
+}
+.rv-c-dialog .rv-desc {
+  font-size: calc(var(--rv-u) * 14); line-height: 1.5; color: var(--p-muted);
+}
+.rv-c-dialog .rv-acts { display: flex; justify-content: flex-end; gap: 8em; margin-top: 16em; }
+.rv-c-dialog .rv-b {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: calc(var(--rv-u) * 40); padding: 0 calc(var(--rv-u) * 20);
+  font-size: calc(var(--rv-u) * 15); font-weight: 500; letter-spacing: -0.01em;
+  border: calc(var(--rv-u) * 1) solid transparent; border-radius: calc(var(--rv-u) * 10);
+}
+.rv-c-dialog .rv-cancel { color: var(--p-text); border-color: var(--p-border); }
+.rv-c-dialog .rv-action { background: var(--p-accent); color: var(--p-accentFg); }
+@keyframes dialog-scrim {
+  0%, 9.38% { opacity: 0; } 21.88%, 71.88% { opacity: 0.5; } 84.38%, 100% { opacity: 0; }
+}
+@keyframes dialog-pop {
+  0%, 9.38% { opacity: 0; translate: 0 8em; scale: 0.95; }
+  21.88%, 71.88% { opacity: 1; translate: 0 0; scale: 1; }
+  84.38%, 100% { opacity: 0; translate: 0 8em; scale: 0.95; }
+}
+/* @end */

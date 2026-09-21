@@ -11,6 +11,7 @@
         "@hyperframes/player": "0.8.31",
         "@hyperframes/sdk": "0.8.31",
         "@outpacelabs/avatars": "^0.6.0",
+        "@paper-design/shaders-react": "^0.0.81",
         "@radix-ui/react-dialog": "1.1.15",
         "@radix-ui/react-select": "2.3.7",
         "@tanstack/react-virtual": "3.5.0",
@@ -175,6 +176,10 @@
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
     "@outpacelabs/avatars": ["@outpacelabs/avatars@0.6.0", "", { "peerDependencies": { "react": ">=18" } }, "sha512-pTAezn9+Hc3uUIBoaDYjciUgSycbWiUEVlcap7YmTpurQMBTYIcPokvB2vP2YYGlE3jGXzuX6AgVEEC/E63ohw=="],
+
+    "@paper-design/shaders": ["@paper-design/shaders@0.0.81", "", {}, "sha512-jeGdyjMscZ2bxmQdo8lhwUufHUf4iq3s1ayjh8PXU7Go42Rw8E3I0It1FZdc3HuWt5J82m//DRWaxsRqRfA4Gg=="],
+
+    "@paper-design/shaders-react": ["@paper-design/shaders-react@0.0.81", "", { "dependencies": { "@paper-design/shaders": "0.0.81" }, "peerDependencies": { "@types/react": "^18 || ^19", "react": "^18 || ^19" }, "optionalPeers": ["@types/react"] }, "sha512-3FMkeZqj9sSvK/WkgekGu3crnOQd4R2iH8IT+jVBuQmq1m8p88VFvxh63s9bSt2exBwjBNaRfSo0FSCeNxqh3w=="],
 
     "@radix-ui/number": ["@radix-ui/number@1.1.3", "", {}, "sha512-Road2bidD0uu/1BGDOWNdPI06g0lIRy6IF9GZcIrDK2KGItfor8IQwQa+yM2ERgHM1MmHxaxpTzk0/Jp42lNfA=="],
 
