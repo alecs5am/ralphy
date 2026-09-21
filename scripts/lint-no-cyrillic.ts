@@ -29,9 +29,10 @@ const BINARY_EXT =
  * Translation-debt escape hatch (#465): paths whose Cyrillic is tracked debt
  * rather than a fresh violation. The original seven all-Russian content/audit
  * docs were translated to English in #479. The desktop import retains its existing
- * reference archives, design notes, and language label as explicit translation
- * debt; no package-wide exemption is allowed. Add a path ONLY for pre-existing debt, and delete
- * it the moment the file is translated.
+ * reference archives, design notes, language label, and verbatim third-party
+ * component sources as explicit translation debt; no package-wide exemption is
+ * allowed. Add a path ONLY for imported or pre-existing debt, and delete it the
+ * moment the file is translated.
  */
 export const ALLOWLIST = new Set<string>([
   "apps/desktop/.superpowers/brainstorm/30009-1787143031/content/accent-directions.html",
@@ -45,6 +46,7 @@ export const ALLOWLIST = new Set<string>([
   "apps/desktop/docs/superpowers/specs/2026-07-30-design-system-transfer.md",
   "apps/desktop/docs/superpowers/specs/2026-08-20-nothing-os-redesign-design.md",
   "apps/desktop/scripts/prepare-instrument-evidence.mjs",
+  "apps/desktop/src/pages/marketplace/lib/generated/remocn-foundations.generated.json",
   "apps/desktop/src/pages/settings/ui/pages-personal.tsx",
   "apps/desktop/src/widgets/view-panel/ui/ViewPanelHub.tsx",
   "apps/desktop/tests/instrument-reference.test.ts",

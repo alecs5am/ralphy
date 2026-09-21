@@ -261,7 +261,7 @@ export function AgentComposer({
   };
 
   return <div
-    className={`agent-composer relative mx-3 mb-3 flex flex-none flex-col gap-2.25 rounded-composer bg-chat-field p-2.75 ${dropping ? "is-dropping outline-2 -outline-offset-2 outline-dashed outline-ink" : ""}`}
+    className={`agent-composer relative mx-2 mb-2 flex flex-none flex-col gap-2 rounded-composer bg-chat-field p-2 ${dropping ? "is-dropping outline-2 -outline-offset-2 outline-dashed outline-ink" : ""}`}
     onDragOver={(event) => {
       /* Only what this composer can actually take: a Ralphy entity or a file. Saying so on
          `dragover` is what turns the cursor into a copy cursor rather than a refusal. */
@@ -301,7 +301,7 @@ export function AgentComposer({
            var(--leading-loose)` against a token no file declares, so the declaration was dead and
            the field silently inherited the body's snug step. The role key states the field's own
            leading and resolves to a token that exists. */
-        className="agent-composer-field max-h-agent-composer min-h-11 w-full overflow-y-auto px-0.5 type-md leading-composer whitespace-pre-wrap text-ink outline-0 [overflow-wrap:anywhere]"
+        className="agent-composer-field max-h-agent-composer min-h-10 w-full overflow-y-auto px-0.5 type-sm leading-composer whitespace-pre-wrap text-ink outline-0 [overflow-wrap:anywhere]"
         contentEditable
         suppressContentEditableWarning
         role="textbox"
@@ -322,7 +322,7 @@ export function AgentComposer({
       {/* `secondary`, not `muted-decorative`: the placeholder is a real element now rather than a
           pseudo, and the decorative step measures 2.6:1 on the chat field. A line the operator is
           meant to read is not a counter. */}
-      {empty && <span className="pointer-events-none absolute top-0 left-0.5 type-md leading-composer text-secondary" aria-hidden="true">{placeholder}</span>}
+      {empty && <span className="pointer-events-none absolute top-0 left-0.5 type-sm leading-composer text-secondary" aria-hidden="true">{placeholder}</span>}
       {query !== null && <AgentTagMenu query={query} rows={rows} highlight={cursor} onPick={insert} />}
     </div>
     {children}

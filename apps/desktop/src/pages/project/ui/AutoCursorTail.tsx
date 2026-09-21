@@ -8,6 +8,7 @@ export function AutoCursorTail(props: {
   error: string | null;
   onLoadMore(): void;
   onRetry(): void;
+  axis?: "horizontal" | "vertical";
 }): React.ReactNode {
   const current = useRef(props);
   const wasIntersecting = useRef(false);
@@ -29,12 +30,12 @@ export function AutoCursorTail(props: {
       wasIntersecting.current = true;
       const latest = current.current;
       if (latest.hasMore && !latest.loading && !latest.error) latest.onLoadMore();
-    }, { root: props.root, rootMargin: "240px 0px" });
+    }, { root: props.root, rootMargin: props.axis === "horizontal" ? "0px 240px" : "240px 0px" });
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [props.root, sentinel]);
 
-  return <div className="auto-cursor-tail flex min-h-px items-center justify-center py-3 text-muted empty:py-0" ref={attachSentinel}>
+  return <div className={`auto-cursor-tail flex items-center justify-center text-muted ${props.axis === "horizontal" ? "min-w-px self-stretch px-3 empty:px-0" : "min-h-px py-3 empty:py-0"}`} ref={attachSentinel}>
     {props.loading && <span role="status" aria-live="polite">Loading more…</span>}
     {props.error && <div className="flex items-center gap-3" role="alert"><span>{props.error}</span><button className={COMMAND_BUTTON} type="button" onClick={props.onRetry}>Retry</button></div>}
   </div>;

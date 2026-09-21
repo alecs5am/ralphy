@@ -37,11 +37,12 @@ export function createProjectScreenController(
   api: ProjectScreenApi,
   project: ProjectReference,
   initialActivitySequence = 0,
+  rootEpoch?: number,
 ): ProjectScreenController {
   const store = createProjectScreenStore(api, project);
   const compositions = createCompositionSection(store);
   const units = createUnitSection(store, compositions);
-  const documents = createDocumentSection(store);
+  const documents = createDocumentSection(store, rootEpoch === undefined ? undefined : JSON.stringify([rootEpoch, project.workspaceId, project.projectId]));
 
   let request = 0;
   let overviewRequest = 0;
@@ -135,7 +136,7 @@ export function createProjectScreenController(
   const controller: ProjectScreenController = {
     getSnapshot: () => store.snapshot,
     subscribe: store.subscribe,
-    async start() { await Promise.all([loadOverview(), loadPage("units")]); },
+    async start() { await Promise.all([loadOverview(), loadPage(store.snapshot.activeTab)]); },
     async refresh(sequence) {
       if (store.disposed || sequence <= coveredActivitySequence || sequence < highestActivityAnnouncement
         || (sequence === highestActivityAnnouncement && activityCatchupInFlight)) return;

@@ -129,8 +129,8 @@ function UnavailableAside({ category }: { category: UnsupportedCategory }) {
   const { singular } = categoryCopy[category];
   return <aside className={`marketplace-public-detail-aside ${DETAIL_COLUMN}`}>
     <UnavailableSection tone="aside" title="Version and provenance">{`${singular} source, publisher identity, version, license, signature, audit, and local modification evidence are unavailable without a ${singular} provenance evidence contract.`}</UnavailableSection>
-    <UnavailableSection tone="aside" title="Works with">{`${singular} relationships are unavailable without a Marketplace relationship contract.`}</UnavailableSection>
-    <UnavailableSection tone="aside" title="Used by">Usage backlinks are unavailable without a Marketplace usage-backlink contract.</UnavailableSection>
+    <UnavailableSection tone="aside" title="Works with">{`${singular} relationships are unavailable without a library relationship contract.`}</UnavailableSection>
+    <UnavailableSection tone="aside" title="Used by">Usage backlinks are unavailable without a library usage-backlink contract.</UnavailableSection>
   </aside>;
 }
 
@@ -225,7 +225,7 @@ export function MarketplaceUnavailableCategory({ category, sourceReason, onOpenD
       aria-describedby={onOpenDetail ? undefined : `marketplace-${category}-category-review-unavailable`}
       onClick={onOpenDetail ? () => onOpenDetail(category) : undefined}
     >Review unavailable {copy.singular} details</button>
-    {!onOpenDetail && <small className="type-xs text-muted" id={`marketplace-${category}-category-review-unavailable`}>Detail review is unavailable without a Marketplace route callback.</small>}
+    {!onOpenDetail && <small className="type-xs text-muted" id={`marketplace-${category}-category-review-unavailable`}>Detail review is unavailable without a library route callback.</small>}
   </section>;
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { bridge, type ProjectReference } from "@/shared/api/ipc";
 import { resolveUnitRevisionPreview, type UnitMedia } from "../lib/unit-previews";
 
@@ -7,6 +7,7 @@ export function UnitSourcePreview({ project, revisionId, label }: { project: Pro
   const [media, setMedia] = useState<UnitMedia | null>(null);
   const [loading, setLoading] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     let current = true;
     setMedia(null);
@@ -15,12 +16,16 @@ export function UnitSourcePreview({ project, revisionId, label }: { project: Pro
     return () => { current = false; };
   }, [project.workspaceId, project.projectId, revisionId, attempt]);
   const preview = media?.preview;
-  return <section className="unit-source-preview col-span-full grid min-h-0 min-w-0 content-start gap-3 overflow-auto rounded-field bg-card p-3 text-ink" aria-label="Original revision">
-    <header className="flex items-center gap-3"><strong className="rounded-chip bg-brand px-2 py-1 font-code type-sm text-brand-ink">R0 · Original</strong><span className="type-sm text-muted">{label}</span></header>
-    <div className="grid min-w-0 place-items-center rounded-field bg-card p-2">
+  useEffect(() => {
+    const video = videoRef.current;
+    return () => video?.pause?.();
+  }, [preview]);
+  return <section className="unit-source-preview flex min-h-0 min-w-0 flex-1 flex-col text-ink" aria-label="Original revision">
+    <header className="sr-only">Original · {label}</header>
+    <div className="grid min-h-0 min-w-0 flex-1 place-items-center overflow-auto">
       {loading ? <span role="status" className="p-3 type-sm text-muted">Loading original…</span>
-        : preview && "url" in preview && media?.kind === "video" ? <video className="max-h-unit-media-preview w-full object-contain" src={preview.url} controls playsInline preload="metadata" aria-label="Original video" />
-          : preview && "url" in preview && media?.kind === "image" ? <img className="max-h-unit-media-preview w-full object-contain" src={preview.url} alt={`Original · ${label}`} />
+        : preview && "url" in preview && media?.kind === "video" ? <video ref={videoRef} className="size-full min-h-0 object-contain" src={preview.url} controls playsInline autoPlay loop muted preload="metadata" aria-label="Original video" />
+          : preview && "url" in preview && media?.kind === "image" ? <img className="size-full min-h-0 object-contain" src={preview.url} alt={`Original · ${label}`} />
             : preview && "url" in preview && media?.kind === "audio" ? <audio src={preview.url} controls aria-label="Original audio" />
               : preview && "text" in preview ? <p className="whitespace-pre-wrap type-sm">{preview.text}</p>
                 : <button type="button" className="px-3 py-2 type-sm" onClick={() => setAttempt((value) => value + 1)}>Original unavailable · Retry</button>}

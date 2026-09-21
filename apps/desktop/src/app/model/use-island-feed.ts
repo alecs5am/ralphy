@@ -50,7 +50,7 @@ export function useIslandFeed({
       const detail = route.kind === "category" ? route.category
         : route.kind === "library" ? route.section
           : route.kind;
-      return { identity: null, label: "Marketplace", detail, count: null };
+      return { identity: null, label: "Explore", detail, count: null };
     }
     if (selectedProject) return { identity: selectedProject.name, label: selectedProject.name, detail: selectedProject.phase || selectedProject.status || null, count: null };
     if (selectedWorkspace) {

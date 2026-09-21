@@ -1,7 +1,7 @@
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { EventEmitter } from "node:events";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { PassThrough, Writable } from "node:stream";
 
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
@@ -361,6 +361,26 @@ describe("RalphyBridgeClient", () => {
     });
 
     await expect(client.start()).resolves.toMatchObject({ rootId: "a".repeat(64) });
+    await client.close();
+  });
+
+  test("keeps the active Mise Bun runtime on the sanitized bridge PATH", async () => {
+    const injected = injectedBridge("success");
+    const home = "/Users/operator";
+    const miseBun = `${home}/.local/share/mise/installs/bun/1.4.2/bin`;
+    let bridgePath = "";
+    const client = new RalphyBridgeClient({
+      root: "/library",
+      env: { HOME: home, PATH: `${miseBun}${delimiter}/untrusted/bin` },
+      spawn: (_bin, _args, options) => {
+        bridgePath = options.env.PATH ?? "";
+        return injected.child as never;
+      },
+    });
+
+    await client.start();
+    expect(bridgePath.split(delimiter)[0]).toBe(miseBun);
+    expect(bridgePath).not.toContain("/untrusted/bin");
     await client.close();
   });
 

@@ -8,7 +8,7 @@
  */
 
 /* Air between blocks, and the two indents the transcript uses. */
-export const BLOCK = "flex min-w-0 flex-col gap-3.25";
+export const BLOCK = "flex min-w-0 flex-col gap-2";
 /* A mono meta run: a counter, a scope, an account line. */
 export const META = "flex-none font-code type-mono-xs tracking-mono text-secondary";
 /* A quiet control on a transcript line: copy, retry, open. */

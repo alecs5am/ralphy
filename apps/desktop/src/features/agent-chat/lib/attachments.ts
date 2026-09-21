@@ -1,4 +1,4 @@
-import { Brain, CalendarClock, FileText, Folder, Image, Layers, type AppIcon } from "@/shared/ui/icons";
+import { Brain, CalendarClock, FileText, Folder, Image, Layers, Library, type AppIcon } from "@/shared/ui/icons";
 
 /**
  * Attachments: the chat's second reference channel.
@@ -14,7 +14,7 @@ import { Brain, CalendarClock, FileText, Folder, Image, Layers, type AppIcon } f
  * filesystem, so a path is the most useful thing to hand it.
  */
 
-export type AttachmentKind = "unit" | "file" | "project" | "media" | "memory" | "scheduled";
+export type AttachmentKind = "unit" | "file" | "project" | "media" | "memory" | "scheduled" | "library";
 
 export interface Attachment {
   kind: AttachmentKind;
@@ -35,6 +35,7 @@ export const ATTACHMENT_KINDS: Record<AttachmentKind, { icon: AppIcon; label: st
   media: { icon: Image, label: "MEDIA" },
   memory: { icon: Brain, label: "MEMORY" },
   scheduled: { icon: CalendarClock, label: "SCHEDULED" },
+  library: { icon: Library, label: "LIBRARY" },
 };
 
 /** The drag type the app's own rows carry. A type of our own is what tells a drop where it came from. */

@@ -25,7 +25,7 @@ const SettingsScreen = lazy(loadSettingsScreen);
 
 export { loadSettingsScreen };
 
-export function AppSettings({ workspace, rootPath, theme, resolvedTheme, entryPage, onThemeChange, onClose }: {
+export function AppSettings({ workspace, rootPath, theme, resolvedTheme, entryPage, onThemeChange, onClose, onOpenWorkspaceSettings }: {
   workspace?: { id: string; name: string } | null;
   rootPath: string | null;
   theme: ThemePreference;
@@ -33,6 +33,7 @@ export function AppSettings({ workspace, rootPath, theme, resolvedTheme, entryPa
   entryPage: SettingsPageId | undefined;
   onThemeChange(value: ThemePreference): void;
   onClose(): void;
+  onOpenWorkspaceSettings(page: "memory" | "context"): void;
 }) {
   return <Suspense fallback={null}>
     <InstrumentOverlay id="settings" open label="Settings" description="Application settings" opener={null} onOpenChange={(open) => { if (!open) onClose(); }} localScroll surfaceClassName="fixed inset-0 z-overlay-surface overflow-hidden focus-visible:outline-none">
@@ -44,6 +45,7 @@ export function AppSettings({ workspace, rootPath, theme, resolvedTheme, entryPa
         entryPage={entryPage}
         onThemeChange={onThemeChange}
         onBack={onClose}
+        onOpenWorkspaceSettings={onOpenWorkspaceSettings}
       />
     </InstrumentOverlay>
   </Suspense>;

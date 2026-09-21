@@ -57,10 +57,10 @@ function byAria(root: HostNode, tag: string, label: string): HostNode | null {
   return root.querySelectorAll(tag).find((node) => node.getAttribute("aria-label") === label) ?? null;
 }
 
-async function choose(root: HostNode, label: "Kind" | "Provenance" | "Sort", value: string) {
+async function choose(root: HostNode, label: "Provenance" | "Sort", value: string) {
   const trigger = byAria(root, "button", label);
   if (!trigger) throw new Error(`Select trigger not found: ${label}`);
-  const select = root.querySelectorAll("select")[["Kind", "Provenance", "Sort"].indexOf(label)] as HostNode & { value: string };
+  const select = root.querySelectorAll("select")[["Provenance", "Sort"].indexOf(label)] as HostNode & { value: string };
   if (!select) throw new Error(`Select input not found: ${label}`);
   select.value = value;
   await act(async () => { select.dispatchEvent(new Event("change", { bubbles: true })); await settle(); });
@@ -86,7 +86,7 @@ async function mountScreen(props: Partial<React.ComponentProps<typeof SharedLibr
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("Shared Library screen", () => {
+describe("Shared assets screen", () => {
   test("keeps the pre-effect bootstrap shell geometrically stable", () => {
     const markup = renderToStaticMarkup(<SharedLibraryScreen workspaceId="workspace-1" workspaceName="Launch Studio" rootEpoch={1} />);
     expect(markup).toContain("shared-library-toolbar");
@@ -102,7 +102,7 @@ describe("Shared Library screen", () => {
     try {
       const screen = mounted.host.container.querySelector(".shared-library-screen");
       expect(screen?.getAttribute("aria-busy")).toBe("true");
-      expect(mounted.host.container.textContent).toContain("Shared Library");
+      expect(mounted.host.container.textContent).toContain("Shared assets");
       expect(mounted.host.container.querySelector(".shared-library-toolbar")).not.toBeNull();
       expect(mounted.host.container.querySelector(".shared-library-skeleton")).not.toBeNull();
       expect(mounted.host.container.querySelectorAll("[role=status]")).toHaveLength(1);
@@ -136,6 +136,7 @@ describe("Shared Library screen", () => {
     const mounted = await mountScreen();
     try {
       expect(mounted.host.container.querySelector("[role=alert]")?.textContent).toContain("Library unavailable");
+      expect(byAria(mounted.host.container, "input", "Search Shared assets")).toBeTruthy();
       await act(async () => { byText(mounted.host.container, "Retry").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
       expect(mounted.host.container.textContent).toContain("recovered");
       expect(mounted.host.container.textContent).not.toContain("Library unavailable");
@@ -194,18 +195,18 @@ describe("Shared Library screen", () => {
     const mounted = await mountScreen();
     try {
       const text = mounted.host.container.textContent;
-      expect(text).toContain("Shared Library");
+      expect(text).toContain("Shared assets");
       expect(text).toContain("Reusable workspace artifacts for people and agents");
       expect(text).toContain("2 ARTIFACTS");
       expect(text).toContain("6.0 KB");
       expect(text).not.toContain("Add artifact");
       expect(text).not.toContain("Promote from project");
       // The field is a flex child in a crowded toolbar; a long placeholder ran off its own pill.
-      expect(byAria(mounted.host.container, "input", "Search Shared Library")?.getAttribute("placeholder"))
+      expect(byAria(mounted.host.container, "input", "Search Shared assets")?.getAttribute("placeholder"))
         .toBe("Search artifacts");
       expect(text).toContain("Grid");
       expect(text).toContain("List");
-      expect(text).not.toContain("Shared Library is not wired yet");
+      expect(text).not.toContain("Shared assets is not wired yet");
       expect(mounted.host.container.querySelectorAll(".shared-library-primary")).toHaveLength(0);
       expect(mounted.host.container.querySelectorAll("[data-unavailable-filter]")).toHaveLength(0);
       expect(text).not.toMatch(/semantic search/i);
@@ -215,19 +216,24 @@ describe("Shared Library screen", () => {
     }
   });
 
-  test("searches exact returned fields and keeps unknown usage roles under Referenced as", async () => {
-    vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([
-      artifact("generated-hook", {
-        kind: "soundtrack", mediaKind: "audio", mime: "audio/mpeg",
-        provenance: "generation", usageRoles: ["Agent-created opening ritual"],
-      }),
-      artifact("brand-mark", { provenance: "not-generation", usageRoles: ["logo lockup"] }),
-    ]));
+  test("sends search and filters to the library and keeps unknown usage roles under Referenced as", async () => {
+    const hook = artifact("generated-hook", {
+      kind: "soundtrack", mediaKind: "audio", mime: "audio/mpeg",
+      provenance: "generation", usageRoles: ["Agent-created opening ritual"],
+    });
+    const all = page([hook, artifact("brand-mark", { provenance: "not-generation", usageRoles: ["logo lockup"] })]);
+    const load = vi.spyOn(bridge, "loadSharedLibraryPage")
+      .mockResolvedValueOnce(all)
+      .mockResolvedValueOnce(page([hook]))
+      .mockResolvedValueOnce(all)
+      .mockResolvedValueOnce(page([hook]))
+      .mockResolvedValueOnce(page([hook]));
     const mounted = await mountScreen();
     try {
-      const search = byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value: string };
+      const search = byAria(mounted.host.container, "input", "Search Shared assets") as HostNode & { value: string };
       search.value = "AGENT-CREATED OPENING";
       await act(async () => { search.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
+      expect(load).toHaveBeenLastCalledWith("workspace-1", { search: "AGENT-CREATED OPENING", sort: "selected" });
       expect(mounted.host.container.textContent).toContain("generated-hook");
       expect(mounted.host.container.textContent).not.toContain("brand-mark");
       expect(mounted.host.container.textContent).toContain("Referenced as");
@@ -236,8 +242,11 @@ describe("Shared Library screen", () => {
 
       search.value = "";
       await act(async () => { search.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
-      await choose(mounted.host.container, "Kind", "audio");
+      const audio = byAria(mounted.host.container, "input", "Audio")!;
+      Object.assign(audio, { type: "radio", checked: true });
+      await act(async () => { audio.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
       await choose(mounted.host.container, "Provenance", "generation");
+      expect(load).toHaveBeenLastCalledWith("workspace-1", { mediaKind: "audio", provenance: "generation", sort: "selected" });
       expect(mounted.host.container.querySelectorAll(".shared-artifact-card")).toHaveLength(1);
       expect(mounted.host.container.textContent).toContain("generated-hook");
       expect(mounted.host.container.textContent).not.toContain("brand-mark");
@@ -248,10 +257,13 @@ describe("Shared Library screen", () => {
   });
 
   test("keeps filters visible and suggests only truthful returned fields when no results match", async () => {
-    vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([artifact("portrait")]));
+    vi.spyOn(bridge, "loadSharedLibraryPage")
+      .mockResolvedValueOnce(page([artifact("portrait")]))
+      .mockResolvedValueOnce(page([]))
+      .mockResolvedValueOnce(page([artifact("portrait")]));
     const mounted = await mountScreen();
     try {
-      const search = byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value: string };
+      const search = byAria(mounted.host.container, "input", "Search Shared assets") as HostNode & { value: string };
       search.value = "not-returned";
       await act(async () => { search.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
       expect(mounted.host.container.querySelector(".shared-library-toolbar")).not.toBeNull();
@@ -336,7 +348,8 @@ describe("Shared Library screen", () => {
       expect(portrait.getAttribute("aria-describedby")).not.toBeNull();
       expect(mounted.host.container.textContent).toContain("Click or press Space to select this asset and open the inspector. Press Enter or double-click to open the viewer.");
       expect(mounted.host.container.textContent).not.toContain("Title unavailable");
-      expect(mounted.host.container.textContent).toContain("ASSET · portrait");
+      expect(portrait.querySelector("strong")?.textContent).toBe("portrait");
+      expect(portrait.querySelector("strong")?.getAttribute("class")).toContain("text-ink");
       expect(portrait.closest("article")?.getAttribute("role")).toBeNull();
       await act(async () => portrait.dispatchEvent(new Event("click", { bubbles: true })));
       expect(onOpenInspector).toHaveBeenCalledWith(expect.objectContaining({ id: "portrait" }));
@@ -392,7 +405,7 @@ describe("Shared Library screen", () => {
     const mounted = await mountScreen();
     try {
       if (view === "List") await act(async () => { byText(mounted.host.container, "List").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
-      const search = byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value: string };
+      const search = byAria(mounted.host.container, "input", "Search Shared assets") as HostNode & { value: string };
       search.value = "portrait";
       await act(async () => { search.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
       const scroll = mounted.host.container.querySelector(".shared-library-scroll")!;
@@ -612,13 +625,14 @@ describe("Shared Library screen", () => {
     const oldPreview = deferred<{ url: string; sizeBytes: number } | null>();
     vi.spyOn(bridge, "loadSharedLibraryPage")
       .mockResolvedValueOnce(page([artifact("old-card")]))
+      .mockResolvedValueOnce(page([artifact("old-card")]))
       .mockResolvedValueOnce(page([artifact("new-card")]));
     vi.spyOn(bridge, "resolveSharedLibraryPreview").mockImplementation(async (_workspaceId, artifactId) => artifactId === "old-card"
       ? oldPreview.promise
       : { url: "ralphy-media://asset/new-token", sizeBytes: 2_048 });
     const mounted = await mountScreen();
     try {
-      const search = byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value: string };
+      const search = byAria(mounted.host.container, "input", "Search Shared assets") as HostNode & { value: string };
       search.value = "old";
       await act(async () => { search.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
       await act(async () => byAria(mounted.host.container, "button", "Select old-card and open inspector")!.dispatchEvent(new Event("click", { bubbles: true })));
@@ -632,7 +646,7 @@ describe("Shared Library screen", () => {
       expect(mounted.host.container.textContent).toContain("new-card");
       expect(mounted.host.container.querySelector('[src="ralphy-media://asset/new-token"]')).not.toBeNull();
       expect(mounted.host.container.querySelector('[src="ralphy-media://asset/stale-token"]')).toBeNull();
-      expect((byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value?: string }).value ?? "").toBe("");
+      expect((byAria(mounted.host.container, "input", "Search Shared assets") as HostNode & { value?: string }).value ?? "").toBe("");
       expect(mounted.host.container.querySelector(".is-selected")).toBeNull();
     } finally {
       await act(async () => mounted.root.unmount());
@@ -650,7 +664,7 @@ describe("Shared Library screen", () => {
       : { url: "ralphy-media://asset/new-token", sizeBytes: 2_048 });
     const mounted = await mountScreen();
     try {
-      const search = byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value: string };
+      const search = byAria(mounted.host.container, "input", "Search Shared assets") as HostNode & { value: string };
       search.value = "old";
       await act(async () => { search.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
       await act(async () => byAria(mounted.host.container, "button", "Select old-card and open inspector")!.dispatchEvent(new Event("click", { bubbles: true })));
@@ -664,7 +678,7 @@ describe("Shared Library screen", () => {
       expect(mounted.host.container.textContent).toContain("new-card");
       expect(mounted.host.container.querySelector('[src="ralphy-media://asset/new-token"]')).not.toBeNull();
       expect(mounted.host.container.querySelector('[src="ralphy-media://asset/stale-token"]')).toBeNull();
-      expect((byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value?: string }).value ?? "").toBe("");
+      expect((byAria(mounted.host.container, "input", "Search Shared assets") as HostNode & { value?: string }).value ?? "").toBe("");
       expect(mounted.host.container.querySelector(".is-selected")).toBeNull();
     } finally {
       await act(async () => mounted.root.unmount());

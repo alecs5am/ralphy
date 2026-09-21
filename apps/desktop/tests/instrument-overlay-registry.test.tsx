@@ -27,7 +27,7 @@ const sharedSelectOwners = [
   "canvas.switcher",
   "canvas.connector",
   "workspace.units",
-  "settings.rows", "shared.toolbar", "shared.workflow", "memory.editor", "project.media", "project.activity", "marketplace.header",
+  "settings.rows", "shared.toolbar", "shared.workflow", "memory.editor", "project.media", "project.activity", "marketplace.header", "marketplace.visual",
 ] as const;
 
 const overlayKinds = {
@@ -56,6 +56,7 @@ const sharedSelectOwnerRecords = {
   "project.media": { module: "src/pages/project/ui/MediaPanel.tsx", routeScope: { kind: "exact", routeKeys: ["project.media"] } },
   "project.activity": { module: "src/pages/project/ui/ActivityTimeline.tsx", routeScope: { kind: "exact", routeKeys: ["project.activity"] } },
   "marketplace.header": { module: "src/pages/marketplace/ui/MarketplaceHeader.tsx", routeScope: { kind: "production-prefix", prefix: "marketplace." } },
+  "marketplace.visual": { module: "src/pages/marketplace/ui/MarketplaceVisualPreview.tsx", routeScope: { kind: "exact", routeKeys: ["marketplace.detail"] } },
 };
 
 async function settle() {

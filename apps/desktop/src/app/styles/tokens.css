@@ -199,7 +199,7 @@ html[data-theme="light"] {
   --instrument-desk-hover: #D3D6DD;
   --instrument-widget-light: #F1F2F6;
   --instrument-widget-light-hover: #FFFFFF;
-  --instrument-widget-light-sunken: #E4E4E2;
+  --instrument-widget-light-sunken: #F1F2F4;
   --instrument-text-primary: #141414;
   --instrument-text-secondary-decorative: #6E6E6A;
   --instrument-text-muted-decorative: #9A9A96;
@@ -344,6 +344,7 @@ html[data-theme="light"] {
    every viewer, and lightening the plate to suit a backdrop would break the guarantee. The
    app-chrome scrim is a third thing again and stays where it is, in instrument.css. */
 :root {
+  --content-aspect: 9 / 16;
   --instrument-media-plate: color-mix(in srgb, var(--instrument-media-frame) 72%, transparent);
   --instrument-media-veil: color-mix(in srgb, var(--instrument-media-frame) 68%, transparent);
 
@@ -415,22 +416,14 @@ html[data-theme="light"] {
   --menu-item-height: 30px;
   --menu-item-radius: var(--radius-md);
 
-  --font-sans: "Manrope", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: "AWS Diatype Mono", "Andale Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-doto: "Doto", var(--font-mono);
   /* Handoff 15's critical fix: the modifier symbols do not exist in AWS Diatype Mono, so the
      browser silently substituted a system font mid-string and size, weight and baseline all
      shifted. The symbols take the system stack outright, and the letters stay mono. */
   --font-glyph: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
-  /* Type scale of the instrument language: mono micro-labels 10-12px uppercase,
-     UI text 12.5-14.5px, widget headings 17-18px. Doto is numbers only, >= 13px.
-
-     The 2026-08-25 readability review raised the bottom of this scale. The rungs below 10px were
-     legible on the design canvas and not on a real screen at a real viewing distance: a settings
-     row's description is prose, and it was set at 11.5px, one step above a caps micro-label. The
-     0.5px spacing between rungs is kept, so every distinction the screens draw with survives --
-     what changed is where the scale starts. Sizes at 20px and up were already legible and are
-     untouched, which widens the gap between body copy and a heading rather than narrowing it. */
+  /* Dense desktop chrome uses 13px system text; micro-labels retain their readable floor. */
   --text-mono-2xs: 10px;
   --text-mono-xs: 10.5px;
   --text-mono-sm: 11px;
@@ -439,21 +432,21 @@ html[data-theme="light"] {
   --text-xs: 12px;
   --text-label: 12.5px;
   --text-sm: 13px;
-  --text-ui: 13.5px;
-  --text-base: 14px;
-  --text-body: 14.5px;
-  --text-md: 15px;
-  --text-lg: 16px;
-  --text-title: 17px;
-  --text-subtitle: 18px;
-  --text-heading: 19px;
-  --text-xl: 20px;
-  --text-page: 21px;
-  --text-metric: 22px;
-  --text-section: 24px;
-  --text-display: 26px;
-  --text-hero: 28px;
-  --text-greeting: 29px;
+  --text-ui: 13px;
+  --text-base: 13px;
+  --text-body: 13px;
+  --text-md: 14px;
+  --text-lg: 15px;
+  --text-title: 16px;
+  --text-subtitle: 17px;
+  --text-heading: 18px;
+  --text-xl: 18px;
+  --text-page: 19px;
+  --text-metric: 20px;
+  --text-section: 21px;
+  --text-display: 23px;
+  --text-hero: 25px;
+  --text-greeting: 26px;
   --leading-tight: 1.3;
   --leading-snug: 1.45;
   --leading-body: 1.55;
@@ -474,9 +467,9 @@ html[data-theme="light"] {
   --radius-sm: 8px;
   --radius-tab: 9px;
   --radius-md: 10px;
-  --radius-row: 12px;
+  --radius-row: 8px;
   --radius-lg: 14px;
-  --radius-preview: 12px;
+  --radius-preview: 8px;
   /* Handoff 16's frame language: a zone is a panel with a 2px frame holding a card, and the two
      radii are deliberately near-identical so the frame reads as a hairline rather than a margin.
      14 is 16 less the 2 of frame, which makes the card's corner concentric with the shell's. */

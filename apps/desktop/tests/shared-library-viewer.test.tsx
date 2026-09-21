@@ -564,7 +564,7 @@ describe("Shared Artifact viewer", () => {
     await act(async () => { root.render(<SharedLibraryScreen workspaceId="workspace-1" workspaceName="Studio" rootEpoch={1} />); await settle(); });
     await act(async () => { await settle(); });
     try {
-      const input = byAria(host.container, "input", "Search Shared Library") as HostNode & { value: string };
+      const input = byAria(host.container, "input", "Search Shared assets") as HostNode & { value: string };
       input.value = "portrait";
       await act(async () => { input.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
       const scroll = host.container.querySelector(".shared-library-scroll")!;

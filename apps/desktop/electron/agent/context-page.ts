@@ -2,7 +2,7 @@ import { lstat, open, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import type { AgentProvider } from "../media/types";
+import type { AgentPermissionMode, AgentProvider } from "../media/types";
 import { providerHome, ralphyPreamble, type AgentMemoryDigest } from "./context";
 import { readContextDocument, type ContextBlockDto } from "./context-document";
 
@@ -309,6 +309,7 @@ function memoryRow(memory: AgentMemoryDigest | null): ContextRowDto {
 
 export interface ContextPageInput {
   provider: AgentProvider;
+  permissionMode?: AgentPermissionMode;
   rootPath: string;
   workspaceId?: string | null;
   projectId?: string | null;
@@ -353,6 +354,7 @@ export async function readContextPage(input: ContextPageInput): Promise<ContextP
   ];
   const preamble = ralphyPreamble({
     rootPath: input.rootPath,
+    permissionMode: input.permissionMode,
     workspaceId: input.workspaceId,
     projectId: input.projectId,
     projectPath: input.projectPath,

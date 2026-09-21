@@ -5,6 +5,7 @@ export * from "./ui/ActivityTimeline";
 export * from "./ui/AutoCursorTail";
 export * from "./ui/DocumentsPanel";
 export * from "./ui/MediaPanel";
+export * from "./ui/MediaGallery";
 export * from "./ui/MediaViewer";
 export * from "./ui/ProjectScreen";
 export * from "./ui/UnitSocialPreview";

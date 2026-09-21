@@ -37,6 +37,7 @@ import type {
   MarketplaceSourceHealth,
   MarketplaceSourceIssue,
 } from "./presentation-types";
+import { marketplaceTags } from "../../../../shared/marketplace-tags";
 
 export type * from "./presentation-types";
 
@@ -49,38 +50,19 @@ const PROVIDER_LABELS: Record<LocalModelProvider, string> = {
 const CATEGORY_COPY: Record<MarketplaceCategory, { label: string; purpose: string }> = {
   models: { label: "Models", purpose: "Model packages from current providers." },
   templates: { label: "Templates", purpose: "Reusable structures for content formats." },
-  recipes: { label: "Recipes", purpose: "Reusable production artifacts and transformations." },
+  recipes: { label: "Effects", purpose: "Reusable image, video, and audio transformations." },
   prompts: { label: "Prompts", purpose: "Reusable generation instructions." },
-  components: { label: "Components & Effects", purpose: "Reusable visual and audio building blocks." },
-  skills: { label: "Skills", purpose: "Installable agent capabilities." },
+  components: { label: "Visuals", purpose: "Reusable visual building blocks." },
+  sounds: { label: "Sounds", purpose: "Music and audio from the public library." },
+  skills: { label: "Skills", purpose: "Bundled guides for agent workflows." },
 };
 
-const CATEGORIES = ["models", "templates", "recipes", "prompts", "components", "skills"] as const;
+const CATEGORIES = ["models", "templates", "recipes", "prompts", "components", "sounds", "skills"] as const;
 const unavailable = <T>(reason: string): Availability<T> => ({ status: "unavailable", reason });
 const empty = <T>(reason: string): Availability<T> => ({ status: "empty", reason });
 const ready = <T>(value: T): Availability<T> => ({ status: "ready", value });
 
-export function marketplacePublicMediaKind(value: string): "image" | "video" | null {
-  if (value.length === 0 || value.length > 2_048 || value.includes("\\")) return null;
-  const rawPath = value.match(/^https:\/\/[^/?#]+([^?#]*)$/)?.[1];
-  if (rawPath === undefined
-    || rawPath.includes("//")
-    || rawPath.split("/").some((part) => part === "." || part === "..")
-    || /%(?:25)*(?:00|2e|2f|5c)/i.test(rawPath)) return null;
-  try {
-    const url = new URL(value);
-    decodeURIComponent(url.pathname);
-    if (url.origin !== "https://ralphy.b-cdn.net"
-      || url.username !== "" || url.password !== "" || url.search !== "" || url.hash !== ""
-      || (url.port !== "" && url.port !== "443")
-      || (!url.pathname.startsWith("/blocks/") && !url.pathname.startsWith("/units/"))) return null;
-    if (/\.(?:avif|gif|jpe?g|png|webp)$/i.test(url.pathname)) return "image";
-    if (/\.(?:mp4|webm)$/i.test(url.pathname)) return "video";
-  } catch {
-    // Invalid source URLs stay inert.
-  }
-  return null;
-}
+export { marketplacePublicMediaKind } from "./media-kind";
 
 export function projectMarketplaceModel(summary: LocalModelSummary): MarketplaceModelDto {
   return {
@@ -145,6 +127,7 @@ function modelPresentation(summary: LocalModelSummary): MarketplaceItemPresentat
     category: "models",
     name: model.name,
     summary: model.task,
+    tags: marketplaceTags([...model.tags, model.modality, model.modelType, model.recommendedPackage.format]),
     sourceLabel: PROVIDER_LABELS[model.provider],
     version: model.revision === null ? empty("The model provider did not declare a revision.") : ready(model.revision),
     updatedAt: model.lastModified === null ? empty("The model provider did not declare an update date.") : ready(model.lastModified),
@@ -162,6 +145,7 @@ export function projectMarketplacePublicItem(item: MarketplacePublicItemDto, sou
     key: `${item.category}:${item.id}`,
     name: item.name,
     summary: item.summary,
+    tags: marketplaceTags([...(item.tags ?? []), item.recipe?.kind]),
     sourceLabel: `Ralphy public library · ${source === "live" ? "Live" : "Cached"}`,
     version: unavailable<string>("Version is unavailable from public-library schema 1."),
     updatedAt: unavailable<string>("Item update date is unavailable from public-library schema 1."),
@@ -172,12 +156,13 @@ export function projectMarketplacePublicItem(item: MarketplacePublicItemDto, sou
   };
   return item.category === "template"
     ? { ...common, category: "templates", template: item }
-    : { ...common, category: "recipes", recipe: item };
+    : item.category === "asset" ? { ...common, category: "sounds", sound: item }
+      : { ...common, category: "recipes", recipe: item };
 }
 
 /* Pack category -> Marketplace category. The pack names one item; the shelf
    names a shelf, and the two vocabularies were never going to be the same word. */
-const PACK_CATEGORY: Record<MarketplacePackEntryDto["category"], Exclude<MarketplaceCategory, "models">> = {
+const PACK_CATEGORY: Record<MarketplacePackEntryDto["category"], Exclude<MarketplaceCategory, "models" | "sounds">> = {
   skill: "skills",
   prompt: "prompts",
   template: "templates",
@@ -196,6 +181,7 @@ export function projectMarketplacePackItem(
     category: PACK_CATEGORY[entry.category],
     name: entry.title,
     summary: entry.summary,
+    tags: marketplaceTags(entry.tags),
     sourceLabel: cliVersion === null ? "Bundled with this build" : `Bundled with this build · Ralphy CLI ${cliVersion}`,
     /* The pack is versioned as a whole, not per document: one export, one
        version stamp, and no per-entry history to report. */
@@ -240,6 +226,7 @@ function compatibilityMatches(model: MarketplaceModelDto, filter: MarketplaceFil
 
 function filtersMatch(item: MarketplaceItemPresentation, filters: MarketplaceFilterState): boolean {
   if (filters.category !== "all" && item.category !== filters.category) return false;
+  if (filters.tag && !item.tags.includes(marketplaceTags([filters.tag])[0] ?? "")) return false;
   if (!sourceMatches(item, filters.source)) return false;
   if (filters.license !== "all" && (item.origin !== "models" || item.model.license === null)) return false;
   if (filters.compatibility !== "all" && (item.origin !== "models" || !compatibilityMatches(item.model, filters.compatibility))) return false;
@@ -268,12 +255,13 @@ function keywordScore(item: MarketplaceItemPresentation, tokens: string[]): numb
     ]
     : [
       item.category,
-      ...(item.origin === "public" && item.category === "recipes" ? [
+      ...(item.origin === "public" && "recipe" in item ? [
         item.recipe.recipe?.kind ?? "",
         item.recipe.recipe?.body ?? "",
         item.recipe.recipe?.artifact ?? "",
       ] : []),
       ...(item.origin === "pack" ? [item.pack.slug, ...item.pack.tags] : []),
+      ...(item.studio ? [item.studio.body, item.studio.artifact ?? ""] : []),
     ];
   const metadata = [item.sourceLabel, ...categoryMetadata].join(" ").toLocaleLowerCase();
   const author = item.origin === "models" ? item.model.author.toLocaleLowerCase() : "";
@@ -282,6 +270,8 @@ function keywordScore(item: MarketplaceItemPresentation, tokens: string[]): numb
     if (name.startsWith(token)) score += 8;
     else if (name.includes(token)) score += 6;
     if (summary.includes(token)) score += 3;
+    if (item.tags.some((tag) => tag === token)) score += 4;
+    else if (item.tags.some((tag) => tag.includes(token))) score += 2;
     if (author.includes(token)) score += 2;
     if (metadata.includes(token)) score += 1;
   }
@@ -309,7 +299,7 @@ function categoryPresentations(
      the raw catalog: a row this build could not read is not on the shelf. */
   const bundled = new Map<MarketplaceCategory, number>();
   for (const item of items) {
-    if (item.origin !== "pack") continue;
+    if (item.origin !== "pack" && !item.studio) continue;
     bundled.set(item.category, (bundled.get(item.category) ?? 0) + 1);
   }
   const sourced: Partial<Record<MarketplaceCategory, Availability<number>>> = {
@@ -321,6 +311,9 @@ function categoryPresentations(
       : undefined,
     recipes: sourceHealth.publicLibrary === "ready" && publicSnapshot !== null
       ? ready(publicSnapshot.items.slice(0, 512).filter(({ category }) => category === "recipe").length)
+      : undefined,
+    sounds: sourceHealth.publicLibrary === "ready" && publicSnapshot !== null
+      ? ready(publicSnapshot.items.slice(0, 512).filter(({ category }) => category === "asset").length)
       : undefined,
   };
   return CATEGORIES.map((category) => {
@@ -345,6 +338,7 @@ export function presentMarketplaceSources(
   sourceHealth: MarketplaceSourceHealth,
   packCatalog: MarketplacePackCatalogDto | null = null,
   installs: MarketplaceInstallsDto | null = null,
+  studioItems: readonly MarketplaceItemPresentation[] = [],
 ): Extract<MarketplaceSnapshot, { status: "ready" }> {
   const publicItems = publicSnapshot?.items.slice(0, 512).map((item) => projectMarketplacePublicItem(item, publicSnapshot.source)) ?? [];
   const workspaceId = installs?.selectedWorkspaceId ?? null;
@@ -356,14 +350,14 @@ export function presentMarketplaceSources(
     )) ?? [];
   const modelItems = modelCatalog?.items.slice(0, 24).map(modelPresentation) ?? [];
   const tokens = query.text.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-  const scored = [...modelItems, ...packItems, ...publicItems]
+  const scored = [...studioItems, ...modelItems, ...packItems, ...publicItems]
     .filter((item) => filtersMatch(item, query.filters))
     .map((item) => ({ item, score: keywordScore(item, tokens) }))
     .filter(({ score }) => tokens.length === 0 || score > 0);
   scored.sort((left, right) => {
     if (query.sort === "updated") return updatedTimestamp(right.item) - updatedTimestamp(left.item) || compareName(left.item, right.item);
     if (query.sort === "relevance" && tokens.length > 0) return right.score - left.score || compareName(left.item, right.item);
-    return compareName(left.item, right.item);
+    return Number(Boolean(right.item.studio)) - Number(Boolean(left.item.studio)) || compareName(left.item, right.item);
   });
   const items = scored.map(({ item }) => item);
   return {
@@ -372,7 +366,7 @@ export function presentMarketplaceSources(
     /* Counted from every projected row, not from the filtered result: a category
        tile answers "what is on this shelf", not "what survived the search". */
     categories: categoryPresentations(
-      [...modelItems, ...packItems, ...publicItems],
+      [...studioItems, ...modelItems, ...packItems, ...publicItems],
       publicSnapshot,
       packCatalog,
       modelCatalog,

@@ -16,60 +16,20 @@ import type {
 import type {
   MarketplaceItemPresentation,
 } from "../lib/presentation";
-import { marketplacePublicMediaKind } from "../lib/presentation";
 import { declaredModelText, marketplaceModelDescription, marketplaceRevisionLabel } from "../lib/model-copy";
 import { categoryIcons, categoryLabels } from "./browse-discover";
 import { marketplaceItemDomId } from "./MarketplaceBrowse";
-import { categoryIdentity, MarketplaceCategoryArtwork } from "./MarketplaceCategoryIdentity";
+import { categoryIdentity } from "./MarketplaceCategoryIdentity";
+import { MarketplaceItemPreview } from "./MarketplaceItemPreview";
+import { MarketplaceCreativeResults } from "./MarketplaceCreativeResults";
 
-type MarketplacePreview = { url: string; kind: "image" | "video"; posterUrl?: string };
-
-function preview(item: MarketplaceItemPresentation): MarketplacePreview | null {
-  if (item.category === "models") {
-    const url = item.model.previewUrl ?? item.model.iconUrl;
-    return url ? { url, kind: "image" } : null;
-  }
-  if (item.origin === "public" && item.category === "templates") {
-    const url = item.template.referenceUrls.find((candidate) => marketplacePublicMediaKind(candidate) !== null);
-    return url ? { url, kind: marketplacePublicMediaKind(url)! } : null;
-  }
-  if (item.origin === "public" && item.category === "recipes") {
-    const demo = item.recipe.recipe?.demo;
-    const url = [demo?.storageUrl, demo?.afterUrl, demo?.beforeUrl, demo?.posterUrl]
-      .find((candidate): candidate is string => Boolean(candidate && marketplacePublicMediaKind(candidate)));
-    if (!url) return null;
-    const posterUrl = demo?.posterUrl && marketplacePublicMediaKind(demo.posterUrl) === "image" ? demo.posterUrl : undefined;
-    return { url, kind: marketplacePublicMediaKind(url)!, posterUrl };
-  }
-  return null;
-}
-
-function previewFallback(item: MarketplaceItemPresentation, failedKind?: "image" | "video") {
-  const label = item.category === "models" ? declaredModelText(item.model.recommendedPackage.format) || "Format unavailable"
-    : item.origin === "pack" ? item.pack.slug
-      : failedKind ? `${item.category === "recipes" ? "Recipe" : "Template"} ${failedKind} preview unavailable`
-        : item.category === "recipes" ? item.recipe.recipe?.kind ?? "Recipe preview unavailable" : "No preview provided";
-  return <span className={`marketplace-preview-fallback flex size-full flex-col items-center justify-center ${categoryIdentity[item.category].tone}`}>
-    <MarketplaceCategoryArtwork category={item.category} className="h-14 w-full" />
-    <small className="max-w-24 truncate px-1 text-center font-mono type-mono-xs leading-tight" title={label}>{label}</small>
-  </span>;
-}
-
-function MarketplaceItemPreview({ item }: { item: MarketplaceItemPresentation }) {
-  const media = preview(item);
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  useEffect(() => setFailedUrl(null), [item.key, media?.url]);
-  if (!media || failedUrl === media.url) return previewFallback(item, media?.kind);
-  return media.kind === "video"
-    ? <video src={media.url} poster={media.posterUrl} muted playsInline preload="metadata" controlsList="nodownload" aria-hidden="true" onError={() => setFailedUrl(media.url)} />
-    : <img src={media.url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedUrl(media.url)} />;
-}
 
 export interface MarketplaceResultsProps {
   items: MarketplaceItemPresentation[];
   query: MarketplaceQueryState;
   originKey?: string | null;
   onOpenItem(key: string): void;
+  onUse?(item: MarketplaceItemPresentation): void;
 }
 
 function MarketplaceResult({ item, index, tabStop, onFocus, onMove, onOpenItem }: {
@@ -101,18 +61,18 @@ function MarketplaceResult({ item, index, tabStop, onFocus, onMove, onOpenItem }
     onFocus={onFocus}
     onKeyDown={openFromKeyboard}
   >
-    <span className={`${WINDOW_PLATE} grid w-full min-w-0 grid-cols-(--marketplace-result-columns) items-center gap-3 p-2 @max-marketplace-result/main-region:grid-cols-(--marketplace-result-columns-narrow)`}>
+    <span className={`${WINDOW_PLATE} grid w-full min-w-0 grid-cols-(--marketplace-result-columns) items-center gap-2 p-2 @max-marketplace-result/main-region:grid-cols-(--marketplace-result-columns-narrow)`}>
     <span className="marketplace-result-preview grid size-18 place-items-center overflow-hidden rounded-control bg-instrument text-on-instrument [&_img]:size-full [&_img]:object-cover [&_video]:size-full [&_video]:object-cover"><MarketplaceItemPreview item={item} /></span>
     <span className="marketplace-result-copy flex min-w-0 flex-col gap-0.5">
       <span className="marketplace-result-category flex items-center gap-1.5 font-mono type-mono-xs uppercase tracking-caps text-muted"><Icon className="size-3" aria-hidden="true" />{categoryLabels[item.category]}<MarketplaceInstallBadge item={item} /></span>
-      <strong className="truncate text-sm font-normal">{item.name}</strong>
-      <p className="m-0 truncate text-xs leading-snug text-muted">{item.category === "models" ? marketplaceModelDescription(item.model) : item.summary || "No description provided."}</p>
+      <strong className="truncate type-sm font-normal">{item.name}</strong>
+      <p className="m-0 truncate type-xs leading-snug text-muted">{item.category === "models" ? marketplaceModelDescription(item.model) : item.summary || "No description provided."}</p>
       <small className="truncate font-mono type-mono-xs text-muted">{item.sourceLabel}{item.version.status === "ready" ? ` · ${item.category === "models" ? marketplaceRevisionLabel(item.version.value) : item.version.value}` : ""}</small>
     </span>
     <span className="marketplace-result-evidence flex min-w-0 flex-col gap-1.5 @max-marketplace-result/main-region:hidden">
       <MarketplaceItemMetadata item={item} />
     </span>
-    <span className="marketplace-result-action flex h-8 items-center gap-2 rounded-control bg-surface-sunken px-3 text-xs text-ink @max-marketplace-result/main-region:hidden">View details<ArrowUpRight className="size-3" aria-hidden="true" /></span>
+    <span className="marketplace-result-action flex h-8 items-center gap-2 rounded-control bg-surface-sunken px-3 type-xs text-ink @max-marketplace-result/main-region:hidden">View details<ArrowUpRight className="size-3" aria-hidden="true" /></span>
     </span>
   </button>;
 }
@@ -124,7 +84,8 @@ function MarketplaceItemMetadata({ item }: { item: MarketplaceItemPresentation }
       ? [declaredModelText(item.model.modality, item.model.recommendedPackage.format) || "Package format not declared", declaredModelText(item.model.comfort.label) || "Compatibility not assessed"]
       : item.category === "recipes"
         ? [item.recipe.recipe?.kind ?? "Media recipe", item.recipe.recipe?.artifact ? "Artifact included" : "Read the instructions"]
-        : ["Creative starting point", `${item.template.referenceUrls.length} references`];
+        : item.category === "sounds" ? ["Sound", `${item.sound.referenceUrls.length} references`]
+        : ["Creative starting point", `${(item.category === "templates" ? item.template : item.recipe).referenceUrls.length} references`];
   return <>{lines.map((line, index) => <small className="truncate font-mono type-mono-xs text-muted" key={index}>{line}</small>)}</>;
 }
 
@@ -248,5 +209,8 @@ function StandardMarketplaceResults({ items, query, onOpenItem }: MarketplaceRes
 }
 
 export function MarketplaceResults(props: MarketplaceResultsProps) {
+  const creative = props.items.filter(({ category }) => category !== "models" && category !== "skills");
+  const technical = props.items.filter(({ category }) => category === "models" || category === "skills");
+  if (creative.length) return <><MarketplaceCreativeResults {...props} items={creative} />{technical.length > 0 && <StandardMarketplaceResults {...props} items={technical} />}</>;
   return props.items.length > 100 ? <VirtualMarketplaceResults {...props} /> : <StandardMarketplaceResults {...props} />;
 }

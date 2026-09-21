@@ -1,0 +1,96 @@
+:root {
+  --explore-effect-aspect: var(--content-aspect);
+  --explore-effect-max-height: 560px;
+  --explore-effect-handle-size: 32px;
+  --explore-effect-divider-width: 2px;
+  --explore-effect-settings-width: 360px;
+}
+
+.explore-effect-preview {
+  --explore-compare-position: 50%;
+  --fg: var(--instrument-text-on-dark-primary);
+  position: relative;
+  isolation: isolate;
+  width: min(100%, var(--explore-effect-max-height));
+  margin-inline: auto;
+  aspect-ratio: var(--explore-effect-aspect);
+  max-height: var(--explore-effect-max-height);
+  overflow: hidden;
+  border-radius: var(--radius-cell);
+  background: var(--instrument-media-frame);
+  color: var(--instrument-text-on-dark-primary);
+}
+.explore-effect-preview-compact { aspect-ratio: var(--content-aspect); width: 100%; max-height: none; }
+.explore-effect-settings { width: 100%; max-width: var(--explore-effect-settings-width); margin-inline: auto; }
+.explore-effect-studio > .explore-effect-settings { margin-top: calc(var(--spacing) * 3); }
+.explore-effect-preview .explore-effect-media {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 0;
+}
+.explore-effect-before {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 calc(100% - var(--explore-compare-position)) 0 0);
+}
+.explore-effect-range {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-surface-note);
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  appearance: none;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: ew-resize;
+  touch-action: pan-y;
+  outline-offset: var(--focus-ring-offset-inset);
+}
+.explore-effect-range::-webkit-slider-runnable-track { height: 100%; background: transparent; }
+.explore-effect-range::-webkit-slider-thumb { appearance: none; width: 0; height: 100%; background: transparent; }
+.explore-effect-range::-moz-range-track { height: 100%; background: transparent; }
+.explore-effect-range::-moz-range-thumb { width: 0; height: 100%; border: 0; background: transparent; }
+.explore-effect-divider {
+  position: absolute;
+  pointer-events: none;
+  inset-block: 0;
+  left: var(--explore-compare-position);
+  width: var(--explore-effect-divider-width);
+  transform: translateX(-50%);
+  z-index: var(--z-surface-chip);
+  background: var(--instrument-text-on-dark-primary);
+}
+.explore-effect-handle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--explore-effect-handle-size);
+  height: var(--explore-effect-handle-size);
+  border: var(--explore-effect-divider-width) solid var(--instrument-text-on-dark-primary);
+  border-radius: 50%;
+  background: var(--instrument-media-plate);
+}
+.explore-effect-label, .explore-effect-sample, .explore-effect-play {
+  position: absolute;
+  z-index: var(--z-surface-overlay);
+  color: var(--instrument-text-on-dark-primary);
+  background: var(--instrument-media-plate);
+  border-radius: var(--radius-chip);
+}
+.explore-effect-label { top: calc(var(--spacing) * 2); padding: var(--spacing) calc(var(--spacing) * 2); pointer-events: none; }
+.explore-effect-label-before { left: calc(var(--spacing) * 2); }
+.explore-effect-label-after { right: calc(var(--spacing) * 2); }
+.explore-effect-sample { bottom: calc(var(--spacing) * 2); left: calc(var(--spacing) * 2); padding: var(--spacing) calc(var(--spacing) * 2); pointer-events: none; }
+.explore-effect-play { bottom: calc(var(--spacing) * 2); right: calc(var(--spacing) * 2); display: grid; place-items: center; width: var(--explore-effect-handle-size); height: var(--explore-effect-handle-size); cursor: pointer; }
+.explore-effect-play:hover { color: var(--instrument-text-on-dark-primary); background: var(--instrument-media-frame); }
+.explore-effect-error { position: absolute; inset: 0; display: grid; place-content: center; margin: 0; }

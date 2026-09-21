@@ -1,11 +1,12 @@
 import { Grid2X2, List, Search, X } from "@/shared/ui/icons";
 import type { MediaKind, MediaProvenance } from "../../../../electron/ralphy/types";
 import { SelectMenu, type SelectMenuOption } from "@/shared/ui/SelectMenu";
+import { SegmentedControl } from "@/shared/ui/SegmentedControl";
 import type { SharedLibraryController } from "../model/controller";
 import type { SharedLibraryQueryState } from "../lib/presentation";
 
 const kinds: Array<SelectMenuOption<MediaKind | "all">> = [
-  ["all", "All kinds"], ["image", "Images"], ["video", "Video"], ["audio", "Audio"],
+  ["all", "All"], ["image", "Images"], ["video", "Video"], ["audio", "Audio"],
   ["document", "Documents"], ["other", "Other"],
 ].map(([value, label]) => ({ value, label } as SelectMenuOption<MediaKind | "all">));
 const provenances: Array<SelectMenuOption<MediaProvenance | "all">> = [
@@ -32,25 +33,26 @@ export function SharedLibraryToolbar({ query, controller }: {
 }) {
 
   const dirty = query.text !== "" || query.mediaKind !== "all" || query.provenance !== "all";
-  return <form className="shared-library-toolbar m-0 flex min-h-9 w-full max-w-none flex-none flex-wrap items-center gap-2 rounded-panel bg-surface p-2 type-sm text-ink" aria-label="Shared Library controls" onSubmit={(event) => event.preventDefault()}>
+  return <form className="shared-library-toolbar m-0 flex min-h-8 w-full max-w-none flex-none flex-wrap items-center gap-1 bg-transparent p-0 type-sm text-ink" aria-label="Shared assets controls" onSubmit={(event) => event.preventDefault()}>
     {/* A field wrapped in a container shows the one ring on the container: reset.css paints it
         on :focus-within and silences the input's own, so the input declares no outline here. */}
-    <label className="shared-library-search flex h-9 min-w-shared-search flex-1 items-center gap-2 rounded-control bg-surface-sunken px-3 text-muted">
+    <label className="shared-library-search flex h-8 min-w-shared-search flex-1 items-center gap-2 rounded-control bg-surface-sunken px-2 text-muted">
       <Search size={14} aria-hidden="true" />
       <input
         className="min-w-0 flex-1 border-0 bg-transparent type-base text-ink placeholder:text-muted"
         type="search"
-        aria-label="Search Shared Library"
+        maxLength={256}
+        aria-label="Search Shared assets"
         placeholder="Search artifacts"
         value={query.text}
         onInput={(event) => controller.setQuery({ text: event.currentTarget.value })}
       />
     </label>
-    <div className="shared-library-view-toggle flex h-9 items-center gap-0.5 rounded-control bg-surface-sunken p-1" aria-label="View">
+    <div className="shared-library-view-toggle flex h-8 items-center gap-0.5 rounded-control bg-surface-sunken p-0.5" aria-label="View">
       <button className={`${VIEW_BUTTON} ${query.view === "grid" ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted"}`} type="button" aria-pressed={query.view === "grid"} onClick={() => controller.setQuery({ view: "grid" })}><Grid2X2 size={13} aria-hidden="true" />Grid</button>
       <button className={`${VIEW_BUTTON} ${query.view === "list" ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted"}`} type="button" aria-pressed={query.view === "list"} onClick={() => controller.setQuery({ view: "list" })}><List size={13} aria-hidden="true" />List</button>
     </div>
-    <SelectMenu tone="caller" overlayOwner="shared.toolbar" className={`shared-library-select ${SELECT}`} value={query.mediaKind} options={kinds} ariaLabel="Kind" prefix="Kind" onValueChange={(mediaKind) => controller.setQuery({ mediaKind })} />
+    <SegmentedControl value={query.mediaKind} options={kinds} ariaLabel="Kind" onValueChange={(mediaKind) => controller.setQuery({ mediaKind })} />
     <SelectMenu tone="caller" overlayOwner="shared.toolbar" className={`shared-library-select ${SELECT}`} value={query.provenance} options={provenances} ariaLabel="Provenance" prefix="Provenance" onValueChange={(provenance) => controller.setQuery({ provenance })} />
     {/* The sort control is pushed to the far end of the toolbar until the row is narrow enough
         that it reads as its own line. */}

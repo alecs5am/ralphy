@@ -1,71 +1,16 @@
-import {
-  Brain,
-  Calendar,
-  ChevronRight,
-  Folder,
-  Globe,
-  House,
-  Layers,
-  LayoutDashboard,
-  LayoutGrid,
-  Library,
-  Maximize2,
-  Minimize2,
-  Plus,
-  UsersRound,
-  WandSparkles,
-  Workflow,
-  X,
-  type AppIcon,
-} from "@/shared/ui/icons";
+import { ChevronRight, Globe, House, Images, Maximize2, Minimize2, X } from "@/shared/ui/icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import {
-  HOME_TAB_ID,
-  VIEW_TYPES,
+  taskViews,
   type OpenViewRequest,
   type ViewTab,
   type ViewTabSet,
-  type ViewTabType,
 } from "../model/view-panel";
-import { Keycap } from "@/shared/ui/Keycap";
-import { Window, WINDOW_BODY } from "@/shared/ui/Window";
 import { InstrumentOverlay } from "@/shared/instrument/overlay-registry";
 
-/**
- * Handoff 14's view panel: the chat lens' right-hand panel, and the tab strip that navigates it.
- *
- * The panel is chrome around the work route -- the page card holds whatever the active tab points
- * at, which for every tab but home is a screen the app already has. What this component owns is
- * the frame: the permanent home tab, the strip, the overflow, the type menu and the page card.
- *
- * Geometry is the handoff's, to the pixel: panel pad 2 R18, strip 34 with pad 0 6 and gap 3, home
- * tab 30x28 R9, tabs 28 R9 between 96 and 150, overflow 24 R8, the `+` a 24 circle, page card R16.
- */
-
-const TAB_ICONS: Record<ViewTabType, AppIcon> = {
-  home: House,
-  overview: LayoutDashboard,
-  generation: WandSparkles,
-  projects: Folder,
-  /* `UsersRound`, not `Layers`: the sidebar draws Units with it, and `Layers` is the mark the
-     Context handoff names -- two tabs cannot share one glyph in a strip this narrow. */
-  units: UsersRound,
-  calendar: Calendar,
-  shared: Library,
-  memory: Brain,
-  context: Layers,
-  /* A project tab is the media grid the handoff names: the grid is what a project opens on. */
-  project: LayoutGrid,
-  unit: UsersRound,
-  browser: Globe,
-  canvas: Workflow,
-};
-
-/* The strip's fixed costs, so how many tabs fit is arithmetic on the panel's own width rather
-   than a measurement pass. Every number here is the handoff's. */
-const HOME_WIDTH = 30;
-const PLUS_WIDTH = 54;
+/** A task strip for opened documents and the browser; routes are selected in the sidebar. */
+const EXPAND_WIDTH = 27;
 const OVERFLOW_WIDTH = 26;
 const STRIP_GAP = 3;
 const STRIP_PAD = 12;
@@ -80,7 +25,6 @@ const TAB_ACTIVE = "bg-card text-ink";
 const TAB_IDLE = "bg-transparent text-muted hover:bg-chip hover:text-ink";
 const CIRCLE = "grid place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
 const MENU_ROW = "grid h-8.5 w-full grid-cols-(--view-menu-columns) items-center gap-2.5 rounded-field px-2.25 text-left type-base text-ink hover:bg-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
-const MENU_LABEL = "m-0 px-2.25 pt-2 pb-0.75 font-code type-mono-xs tracking-mono text-muted";
 
 export interface ViewPanelProps {
   set: ViewTabSet;
@@ -94,6 +38,7 @@ export interface ViewPanelProps {
   /* The browser tab's page, rendered over the card rather than in place of it: a guest that
      unmounted on every tab switch would lose the page the operator opened it for. */
   browser?: ReactNode;
+  chromeVisible?: boolean;
   expanded?: boolean;
   compact?: boolean;
   onToggleExpanded?(): void;
@@ -105,8 +50,8 @@ export interface ViewPanelProps {
  * which costs its own width, so the fit is computed twice -- once without the button and once
  * with it, exactly as adding it would push a further tab out.
  */
-function visibleCount(width: number, count: number): number {
-  const room = (fixed: number) => width - PANEL_PAD - STRIP_PAD - HOME_WIDTH - PLUS_WIDTH - fixed - STRIP_GAP * 2;
+function visibleCount(width: number, count: number, controlsWidth: number): number {
+  const room = (fixed: number) => width - PANEL_PAD - STRIP_PAD - controlsWidth - fixed - STRIP_GAP * 2;
   const fit = (fixed: number) => Math.max(1, Math.floor((room(fixed) + STRIP_GAP) / (TAB_MIN + STRIP_GAP)));
   const bare = fit(0);
   return count <= bare ? count : fit(OVERFLOW_WIDTH + STRIP_GAP);
@@ -118,7 +63,7 @@ function TabButton({ tab, active, onSelect, onClose }: {
   onSelect(): void;
   onClose(): void;
 }) {
-  const Icon = TAB_ICONS[tab.type];
+  const Icon = tab.type === "browser" ? Globe : Images;
   return <span
     className={`${TAB_BASE} min-w-24 max-w-37.5 flex-1 ${active ? `${TAB_ACTIVE} pr-1.25 pl-2.5` : `${TAB_IDLE} pr-2.75 pl-2.5`}`}
     /* Middle-click closes, the same habit a browser tab has. It is on the wrapper rather than the
@@ -129,11 +74,9 @@ function TabButton({ tab, active, onSelect, onClose }: {
       <Icon className="flex-none" size={13} strokeWidth={1.8} aria-hidden="true" />
       <span className="min-w-0 flex-1 truncate">{tab.label}</span>
     </button>
-    {/* Close is on the active tab and on hover, per the handoff. `group-hover` is the hover half;
-        an idle tab keeps the slot empty rather than reserving width for a control that is not
-        there, which is what lets an idle tab carry its 11px of right padding instead. */}
+    {/* Keep close discoverable by pointer and keyboard on every open document. */}
     <button
-      className={`${CIRCLE} size-4.5 flex-none text-muted-decorative hover:text-ink ${active ? "" : "hidden group-hover:grid"}`}
+      className={`${CIRCLE} size-4.5 flex-none text-muted-decorative hover:text-ink ${active ? "" : "invisible group-hover:visible group-focus-within:visible"}`}
       type="button"
       aria-label={`Close ${tab.label}`}
       onClick={onClose}
@@ -143,14 +86,14 @@ function TabButton({ tab, active, onSelect, onClose }: {
   </span>;
 }
 
-export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, browser, children, expanded, compact, onToggleExpanded }: ViewPanelProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
+export function ViewPanel({ set, width, onSelect, onClose, onOpen, browser, chromeVisible = true, children, expanded, compact, onToggleExpanded }: ViewPanelProps) {
   const [overflowOpen, setOverflowOpen] = useState(false);
-  const plus = useRef<HTMLButtonElement>(null);
   const overflowButton = useRef<HTMLButtonElement>(null);
 
-  const views = set.tabs.filter(({ id }) => id !== HOME_TAB_ID);
-  const shown = visibleCount(width, views.length);
+  const views = taskViews(set);
+  const showContentHome = views.some((tab) => tab.type === "unit");
+  const canExpand = onToggleExpanded && set.tabs.find(({ id }) => id === set.activeTabId)?.type === "browser";
+  const shown = visibleCount(width, views.length, (Number(showContentHome) + Number(!!canExpand)) * EXPAND_WIDTH);
   /* The active tab is always on the strip. When it has fallen into the overflow it takes the last
      visible slot, which keeps every other tab in its original order -- the order `+N` lists. */
   const strip = views.slice(0, shown);
@@ -158,26 +101,14 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, brows
   if (activeHidden && strip.length) strip[strip.length - 1] = views.find(({ id }) => id === set.activeTabId)!;
   const hidden = views.filter((tab) => !strip.some(({ id }) => id === tab.id));
 
-  const homeActive = set.activeTabId === HOME_TAB_ID;
   const anchor = (node: HTMLElement | null) => {
     const box = node?.getBoundingClientRect();
     return box ? { top: box.bottom + 4, right: Math.max(8, window.innerWidth - box.right) } : { top: 48, right: 8 };
   };
 
-  return <Window className="view-panel h-full w-full">
-    <div className={STRIP_ROW} role="tablist" aria-label="Workspace views">
-      <button
-        /* Home is first, permanent, icon-only, and the panel's point of return. It carries no
-           close control because it has nothing to close back to. */
-        className={`view-panel-home ${CIRCLE} h-7 w-7.5 flex-none rounded-tab ${homeActive ? "bg-card text-ink" : "bg-transparent text-muted hover:bg-chip hover:text-ink"}`}
-        type="button"
-        aria-current={homeActive || undefined}
-        aria-label="Workspace home"
-        title={`Workspace home${chords["view.home"] ? ` · ${chords["view.home"]!.join("")}` : ""}`}
-        onClick={() => onSelect(HOME_TAB_ID)}
-      >
-        <House size={14} strokeWidth={1.8} aria-hidden="true" />
-      </button>
+  return <div className="view-panel flex h-full w-full min-h-0 min-w-0 flex-col overflow-hidden">
+    {chromeVisible && views.length > 0 && <div className={STRIP_ROW} role="tablist" aria-label="Open documents">
+      {showContentHome && <button className="grid size-7 flex-none place-items-center rounded-control text-muted hover:bg-chip hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink" type="button" aria-label="All content" title="All content" onClick={() => onOpen({ type: "units", label: "Content" })}><House size={15} aria-hidden="true" /></button>}
       {strip.map((tab) => <TabButton
         key={tab.id}
         tab={tab}
@@ -193,66 +124,20 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, brows
         onClick={() => setOverflowOpen(true)}
       >{`+${hidden.length}`}</button>}
       <span className="min-w-0 flex-1" />
-      <button
-        className={`view-panel-new ${CIRCLE} size-6 flex-none ${menuOpen ? "bg-chip text-ink" : "bg-transparent text-muted hover:bg-chip hover:text-ink"}`}
-        type="button"
-        ref={plus}
-        aria-label="New view"
-        aria-expanded={menuOpen}
-        onClick={() => setMenuOpen((open) => !open)}
-      >
-        <Plus size={14} strokeWidth={2} aria-hidden="true" />
-      </button>
-      {onToggleExpanded && <button className={`${CIRCLE} size-6 flex-none text-muted hover:bg-chip hover:text-ink`} type="button" aria-label={compact ? "Back to chat" : expanded ? "Restore split view" : "Expand workspace panel"} title={compact ? "Back to chat" : expanded ? "Restore split view" : "Expand workspace panel"} aria-pressed={expanded} onClick={onToggleExpanded}>{expanded ? <Minimize2 size={13} aria-hidden="true" /> : <Maximize2 size={13} aria-hidden="true" />}</button>}
-    </div>
-    <div className={`view-panel-page relative ${WINDOW_BODY}`}>
+      {canExpand && <button className={`${CIRCLE} size-6 flex-none text-muted hover:bg-chip hover:text-ink`} type="button" aria-label={compact ? "Back to chat" : expanded ? "Restore split view" : "Expand workspace panel"} title={compact ? "Back to chat" : expanded ? "Restore split view" : "Expand workspace panel"} aria-pressed={expanded} onClick={onToggleExpanded}>{expanded ? <Minimize2 size={13} aria-hidden="true" /> : <Maximize2 size={13} aria-hidden="true" />}</button>}
+    </div>}
+    <div className="view-panel-page relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       {children}
       {/* `visibility` rather than `hidden`: a guest under `display: none` is detached, which is the
           reload this layer exists to avoid. */}
       {browser && <div
-        className={`view-panel-browser absolute inset-0 flex flex-col ${set.tabs.find(({ id }) => id === set.activeTabId)?.type === "browser" ? "" : "invisible"}`}
+        className={`view-panel-browser absolute inset-0 flex flex-col ${chromeVisible && set.tabs.find(({ id }) => id === set.activeTabId)?.type === "browser" ? "" : "invisible"}`}
       >{browser}</div>}
-      {/* The design's scrim covers the page, not the window: the type menu is a non-modal overlay,
-          so the app's own backdrop rule -- which only fires for the modal kinds -- paints nothing
-          here, and a window-wide dim would be heavier than the menu is. The wash is the desk
-          rather than the design's 7% black: black on black is invisible in the dark theme, and
-          "the page steps back toward the desk" is the same depth language as everything else. */}
-      {menuOpen && <span className="absolute inset-0 z-scrim bg-desk/55" aria-hidden="true" />}
     </div>
 
     <InstrumentOverlay
-      id="view-panel-types"
-      open={menuOpen}
-      label="New view"
-      description="Open a workspace view in the panel."
-      opener={plus.current}
-      surfaceClassName="view-panel-menu fixed z-popover flex w-view-menu flex-col rounded-inner bg-card p-1.5 text-ink focus-visible:outline-none"
-      onOpenChange={setMenuOpen}
-    >
-      <Anchored to={plus.current} anchor={anchor} onDismiss={() => setMenuOpen(false)}>
-        <h2 className={MENU_LABEL}>WORKSPACE VIEWS</h2>
-        {VIEW_TYPES.filter(({ singleton }) => singleton).map((descriptor) => {
-          const Icon = TAB_ICONS[descriptor.type];
-          const cap = descriptor.command ? chords[descriptor.command] : undefined;
-          return <button
-            className={MENU_ROW}
-            type="button"
-            key={descriptor.type}
-            onClick={() => { setMenuOpen(false); onOpen({ type: descriptor.type, label: descriptor.label }); }}
-          >
-            <Icon size={15} strokeWidth={1.8} className="text-muted" aria-hidden="true" />
-            <span className="min-w-0 truncate">{descriptor.label}</span>
-            {cap ? <Keycap tokens={cap} /> : <span aria-hidden="true" />}
-          </button>;
-        })}
-        {/* Named rather than drawn. A menu row that cannot open anything is worse than a line
-            saying which types are still waiting on a runtime. */}
-      </Anchored>
-    </InstrumentOverlay>
-
-    <InstrumentOverlay
       id="view-panel-overflow"
-      open={overflowOpen}
+      open={chromeVisible && hidden.length > 0 && overflowOpen}
       label="More views"
       description="Views that do not fit the strip, in their original order."
       opener={overflowButton.current}
@@ -261,7 +146,7 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, brows
     >
       <Anchored to={overflowButton.current} anchor={anchor} onDismiss={() => setOverflowOpen(false)}>
         {hidden.map((tab) => {
-          const Icon = TAB_ICONS[tab.type];
+          const Icon = tab.type === "browser" ? Globe : Images;
           return <button
             className={MENU_ROW}
             type="button"
@@ -275,7 +160,7 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, brows
         })}
       </Anchored>
     </InstrumentOverlay>
-  </Window>;
+  </div>;
 }
 
 /**

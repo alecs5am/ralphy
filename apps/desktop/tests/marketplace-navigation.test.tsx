@@ -1,4 +1,4 @@
-import { act, type HTMLAttributes, type ReactNode } from "react";
+import { act, type ComponentProps, type HTMLAttributes, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { CatalogResult } from "../electron/media/types";
@@ -20,7 +20,11 @@ vi.mock("motion/react", () => {
   return { AnimatePresence: Pass, LayoutGroup: Pass, MotionConfig: Pass, motion: { div: Div, section: Section, aside: Aside, header: Header } };
 });
 vi.mock("../src/widgets/utility-panels/ui/UtilityPanels", () => ({
-  AgentChatPanel: () => <aside data-testid="agent-chat">Agent chat</aside>,
+  AgentChatPanel: ({ onOpenContext, onOpenUnit, onToggleView }: ComponentProps<typeof import("@/widgets/utility-panels").AgentChatPanel>) => <aside data-testid="agent-chat">
+    <button id="chat-context" onClick={onOpenContext}>Context</button>
+    <button id="chat-unit" onClick={() => onOpenUnit?.({ workspaceId: "workspace-1", projectId: null }, "unit-1", "Chat result")}>Chat result</button>
+    {onToggleView && <button id="chat-workspace-toggle" onClick={onToggleView}>Toggle workspace panel</button>}
+  </aside>,
   BottomPanel: () => null,
 }));
 vi.mock("../src/widgets/welcome/ui/WelcomeScreen", () => ({ WelcomeScreen: () => <div>Loading Ralphy</div> }));
@@ -89,6 +93,12 @@ async function settle(): Promise<void> {
   await Promise.resolve();
 }
 
+function commandKey(key: string): Event {
+  return Object.assign(new Event("keydown", { bubbles: true, cancelable: true }), {
+    key, metaKey: true, altKey: false, ctrlKey: false, shiftKey: false, repeat: false,
+  });
+}
+
 function installInstrumentMeasurements(frameWidth: number, deskWidth: number): void {
   class MeasuredResizeObserver {
     constructor(private readonly callback: ResizeObserverCallback) {}
@@ -117,7 +127,7 @@ describe("marketplace navigation", () => {
     state = marketplaceReducer(state, { type: "navigate", location: { ...locationA, route: { kind: "library", section: "downloads" }, query: { ...locationA.query, filters: { ...locationA.query.filters, source: "modelscope" } } } });
     writeMarketplaceNavigation(target, state);
     const restored = readMarketplaceNavigation(target);
-    expect(restored.location.route).toEqual({ kind: "discover" });
+    expect(restored.location.route).toEqual({ kind: "category", category: "templates" });
     expect(restored.location.query.filters.source).toBe("all");
     expect(restored.history[restored.historyIndex]).toEqual(restored.location);
   });
@@ -150,7 +160,7 @@ describe("marketplace navigation", () => {
     };
     const state = readMarketplaceNavigation(storage(JSON.stringify(persisted)));
     expect(state.mode).toBe("work");
-    expect(state.location.route).toEqual({ kind: "discover" });
+    expect(state.location.route).toEqual({ kind: "category", category: "templates" });
     expect(state.history).toHaveLength(1);
 
     expect(isMarketplaceLocation({ ...locationA, query: { ...locationA.query, text: "x".repeat(257) } })).toBe(false);
@@ -183,6 +193,21 @@ describe("marketplace navigation", () => {
     expect(MARKETPLACE_SIDEBAR_WIDTH).toBe(248);
   });
 
+  test("defaults to Templates and migrates legacy Discover without narrowing cross-category search", () => {
+    const initial = readMarketplaceNavigation(storage());
+    expect(initial.location.route).toEqual({ kind: "category", category: "templates" });
+    expect(initial.location.query.filters.category).toBe("templates");
+    const legacy = { ...locationA, route: { kind: "discover" as const } };
+    const restored = readMarketplaceNavigation(storage(JSON.stringify({ ...initial, location: legacy, history: [legacy] })));
+    expect(restored.location.route).toEqual(initial.location.route);
+    expect(restored.location.query).toEqual(initial.location.query);
+    expect(marketplaceReducer(initial, { type: "navigate", location: legacy }).location.route).toEqual(initial.location.route);
+    const search = { ...locationA, route: { kind: "results" as const }, query: { ...locationA.query, filters: { ...locationA.query.filters, category: "all" as const } } };
+    const target = storage();
+    writeMarketplaceNavigation(target, marketplaceReducer(initial, { type: "navigate", location: search }));
+    expect(readMarketplaceNavigation(target).location).toEqual(search);
+  });
+
   test("renders a truthful Marketplace shell for null and empty catalogs", () => {
     const props = {
       location: locationA,
@@ -194,16 +219,16 @@ describe("marketplace navigation", () => {
     const nullMarkup = renderToStaticMarkup(<MarketplaceScreen catalog={null} {...props} />);
     const emptyMarkup = renderToStaticMarkup(<MarketplaceScreen catalog={emptyCatalog()} {...props} />);
 
-    expect(nullMarkup).toContain("Recipes");
-    expect(nullMarkup).toContain("Marketplace category");
-    expect(nullMarkup).toContain("Project targets are unavailable until the home library reconnects.");
-    expect(emptyMarkup).toContain("Recipes");
-    expect(emptyMarkup).toContain("No named project targets are available in the current home library.");
+    expect(nullMarkup).toContain("Effects");
+    expect(nullMarkup).toContain('aria-label="Library category"');
+    expect(nullMarkup).toContain("Create a workspace to save items");
+    expect(emptyMarkup).toContain("Effects");
+    expect(emptyMarkup).toContain("Create a workspace to save items");
     expect(emptyMarkup).not.toContain("Workspace targets are available for supported reviews.");
     expect(emptyMarkup).not.toContain("Choose a workspace");
   });
 
-  test("keeps both mode surfaces mounted, preserves chat, and returns from Marketplace root", async () => {
+  test.each([true, false])("preserves chat and shows Explore when the work content panel is open: %s", async (viewOpen) => {
     vi.useFakeTimers();
     const host = createReactHost();
     installInstrumentMeasurements(1_360, 1_120);
@@ -212,7 +237,7 @@ describe("marketplace navigation", () => {
       innerHeight: { configurable: true, value: 900 },
     });
     const local = storage();
-    local.setItem("ralphy-media-workbench-v1", JSON.stringify({ rightPanelVisible: true }));
+    local.setItem("ralphy-media-workbench-v1", JSON.stringify({ lens: "chat", rightPanelVisible: true, sidebarWidth: 372, viewPanel: { open: viewOpen } }));
     let persistedMarketplace = readMarketplaceNavigation(local);
     persistedMarketplace = marketplaceReducer(persistedMarketplace, {
       type: "remember",
@@ -223,7 +248,13 @@ describe("marketplace navigation", () => {
     Object.defineProperty(globalThis, "localStorage", { configurable: true, value: local });
     const restore = vi.spyOn(bridge, "restoreLibrary").mockResolvedValue({
       identity: { storeId: "store-1", label: "Ralphy", rootEpoch: 1, activitySequence: 0 },
-      catalog: emptyCatalog(),
+      catalog: {
+        ...emptyCatalog(),
+        workspaces: [{
+          id: "workspace-1", name: "UX Testing Lab", description: "", absolutePath: "/tmp/ux",
+          projectCount: 0, sharedCount: 0, unitCount: 0, finalCount: 0, recentActivity: "2026-08-20T10:00:00.000Z",
+        }],
+      },
     });
     const { App } = await import("@/app/App");
     const { createRoot } = await import("react-dom/client");
@@ -231,68 +262,81 @@ describe("marketplace navigation", () => {
     try {
       await act(async () => { root.render(<App />); await settle(); });
       await act(async () => { vi.advanceTimersByTime(1_500); await settle(); });
-      const workMode = host.container.querySelector("#app-mode-work") as unknown as HostNode;
+      const explore = host.container.querySelector("#sidebar-explore") as HostNode;
+      const workSurface = host.container.querySelector(".app-mode-work") as HostNode;
+      const marketplaceSurface = host.container.querySelector(".app-mode-marketplace") as HostNode;
+      const chat = host.container.querySelector("[data-testid=\"agent-chat\"]");
+      expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("docked");
       const hiddenMarketplaceHeading = host.container.querySelector("#marketplace-heading") as HostNode;
       expect(document.activeElement).not.toBe(hiddenMarketplaceHeading);
-      workMode.focus();
-      const marketplace = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Marketplace")!;
-      await act(async () => marketplace.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+      expect(explore).not.toBeNull();
+      explore.focus();
+      await act(async () => explore.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
       await act(async () => { vi.advanceTimersByTime(1); await settle(); });
 
-      const workSurface = host.container.querySelector(".app-mode-work") as unknown as HostNode;
-      const marketplaceSurface = host.container.querySelector(".app-mode-marketplace") as unknown as HostNode;
-      const marketplaceHeading = marketplaceSurface.querySelector("#marketplace-heading") as HostNode;
+      expect(host.container.querySelector(".app-mode-work")).toBe(workSurface);
+      expect(host.container.querySelector(".app-mode-marketplace")).toBe(marketplaceSurface);
+      const marketplaceHeading = host.container.querySelector(".instrument-top-row #marketplace-heading") as HostNode;
+      expect(marketplaceHeading).not.toBeNull();
+      expect(marketplaceSurface.querySelector(".marketplace-toolbar")).toBeNull();
+      expect(host.container.querySelectorAll(".page-header-host .page-header")).toHaveLength(1);
+      const toolbar = host.container.querySelector(".instrument-top-row .marketplace-toolbar")!;
+      expect(toolbar.querySelector("input")?.getAttribute("aria-label")).toBe("Search creative library");
+      const filters = toolbar.querySelectorAll("button").find((button) => button.getAttribute("aria-controls") && button.getAttribute("aria-label")?.startsWith("Filters"))!;
+      await act(async () => filters.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(filters.getAttribute("aria-expanded")).toBe("true");
+      expect(marketplaceSurface.querySelector(`#${filters.getAttribute("aria-controls")}`)?.getAttribute("hidden")).toBeNull();
       const marketplaceScroll = marketplaceSurface.querySelector(".marketplace-scroll") as HostNode;
       expect(workSurface.getAttribute("hidden")).not.toBeNull();
       expect(workSurface.getAttribute("inert")).not.toBeNull();
       expect(marketplaceSurface.getAttribute("hidden")).toBeNull();
-      const chat = host.container.querySelector("[data-testid=\"agent-chat\"]");
+      expect(host.container.querySelector(".instrument-desk-column")?.getAttribute("hidden")).toBeNull();
       expect(chat).not.toBeNull();
-      // The chat stays mounted across a place switch, but its dock is closed: the desk lens is
-      // the default and it exists so the content column is undivided. Reaching the chat is the
-      // lens pair's job, not a preference the place switch has to preserve.
-      expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("closed");
+      expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("docked");
       expect(host.container.querySelectorAll(".context-sidebar")).toHaveLength(1);
-      expect(((host.container.querySelector(".workbench") as unknown as HostNode).style as unknown as Record<string, string>)["--sidebar-w"]).toBe("260px");
+      expect(((host.container.querySelector(".workbench") as unknown as HostNode).style as unknown as Record<string, string>)["--sidebar-w"]).toBe("372px");
       expect(host.container.querySelector(".resize-sidebar")).toBeNull();
       expect(host.container.querySelector("[data-testid=\"agent-chat\"]")).toBe(chat);
+      expect(chat!.querySelector("#chat-workspace-toggle")).toBeNull();
       expect(document.activeElement).toBe(marketplaceHeading);
       expect(marketplaceScroll.scrollTop).toBe(438);
 
-      const marketplaceMode = host.container.querySelector("#app-mode-marketplace") as HostNode;
+      await act(async () => window.dispatchEvent(commandKey("r")));
+      expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("closed");
+      expect(marketplaceSurface.getAttribute("hidden")).toBeNull();
+      const agentToggle = host.container.querySelectorAll("button").find((button) => button.getAttribute("aria-label") === "Agent")!;
+      expect(agentToggle).not.toBeUndefined();
+      await act(async () => agentToggle.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("docked");
+      expect(marketplaceSurface.getAttribute("hidden")).toBeNull();
+      expect(host.container.querySelector("[data-testid=\"agent-chat\"]")).toBe(chat);
+
+      const marketplaceMode = host.container.querySelector("#sidebar-explore") as HostNode;
       marketplaceMode.focus();
       marketplaceScroll.scrollTop = 612;
       await act(async () => marketplaceScroll.dispatchEvent(new Event("scroll", { bubbles: true })));
       expect(document.activeElement).toBe(marketplaceMode);
       expect(JSON.parse(local.getItem("ralphy-marketplace-navigation-v1")!).location.scrollTop).toBe(612);
 
-      const models = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Models")!;
-      await act(async () => models.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
-      expect(marketplaceSurface.querySelector("h1")?.textContent).toBe("Models");
-      expect(JSON.parse(local.getItem("ralphy-marketplace-navigation-v1")!).location.query.filters.category).toBe("models");
+      const effects = marketplaceSurface.querySelectorAll("button").find((button) => button.getAttribute("aria-label") === "Effects")!;
+      expect(effects).not.toBeUndefined();
+      await act(async () => effects.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+      expect(host.container.querySelector(".instrument-top-row #marketplace-heading")?.textContent).toBe("Effects");
+      expect(JSON.parse(local.getItem("ralphy-marketplace-navigation-v1")!).location.query.filters.category).toBe("recipes");
 
       let back = [...host.container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Back")!;
       await act(async () => back.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
-      expect(marketplaceSurface.querySelector("h1")?.textContent).toBe("Marketplace");
+      expect(host.container.querySelector(".instrument-top-row #marketplace-heading")?.textContent).toBe("Templates");
       const forward = [...host.container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Forward")!;
       await act(async () => forward.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
-      expect(marketplaceSurface.querySelector("h1")?.textContent).toBe("Models");
+      expect(host.container.querySelector(".instrument-top-row #marketplace-heading")?.textContent).toBe("Effects");
       back = [...host.container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Back")!;
       await act(async () => back.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
 
-      const toggle = new Event("keydown", { bubbles: true, cancelable: true });
-      Object.defineProperties(toggle, {
-        key: { value: "b" },
-        metaKey: { value: true },
-        altKey: { value: false },
-        ctrlKey: { value: false },
-        shiftKey: { value: false },
-        repeat: { value: false },
-      });
-      await act(async () => window.dispatchEvent(toggle));
+      await act(async () => window.dispatchEvent(commandKey("b")));
       expect(host.container.querySelector(".context-sidebar")).toBeNull();
-      expect(marketplaceSurface.textContent).toContain("Marketplace category");
-      await act(async () => window.dispatchEvent(toggle));
+      expect(marketplaceSurface.querySelectorAll("button").some((button) => button.getAttribute("aria-label") === "More library categories")).toBe(true);
+      await act(async () => window.dispatchEvent(commandKey("b")));
       expect(host.container.querySelectorAll(".context-sidebar")).toHaveLength(1);
 
       back = [...host.container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Back")!;
@@ -300,16 +344,37 @@ describe("marketplace navigation", () => {
       await act(async () => { vi.advanceTimersByTime(1); await settle(); });
       expect(workSurface.getAttribute("hidden")).toBeNull();
       expect(marketplaceSurface.getAttribute("hidden")).not.toBeNull();
-      expect((document.activeElement as unknown as HostNode).getAttribute("id")).toBe("app-mode-work");
+      expect(host.container.querySelector(".app-mode-work")).toBe(workSurface);
+      expect(host.container.querySelector(".app-mode-marketplace")).toBe(marketplaceSurface);
+      expect(document.activeElement).toBe(host.container.querySelector("#sidebar-explore"));
 
-      const marketplaceAgain = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Marketplace")!;
+      const marketplaceAgain = host.container.querySelector("#sidebar-explore") as HostNode;
       await act(async () => marketplaceAgain.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
       await act(async () => { vi.advanceTimersByTime(1); await settle(); });
-      expect(document.activeElement).toBe(marketplaceHeading);
-      const workAgain = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "My Work")!;
+      const restoredHeading = host.container.querySelector(".instrument-top-row #marketplace-heading")!;
+      expect(document.activeElement === restoredHeading).toBe(true);
+      expect(restoredHeading.textContent).toBe("Templates");
+      const workAgain = [...host.container.querySelectorAll(".context-sidebar button")].find((button) => button.textContent.startsWith("Content"))!;
+      expect(workAgain).not.toBeUndefined();
+      workAgain.focus();
       await act(async () => workAgain.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
-      await act(async () => { vi.advanceTimersByTime(1); await settle(); });
-      expect((document.activeElement as unknown as HostNode).getAttribute("id")).toBe("app-mode-work");
+      await act(async () => { vi.advanceTimersByTime(121); await settle(); });
+      expect(workSurface.getAttribute("hidden")).toBeNull();
+      expect(marketplaceSurface.getAttribute("hidden")).not.toBeNull();
+      expect(document.activeElement).toBe(workAgain);
+      expect(host.container.querySelector("[data-testid=\"agent-chat\"]")).toBe(chat);
+      expect(JSON.parse(local.getItem("ralphy-media-workbench-v1")!).workspacePage).toBe("units");
+      expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("docked");
+      expect(chat!.querySelector("#chat-workspace-toggle")).not.toBeNull();
+      for (const action of ["chat-unit", "chat-context"]) {
+        await act(async () => marketplaceAgain.dispatchEvent(new Event("click", { bubbles: true })));
+        expect(marketplaceSurface.getAttribute("hidden")).toBeNull();
+        await act(async () => chat!.querySelector(`#${action}`)!.dispatchEvent(new Event("click", { bubbles: true })));
+        expect(workSurface.getAttribute("hidden")).toBeNull();
+        expect(marketplaceSurface.getAttribute("hidden")).not.toBeNull();
+        expect(host.container.querySelector("[data-testid=\"agent-chat\"]")).toBe(chat);
+        expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("docked");
+      }
     } finally {
       await act(async () => root.unmount());
       restore.mockRestore();
@@ -359,10 +424,7 @@ describe("marketplace navigation", () => {
       sidebarWidth: 372,
       rightPanelWidth: 404,
       bottomPanelHeight: 280,
-      /* The panel is preserved across a restore like every other preference -- and it gains a tab
-         for the restored place, because the tab set follows the route: a restore that lands on
-         project-1 is a navigation to project-1. That tab is stored under the live chat's id, which
-         this test cannot know, so the assertion drops the panel's keys and states what it holds. */
+      // Restoring a workspace destination does not manufacture document tabs.
       viewPanel: { open: true, width: 440, byChat: {} },
     } satisfies WorkbenchPreferences;
     /* Everything but the panel's per-chat record, which is asserted separately. */
@@ -419,9 +481,7 @@ describe("marketplace navigation", () => {
       await act(async () => { finishRestore(); await settle(); });
       await act(async () => { vi.advanceTimersByTime(121); await settle(); });
       expect(persisted().record).toEqual(saved);
-      /* The chat holds the place the restore landed on -- when there was one: a restore that
-         returns nothing, or fails, leaves the panel with no place to name. */
-      expect(persisted().tabs).toEqual(outcome === "success" ? ["Workspace", "Theme QA"] : []);
+      expect(persisted().tabs).toEqual([]);
 
       await act(async () => { changeTheme("light"); await settle(); });
       await act(async () => { vi.advanceTimersByTime(121); await settle(); });
@@ -466,13 +526,14 @@ describe("marketplace navigation", () => {
       await act(async () => { vi.advanceTimersByTime(1_500); await settle(); });
 
       const marketplaceSurface = host.container.querySelector(".app-mode-marketplace") as HostNode;
-      const marketplaceHeading = marketplaceSurface.querySelector("#marketplace-heading") as HostNode;
+      const marketplaceHeading = host.container.querySelector(".instrument-top-row #marketplace-heading") as HostNode;
+      expect(marketplaceHeading).not.toBeNull();
       const marketplaceScroll = marketplaceSurface.querySelector(".marketplace-scroll") as HostNode;
       expect(marketplaceSurface.getAttribute("hidden")).toBeNull();
       expect(document.activeElement).toBe(marketplaceHeading);
       expect(marketplaceScroll.scrollTop).toBe(438);
 
-      const marketplaceMode = host.container.querySelector("#app-mode-marketplace") as HostNode;
+      const marketplaceMode = host.container.querySelector("#sidebar-explore") as HostNode;
       marketplaceMode.focus();
       marketplaceScroll.scrollTop = 612;
       await act(async () => marketplaceScroll.dispatchEvent(new Event("scroll", { bubbles: true })));
@@ -488,7 +549,19 @@ describe("marketplace navigation", () => {
 
   test("opens Marketplace from the null-catalog recovery state", async () => {
     vi.useFakeTimers();
+    vi.stubGlobal("KeyboardEvent", class extends Event {
+      key: string; metaKey: boolean;
+      ctrlKey = false; altKey = false; shiftKey = false;
+      constructor(type: string, init: KeyboardEventInit) { super(type, init); this.key = init.key ?? ""; this.metaKey = !!init.metaKey; }
+    });
     const host = createReactHost();
+    // The lightweight host has separate document/window EventTargets, without DOM bubbling.
+    const dispatchDocument = document.dispatchEvent.bind(document);
+    vi.spyOn(document, "dispatchEvent").mockImplementation((event) => {
+      dispatchDocument(event);
+      if (event.bubbles && !event.cancelBubble) window.dispatchEvent(event);
+      return !event.defaultPrevented;
+    });
     installInstrumentMeasurements(1_100, 860);
     Object.defineProperties(window, {
       innerWidth: { configurable: true, value: 1360 },
@@ -517,27 +590,25 @@ describe("marketplace navigation", () => {
       expect(host.container.querySelector("button[aria-label=\"Toggle right panel\"]")).toBeNull();
       expect(document.body.querySelector("[data-instrument-overlay=\"right-rail-sheet\"]")).toBeNull();
       expect(enabledStates.at(-1)).toBe(false);
-      /* The shortcut the main process forwards is a chat-lens affordance: there the chat is the
-         lens and cannot be shown or hidden, so the chord toggles the panel beside it. Under the
-         desk lens the chat is unreachable by design, so the chord is silent -- it used to pull the
-         lens over, which made the lens pair (⌘1/⌘2) a decoration. */
       const chat = host.container.querySelector("[data-testid=\"agent-chat\"]");
       await act(async () => { toggleRightPanel?.(); await settle(); });
       expect(document.body.querySelector("[data-instrument-overlay=\"right-rail-sheet\"]")).toBeNull();
-      /* The chat's markup stays parked in the shell while the rail is closed, so what says it is
-         not on screen is the rail's mode and the chat controller being disabled -- not the
-         absence of the element. */
+      expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("docked");
+      expect(enabledStates.at(-1)).toBe(true);
+      await act(async () => { toggleRightPanel?.(); await settle(); });
       expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("closed");
       expect(enabledStates.at(-1)).toBe(false);
       // Nothing about the lens reaches storage here on purpose: this is the null-catalog recovery
       // state, and the preference write is gated on a catalog. `workbench-state` covers the
       // round trip.
-      const marketplace = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Marketplace");
+      const marketplace = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Explore");
       expect(marketplace).not.toBeUndefined();
       await act(async () => marketplace!.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
-      expect(host.container.textContent).toContain("Discover");
-      // The lens does not apply in Marketplace, so its dock closes -- and the chat is the same
-      // element throughout, never remounted.
+      const marketplaceSurface = host.container.querySelector(".app-mode-marketplace") as HostNode;
+      expect(marketplaceSurface.getAttribute("hidden")).toBeNull();
+      expect(host.container.querySelector(".instrument-top-row #marketplace-heading")?.textContent).toBe("Templates");
+      // A closed chat stays closed on navigation, and its subtree is never remounted.
+      expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("closed");
       expect(host.container.querySelector("[data-testid=\"agent-chat\"]")).toBe(chat);
     } finally {
       await act(async () => root.unmount());
@@ -545,6 +616,7 @@ describe("marketplace navigation", () => {
       if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage);
       else delete (globalThis as Record<string, unknown>).localStorage;
       delete (globalThis as typeof globalThis & { __agentChatEnabled?: boolean[] }).__agentChatEnabled;
+      vi.unstubAllGlobals();
       host.restore();
     }
   });

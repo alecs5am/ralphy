@@ -24,6 +24,7 @@ export interface SettingsContext {
   flashId: string | null;
   setBindings(next: CommandBindings): void;
   onThemeChange(value: ThemePreference): void;
+  onOpenWorkspaceSettings?(page: "memory" | "context"): void;
   goTo(page: SettingsPageId, flashId?: string): void;
   openDetail(detail: SettingsDetail): void;
 }

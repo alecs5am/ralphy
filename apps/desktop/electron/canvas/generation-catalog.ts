@@ -1,5 +1,6 @@
 import type { GenerationCatalog, GenerationField, GenerationInputSpec } from "../../shared/generation-studio";
 import type { CanvasModelDescriptor } from "../../shared/canvas-runtime";
+import { DEFAULT_CONTENT_ASPECT_RATIO } from "../../shared/content-format";
 import { loadCanvasModelCatalog } from "./runtime-catalog";
 import type { CanvasCli } from "./runtime-cli";
 
@@ -15,12 +16,12 @@ const names: Record<string, string> = {
 };
 
 function modelFields(model: CanvasModelDescriptor, supported: string[]): GenerationField[] {
-  if (model.modality === "image") return [choice("aspectRatio", "Aspect ratio", model.parameters.aspects ?? ["1:1"], "1:1"), ...(supported.includes("negativePrompt") ? [{ id: "negative", label: "Avoid", type: "text" as const, description: "Describe anything to leave out of the image." }] : [])];
+  if (model.modality === "image") return [choice("aspectRatio", "Aspect ratio", model.parameters.aspects ?? [DEFAULT_CONTENT_ASPECT_RATIO], DEFAULT_CONTENT_ASPECT_RATIO), ...(supported.includes("negativePrompt") ? [{ id: "negative", label: "Avoid", type: "text" as const, description: "Describe anything to leave out of the image." }] : [])];
   const fields: GenerationField[] = [];
   const { durations, resolutions, aspects } = model.parameters;
   if (durations?.length) fields.push(choice("duration", "Duration (seconds)", durations, "5"));
   if (resolutions?.length && model.id !== "fal-ai/kling-video/o3/pro/reference-to-video") fields.push(choice("resolution", "Resolution", resolutions, "720p"));
-  if (aspects?.length) fields.push(choice("aspectRatio", "Aspect ratio", aspects, "16:9"));
+  if (aspects?.length) fields.push(choice("aspectRatio", "Aspect ratio", aspects, DEFAULT_CONTENT_ASPECT_RATIO));
   if (supported.includes("generateAudio")) fields.push(toggle("audio", "Generate audio"));
   return fields;
 }

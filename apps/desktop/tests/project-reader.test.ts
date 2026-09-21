@@ -455,15 +455,15 @@ describe("Project domain reader", () => {
     const request = vi.fn(async () => page([artifactCard, runObjectCard, objectCard], "still-more"));
     const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
     const cases: Array<["all" | MediaFilter, Record<string, unknown>]> = [
-      ["all", { types: ["artifact", "run-object"] }],
-      ["references", { types: ["artifact", "run-object"], filter: "references" }],
-      ["working", { types: ["artifact", "run-object"], filter: "working" }],
-      ["candidate", { types: ["artifact", "run-object"], filter: "candidate" }],
-      ["approved", { types: ["artifact", "run-object"], filter: "approved" }],
-      ["rejected", { types: ["artifact", "run-object"], filter: "rejected" }],
-      ["superseded", { types: ["artifact", "run-object"], filter: "superseded" }],
-      ["run-diagnostics", { types: ["artifact", "run-object"], filter: "run-diagnostics" }],
-      ["run-cache-temp", { types: ["artifact", "run-object"], filter: "run-cache-temp" }],
+      ["all", { types: ["artifact"] }],
+      ["references", { types: ["artifact"], filter: "references" }],
+      ["working", { types: ["artifact"], filter: "working" }],
+      ["candidate", { types: ["artifact"], filter: "candidate" }],
+      ["approved", { types: ["artifact"], filter: "approved" }],
+      ["rejected", { types: ["artifact"], filter: "rejected" }],
+      ["superseded", { types: ["artifact"], filter: "superseded" }],
+      ["run-diagnostics", { types: ["run-object"], filter: "run-diagnostics" }],
+      ["run-cache-temp", { types: ["run-object"], filter: "run-cache-temp" }],
       ["advanced-objects", { types: ["object"], filter: "advanced-objects" }],
     ];
 
@@ -472,6 +472,7 @@ describe("Project domain reader", () => {
       expect(request).toHaveBeenLastCalledWith("media.list", {
         context: project,
         limit: 50,
+        projectOnly: true,
         ...predicate,
       });
     }
@@ -480,15 +481,17 @@ describe("Project domain reader", () => {
     await reader.loadPage({
       tab: "media",
       project,
-      mediaQuery: { filter: "candidate", mediaKind: "video", provenance: "generation" },
+      mediaQuery: { filter: "candidate", mediaKind: "video", provenance: "generation", search: "hero", sort: "name" },
     });
     expect(request).toHaveBeenLastCalledWith("media.list", {
       context: project,
       filter: "candidate",
       mediaKind: "video",
       provenance: "generation",
+      search: "hero", sort: "name",
       limit: 50,
-      types: ["artifact", "run-object"],
+      projectOnly: true,
+      types: ["artifact"],
     });
   });
 
@@ -525,7 +528,8 @@ describe("Project domain reader", () => {
       after: "page-680",
       filter: "candidate",
       limit: 50,
-      types: ["artifact", "run-object"],
+      projectOnly: true,
+      types: ["artifact"],
     });
   });
 

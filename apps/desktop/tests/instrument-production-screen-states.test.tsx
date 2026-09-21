@@ -407,7 +407,7 @@ describe("production instrument screen states", () => {
 
   test("derives global overlay applicability from the App visibility predicates", () => {
     expect(isWorkspacePickerVisible({ mode: "work", sidebarVisible: true, workspaceId: "ws_ux" })).toBe(true);
-    expect(isWorkspacePickerVisible({ mode: "marketplace", sidebarVisible: true, workspaceId: "ws_ux" })).toBe(false);
+    expect(isWorkspacePickerVisible({ mode: "marketplace", sidebarVisible: true, workspaceId: "ws_ux" })).toBe(true);
     expect(isWorkspacePickerVisible({ mode: "work", sidebarVisible: false, workspaceId: "ws_ux" })).toBe(false);
     expect(isWorkspacePickerVisible({ mode: "work", sidebarVisible: true, workspaceId: null })).toBe(false);
 
@@ -415,8 +415,8 @@ describe("production instrument screen states", () => {
     expect(isChatRailVisible({ workbenchVisible: false, rightPanelVisible: true })).toBe(false);
     expect(isChatRailVisible({ workbenchVisible: true, rightPanelVisible: false })).toBe(false);
 
-    expect(WORKSPACE_PICKER_ROUTE_KEYS).toEqual(workspacePickerRoutes);
-    expect(CHAT_RAIL_ROUTE_KEYS).toEqual(chatRailRoutes);
+    expect([...WORKSPACE_PICKER_ROUTE_KEYS].sort()).toEqual([...workspacePickerRoutes].sort());
+    expect([...CHAT_RAIL_ROUTE_KEYS].sort()).toEqual([...chatRailRoutes].sort());
     expect(Object.keys(PRODUCTION_GLOBAL_OVERLAY_ROUTES)).toEqual([
       "workspace-picker",
       "agent-chat-recent-menu",

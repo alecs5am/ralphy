@@ -62,6 +62,7 @@ export function SnappySlider({
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (disabled) return;
     let next: number | null = null;
     if (event.key === "ArrowLeft" || event.key === "ArrowDown") next = value - step;
     if (event.key === "ArrowRight" || event.key === "ArrowUp") next = value + step;

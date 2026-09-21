@@ -77,6 +77,32 @@ const catalog: CatalogResult = {
 };
 
 describe("workbench navigation", () => {
+  test("records workspace pages in history and restores them around project navigation", () => {
+    let state = createInitialWorkbenchState({ workspacePage: "overview" });
+    state = workbenchReducer(state, { type: "library-opened", catalog, workspaceId: "newer" });
+    expect(state.route).toEqual({ kind: "workspace", workspaceId: "newer", page: "overview" });
+
+    state = workbenchReducer(state, { type: "open-workspace-page", page: "projects" });
+    expect(state.historyIndex).toBe(1);
+    state = workbenchReducer(state, { type: "open-workspace", workspaceId: "newer" });
+    expect(state.history).toHaveLength(2);
+    state = workbenchReducer(state, { type: "open-project", project: { workspaceId: "newer", projectId: "newer-project" } });
+    state = workbenchReducer(state, { type: "open-workspace-page", page: "calendar" });
+
+    state = workbenchReducer(state, { type: "back" });
+    expect(state.route.kind).toBe("project");
+    state = workbenchReducer(state, { type: "back" });
+    expect(state.workspacePage).toBe("projects");
+    state = workbenchReducer(state, { type: "back" });
+    expect(state.workspacePage).toBe("overview");
+    state = workbenchReducer(state, { type: "forward" });
+    expect(state.route).toEqual({ kind: "workspace", workspaceId: "newer", page: "projects" });
+    state = workbenchReducer(state, { type: "open-workspace-page", page: "memory" });
+    expect(state.history).toHaveLength(3);
+    expect(state.workspacePage).toBe("memory");
+    expect(workbenchReducer(state, { type: "forward" })).toBe(state);
+  });
+
   test("opening another library resets route history", () => {
     let state = createInitialWorkbenchState();
     state = workbenchReducer(state, { type: "catalog-received", catalog });
@@ -92,15 +118,15 @@ describe("workbench navigation", () => {
       workspaceId: "newer",
     });
 
-    expect(state.route).toEqual({ kind: "workspace", workspaceId: "newer" });
-    expect(state.history).toEqual([{ kind: "workspace", workspaceId: "newer" }]);
+    expect(state.route).toEqual({ kind: "workspace", workspaceId: "newer", page: "projects" });
+    expect(state.history).toEqual([{ kind: "workspace", workspaceId: "newer", page: "projects" }]);
   });
 
   test("moves Workspace -> Project and back without losing workspace context", () => {
     let state = createInitialWorkbenchState();
     state = workbenchReducer(state, { type: "catalog-received", catalog });
     state = workbenchReducer(state, { type: "open-workspace", workspaceId: "newer" });
-    expect(state.route).toEqual({ kind: "workspace", workspaceId: "newer" });
+    expect(state.route).toEqual({ kind: "workspace", workspaceId: "newer", page: "projects" });
 
     state = workbenchReducer(state, {
       type: "open-project",
@@ -113,7 +139,7 @@ describe("workbench navigation", () => {
     });
 
     state = workbenchReducer(state, { type: "back" });
-    expect(state.route).toEqual({ kind: "workspace", workspaceId: "newer" });
+    expect(state.route).toEqual({ kind: "workspace", workspaceId: "newer", page: "projects" });
     state = workbenchReducer(state, { type: "forward" });
     expect(state.route).toEqual({
       kind: "project",
@@ -153,7 +179,7 @@ describe("workbench navigation", () => {
         projects: projects.filter((item) => item.projectId !== "newer-project"),
       },
     });
-    expect(state.route).toEqual({ kind: "workspace", workspaceId: "newer" });
+    expect(state.route).toEqual({ kind: "workspace", workspaceId: "newer", page: "projects" });
     expect(state.history[state.historyIndex]).toEqual(state.route);
 
     state = workbenchReducer(state, {
@@ -165,7 +191,7 @@ describe("workbench navigation", () => {
         projects: [],
       },
     });
-    expect(state.route).toEqual({ kind: "workspace", workspaceId: "older" });
+    expect(state.route).toEqual({ kind: "workspace", workspaceId: "older", page: "projects" });
 
     state = workbenchReducer(state, {
       type: "catalog-received",
@@ -196,7 +222,7 @@ describe("workbench navigation", () => {
     } as never);
 
     expect((state as unknown as { tabs: unknown[] }).tabs).toEqual([]);
-    expect(state.route).toEqual({ kind: "workspace", workspaceId: "newer" });
+    expect(state.route).toEqual({ kind: "workspace", workspaceId: "newer", page: "projects" });
   });
 
 });
@@ -230,8 +256,9 @@ describe("workbench ordering and preferences", () => {
       rightPanelVisible: true,
       bottomPanelVisible: false,
       workspaceView: "grid",
-      sidebarWidth: 260,
-      rightPanelWidth: 292,
+      workspacePage: "projects",
+      sidebarWidth: 240,
+      rightPanelWidth: 360,
       bottomPanelHeight: 220,
     });
   });

@@ -9,12 +9,12 @@
 import type { ActivityRefreshEvent, RootIdentity } from "@/shared/api/ipc";
 import type { AppMode } from "@/shared/model/routes";
 
-export function isWorkspacePickerVisible({ mode, sidebarVisible, workspaceId }: {
+export function isWorkspacePickerVisible({ sidebarVisible, workspaceId }: {
   mode: AppMode;
   sidebarVisible: boolean;
   workspaceId: string | null;
 }): boolean {
-  return mode === "work" && sidebarVisible && workspaceId !== null;
+  return sidebarVisible && workspaceId !== null;
 }
 
 export function isChatRailVisible({ workbenchVisible, rightPanelVisible }: {

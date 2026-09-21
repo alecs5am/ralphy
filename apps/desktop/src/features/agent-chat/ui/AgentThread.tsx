@@ -58,7 +58,7 @@ function UserTurn({
   return <div className="agent-message is-user group flex min-w-0 flex-col items-end gap-0.75">
     {/* The tags the operator attached come back as tags, not as `@unit:hero-cut`: the bubble is the
         same contract the composer wrote, read the other way. */}
-    <p className="m-0 max-w-(--agent-bubble-measure) rounded-window bg-desk-primary px-3.5 py-2.5 type-md leading-copy whitespace-pre-wrap text-desk-primary-ink [overflow-wrap:anywhere]">
+    <p className="m-0 max-w-(--agent-bubble-measure) rounded-window bg-desk-primary px-3 py-2 type-sm leading-copy whitespace-pre-wrap text-desk-primary-ink [overflow-wrap:anywhere]">
       <AgentTaggedText text={text} />
     </p>
     {/* Always in the same place, and always the same three: a row that appeared on hover in a
@@ -224,7 +224,7 @@ export function AgentThread({
   /* The thread states the chat's own type step rather than inheriting the app's 13px base: the
      assistant's copy is markdown, and markdown inherits its size, so this is the one place that
      decides how the transcript reads. */
-  return <div className="agent-thread mx-auto flex w-full min-w-0 max-w-agent-thread flex-col gap-4.5 type-md">
+  return <div className="agent-thread mx-auto flex w-full min-w-0 max-w-agent-thread flex-col gap-3 type-sm">
     {turns.map((turn, index) => <TurnView
       turn={turn}
       busy={busy}

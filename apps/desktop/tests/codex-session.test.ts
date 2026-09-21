@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 
 import {
   CodexSession,
+  normalizedEvents,
   readCodexAuthStatus,
   type AgentChatEvent,
 } from "../electron/agent/codex-session";
@@ -13,6 +14,7 @@ import { makeLibraryFixture } from "./fixtures";
 const cleanupPaths: string[] = [];
 const THREAD = "0199a213-81c0-7800-8aa1-bbab2a035a53";
 const TURN = "0199a213-81c0-7800-8aa1-bbab2a035a99";
+const CHILD = "0199a213-81c0-7800-8aa1-bbab2a035a55";
 
 interface Capture {
   args: string[];
@@ -64,6 +66,7 @@ save();
 const write = (value) => process.stdout.write(JSON.stringify(value) + "\\n");
 const notify = (method, params) => write({ method, params });
 const failed = process.env.RALPHY_TEST_FAILED_COMMAND === "1";
+const childThreads = process.env.RALPHY_TEST_CHILD_THREADS === "1";
 process.stdout.write("not json\\n");
 let buffer = "";
 process.stdin.on("data", (chunk) => {
@@ -78,8 +81,12 @@ process.stdin.on("data", (chunk) => {
     save();
     if (message.method === "initialize") { write({ id: message.id, result: { codexHome: "/tmp" } }); continue; }
     if (message.method === "thread/start" || message.method === "thread/resume") {
+      if (childThreads) {
+        notify("thread/started", { thread: { id: ${JSON.stringify(CHILD)} } });
+        notify("thread/started", { thread: { id: ${JSON.stringify(THREAD)} } });
+      }
       write({ id: message.id, result: { thread: { id: ${JSON.stringify(THREAD)} } } });
-      notify("thread/started", { threadId: ${JSON.stringify(THREAD)} });
+      if (!childThreads) notify("thread/started", { threadId: ${JSON.stringify(THREAD)} });
       continue;
     }
     if (message.method === "turn/start") {
@@ -89,6 +96,19 @@ process.stdin.on("data", (chunk) => {
       notify("item/completed", { item: { id: "item-1", type: "commandExecution", command: "bash -lc pwd", status: failed ? "failed" : "completed" } });
       notify("item/started", { item: { id: "item-2", type: "agentMessage", text: "" } });
       notify("item/agentMessage/delta", { itemId: "item-2", delta: "The project" });
+      if (childThreads) {
+        const threadId = ${JSON.stringify(CHILD)};
+        notify("thread/started", { threadId });
+        notify("thread/started", { thread: { id: threadId } });
+        notify("turn/started", { threadId, turnId: "child-turn" });
+        notify("item/started", { threadId, item: { id: "child-tool", type: "commandExecution", command: "helper command" } });
+        notify("item/completed", { threadId, item: { id: "child-tool", type: "commandExecution", status: "completed" } });
+        notify("item/agentMessage/delta", { threadId, itemId: "item-2", delta: "Helper answer" });
+        notify("item/completed", { threadId, item: { id: "item-2", type: "agentMessage", text: "Helper answer" } });
+        notify("thread/tokenUsage/updated", { threadId, tokenUsage: { last: { inputTokens: 99, totalTokens: 100 } } });
+        notify("error", { threadId, error: { message: "Helper failed" }, willRetry: false });
+        notify("turn/completed", { threadId, turn: { id: "child-turn", status: "completed", error: null } });
+      }
       notify("item/agentMessage/delta", { itemId: "item-2", delta: " is" });
       notify("item/completed", { item: { id: "item-2", type: "agentMessage", text: "The project is ready." } });
       notify("turn/completed", { threadId: ${JSON.stringify(THREAD)}, turn: { id: ${JSON.stringify(TURN)}, status: "completed", error: null } });
@@ -105,6 +125,34 @@ async function read(path: string): Promise<Capture> {
 }
 
 describe("CodexSession", () => {
+  test("keeps helper notifications out of the parent transcript and waits for its completion", async () => {
+    const fixture = await makeLibraryFixture();
+    cleanupPaths.push(fixture.parentPath);
+    const fake = await fakeCodex();
+    const events: AgentChatEvent[] = [];
+    const session = new CodexSession({
+      binary: fake.binary,
+      env: { PATH: process.env.PATH ?? "/usr/bin:/bin", RALPHY_TEST_CAPTURE: fake.capture, RALPHY_TEST_CHILD_THREADS: "1" },
+      emit: (event) => events.push(event),
+    });
+    await session.run({ rootPath: fixture.rootPath, prompt: "Inspect it", provider: "codex", model: "default", permissionMode: "plan" });
+    expect(events.filter((event) => event.type === "session")).toEqual([{ type: "session", sessionId: THREAD, tools: [] }]);
+    expect(events.filter((event) => event.type === "text-delta").map((event) => event.text).join("")).toBe("The project is ready.");
+    expect(events.filter((event) => event.type === "tool-start").map((event) => event.id)).toEqual(["item-1"]);
+    expect(events.filter((event) => event.type === "tool-result").map((event) => event.id)).toEqual(["item-1"]);
+    expect(events.some((event) => event.type === "error" || event.type === "usage")).toBe(false);
+    expect(events.filter((event) => event.type === "result")).toEqual([{ type: "result", ok: true, cancelled: false, costUsd: 0, durationMs: expect.any(Number), sessionId: THREAD }]);
+    expect(events.at(-1)?.type).toBe("result");
+  });
+
+  test("does not turn reasoning or helper lifecycle items into running tools", () => {
+    for (const type of ["reasoning", "subAgentActivity"]) {
+      for (const method of ["item/started", "item/completed"]) {
+        expect(normalizedEvents(method, { item: { id: "lifecycle", type } }, new Map())).toEqual([]);
+      }
+    }
+  });
+
   test("runs and resumes a ChatGPT-authenticated Codex thread", async () => {
     const fixture = await makeLibraryFixture();
     cleanupPaths.push(fixture.parentPath);
@@ -155,9 +203,9 @@ describe("CodexSession", () => {
       { type: "session", sessionId: THREAD, tools: [] },
       { type: "tool-start", id: "item-1", name: "Bash", summary: "bash -lc pwd" },
       { type: "tool-result", id: "item-1", ok: true },
-      { type: "text-delta", text: "The project" },
-      { type: "text-delta", text: " is" },
-      { type: "text-delta", text: " ready." },
+      { type: "text-delta", text: "The project", messageId: "item-2" },
+      { type: "text-delta", text: " is", messageId: "item-2" },
+      { type: "text-delta", text: " ready.", messageId: "item-2" },
       {
         type: "result",
         ok: true,

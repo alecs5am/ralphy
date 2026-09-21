@@ -113,6 +113,7 @@ function toolSummary(item: Record<string, unknown>): string {
 const SILENT_ITEMS = new Set([
   "agentMessage",
   "reasoning",
+  "subAgentActivity",
   "userMessage",
   "plan",
   "hookPrompt",
@@ -148,7 +149,7 @@ export function normalizedEvents(
     const text = boundedString(params.delta, MAX_LINE_BYTES);
     if (!id || !text) return [];
     sent.set(id, (sent.get(id) ?? 0) + text.length);
-    return [{ type: "text-delta", text }];
+    return [{ type: "text-delta", text, messageId: id }];
   }
 
   /* The app-server reports usage per turn, with the model's own window beside it. This is the
@@ -192,7 +193,7 @@ export function normalizedEvents(
       const already = id ? sent.get(id) ?? 0 : 0;
       if (id) sent.delete(id);
       const tail = text.slice(already);
-      return tail ? [{ type: "text-delta", text: tail }] : [];
+      return tail ? [{ type: "text-delta", text: tail, ...(id ? { messageId: id } : {}) }] : [];
     }
     if (SILENT_ITEMS.has(type)) return [];
     const id = boundedString(item.id, 128);
@@ -241,6 +242,7 @@ async function canonicalContext(request: CodexRunRequest): Promise<{
      guides and naming them would be a wish rather than an instruction. */
   const preamble = await agentPreamble({
     provider: request.provider,
+    permissionMode: request.permissionMode,
     workspaceId: request.workspaceId,
     projectId: request.projectId,
     rootPath,
@@ -522,6 +524,10 @@ export class CodexSession {
           continue;
         }
         const params = objectFrom(message.params) ?? {};
+        // The daemon also reports helper threads. Only the requested thread's response owns this session.
+        if (method === "thread/started") continue;
+        const eventThreadId = boundedString(params.threadId, 128);
+        if (eventThreadId && eventThreadId !== this.#sessionId) continue;
         if (method === "turn/started") {
           this.#turnId = boundedString(params.turnId, 128) || this.#turnId;
           continue;
@@ -549,7 +555,6 @@ export class CodexSession {
           break;
         }
         for (const event of normalizedEvents(method, params, sent)) {
-          if (event.type === "session") this.#sessionId = event.sessionId;
           if (event.type === "error") finish(event);
           else this.#emit(event);
         }
@@ -571,10 +576,8 @@ export class CodexSession {
         : await call("thread/start", settings);
       const threadId = boundedString(objectFrom(thread.thread)?.id, 128);
       if (!SESSION_ID.test(threadId)) throw new Error("Codex did not open a thread");
-      /* The id is known here, but the `thread/started` notification is what tells the renderer --
-         emitting it twice would put two session events on one turn. On a resume there is nothing
-         to tell: the renderer is the side that supplied the id. */
       this.#sessionId = threadId;
+      this.#emit({ type: "session", sessionId: threadId, tools: [] });
       await call("turn/start", {
         threadId,
         input: [{ type: "text", text: context.prompt, text_elements: [] }],

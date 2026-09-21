@@ -37,30 +37,103 @@ function deferred<T>() {
 }
 
 describe("Shared Library controller", () => {
-  test("starts once and derives local query, filter, sort, and selection without reloading", async () => {
-    const loadSharedLibraryPage = vi.fn(async () => page([
-      artifact("zeta", { selectedAt: 200, bytes: 50 }),
-      artifact("alpha", { mediaKind: "audio", mime: "audio/mpeg", provenance: "generation", usageRoles: ["opening hook"], selectedAt: 100, bytes: 900 }),
-    ]));
+  test("preserves server-only content-name matches and database name order across pages", async () => {
+    const loadSharedLibraryPage = vi.fn()
+      .mockResolvedValueOnce(page([artifact("zebra"), artifact("äther")], "name-page-2"))
+      .mockResolvedValueOnce(page([artifact("éclair")]));
+    const controller = createSharedLibraryController({ loadSharedLibraryPage }, "workspace-1");
+    // The runtime can match a linked content name absent from the artifact card.
+    controller.setQuery({ text: "spring launch", sort: "name" });
+    await controller.start();
+    controller.selectArtifact("äther");
+    await controller.loadMore();
+
+    expect(loadSharedLibraryPage).toHaveBeenLastCalledWith("workspace-1", {
+      search: "spring launch", sort: "name", after: "name-page-2",
+    });
+    expect(controller.getSnapshot()).toMatchObject({
+      status: "ready",
+      value: {
+        artifacts: [{ id: "zebra" }, { id: "äther" }, { id: "éclair" }],
+        selectedArtifactId: "äther",
+        totalCount: { status: "ready", value: 3 },
+      },
+    });
+    controller.dispose();
+  });
+
+  test("does not reuse an old page cursor after a new search fails", async () => {
+    const loadSharedLibraryPage = vi.fn()
+      .mockResolvedValueOnce(page([artifact("old")], "old-page-2"))
+      .mockRejectedValueOnce(new Error("search unavailable"))
+      .mockResolvedValueOnce(page([artifact("new")], "new-page-2"))
+      .mockResolvedValueOnce(page([artifact("new-2")]));
+    const controller = createSharedLibraryController({ loadSharedLibraryPage }, "workspace-1");
+    await controller.start();
+    controller.setQuery({ text: "new" });
+    await vi.waitFor(() => expect(controller.getSnapshot()).toMatchObject({
+      status: "error", error: "search unavailable", query: { text: "new" },
+    }));
+    await controller.loadMore();
+    expect(loadSharedLibraryPage).toHaveBeenCalledTimes(2);
+
+    await controller.refresh();
+    expect(loadSharedLibraryPage).toHaveBeenLastCalledWith("workspace-1", { search: "new", sort: "selected" });
+    await controller.loadMore();
+    expect(loadSharedLibraryPage).toHaveBeenLastCalledWith("workspace-1", { search: "new", sort: "selected", after: "new-page-2" });
+    expect(controller.getSnapshot()).toMatchObject({ status: "ready", value: { artifacts: [{ id: "new" }, { id: "new-2" }] } });
+    controller.dispose();
+  });
+
+  test("searches the entire workspace and keeps the query on later pages while ignoring stale results", async () => {
+    const stale = deferred<Page<ArtifactMediaCardDto>>();
+    const loadSharedLibraryPage = vi.fn()
+      .mockResolvedValueOnce(page([artifact("first")], "unfiltered-page-2"))
+      .mockReturnValueOnce(stale.promise)
+      .mockResolvedValueOnce(page([artifact("target")], "filtered-page-2"))
+      .mockResolvedValueOnce(page([artifact("target-2")]));
+    const controller = createSharedLibraryController({ loadSharedLibraryPage }, "workspace-1");
+    await controller.start();
+    controller.setQuery({ text: "old" });
+    controller.setQuery({ text: "target", sort: "size" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(loadSharedLibraryPage).toHaveBeenLastCalledWith("workspace-1", { search: "target", sort: "size" });
+    await controller.loadMore();
+    expect(loadSharedLibraryPage).toHaveBeenLastCalledWith("workspace-1", { search: "target", sort: "size", after: "filtered-page-2" });
+    stale.resolve(page([artifact("old-result")]));
+    await Promise.resolve();
+    expect(controller.getSnapshot()).toMatchObject({ status: "ready", value: { artifacts: [{ id: "target" }, { id: "target-2" }], nextCursor: null } });
+    controller.dispose();
+  });
+  test("starts once, changes the view locally, and sends search and filters to the library", async () => {
+    const alpha = artifact("alpha", { mediaKind: "audio", mime: "audio/mpeg", provenance: "generation", usageRoles: ["opening hook"], selectedAt: 100, bytes: 900 });
+    const loadSharedLibraryPage = vi.fn()
+      .mockResolvedValueOnce(page([artifact("zeta", { selectedAt: 200, bytes: 50 }), alpha]))
+      .mockResolvedValueOnce(page([alpha]))
+      .mockResolvedValueOnce(page([]));
     const controller = createSharedLibraryController({ loadSharedLibraryPage }, "workspace-1");
 
     expect(controller.getSnapshot()).toMatchObject({ status: "loading", query: { text: "", view: "grid" } });
     await controller.start();
     await controller.start();
     expect(loadSharedLibraryPage).toHaveBeenCalledTimes(1);
-    expect(loadSharedLibraryPage).toHaveBeenCalledWith("workspace-1");
+    expect(loadSharedLibraryPage).toHaveBeenCalledWith("workspace-1", { sort: "selected" });
+
+    controller.setQuery({ view: "list" });
+    expect(loadSharedLibraryPage).toHaveBeenCalledTimes(1);
 
     controller.selectArtifact("alpha");
     controller.setQuery({ view: "list", sort: "size", text: "opening", mediaKind: "audio", provenance: "generation" });
-    expect(controller.getSnapshot()).toMatchObject({
+    await vi.waitFor(() => expect(controller.getSnapshot()).toMatchObject({
       status: "ready",
       query: { text: "opening", mediaKind: "audio", provenance: "generation", view: "list", sort: "size" },
       value: { selectedArtifactId: "alpha", artifacts: [{ id: "alpha" }] },
-    });
-    expect(loadSharedLibraryPage).toHaveBeenCalledTimes(1);
+    }));
+    expect(loadSharedLibraryPage).toHaveBeenCalledTimes(2);
+    expect(loadSharedLibraryPage).toHaveBeenLastCalledWith("workspace-1", { search: "opening", sort: "size", mediaKind: "audio", provenance: "generation" });
 
     controller.setQuery({ text: "approved" });
-    expect(controller.getSnapshot()).toMatchObject({ status: "ready", value: { selectedArtifactId: null, artifacts: [] } });
+    await vi.waitFor(() => expect(controller.getSnapshot()).toMatchObject({ status: "ready", value: { selectedArtifactId: null, artifacts: [] } }));
   });
 
   test("refreshes in place, keeps a surviving stable selection, and ignores stale refreshes", async () => {
@@ -125,8 +198,8 @@ describe("Shared Library controller", () => {
       value: { nextCursor: "cursor-1", artifacts: [{ id: "a" }, { id: "b" }] },
     });
     await controller.loadMore();
-    expect(loadSharedLibraryPage).toHaveBeenNthCalledWith(2, "workspace-1", { after: "cursor-1" });
-    expect(loadSharedLibraryPage).toHaveBeenNthCalledWith(3, "workspace-1", { after: "cursor-1" });
+    expect(loadSharedLibraryPage).toHaveBeenNthCalledWith(2, "workspace-1", { after: "cursor-1", sort: "selected" });
+    expect(loadSharedLibraryPage).toHaveBeenNthCalledWith(3, "workspace-1", { after: "cursor-1", sort: "selected" });
     expect(controller.getSnapshot()).toMatchObject({
       status: "ready", loadingMore: false, pageError: null,
       value: { nextCursor: null, artifacts: [{ id: "a" }, { id: "b", slug: "b" }, { id: "c" }] },
@@ -138,9 +211,9 @@ describe("Shared Library controller", () => {
       .mockResolvedValueOnce(page([artifact("first")], "cursor-1"))
       .mockResolvedValueOnce(page([artifact("second", { selectedRevisionId: null, selectedState: null })], "cursor-2"));
     const controller = createSharedLibraryController({ loadSharedLibraryPage }, "workspace-1");
+    controller.setQuery({ view: "list", sort: "name" });
     await controller.start();
     await controller.loadMore();
-    controller.setQuery({ view: "list", sort: "name" });
     controller.selectArtifact("second");
 
     controller.reconcileArtifact(artifact("second", { selectedRevisionId: "revision-2", selectedState: "candidate" }));

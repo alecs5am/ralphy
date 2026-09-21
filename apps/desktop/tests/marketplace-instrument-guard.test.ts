@@ -1,8 +1,18 @@
 import { describe, expect, test } from "vitest";
+import { readFileSync } from "node:fs";
 
 import { auditMarketplaceInstrument } from "../scripts/audit-marketplace-instrument.mjs";
+import { INSTRUMENT_MEDIA_SOURCE_SHA256, isVerifiedMediaSource } from "../scripts/instrument-media-sources.mjs";
 
 describe("Marketplace Instrument source guard", () => {
+  test("allows only byte-verified authored media and rejects changed or relocated copies", () => {
+    for (const file of Object.keys(INSTRUMENT_MEDIA_SOURCE_SHA256)) {
+      const source = readFileSync(file, "utf8");
+      expect(isVerifiedMediaSource(file, source), file).toBe(true);
+      expect(isVerifiedMediaSource(file, `${source}\n/* modified */`)).toBe(false);
+      expect(isVerifiedMediaSource("src/pages/marketplace/ui/Other.tsx", source)).toBe(false);
+    }
+  });
   test("keeps every reachable Marketplace surface flat, tokenized, and registry-owned", async () => {
     const result = await auditMarketplaceInstrument();
     expect(result.violations).toEqual([]);

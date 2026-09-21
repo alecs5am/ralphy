@@ -24,7 +24,7 @@
   /* A metric band fits as many tiles as its own width allows, so no breakpoint names them. */
   --metrics-band-columns: repeat(auto-fit, minmax(184px, 1fr));
   /* The project grid fills its row with cards no narrower than one preview plus its copy. */
-  --workspace-project-grid-columns: repeat(auto-fill, minmax(318px, 1fr));
+  --workspace-project-grid-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
   /* The dither plates are painted through a mask cut at the size of the artwork. */
   --workspace-hero-mask: url("/assets/dither/ribbon-card.png");
   --workspace-hero-mask-hi: url("/assets/dither/ribbon-card-hi.png");

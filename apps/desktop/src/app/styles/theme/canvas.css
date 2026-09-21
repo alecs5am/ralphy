@@ -56,11 +56,16 @@
 .canvas-selection-bar button[aria-label="Delete selected nodes"] { color: var(--instrument-alert) !important; }
 .canvas-selection-bar button:focus-visible { outline-color: var(--instrument-text-on-dark-primary) !important; }
 .canvas-toolbox { top: 16px; }
+.canvas-stage:has(.canvas-header-float) .canvas-toolbox { top: 64px; }
+@layer components {
+  .canvas-stage:has(.canvas-header-float) > .canvas-actions { top: 64px; }
+  .canvas-stage:has(.canvas-header-float) > :is(.canvas-catalog, .canvas-run-panel, .canvas-node-inspector) { top: 112px !important; max-height: calc(100% - 128px); }
+}
 .canvas-mode-switch { display: flex; flex: none; gap: 2px; padding: 2px; border-radius: var(--radius-pill); background: var(--instrument-field); }
 .canvas-mode-switch > button { padding: 5px 9px; border-radius: var(--radius-pill); font-size: var(--text-mono-sm); color: var(--instrument-text-secondary-readable); }
 .canvas-mode-switch > button[aria-pressed="true"] { background: var(--instrument-desk-primary-surface); color: var(--instrument-desk-primary-ink); }
 .canvas-mode-switch > button:focus-visible { outline-offset: -2px; }
-@layer components { .canvas-actions { overflow: visible !important; } }
+@layer components { .canvas-actions { top: 16px; overflow: visible !important; } }
 .canvas-actions .canvas-control { background: transparent; }
 .canvas-actions .canvas-control:hover, .canvas-actions .canvas-control[aria-pressed="true"] { background: var(--instrument-field); }
 .canvas-more > summary::-webkit-details-marker, .canvas-shortcuts > summary::-webkit-details-marker { display: none; }
@@ -73,7 +78,7 @@
 }
 .canvas-stage > .canvas-run-panel:has([aria-label="Restore results panel"]) { inset: 0 !important; width: 100% !important; height: 100% !important; max-height: none; border: 0 !important; }
 }
-.canvas-result-preview { aspect-ratio: 4 / 3; max-height: 280px; }
+.canvas-result-preview { aspect-ratio: var(--content-aspect); max-height: 280px; }
 @container canvas (max-width: 760px) {
   .canvas-selection-bar { bottom: 64px; }
   .canvas-screen .react-flow__minimap { display: none; }

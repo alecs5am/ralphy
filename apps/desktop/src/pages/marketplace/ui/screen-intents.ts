@@ -23,12 +23,12 @@ export function marketplaceIntents(
       const filters = {
         ...location.query.filters,
         category,
-        ...(category === "models" ? {} : { modality: "all" as const, format: "all" as const }),
+        ...(category === "models" ? { source: location.query.filters.source === "ralphy" ? "all" as const : location.query.filters.source } : { source: "all" as const, license: "all" as const, compatibility: "all" as const, modality: "all" as const, format: "all" as const }),
       };
       onNavigate({
         ...location,
         route: { kind: "category", category },
-        query: { ...location.query, filters },
+        query: { ...location.query, filters, sort: category !== "models" && location.query.sort === "updated" ? "relevance" : location.query.sort },
         selectedItemId: null,
         scrollTop: 0,
         focusId: "marketplace-heading",

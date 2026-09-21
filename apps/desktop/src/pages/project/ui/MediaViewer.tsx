@@ -1,8 +1,8 @@
 import { ChevronLeft, ChevronRight, Copy, RefreshCw } from "@/shared/ui/icons";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import type { ArtifactMediaCardDto, ArtifactRevisionDto, GenerationAttemptDetailDto, MediaCardDto, MediaGenerationDetailDto, RunObjectMediaCardDto } from "../../../../electron/ralphy/types";
-import { mediaCardName } from "@/entities/media";
+import type { GenerationAttemptDetailDto, MediaCardDto, MediaGenerationDetailDto, RunObjectMediaCardDto } from "../../../../electron/ralphy/types";
+import { mediaCardKind, mediaCardName } from "@/entities/media";
 import { Modal } from "@/shared/ui/Modal";
 import { AudioWaveform } from "@/entities/media";
 import { ImageViewport } from "@/entities/media";
@@ -43,10 +43,6 @@ function formatCost(value: number | null, complete: boolean): string {
 function formatDuration(startedAt: number | null, endedAt: number | null): string {
   if (startedAt === null || endedAt === null) return "Not recorded";
   return `${Math.max(0, endedAt - startedAt)} ms`;
-}
-
-function isArtifactMedia(card: MediaCardDto): card is ArtifactMediaCardDto {
-  return card.ref.type === "artifact";
 }
 
 function isRunObjectMedia(card: MediaCardDto): card is RunObjectMediaCardDto {
@@ -133,26 +129,7 @@ function RunObjectEvidence({ card }: { card: RunObjectMediaCardDto }) {
   ]} /></section>;
 }
 
-function RevisionChooser({ revisions, selectedRevisionId, onSelect, onRetry }: {
-  revisions: ProjectScreenSnapshot["mediaRevisions"];
-  selectedRevisionId: string | null;
-  onSelect(id: string): void;
-  onRetry(): void;
-}) {
-  if (revisions.status === "loading") return <div className={STAGE_NOTE} role="status">Loading revisions…</div>;
-  if (revisions.status === "error") return <div className={PROJECT_LOCAL_ERROR_ON_INSTRUMENT} role="alert"><span>{revisions.error ?? "Revisions could not be loaded."}</span><button className={COMMAND_BUTTON_ON_INSTRUMENT} type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
-  return <section className="revision-chooser flex max-h-full min-w-0 flex-col gap-2 overflow-y-auto p-6 text-on-instrument" aria-label="Artifact revisions">
-    <h3 className="m-0 type-md font-normal text-on-instrument">Select a revision</h3>
-    {revisions.error && <p className={PROJECT_LOCAL_ERROR_ON_INSTRUMENT} role="alert">{revisions.error}</p>}
-    {revisions.items.length === 0 ? <p className={STAGE_NOTE}>No revisions returned.</p> : revisions.items.map((revision: ArtifactRevisionDto) => <article className="flex min-w-0 items-center gap-3 rounded-cell bg-instrument-raised px-3.5 py-2.5" key={revision.id}>
-      <span className="min-w-0 flex-1 type-sm text-on-instrument-muted"><strong className="font-normal text-on-instrument">Revision {revision.revisionNo}</strong> · {revision.state} · {formatTime(revision.createdAt)}</span>
-      <button className="inline-flex h-control-sm flex-none items-center rounded-control bg-on-instrument px-3 type-sm text-instrument transition-colors duration-fast ease-instrument hover:bg-selected-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument disabled:bg-instrument-hover disabled:text-on-instrument-muted motion-reduce:transition-none motion-reduce:duration-0" type="button" disabled={revision.id === selectedRevisionId} onClick={() => onSelect(revision.id)}>Select</button>
-    </article>)}
-  </section>;
-}
-
 function ViewerPreview({ card, snapshot, controller }: { card: MediaCardDto; snapshot: ProjectScreenSnapshot; controller: ProjectScreenController }) {
-  if (isArtifactMedia(card) && !card.selectedRevisionId) return <RevisionChooser revisions={snapshot.mediaRevisions} selectedRevisionId={card.selectedRevisionId} onSelect={(id) => { void controller.selectMediaRevision(id); }} onRetry={() => { void controller.retryMediaRevisions(); }} />;
   const preview = snapshot.domain.preview;
   if (preview.status === "loading") return <div className={STAGE_NOTE} role="status">Loading preview…</div>;
   if (preview.status === "error") return <div className={PROJECT_LOCAL_ERROR_ON_INSTRUMENT} role="alert"><span>{preview.error ?? "Preview could not be loaded."}</span><button className={COMMAND_BUTTON_ON_INSTRUMENT} type="button" onClick={() => { void controller.retryMediaPreview(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
@@ -160,7 +137,7 @@ function ViewerPreview({ card, snapshot, controller }: { card: MediaCardDto; sna
   const name = mediaCardName(card);
   /* The stage is a black widget, so every player takes the instrument pair. */
   if (card.mime?.startsWith("image/")) return <ImageViewport src={preview.value.url} name={name} tone="instrument" />;
-  if (card.mime?.startsWith("video/")) return <VideoPlayer src={preview.value.url} name={name} tone="instrument" />;
+  if (card.mime?.startsWith("video/")) return <VideoPlayer src={preview.value.url} name={name} tone="instrument" autoPlay loop />;
   if (card.mime?.startsWith("audio/")) return <AudioWaveform src={preview.value.url} name={name} sizeBytes={preview.value.sizeBytes} tone="instrument" />;
   return <a className={`${STAGE_NOTE} underline underline-offset-2`} href={preview.value.url} aria-label={`Open ${name}`}>Open preview</a>;
 }
@@ -218,6 +195,11 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
     });
   }, []);
   if (!card) return null;
+  const generation = snapshot.mediaGeneration;
+  const showInspector = isRunObjectMedia(card)
+    || generation.status === "error"
+    || (generation.status === "loading" && card.provenance === "generation")
+    || (generation.value !== null && generation.value.status !== "unknown");
   return <Modal
     id="media-viewer"
     open={snapshot.mediaViewerOpen}
@@ -229,7 +211,7 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
     titlebarClassName="asset-modal-toolbar"
     title={mediaCardName(card)}
     titleClassName="truncate type-base font-normal text-ink"
-    description={`${card.ref.type} · ${card.ref.id}`}
+    description={<span title={`${card.ref.type} · ${card.ref.id}`}>{mediaCardKind(card)}</span>}
     descriptionClassName="m-0 min-w-0 flex-1 truncate font-code type-xs text-muted"
     closeLabel="Close"
     actions={<div className={ACTIONS}>
@@ -237,12 +219,12 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
       <button className={ICON_ACTION} type="button" disabled={index < 0 || index >= items.length - 1} aria-label="Next" onClick={() => { void controller.navigateMediaViewer(1); }}><ChevronRight size={15} aria-hidden="true" /></button>
     </div>}
     card="raw"
-    bodyClassName="asset-modal-body grid grid-cols-(--asset-modal-columns)"
+    bodyClassName={`asset-modal-body grid ${showInspector ? "grid-cols-(--asset-modal-columns)" : "grid-cols-1"}`}
     surfaceRef={surfaceRef}
     onOpenAutoFocus={(event) => { event.preventDefault(); surfaceRef.current?.focus({ preventScroll: true }); }}
     onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}
   >
             <div className="asset-modal-stage grid min-h-0 min-w-0 flex-1 place-items-center overflow-hidden overscroll-contain bg-instrument"><motion.div className="asset-modal-content grid size-full min-h-0 min-w-0 place-items-center overflow-hidden" key={`${card.ref.type}:${card.ref.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ViewerPreview card={card} snapshot={snapshot} controller={controller} /></motion.div></div>
-            <aside className="asset-modal-inspector min-h-0 min-w-0 overflow-hidden bg-surface"><div className="inspector flex size-full min-h-0 min-w-0 flex-col gap-4 overflow-y-auto bg-transparent px-3.5 pt-3 pb-5 backdrop-filter-none">{isRunObjectMedia(card) && <RunObjectEvidence card={card} />}<GenerationInspector key={`${card.ref.type}:${card.ref.id}`} detail={snapshot.mediaGeneration.value} state={snapshot.mediaGeneration.status} error={snapshot.mediaGeneration.error} onRetry={() => { void controller.retryMediaGeneration(); }} /></div></aside>
+            {showInspector && <aside className="asset-modal-inspector min-h-0 min-w-0 overflow-hidden bg-surface"><div className="inspector flex size-full min-h-0 min-w-0 flex-col gap-4 overflow-y-auto bg-transparent px-3.5 pt-3 pb-5 backdrop-filter-none">{isRunObjectMedia(card) && <RunObjectEvidence card={card} />}<GenerationInspector key={`${card.ref.type}:${card.ref.id}`} detail={snapshot.mediaGeneration.value} state={snapshot.mediaGeneration.status} error={snapshot.mediaGeneration.error} onRetry={() => { void controller.retryMediaGeneration(); }} /></div></aside>}
   </Modal>;
 }

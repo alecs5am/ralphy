@@ -36,15 +36,16 @@ export interface InstrumentShellProps {
   deskFill?: boolean;
   pageHeaderRef?(element: HTMLDivElement | null): void;
   /**
-   * The chat lens' panel chrome, as a wrapper around the desk's own scroller: the tab strip and
-   * the page card belong to the panel, and the scroller has to stay the shell's so scroll
-   * restoration and the desk container query keep working inside the card. Absent under the desk
-   * lens, where the route has no chrome of its own.
+   * Wrap the desk scroller with the content frame. The shell keeps the same scroller and reports
+   * its measured width so scroll restoration, container queries and tab overflow stay in sync.
    */
-  viewPanelFrame?(page: ReactNode, compact: boolean): ReactNode;
+  viewPanelFrame?(page: ReactNode, compact: boolean, width: number): ReactNode;
   /** Whether the panel is showing at all. `⌘\` collapses it and the chat takes the width. */
   viewOpen: boolean;
   viewExpanded?: boolean;
+  /** An explicit agent request takes priority over an inspector already holding the rail. */
+  agentRequest?: number;
+  /** Retained for existing callers; content now fills the space beside the agent rail. */
   viewWidth: number;
   onViewWidthChange(width: number): void;
   chat: ReactNode;
@@ -56,6 +57,7 @@ export interface InstrumentShellProps {
   rightWidth: number;
   onRightWidthChange(width: number): void;
   rightPreference: boolean;
+  rightRailEnabled?: boolean;
   rightOverlayOpen: boolean;
   lens: WorkbenchLens;
   /** Absent where the lens does not apply: the place switch's other place has no chat of its own. */
@@ -107,19 +109,22 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   const [dockedRailTarget, setDockedRailTarget] = useState<HTMLDivElement | null>(null);
   const [overlayRailTarget, setOverlayRailTarget] = useState<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ frameWidth: 0, deskWidth: 0, deskHeight: 0 });
-  const [activeRail, setActiveRail] = useState<{ owner: InstrumentRightRailOwner; label: string }>({ owner: "chat", label: "Agent chat" });
+  const [registeredRail, setActiveRail] = useState<{ owner: InstrumentRightRailOwner; label: string }>({ owner: "chat", label: "Agent chat" });
+  const [agentPriority, setAgentPriority] = useState(props.lens === "chat");
+  const activeRail = agentPriority ? { owner: "chat" as const, label: "Agent chat" } : registeredRail;
   const registrations = useRef<RailRegistration[]>([]);
   const openerRef = useRef<HTMLElement | null>(null);
   const focusedRailElement = useRef<HTMLElement | null>(null);
   const rememberOffset = useDeskScrollMemory(deskElement, props.routeScrollKey);
   const modeRef = useRef<InstrumentRightRailMode>("closed");
 
+  useLayoutEffect(() => { setAgentPriority(props.lens === "chat"); }, [props.lens, props.agentRequest]);
+
   const {
     leftWidth,
     leftColumn,
     railWidth,
     dockEligible,
-    viewPanelWidth,
     viewPanelFits,
     bounds,
   } = shellColumns({
@@ -129,18 +134,15 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
     rightWidth: props.rightWidth,
     viewWidth: props.viewWidth,
     railDocked: modeRef.current === "docked",
+    chatLens: props.lens === "chat",
   });
-  /* A narrow window uses the existing expanded view; the chat stays mounted for return. */
   const chatLens = props.lens === "chat";
-  const compact = chatLens && !viewPanelFits;
-  const expanded = chatLens && props.viewOpen && (props.viewExpanded || compact);
-  const viewPanelVisible = chatLens && props.viewOpen;
-  /* Under the desk lens the chat is not reachable at all -- the lens exists so the desk can have
-     the whole content area, and a chat column standing beside it would be the state the lens was
-     introduced to replace. The media-review console shares this dock and is not chat, so it keeps
-     its own path: closing the rail on owner alone would have removed a working feature. */
-  const mode = chatLens
-    ? "docked"
+  const expanded = chatLens && props.viewOpen && props.viewExpanded;
+  const contentVisible = !chatLens || props.viewOpen;
+  /* Agent intent is retained when the window narrows; the existing modal rail keeps the
+     conversation reachable without replacing or unmounting the content behind it. */
+  const mode = props.rightRailEnabled === false ? "closed" : chatLens
+    ? expanded ? "closed" : !props.viewOpen || viewPanelFits ? "docked" : "overlay"
     : activeRail.owner === "chat"
       ? "closed"
       : resolveRightRailMode({
@@ -148,6 +150,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
         preferenceOpen: props.rightPreference,
         overlayOpen: props.rightOverlayOpen,
       });
+  const agentVisible = chatLens && mode !== "closed" && activeRail.owner === "chat";
   if (mode !== modeRef.current && railHost) {
     const active = document.activeElement;
     if (active instanceof HTMLElement && railHost.contains(active)) focusedRailElement.current = active;
@@ -199,6 +202,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   }, []);
 
   const openRail = useCallback((opener: HTMLElement | null) => {
+    setAgentPriority(false);
     openerRef.current = opener;
     if (dockEligible) {
       if (!props.rightPreference) props.onToggleRightPreference();
@@ -208,9 +212,10 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   }, [dockEligible, props]);
 
   const closeRail = useCallback(() => {
-    if (mode === "overlay") props.onRightOverlayOpenChange(false);
+    if (chatLens) { props.onRightOverlayOpenChange(false); props.onLensChange?.("desk"); }
+    else if (mode === "overlay") props.onRightOverlayOpenChange(false);
     else if (mode === "docked") props.onToggleRightPreference();
-  }, [mode, props]);
+  }, [chatLens, mode, props]);
 
   const scrollContext = useMemo<InstrumentScrollContextValue>(() => ({
     element: deskElement,
@@ -243,11 +248,9 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   return <InstrumentScrollProvider value={scrollContext}>
     <InstrumentRightRailProvider value={railContext}>
       <div
-        /* Handoff 13's window: 8px of desk on all four sides, an 8px zone gap, and nothing
-           touching the window edge. The sidebar is full height and the topbar belongs to the
-           content column rather than spanning the window, which is what lets the sidebar hold
-           the traffic lights and the wordmark in its own header. */
-        className="instrument-shell col-span-3 row-start-1 row-end-2 flex h-full min-h-0 w-full min-w-0 gap-2 overflow-hidden bg-desk p-2 data-[rail-resizing]:cursor-col-resize data-[rail-resizing]:select-none"
+        /* Four-pixel gutters keep the full-height sidebar and content columns close without
+           taking space from the page. The top row remains the window's only page chrome. */
+        className="instrument-shell col-span-3 row-start-1 row-end-2 flex h-full min-h-0 w-full min-w-0 gap-1 overflow-hidden bg-desk p-1 data-[rail-resizing]:cursor-col-resize data-[rail-resizing]:select-none"
         ref={frameRef}
         data-right-rail-mode={mode}
         data-instrument-native-inset="76"
@@ -255,13 +258,11 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
         style={{
           "--instrument-left-width": `${leftColumn}px`,
           "--instrument-right-rail-width": `${railWidth}px`,
-          "--instrument-view-width": `${viewPanelWidth}px`,
         } as CSSProperties}
       >
         {props.leftVisible && <div className="instrument-left-stack relative flex h-full min-h-0 flex-none" style={{ width: leftColumn }}>
           {props.sidebar}
-          {/* The grabber straddles the window's own 8px zone gap rather than eating into the
-              sidebar card, so the card keeps its full 260 and the drag target stays 8 wide. */}
+          {/* Keep an eight-pixel drag target centered on the narrower gutter. */}
           <ResizeHandle
             ariaLabel="Resize sidebar"
             orientation="vertical"
@@ -270,52 +271,43 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
             max={bounds.left.max}
             defaultValue={bounds.left.fallback}
             direction={1}
-            className="resize-instrument-sidebar absolute top-0 -right-2 bottom-0 w-2 cursor-col-resize"
+            className="resize-instrument-sidebar absolute top-0 -right-1.5 bottom-0 w-2 cursor-col-resize"
             onChange={props.onLeftWidthChange}
             onActiveChange={setColumnResizing}
           />
         </div>}
-        <div className="instrument-content-column flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-          {/* The topbar is exactly as tall as the island, so the island's top edge is the window's
-              own 8px inset -- the same line the sidebar card starts on. A taller band would leave
-              air above the tallest thing in it, which reads as a wrong margin. */}
-          {/* No horizontal padding: every zone in the window stands 8 from its edge, and the
-              handoff's 2px optical inset put the island 10 from the right while the sidebar
-              stood at 8. */}
+        <div className="instrument-content-column flex min-h-0 min-w-0 flex-1 flex-col gap-1">
           <ShellTopRow
             pageHeaderRef={props.pageHeaderRef}
             leftVisible={props.leftVisible}
-            lens={props.lens}
+            agentVisible={agentVisible}
             topChrome={props.topChrome}
             island={props.island}
             onToggleLeft={props.onToggleLeft}
-            onLensChange={props.onLensChange}
+            onAgentToggle={props.onLensChange ? (opener) => {
+              openerRef.current = opener;
+              setAgentPriority(!agentVisible);
+              props.onLensChange?.(agentVisible ? "desk" : "chat");
+            } : undefined}
           />
-          <div className="instrument-content-body relative flex min-h-0 min-w-0 flex-1 gap-2">
-            {/* The grabber straddles the zone gap between the chat and the panel, on the panel's
-                own left edge, so the panel keeps its full width and the drag target stays 8 wide.
-                It is a sibling of the column rather than a child: the column clips its own
-                overflow, so a handle at -left-2 inside it was laid out in the gap and then clipped
-                away -- present in the DOM, measurable, and never painted. Under the desk lens the
-                route is the elastic column and has no width to set. */}
-            {chatLens && viewPanelVisible && !expanded && <ResizeHandle
-              ariaLabel="Resize view panel"
+          <div className="instrument-content-body relative flex min-h-0 min-w-0 flex-1 gap-1">
+            {/* Keep the rail grabber outside the clipping aside, in the gap between columns. */}
+            {mode === "docked" && contentVisible && <ResizeHandle
+              ariaLabel="Resize agent panel"
               orientation="vertical"
-              value={viewPanelWidth}
-              min={bounds.view.min}
-              max={bounds.view.max}
-              defaultValue={bounds.view.fallback}
+              value={railWidth}
+              min={bounds.rail.min}
+              max={bounds.rail.max}
+              defaultValue={bounds.rail.fallback}
               direction={-1}
-              className="resize-instrument-view absolute top-0 right-(--instrument-view-width) bottom-0 w-2 cursor-col-resize"
-              onChange={props.onViewWidthChange}
+              className="resize-instrument-rail absolute top-0 right-(--instrument-right-rail-width) bottom-0 w-2 cursor-col-resize"
+              onChange={props.onRightWidthChange}
               onActiveChange={setColumnResizing}
             />}
             <section
-              /* The view takes the full content area when chat and view cannot fit together. */
-              className={`instrument-desk-column relative flex min-h-0 min-w-0 flex-col overflow-hidden ${chatLens && !expanded ? "order-last flex-none" : "flex-1 bg-desk"} ${chatLens && !viewPanelVisible ? "hidden" : ""}`}
-              style={chatLens && !expanded ? { width: viewPanelWidth } : undefined}
+              className={`instrument-desk-column relative min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-desk ${contentVisible ? "flex" : "hidden"}`}
               data-instrument-view-panel={chatLens || undefined}
-              hidden={chatLens && !viewPanelVisible}
+              hidden={!contentVisible}
               ref={setDeskColumn}
             >
               {(props.viewPanelFrame ?? ((page: ReactNode) => page))(<div
@@ -324,30 +316,14 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
                 className={`instrument-desk-scroll @container/instrument-desk min-h-0 min-w-0 flex-1 overflow-x-hidden overscroll-contain ${props.deskFill ? "flex flex-col overflow-hidden [scrollbar-gutter:auto]" : "overflow-y-auto [&_.overscroll-contain]:overscroll-auto"}`}
                 ref={setDeskElement}
                 data-instrument-scroll-owner="instrument-desk-scroll"
+                data-scroll-mode={props.deskFill ? "page" : "desk"}
                 inert={mode === "overlay" || undefined}
                 aria-hidden={mode === "overlay" || undefined}
               >
                 {props.desk}
-              </div>, compact)}
+              </div>, false, dimensions.deskWidth)}
             </section>
-            {/* The rail stands beside the desk, inside the content column, so the window's own zone
-                gap is the only inset it needs. The "right" in the class name and the props is
-                historical -- the rail is a dock, not a side. */}
-            <aside className={`instrument-right-rail relative min-h-0 min-w-0 overflow-hidden bg-desk ${mode === "docked" && !expanded ? "flex" : "hidden"} ${chatLens ? "flex-1" : ""}`} style={chatLens ? undefined : { width: railWidth }} aria-label={activeRail.label} hidden={mode !== "docked" || expanded} inert={expanded || undefined}>
-              {/* The grabber sizes the rail only while the rail is the narrow column. Under the
-                  chat lens the rail is elastic and the view panel is what has a width. */}
-              {!chatLens && <ResizeHandle
-                ariaLabel="Resize agent panel"
-                orientation="vertical"
-                value={railWidth}
-                min={bounds.rail.min}
-                max={bounds.rail.max}
-                defaultValue={bounds.rail.fallback}
-                direction={-1}
-                className="resize-instrument-rail absolute top-0 -left-2 bottom-0 w-2 cursor-col-resize"
-                onChange={props.onRightWidthChange}
-                onActiveChange={setColumnResizing}
-              />}
+            <aside className={`instrument-right-rail relative min-h-0 min-w-0 overflow-hidden bg-desk ${mode === "docked" ? "flex" : "hidden"} ${contentVisible ? "flex-none" : "flex-1"}`} style={contentVisible ? { width: railWidth } : undefined} aria-label={activeRail.label} hidden={mode !== "docked"} inert={mode !== "docked" || undefined}>
               <div className="min-h-0 min-w-0 flex-1" ref={setDockedRailTarget} />
             </aside>
           </div>
@@ -368,10 +344,10 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
         label={activeRail.label}
         description="Contextual controls for the active screen"
         opener={openerRef.current}
-        onOpenChange={props.onRightOverlayOpenChange}
+        onOpenChange={(open) => { if (!open && chatLens) closeRail(); else props.onRightOverlayOpenChange(open); }}
         localScroll
         scrimClassName="z-sheet-backdrop bg-instrument/52"
-        surfaceClassName="fixed z-sheet inset-y-2 left-2 w-max max-w-overlay-fit max-h-overlay-fit-block rounded-panel bg-instrument text-on-instrument"
+        surfaceClassName="fixed z-sheet inset-y-2 right-2 w-max max-w-overlay-fit max-h-overlay-fit-block rounded-panel bg-instrument text-on-instrument"
       >
         <div className="flex min-h-full" style={{ width: railWidth }} ref={setOverlayRailTarget} />
       </InstrumentOverlay>

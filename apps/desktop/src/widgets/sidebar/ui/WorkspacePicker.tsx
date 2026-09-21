@@ -16,13 +16,10 @@ import type { WorkspaceSummary } from "@/shared/api/ipc";
 import { workspaceDitherVars } from "@/shared/lib/project-glyph";
 import { InstrumentOverlay } from "@/shared/instrument/overlay-registry";
 
-/* The workspace card. `sidebar-context` states the 118px height once; the picker and its hero
-   fill it, and the dither plates are cut to the same card. */
-const HERO = "workspace-hero group relative block h-full w-full flex-none overflow-hidden rounded-hero bg-instrument text-left text-on-instrument focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument";
-const HERO_PLATE = "pointer-events-none absolute top-0 left-0 h-workspace-card w-full [mask-repeat:no-repeat] [mask-size:var(--workspace-hero-mask-size)]";
+const TRIGGER = "workspace-picker-trigger group flex h-7.5 w-full items-center gap-2 rounded-row px-2 text-left text-ink hover:bg-field focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
 /* One option in the list. Geometry and behaviour only: the ink pair is stated per row below,
    because the active workspace is the one inverted pill and that pair is declared elsewhere. */
-const OPTION = "relative grid min-h-11 w-full grid-cols-(--workspace-option-columns) items-center gap-2.5 overflow-hidden rounded-control pr-3 pl-2 text-left [corner-shape:round] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument";
+const OPTION = "relative grid min-h-9 w-full grid-cols-(--workspace-option-columns) items-center gap-2.5 overflow-hidden rounded-control pr-3 pl-2 text-left [corner-shape:round] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument";
 /* The active workspace is the one inverted pill in the list, and the inversion holds under the
    cursor. Its children state no ink, so they take this one. */
 const OPTION_ACTIVE = "bg-selected text-selected-ink hover:bg-selected";
@@ -37,10 +34,12 @@ interface WorkspacePickerProps {
   value: string;
   workspaces: WorkspaceSummary[];
   onValueChange(workspaceId: string): void;
+  onOpenOverview?(): void;
 }
 
 interface PopoverPosition {
-  top: number;
+  bottom: number;
+  maxHeight: number;
   left: number;
   width: number;
 }
@@ -59,6 +58,7 @@ export function WorkspacePicker({
   value,
   workspaces,
   onValueChange,
+  onOpenOverview,
 }: WorkspacePickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -103,7 +103,8 @@ export function WorkspacePicker({
       const bounds = trigger.getBoundingClientRect();
       const width = Math.min(360, window.innerWidth - 20);
       setPopoverPosition({
-        top: bounds.bottom + 6,
+        bottom: window.innerHeight - bounds.top + 6,
+        maxHeight: Math.max(0, bounds.top - 16),
         left: Math.min(
           Math.max(10, bounds.left - 2),
           window.innerWidth - width - 10,
@@ -171,8 +172,7 @@ export function WorkspacePicker({
     <div className="workspace-picker relative h-full min-w-0 flex-1" ref={rootRef}>
       <button
         ref={triggerRef}
-        className={HERO}
-        style={workspaceDitherVars(selected?.name ?? value)}
+        className={TRIGGER}
         type="button"
         aria-label="Select workspace"
         aria-haspopup="listbox"
@@ -181,19 +181,9 @@ export function WorkspacePicker({
         data-workspace-name={selected?.name}
         onClick={() => setOpen((visible) => !visible)}
       >
-        <span className={`workspace-hero-field ${HERO_PLATE} [background:var(--workspace-color,var(--instrument-dither-base))] [mask-image:var(--workspace-hero-mask)] [opacity:var(--dither-op)]`} aria-hidden="true" />
-        <span className={`workspace-hero-field-hi ${HERO_PLATE} opacity-80 [background:var(--workspace-highlight,var(--instrument-dither-highlight))] [mask-image:var(--workspace-hero-mask-hi)]`} aria-hidden="true" />
-        {/* A flat plate over the foot of the card, never a gradient: v2 forbids depth ramps. */}
-        <span className="workspace-hero-scrim pointer-events-none absolute inset-x-0 bottom-0 h-14.5 bg-media-plate" aria-hidden="true" />
-        <span className="workspace-hero-chevron absolute top-3 right-3 grid size-6 place-items-center rounded-control bg-on-instrument text-instrument">
-          <ChevronDown className="transition-transform duration-normal ease-instrument group-aria-expanded:rotate-180 motion-reduce:transition-none motion-reduce:duration-0" size={12} strokeWidth={2} />
-        </span>
-        <span className="workspace-hero-copy absolute inset-x-4 bottom-3.25 flex min-w-0 flex-col gap-1.25">
-          <strong className="truncate type-title">{selected?.name ?? "Workspaces"}</strong>
-          <small className="truncate font-display type-sm font-extrabold tracking-figure text-on-instrument-muted" title={`${selected?.projectCount ?? 0} projects · ${selected?.unitCount ?? 0} units · ${selected?.sharedCount ?? 0} shared`}>
-            {selected?.projectCount ?? 0} PROJ · {selected?.unitCount ?? 0} UNITS
-          </small>
-        </span>
+        <span className="grid size-6 flex-none place-items-center rounded-control bg-instrument font-code type-mono-sm text-on-instrument" aria-hidden="true">{initials(selected?.name ?? value)}</span>
+        <strong className="min-w-0 flex-1 truncate type-ui font-medium">{selected?.name ?? "Workspaces"}</strong>
+        <ChevronDown className="flex-none text-muted transition-transform duration-normal ease-instrument group-aria-expanded:rotate-180 motion-reduce:transition-none motion-reduce:duration-0" size={13} strokeWidth={1.8} aria-hidden="true" />
       </button>
       {typeof document !== "undefined" && createPortal(
         <AnimatePresence>
@@ -203,10 +193,10 @@ export function WorkspacePicker({
               ref={popoverRef}
               /* A widget, not a system menu: flat #141414 plate, R24, no border and no shadow.
                  tokens.css already keys the squircle on this class. */
-              className="workspace-picker-popover fixed z-popover origin-top-left overflow-hidden rounded-panel bg-instrument p-2 text-on-instrument"
+              className="workspace-picker-popover fixed z-popover flex origin-bottom-left flex-col overflow-hidden rounded-panel bg-instrument p-2 text-on-instrument"
               style={popoverPosition}
             >
-              <label className="workspace-picker-search mb-1.5 flex h-control-lg items-center gap-2.25 rounded-control bg-instrument-raised px-3 text-on-instrument-muted [corner-shape:round] focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-focus-on-instrument">
+              <label className="workspace-picker-search mb-1.5 flex h-control-lg flex-none items-center gap-2.25 rounded-control bg-instrument-raised px-3 text-on-instrument-muted [corner-shape:round] focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-focus-on-instrument">
                 <Search size={14} strokeWidth={1.5} />
                 <input
                   className="min-w-0 flex-1 bg-transparent type-sm text-on-instrument caret-on-instrument outline-none placeholder:text-on-instrument-muted"
@@ -232,7 +222,7 @@ export function WorkspacePicker({
                 />
               </label>
               <div
-                className="workspace-picker-list max-h-picker-list overflow-auto"
+                className="workspace-picker-list min-h-0 max-h-picker-list overflow-auto"
                 id={listId}
                 role="listbox"
                 aria-label="Workspaces"
@@ -247,21 +237,21 @@ export function WorkspacePicker({
                     role="option"
                     tabIndex={-1}
                     aria-selected={active}
+                    title={workspace.description && workspace.description !== "Ralphy production workspace" ? workspace.description : undefined}
                     className={`${OPTION} ${active ? OPTION_ACTIVE : highlighted ? OPTION_HIGHLIGHTED : OPTION_REST}`}
                     style={workspaceDitherVars(workspace.name)}
                     key={workspace.id}
                     onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => select(workspace)}
                   >
-                    <span className={`workspace-option-field pointer-events-none absolute top-0 left-0 z-surface-under h-11 w-workspace-option-field [background:var(--workspace-color)] [mask-image:var(--workspace-option-mask)] [mask-repeat:no-repeat] [mask-size:var(--workspace-option-mask-size)] ${active ? "opacity-0" : highlighted ? "opacity-46" : "opacity-30"}`} aria-hidden="true" />
-                    <span className={`workspace-option-avatar ${OPTION_LAYER} inline-grid size-7 flex-none place-items-center rounded-control [corner-shape:round] [background:var(--workspace-color)] font-code type-mono-sm tracking-label text-on-instrument`} aria-hidden="true">
+                    <span className={`workspace-option-field pointer-events-none absolute top-0 left-0 z-surface-under h-full w-workspace-option-field [background:var(--workspace-color)] [mask-image:var(--workspace-option-mask)] [mask-repeat:no-repeat] [mask-size:var(--workspace-option-mask-size)] ${active ? "opacity-0" : highlighted ? "opacity-46" : "opacity-30"}`} aria-hidden="true" />
+                    <span className={`workspace-option-avatar ${OPTION_LAYER} inline-grid size-6 flex-none place-items-center rounded-control [corner-shape:round] [background:var(--workspace-color)] font-code type-mono-sm tracking-label text-on-instrument`} aria-hidden="true">
                       {initials(workspace.name)}
                     </span>
-                    <span className={`workspace-option-copy ${OPTION_LAYER} flex min-w-0 flex-col`}>
-                      <strong className={`truncate type-sm font-normal${active ? "" : " text-on-instrument"}`}>{workspace.name}</strong>
-                      <small className={`truncate font-code type-mono-sm tracking-label uppercase${active ? "" : " text-on-instrument-muted"}`}>{workspace.description || "Ralphy production workspace"}</small>
+                    <span className={`workspace-option-copy ${OPTION_LAYER} min-w-0`}>
+                      <strong className={`block truncate type-sm font-normal${active ? "" : " text-on-instrument"}`}>{workspace.name}</strong>
                     </span>
-                    <em className={`${OPTION_LAYER} font-display type-base font-extrabold not-italic tracking-figure${active ? "" : " text-on-instrument-muted"}`}>{workspace.projectCount}</em>
+                    <em className={`${OPTION_LAYER} type-sm not-italic tabular-nums${active ? "" : " text-on-instrument-muted"}`}>{workspace.projectCount}</em>
                     {active && <Check className={OPTION_LAYER} size={13} strokeWidth={2} />}
                   </button>
                   );
@@ -270,7 +260,8 @@ export function WorkspacePicker({
                   <span className="workspace-picker-empty block px-3 py-5 text-center type-sm text-on-instrument-muted">No workspaces found</span>
                 )}
               </div>
-              <div className="mt-2 flex flex-col gap-2 rounded-field bg-surface p-2 text-ink">
+              <div className="mt-2 flex flex-none flex-col gap-2 rounded-field bg-surface p-2 text-ink">
+                {onOpenOverview && <button type="button" className="rounded-control px-3 py-2 text-left type-sm hover:bg-field focus-visible:outline-2 focus-visible:outline-ink" onClick={() => { onOpenOverview(); closeAndRestoreFocus(); }}>Workspace overview</button>}
                 <CreateLibraryEntry onCreated={(id) => { onValueChange(id); closeAndRestoreFocus(); }} />
                 <WorkspaceArchiveAction onImported={(id) => { onValueChange(id); closeAndRestoreFocus(); }} />
               </div>

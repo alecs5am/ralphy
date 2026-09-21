@@ -6,7 +6,7 @@
 // prints a semver-ish version to stdout.
 
 import { describe, test, expect } from "bun:test";
-import { evaluateSmokeResult } from "../../scripts/build-binaries.js";
+import { desktopLaunch, evaluateSmokeResult } from "../../scripts/build-binaries.js";
 
 describe("evaluateSmokeResult", () => {
   test("passes on exit 0 with a semver version on stdout", () => {
@@ -55,5 +55,41 @@ describe("evaluateSmokeResult", () => {
   test("tolerates a null stdout", () => {
     const r = evaluateSmokeResult({ error: null, status: 0, stdout: null, stderr: null });
     expect(r.ok).toBe(false);
+  });
+});
+
+test("desktop launch uses the freshly built absolute Core binary", () => {
+  const launch = desktopLaunch(
+    "/repo/dist/binaries",
+    { target: "bun-darwin-arm64", out: "ralphy-darwin-arm64" },
+    { HOME: "/Users/test" },
+  );
+
+  expect(launch).toEqual({
+    command: "bun",
+    args: ["run", "--cwd", "apps/desktop", "start"],
+    env: {
+      HOME: "/Users/test",
+      RALPHY_BIN: "/repo/dist/binaries/ralphy-darwin-arm64",
+    },
+  });
+});
+
+test("desktop dev launch keeps the environment and starts the real Electron dev server", () => {
+  const launch = desktopLaunch(
+    "/repo/dist/binaries",
+    { target: "bun-darwin-arm64", out: "ralphy-darwin-arm64" },
+    { HOME: "/Users/test", CODEX_HOME: "/Users/test/.codex" },
+    "dev",
+  );
+
+  expect(launch).toEqual({
+    command: "bun",
+    args: ["run", "--cwd", "apps/desktop", "dev"],
+    env: {
+      HOME: "/Users/test",
+      CODEX_HOME: "/Users/test/.codex",
+      RALPHY_BIN: "/repo/dist/binaries/ralphy-darwin-arm64",
+    },
   });
 });

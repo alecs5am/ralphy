@@ -1,7 +1,11 @@
-import { act, type HTMLAttributes, type ReactNode } from "react";
+import { act, useReducer, type HTMLAttributes, type ReactNode } from "react";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import type { WorkspaceOverviewDto } from "../electron/ralphy/types";
 import { bridge } from "@/shared/api/ipc";
+import { createInitialWorkbenchState, workbenchReducer, writeWorkbenchPreferences, readWorkbenchPreferences, type WorkbenchState } from "@/shared/model/workbench";
+import { useAppCommands } from "@/app/model/use-app-commands";
+import { useShellPreferences } from "@/app/model/use-shell-preferences";
+import { useWorkspaceNavigation } from "@/app/model/use-workspace-navigation";
 import { createReactHost, type HostNode } from "./react-host";
 
 vi.mock("motion/react", () => {
@@ -97,6 +101,7 @@ async function mountApp({
     getItem: (key: string) => storage.get(key) ?? null,
     setItem: (key: string, value: string) => storage.set(key, value),
   } });
+  writeWorkbenchPreferences(localStorage, { ...readWorkbenchPreferences(localStorage), workspacePage: "overview" });
   const restoreLibrary = vi.spyOn(bridge, "restoreLibrary").mockResolvedValue({
     identity: { storeId: "store-1", label: "Ralphy", rootEpoch: 1, activitySequence: 0 },
     catalog: {
@@ -133,6 +138,70 @@ async function mountApp({
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("workspace overview navigation lifecycle", () => {
+  test("Find a project returns directly to the originating project with Back", async () => {
+    const host = createReactHost(), { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    vi.stubGlobal("localStorage", { getItem: () => null });
+    const initial = { ...readWorkbenchPreferences(localStorage), workspacePage: "calendar" as const };
+    let state: WorkbenchState;
+    function Harness() {
+      const [current, dispatch] = useReducer(workbenchReducer, initial, (preferences) =>
+        workbenchReducer(createInitialWorkbenchState(preferences), { type: "open-project", project: { workspaceId: workspaceSummary.id, projectId: "launch" } }));
+      state = current;
+      const shell = useShellPreferences(initial, { state: current, dispatch, restoring: true, rootIdentity: null });
+      const navigation = useWorkspaceNavigation({ setWorkspacePage: shell.setWorkspacePage, dispatch, selectedWorkspace: workspaceSummary, workspaces: [workspaceSummary] });
+      useAppCommands({
+        settingsVisible: false, setSettingsVisible() {}, mode: "work", route: current.route, workspaces: [workspaceSummary],
+        navigateBack: () => dispatch({ type: "back" }), navigateForward: () => dispatch({ type: "forward" }),
+        openWorkspace: navigation.openWorkspace, clearOverviewNavigation: navigation.clearOverviewNavigation,
+        setWorkspacePage: navigation.openWorkspacePage, setSidebarSearchRequest() {}, setSidebarVisible() {},
+        setLens() {}, toggleAgent() {}, onNewChat() {}, switchAppMode() {},
+      });
+      return null;
+    }
+    const key = (key: string) => Object.assign(new Event("keydown", { cancelable: true }), { key, metaKey: true, ctrlKey: false, altKey: false, shiftKey: false });
+    try {
+      await act(async () => root.render(<Harness />));
+      await act(async () => window.dispatchEvent(key("f")));
+      expect(state!.route).toEqual({ kind: "workspace", workspaceId: workspaceSummary.id, page: "projects" });
+      await act(async () => window.dispatchEvent(key("[")));
+      expect(state!.route).toEqual({ kind: "project", workspaceId: workspaceSummary.id, projectId: "launch" });
+    } finally { await act(async () => root.unmount()); host.restore(); vi.unstubAllGlobals(); }
+  });
+
+  test("records Overview to Projects navigation and restores each page with Back and Forward", async () => {
+    const mounted = await mountApp();
+    try {
+      const button = (label: string) => mounted.host.container.querySelectorAll("button")
+        .find((node) => node.getAttribute("aria-label") === label)!;
+      expect(mounted.host.container.querySelector(".workspace-overview-scroll")).not.toBeNull();
+      expect(button("Back").disabled).toBe(true);
+      const projects = mounted.host.container.querySelector(".sidebar-projects")!.querySelectorAll("button")
+        .find((node) => node.getAttribute("aria-label") === "Projects")!;
+      expect(projects).toBeTruthy();
+      await act(async () => { projects.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(mounted.host.container.querySelector(".workspace-projects-region")).not.toBeNull();
+      expect(button("Back").disabled).toBe(false);
+
+      await act(async () => { button("Back").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(mounted.host.container.querySelector(".workspace-overview-scroll")).not.toBeNull();
+      expect(mounted.host.container.querySelector(".workspace-projects-region")).toBeNull();
+      expect(button("Back").disabled).toBe(true);
+      expect(button("Forward").disabled).toBe(false);
+      await act(async () => { vi.advanceTimersByTime(121); await settle(); });
+      expect(readWorkbenchPreferences(localStorage).workspacePage).toBe("overview");
+
+      await act(async () => { button("Forward").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(mounted.host.container.querySelector(".workspace-projects-region")).not.toBeNull();
+      expect(mounted.host.container.querySelector(".workspace-overview-scroll")).toBeNull();
+      expect(button("Forward").disabled).toBe(true);
+      await act(async () => { vi.advanceTimersByTime(121); await settle(); });
+      expect(readWorkbenchPreferences(localStorage).workspacePage).toBe("projects");
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
   test("opens Shared Library from Overview and restores the originating control on Back", async () => {
     const emptyOverview: WorkspaceOverviewDto = {
       ...overview,
@@ -151,7 +220,7 @@ describe("workspace overview navigation lifecycle", () => {
       await act(async () => { openShared.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
 
       expect(mounted.host.container.textContent).toContain("Back to Overview");
-      expect(mounted.host.container.textContent).toContain("Shared Library");
+      expect(mounted.host.container.textContent).toContain("Shared assets");
       expect(mounted.host.container.textContent).toContain("Reusable workspace artifacts for people and agents");
       expect(mounted.host.container.textContent).not.toContain("Shared Library is not wired yet");
 
@@ -301,8 +370,8 @@ describe("workspace overview navigation lifecycle", () => {
 
       /* The Units page is a real screen now: it fans the workspace's projects out into one list,
          so what stands here is its own heading rather than the old "not wired yet" plate. */
-      expect(mounted.host.container.querySelectorAll("section").some((node) => node.getAttribute("aria-label") === "All units")).toBe(true);
-      expect(mounted.host.container.querySelectorAll("input").some((node) => node.getAttribute("aria-label") === "Search units")).toBe(true);
+      expect(mounted.host.container.querySelectorAll("section").some((node) => node.getAttribute("aria-label") === "All content")).toBe(true);
+      expect(mounted.host.container.querySelectorAll("input").some((node) => node.getAttribute("aria-label") === "Search content")).toBe(true);
       expect(mounted.host.container.textContent).toContain("Back to Overview");
       expect(mounted.host.container.textContent).toContain("Product reveal is not present in the current project catalog");
       expect(mounted.host.container.textContent).not.toContain("Unit unit-1");
@@ -355,8 +424,9 @@ describe("workspace overview navigation lifecycle", () => {
       expect(mounted.host.container.textContent).not.toContain("@launch1");
       expect(mounted.host.container.querySelector(".calendar-inspector")).toBeNull();
 
-      const overviewButton = [...mounted.host.container.querySelectorAll(".sidebar-nav-row")]
-        .find((button) => button.textContent?.includes("Overview"))!;
+      await act(async () => { picker.dispatchEvent(new Event("click", { bubbles: true })); vi.advanceTimersByTime(1); await settle(); });
+      const overviewButton = [...document.body.querySelectorAll("button")]
+        .find((button) => button.textContent === "Workspace overview")!;
       await act(async () => { overviewButton.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
       const secondScroll = mounted.host.container.querySelector(".workspace-overview-scroll") as unknown as HostNode;
       expect(secondScroll.scrollTop).toBe(0);

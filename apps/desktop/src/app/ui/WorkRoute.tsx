@@ -21,7 +21,7 @@ import { WorkspaceScreen } from "@/pages/workspace";
 import { WorkspaceProjectsScreen } from "@/pages/workspace-projects";
 import { WorkspaceUnitsScreen } from "@/pages/workspace-units";
 import { readUnitViewTarget, type ViewTab } from "@/widgets/view-panel";
-import type { AgentProvider, CatalogResult, ProjectReference, ProjectSummary, WorkspaceSummary } from "@/shared/api/ipc";
+import type { AgentPermissionMode, AgentProvider, CatalogResult, ProjectReference, ProjectSummary, WorkspaceSummary } from "@/shared/api/ipc";
 import type { WorkbenchRoute, WorkspaceDestination, WorkspaceOverviewReturnState, WorkspacePage } from "@/shared/model/workbench";
 
 import { ProjectScreenLoadingFallback } from "./app-frames";
@@ -58,7 +58,7 @@ export interface WorkRouteProps {
   /* The Context page reads the active chat's own provider and its measured usage: context is a
      property of a chat, not of a workspace, and a figure from another chat would be the wrong
      number. There is no chat before the feature is enabled, and then there is no page. */
-  chat: { provider: AgentProvider; usage: AgentChatUsage | null } | null;
+  chat: { provider: AgentProvider; permissionMode?: AgentPermissionMode; usage: AgentChatUsage | null } | null;
   onRetryLibrary(): void;
   onOpenWorkspace(workspaceId: string): void;
   onOpenProject(project: ProjectSummary, unitId?: string | null): void;
@@ -181,6 +181,7 @@ export function WorkRoute({
     return <ContextScreen
       key={`context:${selectedWorkspace.id}:${chat.provider}`}
       provider={chat.provider}
+      permissionMode={chat.permissionMode}
       project={selectedProject}
       workspaceId={selectedWorkspace.id}
       usage={chat.usage}

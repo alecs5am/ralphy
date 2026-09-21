@@ -109,9 +109,12 @@ type ExpectedMediaFacets = {
 type ExpectedMediaListParams = Context & {
   after?: string | null;
   limit?: number;
+  projectOnly?: true;
   filter?: "references" | "working" | "candidate" | "approved" | "rejected"
     | "superseded" | "run-diagnostics" | "run-cache-temp" | "advanced-objects";
   types?: Array<"artifact" | "run-object" | "object">;
+  search?: string;
+  sort?: "oldest" | "newest" | "name" | "size" | "selected";
   mediaKind?: ExpectedMediaFacets["mediaKind"];
   provenance?: ExpectedMediaFacets["provenance"];
 };

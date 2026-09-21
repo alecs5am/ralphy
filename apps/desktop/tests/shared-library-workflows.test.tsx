@@ -291,6 +291,6 @@ describe("Shared Library non-mutating workflows", () => {
     const markup = renderToStaticMarkup(<SharedLibraryScreen workspaceId="workspace-1" workspaceName="Studio" rootEpoch={1} />);
     expect(markup).not.toContain("Add artifact");
     expect(markup).not.toContain("Promote from project");
-    expect(markup).toContain("Loading Shared Library");
+    expect(markup).toContain("Loading Shared assets");
   });
 });

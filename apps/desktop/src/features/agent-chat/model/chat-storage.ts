@@ -79,7 +79,7 @@ function parseEntry(value: unknown): AgentChatEntry | null {
     if (
       typeof item.id !== "string"
       || typeof item.name !== "string"
-      || !["running", "complete", "failed"].includes(String(item.status))
+      || !["running", "complete", "failed", "unconfirmed"].includes(String(item.status))
     ) return null;
     return {
       id: row.id,
@@ -90,13 +90,16 @@ function parseEntry(value: unknown): AgentChatEntry | null {
         name: item.name,
         summary: storedText(item.summary) ?? "",
         status: item.status === "running"
-          ? "failed"
+          ? "unconfirmed"
           : item.status as AgentChatTool["status"],
       },
     };
   }
   const text = storedText(row.text);
-  return text !== undefined ? { id: row.id, kind, at, text } : null;
+  return text !== undefined ? { id: row.id, kind, at, text,
+    ...(kind === "assistant" && typeof row.messageId === "string" && validLocalId(row.messageId)
+      ? { messageId: row.messageId } : {}),
+  } : null;
 }
 
 function provider(value: unknown): AgentProvider | null {
@@ -118,9 +121,14 @@ function parseConversation(value: unknown): AgentConversation | null {
     ? row.entries.map(parseEntry).filter((entry): entry is AgentChatEntry => entry !== null)
     : [];
   if (!Array.isArray(row.entries) || entries.length !== row.entries.length) return null;
+  const project = row.project as Record<string, unknown> | null | undefined;
+  if (project != null && (typeof project !== "object" || Array.isArray(project)
+    || typeof project.workspaceId !== "string" || !validLocalId(project.workspaceId)
+    || typeof project.projectId !== "string" || !validLocalId(project.projectId))) return null;
   const highestId = entries.reduce((highest, entry) => Math.max(highest, entry.id), 0);
   return {
     id: row.id,
+    project: project ? { workspaceId: project.workspaceId as string, projectId: project.projectId as string } : null,
     title: entries.length === 0 && row.manualTitle !== true ? "New chat" : storedText(row.title) ?? "New chat",
     titled: row.titled === true && (entries.length > 0 || row.manualTitle === true),
     ...(row.manualTitle === true ? { manualTitle: true } : {}),

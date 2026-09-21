@@ -1,0 +1,5 @@
+@theme inline {
+  /* Inline content cards stay previews; the Unit viewer owns full-size review. */
+  --spacing-chat-unit-preview: 104px;
+  --aspect-chat-unit-preview: var(--content-aspect);
+}

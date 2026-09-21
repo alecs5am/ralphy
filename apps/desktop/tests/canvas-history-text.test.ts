@@ -52,13 +52,17 @@ test("complete generated text reaches the next model while durable previews stay
   expect(await readFile(run.nodes[0].results[0].asset!.path, "utf8")).toBe(fullText);
 });
 
-test("a completed run is not rewritten as interrupted when a history read began before completion", async () => {
+test("a stale running history page cannot rewrite a durably completed run as interrupted", async () => {
   const { root, runtime } = await setup();
-  await runtime.startSnapshot(graph(), { mode: "execute", expectedRevision: "revision" });
-  const complete = await finished(runtime);
+  // Polling terminal JSON can finish before its directory sync and active-run cleanup. Seed
+  // the completed record so this regression exercises a stale read after execution has ended.
+  const complete: CanvasRun = { id: "run-1700000000000-complete", canvasId: "workflow", workspaceId: "workspace", canvasRevision: "revision", mode: "execute", status: "succeeded", startedAt: 1_700_000_000_000, endedAt: 1_700_000_000_001, error: null, snapshot: graph(), nodes: [] };
+  await writeCanvasRun(root, complete);
+  const write = vi.spyOn(runtimeFiles, "writeCanvasRun");
   vi.spyOn(runtimeFiles, "readCanvasRuns").mockResolvedValueOnce({ items: [{ ...complete, status: "running", endedAt: null }], nextCursor: null });
   expect((await runtime.list("workflow")).items[0].status).toBe("succeeded");
   expect((await readCanvasRuns(root, "workspace", "workflow")).items[0].status).toBe("succeeded");
+  expect(write).not.toHaveBeenCalled();
 });
 
 test("older pages and saved selections survive restart without regenerating the original text", async () => {

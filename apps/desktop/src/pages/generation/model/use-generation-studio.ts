@@ -19,7 +19,7 @@ export function useGenerationStudio(workspaceId: string) {
   const [error, setError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "failed">("saved");
   const [starting, setStarting] = useState(false);
-  const [lastStartedId, setLastStartedId] = useState<string | null>(null);
+  const [launch, setLaunch] = useState<{ draft: GenerationDraft; mode: "preview" | "execute" } | null>(null);
   const [importing, setImporting] = useState(false);
   const [reload, setReload] = useState(0);
   const alive = useRef(true), startingRef = useRef(false), importingRef = useRef(false);
@@ -113,13 +113,14 @@ export function useGenerationStudio(workspaceId: string) {
   };
   const start = async (mode: "preview" | "execute") => {
     if (startingRef.current || runsRef.current.some(running) || !ready) return;
-    startingRef.current = true; setStarting(true); setError(null); version.current++;
+    const requestDraft = draftRef.current;
+    startingRef.current = true; setStarting(true); setLaunch({ draft: requestDraft, mode }); setError(null); version.current++;
     refresh.current();
     try {
-      const run = await bridge.startGeneration(workspaceId, draftRef.current, mode);
-      if (alive.current) { version.current++; const next = [run, ...runsRef.current.filter((item) => item.id !== run.id)]; runsRef.current = next; setRuns(next); setLastStartedId(run.id); refresh.current(); }
+      const run = await bridge.startGeneration(workspaceId, requestDraft, mode);
+      if (alive.current) { version.current++; const next = [run, ...runsRef.current.filter((item) => item.id !== run.id)]; runsRef.current = next; setRuns(next); refresh.current(); }
     } catch (cause) { if (alive.current) setError(message(cause)); }
-    finally { startingRef.current = false; if (alive.current) setStarting(false); }
+    finally { startingRef.current = false; if (alive.current) { setStarting(false); setLaunch(null); } }
   };
   const cancel = async (id: string) => {
     version.current++;
@@ -159,8 +160,8 @@ export function useGenerationStudio(workspaceId: string) {
     catch (cause) { if (alive.current) setError(message(cause)); }
   };
   return {
-    catalog, loading, ready, draft, edit, chooseKind, chooseModel, runs, lastStartedId, error, setError, saveState, loadOlder, hasOlder: nextCursor !== null, loadingOlder,
-    starting, importing, busy: starting || runs.some(running), start, cancel, importReference, addReference, exportResult,
+    catalog, loading, ready, draft, edit, chooseKind, chooseModel, runs, error, setError, saveState, loadOlder, hasOlder: nextCursor !== null, loadingOlder,
+    starting, launch, importing, busy: starting || runs.some(running), start, cancel, importReference, addReference, exportResult,
     refreshCatalog, retryLoad: () => { setError(null); setReload((value) => value + 1); }, retrySave: () => edit(draftRef.current),
     restore: (run: CanvasRun) => { const next = generationDraftFromRun(run); if (next) edit(next); },
   };

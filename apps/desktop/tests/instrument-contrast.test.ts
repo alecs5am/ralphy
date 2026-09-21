@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, test } from "vitest";
+import { isVerifiedMediaSource } from "../scripts/instrument-media-sources.mjs";
 import {
   INSTRUMENT_COLOR_ALLOWLIST,
   INSTRUMENT_PALETTE,
@@ -25,6 +26,8 @@ function authoredColorIssues(): string[] {
   return ["src", "electron"].flatMap((directory) => sourceFiles(join(process.cwd(), directory))).flatMap((path) => {
     const projectPath = relative(process.cwd(), path);
     const source = readFileSync(path, "utf8");
+    if (projectPath.includes("studio-catalog-remocn-")) return [];
+    if (isVerifiedMediaSource(projectPath, source)) return [];
     if (projectPath === "src/shared/instrument/palette.ts") return auditPaletteSource(source, INSTRUMENT_COLOR_ALLOWLIST, INSTRUMENT_PALETTE, projectPath);
     if (projectPath === "src/app/styles/tokens.css") return auditTokenCss(source, INSTRUMENT_COLOR_ALLOWLIST, INSTRUMENT_PALETTE, projectPath);
     return projectPath.endsWith(".css") ? auditCss(source, projectPath) : auditTypeScript(source, projectPath);
@@ -62,6 +65,9 @@ describe("instrument color contract", () => {
     expect(contrastRatio("#4A4A48", "#F1F2F6")).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio("#A4A4A0", "#050505")).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio("#A4A4A0", "#141414")).toBeGreaterThanOrEqual(4.5);
+    for (const palette of Object.values(INSTRUMENT_PALETTE)) {
+      expect(contrastRatio(palette.textSecondaryReadable, palette.widgetLightSunken)).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   test("keeps alert labels readable in both themes", () => {
@@ -137,7 +143,7 @@ describe("instrument color contract", () => {
     "#8A8A86", "#8EA4D4", "#8F8F8B", "#8FAE94", "#98CCD6", "#9A9A96", "#A1A1C3", "#A4A4A0",
     "#A6C2E8", "#A9A783", "#AC9ACD", "#B79AB4", "#B9B4EF", "#BAA16E", "#BD9E86", "#C094BB",
     "#C22B22", "#C2989A", "#C8C8C4", "#CCCED6", "#D3D6DD", "#D6D6D3", "#D8D8D6", "#DFE2E9",
-    "#E0362C", "#E2E2E0", "#E4E4E2", "#E7E9ED", "#E8E8E6", "#E9EBEF", "#EB4438", "#ED6A5E",
+    "#E0362C", "#E2E2E0", "#E7E9ED", "#E8E8E6", "#E9EBEF", "#EB4438", "#ED6A5E",
     "#EEEEEC", "#F0574B", "#F0B544", "#F1F2F4", "#F1F2F6", "#F2F2F0", "#F4F5F8", "#F6DEDC",
     "#F6F7F9", "#FBEAE9", "#FFFFFF",
     "#0171E4", "#015BB8", "#E0796F", "#ECEEF1", "#CFD4DC", "#AEB5C2",

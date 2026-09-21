@@ -15,7 +15,9 @@ files are not authoritative. Portable transfer uses `workspace.export` and
 
 **The Ralphy desktop application is the primary product.** This repository owns both the application in `apps/desktop/` and the runtime/standalone CLI in `cli/`. Read `apps/desktop/AGENTS.md` before changing the application. Use the documented CLI/bridge contract between the application and runtime; keep runtime code independent of the application package.
 
-Run the desktop from the root with `bun run start` or its renderer with `bun run dev`. Install its separate Bun package with `bun run install:desktop`, and validate it with `bun run check:desktop`. Runtime checks remain `bun run lint` and `bun run test:integration`. Keep user generation data in the root ignored `.ralphy/` tree.
+Run the desktop only from this repository root. Use `bun run dev` for Electron + Vite hot reload and `bun run start` for a production-style local build; both enter the pinned Bun runtime, rebuild the current Core binary, and pass its absolute path to Electron. `bun run dev` deliberately reuses the packaged app's `ralphy-media` profile, so saved provider keys plus Codex/Claude Code installations and sessions remain available. Use `bun run dev:renderer` only for browser fixtures. Never launch `electron .`, Vite, or `apps/desktop` scripts directly for normal development, and never launch the historical sibling checkout `../ralphy-desktop`. Before starting, close stale Electron instances from other Ralphy checkouts; leave only the process whose app path is this repository's `apps/desktop` and whose dev renderer is `http://127.0.0.1:4180`.
+
+Install the desktop's separate Bun package with `bun run install:desktop`, and validate it with `bun run check:desktop`. Runtime checks remain `bun run lint` and `bun run test:integration`. Keep user generation data in the root ignored `.ralphy/` tree.
 
 ### Git and GitHub identity
 

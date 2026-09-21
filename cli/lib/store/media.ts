@@ -4,7 +4,8 @@ import { appendActivity } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { createEvaluationInTransaction } from "./evaluations.js";
 import { newDomainId } from "./ids.js";
-import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
+import { assertLimit } from "./pagination.js";
+import { MEDIA_SORTS, decodeMediaCursor, descendingMediaSort, encodeMediaCursor, mediaCursorScope, type MediaCursor, type MediaSort } from "./media-query.js";
 import {
   resolveQueryContext,
   type QueryContext,
@@ -63,6 +64,7 @@ type MediaIdentity = {
   type: MediaRefType;
   id: string;
   createdAt: number;
+  sortValue: string | number;
   mediaKind: MediaKind;
   provenance: MediaProvenance;
 };
@@ -125,9 +127,12 @@ export function getMediaCards(input: {
 export function listMedia(input: {
   context: QueryContext;
   types?: MediaRefType[];
+  projectOnly?: boolean;
   filter?: MediaFilter;
   mediaKind?: MediaKind;
   provenance?: MediaProvenance;
+  search?: string;
+  sort?: MediaSort;
   after?: string | null;
   limit: number;
 }): Page<MediaCard> {
@@ -147,14 +152,20 @@ export function listMediaInDatabase(
   scope: ResolvedScope,
   input: {
     types?: MediaRefType[];
+    projectOnly?: boolean;
     filter?: MediaFilter;
     mediaKind?: MediaKind;
     provenance?: MediaProvenance;
+    search?: string;
+    sort?: MediaSort;
     after?: string | null;
     limit: number;
   },
 ): Page<MediaCard> {
   assertLimit(input.limit);
+  if (input.search !== undefined && (typeof input.search !== "string" || input.search.length > 256)) throw new Error("Media search must be at most 256 characters");
+  if (input.sort !== undefined && !MEDIA_SORTS.includes(input.sort)) throw new Error("Invalid Media sort");
+  const search = input.search?.trim();
   const types = new Set<MediaRefType>(
     input.types === undefined
       ? ["artifact", "run-object", "object"]
@@ -166,28 +177,37 @@ export function listMediaInDatabase(
     ? undefined
     : checkedMediaProvenance(input.provenance);
   const runAccess = resolveRunQueryAccess(db, context);
-  const cursor = input.after == null ? null : decodeCursor("c1", input.after);
+  const sort = input.sort ?? "oldest";
+  if (input.projectOnly && scope.projectId === null) throw new Error("Project-only Media requires a Project context");
+  const cursorScope = input.search !== undefined || input.sort !== undefined
+    ? mediaCursorScope([scope, runAccess, [...types].sort(), input.projectOnly ?? false, input.filter ?? null, mediaKind ?? null, provenance ?? null, search?.toLowerCase() ?? "", sort])
+    : null;
+  const cursor = input.after == null ? null : decodeMediaCursor(input.after, cursorScope, sort);
   const rows: MediaIdentity[] = [];
   for (const type of types) {
     rows.push(...readIdentities(db, scope, runAccess, type, {
       filter: input.filter,
+      projectOnly: input.projectOnly,
       mediaKind,
       provenance,
+      search,
+      sort: input.sort,
       cursor,
       limit: input.limit + 1,
     }));
   }
-  rows.sort(
-    (left, right) =>
-      left.createdAt - right.createdAt ||
-      (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
-  );
-  const page = buildPage(rows.slice(0, input.limit + 1), input.limit, "c1", (row) => ({
-    ordinal: row.createdAt,
-    id: row.id,
-  }));
+  rows.sort((left, right) => {
+    const order = typeof left.sortValue === "string"
+      ? Buffer.compare(Buffer.from(left.sortValue), Buffer.from(String(right.sortValue)))
+      : left.sortValue - Number(right.sortValue);
+    return (descendingMediaSort(sort) ? -1 : 1) * (order || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+  });
+  const items = rows.slice(0, input.limit);
+  const last = items.at(-1);
+  const nextCursor = rows.length > input.limit && last
+    ? encodeMediaCursor({ value: last.sortValue, id: last.id }, cursorScope) : null;
   return {
-    items: page.items.map(
+    items: items.map(
       (row) => readCard(
         db,
         context,
@@ -197,7 +217,7 @@ export function listMediaInDatabase(
         runAccess,
       )!,
     ),
-    nextCursor: page.nextCursor,
+    nextCursor,
   };
 }
 
@@ -338,9 +358,12 @@ function readIdentities(
   type: MediaRefType,
   input: {
     filter?: MediaFilter;
+    projectOnly?: boolean;
     mediaKind?: MediaKind;
     provenance?: MediaProvenance;
-    cursor?: { ordinal: number; id: string } | null;
+    search?: string;
+    sort?: MediaSort;
+    cursor?: MediaCursor | null;
     ids?: readonly string[];
     limit: number;
   },
@@ -355,11 +378,19 @@ function readIdentities(
   const predicate = mediaFilterClause(type, input.filter);
   innerClauses.push(predicate.sql);
   values.push(...predicate.values);
+  if (input.projectOnly) {
+    innerClauses.push(`${source.project} = ?`);
+    values.push(scope.projectId!);
+  }
   if (input.ids !== undefined) {
     innerClauses.push(`${source.id} IN (${input.ids.map(() => "?").join(", ")})`);
     values.push(...input.ids);
   }
   const clauses = ["1"];
+  if (input.search) {
+    clauses.push("instr(lower(identity.searchText || ' ' || identity.mediaKind || ' ' || identity.provenance), lower(?)) > 0");
+    values.push(input.search);
+  }
   if (input.mediaKind !== undefined) {
     clauses.push("identity.mediaKind = ?");
     values.push(input.mediaKind);
@@ -369,23 +400,29 @@ function readIdentities(
     values.push(input.provenance);
   }
   if (input.cursor) {
-    clauses.push("(identity.createdAt > ? OR (identity.createdAt = ? AND identity.id > ?))");
-    values.push(input.cursor.ordinal, input.cursor.ordinal, input.cursor.id);
+    const comparator = descendingMediaSort(input.sort) ? "<" : ">";
+    clauses.push(`(identity.sortValue ${comparator} ? OR (identity.sortValue = ? AND identity.id ${comparator} ?))`);
+    values.push(input.cursor.value, input.cursor.value, input.cursor.id);
   }
   values.push(input.limit);
+  const sortValue = input.sort === "name" ? `lower(${source.name})`
+    : input.sort === "size" ? `COALESCE(${source.bytes}, -1)`
+      : input.sort === "selected" ? source.selectedAt : source.createdAt;
+  const direction = descendingMediaSort(input.sort) ? "DESC" : "ASC";
   return db
     .query<Omit<MediaIdentity, "type">, (string | number)[]>(
-      `SELECT identity.id, identity.createdAt,
+      `SELECT identity.id, identity.createdAt, identity.sortValue,
               identity.mediaKind, identity.provenance
        FROM (
          SELECT ${source.id} AS id, ${source.createdAt} AS createdAt,
+                ${sortValue} AS sortValue, ${source.searchText} AS searchText,
                 ${mediaKindSql(source.mime)} AS mediaKind,
                 ${source.provenance} AS provenance
          FROM ${source.from}
          WHERE ${innerClauses.join(" AND ")}
        ) identity
        WHERE ${clauses.join(" AND ")}
-       ORDER BY identity.createdAt ASC, identity.id ASC LIMIT ?`,
+       ORDER BY identity.sortValue ${direction}, identity.id ${direction} LIMIT ?`,
     )
     .all(...values)
     .map((row) => ({ type, ...row }));
@@ -404,7 +441,7 @@ function mediaFilterClause(
       sql: type === "artifact"
         ? `EXISTS (
             SELECT 1 FROM artifact_usages usage
-            WHERE usage.artifact_revision_id = artifacts.selected_revision_id
+            WHERE usage.artifact_revision_id = selectedMedia.id
               AND usage.role = 'reference'
           )`
         : "0",
@@ -414,11 +451,7 @@ function mediaFilterClause(
   if (["candidate", "approved", "rejected", "superseded"].includes(filter)) {
     return {
       sql: type === "artifact"
-        ? `EXISTS (
-            SELECT 1 FROM artifact_revisions selected
-            WHERE selected.id = artifacts.selected_revision_id
-              AND selected.state = ?
-          )`
+        ? "selectedMedia.state = ?"
         : "0",
       values: type === "artifact" ? [filter] : [],
     };
@@ -426,11 +459,7 @@ function mediaFilterClause(
   if (filter === "working") {
     return {
       sql: type === "artifact"
-        ? `EXISTS (
-            SELECT 1 FROM artifact_revisions selected
-            WHERE selected.id = artifacts.selected_revision_id
-              AND selected.state = 'working'
-          )`
+        ? "selectedMedia.state = 'working'"
         : type === "run-object" ? "runObject.state = 'working'" : "0",
       values: [],
     };
@@ -463,8 +492,13 @@ function mediaIdentitySource(
   from: string;
   id: string;
   createdAt: string;
+  name: string;
+  bytes: string;
+  selectedAt: string;
+  searchText: string;
   mime: string;
   provenance: string;
+  project: string;
   joinValues: (string | number)[];
   visibilitySql: string;
   visibilityValues: (string | number)[];
@@ -476,7 +510,12 @@ function mediaIdentitySource(
       ? {
           from: `artifacts
             LEFT JOIN artifact_revisions selectedMedia
-              ON selectedMedia.id = artifacts.selected_revision_id
+              ON selectedMedia.id = COALESCE(
+                artifacts.selected_revision_id,
+                (SELECT latest.id FROM artifact_revisions latest
+                 WHERE latest.artifact_id = artifacts.id
+                 ORDER BY latest.revision_no DESC, latest.id DESC LIMIT 1)
+              )
             LEFT JOIN objects mediaObject ON mediaObject.id = selectedMedia.object_id
             LEFT JOIN (
               SELECT producer.artifactRevisionId,
@@ -484,11 +523,20 @@ function mediaIdentitySource(
                      CASE WHEN COUNT(*) = 1 THEN MIN(producer.runId) END AS soleRunId
               FROM (${ARTIFACT_REVISION_PRODUCERS_SQL}) producer
               GROUP BY producer.artifactRevisionId
-            ) producer ON producer.artifactRevisionId = artifacts.selected_revision_id
+            ) producer ON producer.artifactRevisionId = selectedMedia.id
             LEFT JOIN runs run
               ON run.id = producer.soleRunId AND (${runAccess.sql})`,
           id: "artifacts.id",
           createdAt: "artifacts.created_at",
+          name: "artifacts.slug", bytes: "mediaObject.bytes",
+          selectedAt: "COALESCE(selectedMedia.created_at, -1)",
+          searchText: `artifacts.slug || ' ' || artifacts.kind || ' ' || COALESCE(mediaObject.mime, '') || ' ' ||
+            COALESCE((SELECT group_concat(role, ' ') FROM artifact_usages WHERE artifact_revision_id = selectedMedia.id), '') || ' ' ||
+            COALESCE((SELECT group_concat(unit.slug || ' ' || replace(unit.slug, '-', ' '), ' ') FROM unit_items item
+              JOIN units unit ON COALESCE(unit.selected_revision_id, unit.latest_revision_id) = item.unit_revision_id
+              WHERE item.artifact_revision_id = selectedMedia.id
+                AND unit.workspace_id = artifacts.workspace_id
+                AND (unit.project_id IS NULL OR unit.project_id = ?)), '')`,
           workspace: "artifacts.workspace_id",
           project: "artifacts.project_id",
           mime: "mediaObject.mime",
@@ -497,7 +545,7 @@ function mediaIdentitySource(
             WHEN run.kind = 'generation' OR substr(run.kind, 1, 9) = 'generate.' THEN 'generation'
             ELSE 'not-generation'
           END`,
-          joinValues: runAccess.values,
+          joinValues: [scope.projectId ?? "", ...runAccess.values],
           authorizationSql: "1",
           authorizationValues: [],
         }
@@ -506,6 +554,8 @@ function mediaIdentitySource(
             from: "objects",
             id: "objects.id",
             createdAt: "objects.created_at",
+            name: "objects.id", bytes: "objects.bytes", selectedAt: "objects.created_at",
+            searchText: "objects.id || ' ' || COALESCE(objects.mime, '')",
             workspace: "objects.workspace_id",
             project: "objects.project_id",
             mime: "objects.mime",
@@ -519,6 +569,8 @@ function mediaIdentitySource(
               "run_objects runObject JOIN runs run ON run.id = runObject.run_id",
             id: "runObject.id",
             createdAt: "runObject.created_at",
+            name: "replace(runObject.purpose, '-', ' ')", bytes: "runObject.bytes", selectedAt: "runObject.created_at",
+            searchText: "runObject.purpose || ' ' || replace(runObject.purpose, '-', ' ') || ' ' || runObject.path || ' ' || COALESCE(runObject.mime, '')",
             workspace: "run.workspace_id",
             project: "run.project_id",
             mime: "runObject.mime",
@@ -627,7 +679,7 @@ function readArtifactCard(
     >(
       `SELECT artifact.workspace_id AS workspaceId, artifact.project_id AS projectId,
               artifact.slug AS slug, artifact.kind AS kind,
-              artifact.selected_revision_id AS selectedRevisionId,
+              selected.id AS selectedRevisionId,
               selected.state AS state, object.mime AS mime, object.bytes AS bytes,
               (SELECT verdict FROM evaluations
                WHERE artifact_revision_id = selected.id
@@ -639,7 +691,12 @@ function readArtifactCard(
                WHERE revision.artifact_id = artifact.id) AS revisionCount
        FROM artifacts artifact
        LEFT JOIN artifact_revisions selected
-         ON selected.id = artifact.selected_revision_id
+         ON selected.id = COALESCE(
+           artifact.selected_revision_id,
+           (SELECT latest.id FROM artifact_revisions latest
+            WHERE latest.artifact_id = artifact.id
+            ORDER BY latest.revision_no DESC, latest.id DESC LIMIT 1)
+         )
        LEFT JOIN objects object ON object.id = selected.object_id
        WHERE artifact.id = ?`,
     )

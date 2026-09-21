@@ -58,7 +58,7 @@ export const VIEW_TYPES: readonly ViewTypeDescriptor[] = [
   /* One browser per chat, not one per page: a second blank tab is a tab you have to name before
      it is worth anything, and the strip already has the chat's places on it. */
   { type: "browser", label: "Browser", singleton: true, command: null },
-  { type: "canvas", label: "Working canvases", singleton: true, command: null },
+  { type: "canvas", label: WORKSPACE_PAGE_LABELS.canvas, singleton: true, command: null },
 ];
 
 /**
@@ -118,6 +118,16 @@ export interface OpenViewRequest {
   type: Exclude<ViewTabType, "home">;
   targetId?: string | null;
   label: string;
+}
+
+/** Only documents and the browser need tabs; workspace destinations live in the sidebar. */
+export function isTaskView(view: { type: ViewTabType }): boolean {
+  return view.type === "unit" || view.type === "browser";
+}
+
+/** A restored empty browser stays available from More without occupying the work area. */
+export function taskViews(set: ViewTabSet): ViewTab[] {
+  return set.tabs.filter((tab) => isTaskView(tab) && (tab.type !== "browser" || tab.id === set.activeTabId || /^https?:\/\//i.test(tab.targetId ?? "")));
 }
 
 export function unitViewRequest(project: ProjectReference, unitId: string, label: string, revisionId?: string): OpenViewRequest {

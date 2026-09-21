@@ -3,8 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { MediaCardDto, MediaRef } from "../../../../electron/ralphy/types";
 import type { ProjectPreview, ProjectReference } from "@/shared/api/ipc";
+import { DEFAULT_CONTENT_ASPECT } from "../../../../shared/content-format";
 import { previewScheduler } from "../lib/media";
 import { AudioWaveform } from "./AudioWaveform";
+import { ImageViewport } from "./ImageViewport";
 
 /**
  * A media record, as a picture with a name.
@@ -98,11 +100,13 @@ export function MediaCardPreview({
   rootEpoch,
   resolvePreview,
   fill = false,
+  fit = "cover",
   className = "",
   aspectRatio,
   onAspectRatio,
 }: MediaCardIdentity & {
   fill?: boolean;
+  fit?: "cover" | "contain";
   className?: string;
   aspectRatio?: number;
   onAspectRatio?(ratio: number): void;
@@ -112,6 +116,7 @@ export function MediaCardPreview({
   const initial = previewCache.get(key);
   const [preview, setPreview] = useState<PreviewState>(() => ({ key, entry: initial ?? null, value: null }));
   const releaseRef = useRef<(() => void) | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const cached = previewCache.get(key);
     setPreview({ key, entry: cached ?? null, value: null });
@@ -161,12 +166,19 @@ export function MediaCardPreview({
     loaded();
   }, [key, loaded]);
   const source = preview.key === key ? preview.value : null;
+  useEffect(() => {
+    const video = videoRef.current;
+    return () => video?.pause?.();
+  }, [source?.url]);
   const glyph = <FileGlyph kind={kind} />;
   let content = glyph;
-  if (source && kind === "image") content = <img className="size-full object-cover" src={source.url} alt="" loading="lazy" onLoad={(event) => loadedWithSize(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)} onError={failed} />;
-  else if (source && kind === "video") content = <video className="size-full object-cover" src={source.url} muted preload="metadata" onLoadedMetadata={(event) => loadedWithSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight)} onError={failed} />;
+  const mediaFit = fit === "contain" ? "object-contain" : "object-cover";
+  if (source && kind === "image") content = fit === "contain"
+    ? <ImageViewport src={source.url} name={mediaCardName(card)} compact onLoad={loadedWithSize} onError={failed} />
+    : <img className="size-full object-cover" src={source.url} alt="" loading="lazy" onLoad={(event) => loadedWithSize(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)} onError={failed} />;
+  else if (source && kind === "video") content = <video key={source.url} ref={videoRef} className={`size-full ${mediaFit}`} src={source.url} muted loop playsInline preload="metadata" onLoadedMetadata={(event) => loadedWithSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight)} onError={failed} />;
   else if (source && kind === "audio") content = <AudioWaveform src={source.url} name={mediaCardName(card)} sizeBytes={source.sizeBytes} compact tone="instrument" onReady={loaded} onError={failed} />;
-  return <div className={`asset-preview relative grid w-full flex-none place-items-center overflow-hidden rounded-cell [corner-shape:squircle] bg-frame text-on-instrument-muted${className ? ` ${className}` : ""}`} style={fill ? undefined : { aspectRatio: aspectRatio ?? 1, height: "auto" }} aria-hidden={kind === "audio" ? undefined : true}>
+  return <div className={`asset-preview relative grid w-full flex-none place-items-center overflow-hidden rounded-cell [corner-shape:squircle] bg-frame text-on-instrument-muted${className ? ` ${className}` : ""}`} style={fill ? undefined : { aspectRatio: aspectRatio ?? DEFAULT_CONTENT_ASPECT, height: "auto" }} aria-hidden={kind === "audio" ? undefined : true}>
     {content}
     {/* The frame stays chrome-free once a preview lands; the badge is only the label for an
         empty frame, and the kind is already spelled out in the caption below it.

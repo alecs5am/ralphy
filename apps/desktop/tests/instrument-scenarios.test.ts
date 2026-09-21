@@ -141,7 +141,7 @@ describe("instrument scenario contract", () => {
       fixtureId: "instrument-test-fixture:project.media:ready:media.ready:-:-",
     });
     expect(ids).toEqual(canonicalScenarioIds);
-    expect(ids).toHaveLength(423);
+    expect(ids).toHaveLength(435);
     for (const routeKey of ["workspace.generation", "workspace.canvas"]) expect(INSTRUMENT_SCENARIOS.find(({ id }) => id === `overlay.shared-select-menu.generation.unit-save.${routeKey}`)).toMatchObject({ routeKey, overlay: "shared-select-menu", overlayOwner: "generation.unit-save" });
     expect(INSTRUMENT_SCENARIOS.find(({ id }) => id === "overlay.shared-select-menu.generation.parameters.workspace.generation")).toMatchObject({
       routeKey: "workspace.generation", overlay: "shared-select-menu", overlayOwner: "generation.parameters", landmarks: ["Create studio"],
@@ -151,6 +151,9 @@ describe("instrument scenario contract", () => {
     });
     expect(INSTRUMENT_SCENARIOS.find(({ id }) => id === "overlay.shared-select-menu.workspace.units.workspace.units")).toMatchObject({
       routeKey: "workspace.units", overlay: "shared-select-menu", overlayOwner: "workspace.units",
+    });
+    expect(INSTRUMENT_SCENARIOS.find(({ id }) => id === "overlay.shared-select-menu.marketplace.visual.marketplace.detail")).toMatchObject({
+      routeKey: "marketplace.detail", overlay: "shared-select-menu", overlayOwner: "marketplace.visual",
     });
   });
 
@@ -169,7 +172,7 @@ describe("instrument scenario contract", () => {
   test("expands the exact production-derived scenario/theme/viewport case set", () => {
     expect(expandInstrumentScenarioCases(INSTRUMENT_SCENARIOS).map(({ key: caseKey }) => caseKey))
       .toEqual(canonicalCaseKeys);
-    expect(canonicalCaseKeys).toHaveLength(2_534);
+    expect(canonicalCaseKeys).toHaveLength(2_606);
   });
 
   test("binds every stable scenario ID to one frozen semantic record", () => {
@@ -178,7 +181,11 @@ describe("instrument scenario contract", () => {
     // Saved now has loading, error, empty and ready states in addition to unavailable.
     // Providers also exposes workspace publishing connections.
     // Save to Unit destination menus belong to both Create and Canvas.
-    expect(semanticDigest(INSTRUMENT_SCENARIOS)).toBe("ad9f86ee11887ff24fa9e5aaa872ae8383ec1f33afe22326419945120d6813c1");
+    // Media-first route ordering and the Creative library / Shared assets landmarks are intentional.
+    // Explore adds Sounds with its five states and six applicable overlay scenarios;
+    // Effects and Visuals replace the technical category labels. Viewports stay unchanged.
+    // The Visuals detail font-weight menu adds one owner scoped to its detail route (six cases).
+    expect(semanticDigest(INSTRUMENT_SCENARIOS)).toBe("bffb8b7eef48e4bff7f6f0dabf81ba3dcdc30807613ca7160ae5e2393c818580");
   });
 
   test("rejects set-preserving route, state, overlay, and owner swaps across stable IDs", () => {

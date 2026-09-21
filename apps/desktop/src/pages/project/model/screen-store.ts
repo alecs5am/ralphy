@@ -24,7 +24,7 @@ export interface ProjectScreenStore {
 export function createProjectScreenStore(api: ProjectScreenApi, project: ProjectReference): ProjectScreenStore {
   let snapshot: ProjectScreenSnapshot = {
     domain: createProjectDomainState({ workspaceId: project.workspaceId, projectId: project.projectId }),
-    activeTab: "units",
+    activeTab: "media",
     selectedDocument: null,
     documentPreview: idleDocument,
     documentMode: "read",

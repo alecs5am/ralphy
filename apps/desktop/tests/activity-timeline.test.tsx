@@ -5,6 +5,7 @@ import type { ActivityDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "@/shared/api/ipc";
 import * as screen from "@/pages/project";
 import { activitySearchText, activitySource, summarizeActivityRun } from "@/pages/project";
+import { InstrumentScrollProvider } from "@/shared/lib/instrument-scroll";
 import { createReactHost, type HostNode } from "./react-host";
 
 const project: ProjectSummary = {
@@ -62,14 +63,14 @@ describe("activity timeline", () => {
     expect(activitySearchText(event(1), detail)).not.toMatch(/prompt|providerRequest|credential/i);
   });
 
-  test("keeps forward visible history separate from live catch-up and mounts one virtual scroll owner", async () => {
+  test("keeps forward history separate from live catch-up and scrolls inside a bounded project", async () => {
     const latest = deferred<{ items: ActivityDto[]; nextCursor: null }>();
     let initialCalls = 0;
     let cursor2Calls = 0;
     let cursor171Calls = 0;
     let cursor181Calls = 0;
     const loadProjectPage = vi.fn(async ({ tab, cursor }: { tab: string; cursor?: number }) => {
-      if (tab === "units") return { items: [], nextCursor: null };
+      if (tab !== "activity") return { items: [], nextCursor: null };
       if (cursor === undefined) {
         initialCalls += 1;
         if (initialCalls === 1) throw new Error("Initial activity unavailable");
@@ -124,9 +125,15 @@ describe("activity timeline", () => {
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
     try {
-      await act(async () => { root.render(<MountedProject controller={controller} memory={memory} />); await Promise.resolve(); });
+      await act(async () => { root.render(<InstrumentScrollProvider value={{
+        element: host.container as unknown as HTMLElement, floatHost: null, width: 800, height: 600,
+        routeScrollKey: "project:activity", getOffset: () => 0, scrollToOffset: () => {},
+        capture: () => ({ key: "project:activity", offset: 0 }), restore: () => {},
+      }}><MountedProject controller={controller} memory={memory} /></InstrumentScrollProvider>); await Promise.resolve(); });
       const owner = host.container.querySelector(".activity-scroll")!;
       const outer = host.container.querySelector(".project-domain-body")!;
+      const tail = owner.querySelector(".auto-cursor-tail")!;
+      expect(host.intersectionObservers.find(({ targets }) => targets.has(tail as unknown as Element))?.root === owner).toBe(true);
       expect(owner.getAttribute("role")).toBe("region");
       expect(outer.getAttribute("class")).toContain("is-activity");
       expect(host.container.querySelectorAll(".activity-event").length).toBeLessThan(62);

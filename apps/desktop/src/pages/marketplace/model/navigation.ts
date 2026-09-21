@@ -9,6 +9,7 @@ import {
   type MarketplaceQueryState,
   type MarketplaceRoute,
 } from "@/shared/model/routes";
+import { marketplaceTags } from "../../../../shared/marketplace-tags";
 
 /* The route vocabulary itself is shared -- the sidebar and the island address these routes too.
    What stays here is the behaviour: the location stack, what it remembers, and how it is read
@@ -81,7 +82,8 @@ function nullableId(value: unknown): value is string | null {
 function isFilters(value: unknown): value is MarketplaceFilterState {
   const candidate = record(value);
   return candidate !== null
-    && exactKeys(candidate, ["category", "source", "license", "compatibility", "modality", "format"])
+    && exactKeys(candidate, ["category", "source", "license", "compatibility", "modality", "format", ...("tag" in candidate ? ["tag"] : [])])
+    && (!Object.hasOwn(candidate, "tag") || (typeof candidate.tag === "string" && marketplaceTags([candidate.tag])[0] === candidate.tag))
     && (candidate.category === "all" || oneOf(candidate.category, MARKETPLACE_CATEGORIES))
     && oneOf(candidate.source, sources)
     && oneOf(candidate.license, licenses)
@@ -143,11 +145,11 @@ export function isMarketplaceLocation(value: unknown): value is MarketplaceLocat
 
 function initialLocation(): MarketplaceLocation {
   return {
-    route: { kind: "discover" },
+    route: { kind: "category", category: "templates" },
     query: {
       text: "",
       filters: {
-        category: "all",
+        category: "templates",
         source: "all",
         license: "all",
         compatibility: "all",
@@ -160,6 +162,10 @@ function initialLocation(): MarketplaceLocation {
     scrollTop: 0,
     focusId: null,
   };
+}
+
+function normalizeDiscover(location: MarketplaceLocation): MarketplaceLocation {
+  return location.route.kind === "discover" ? { ...initialLocation(), focusId: "marketplace-heading" } : location;
 }
 
 function initialState(): MarketplaceNavigationState {
@@ -196,8 +202,8 @@ export function readMarketplaceNavigation(storage: Storage): MarketplaceNavigati
         ? { ...location.query, filters: { ...location.query.filters, source: "all" as const } }
         : location.query;
       return retired
-        ? { ...location, route: { kind: "discover" }, query, selectedItemId: null, scrollTop: 0, focusId: "marketplace-heading" }
-        : { ...location, query };
+        ? { ...initialLocation(), focusId: "marketplace-heading" }
+        : normalizeDiscover({ ...location, query });
     });
     return { ...value, history, location: history[value.historyIndex] };
   } catch {
@@ -234,9 +240,11 @@ export function marketplaceReducer(
       };
     }
     case "navigate": {
-      if (!isMarketplaceLocation(action.location) || JSON.stringify(action.location) === JSON.stringify(state.location)) return state;
-      const history = [...state.history.slice(0, state.historyIndex + 1), action.location].slice(-MAX_HISTORY);
-      return { ...state, location: action.location, history, historyIndex: history.length - 1 };
+      if (!isMarketplaceLocation(action.location)) return state;
+      const location = normalizeDiscover(action.location);
+      if (JSON.stringify(location) === JSON.stringify(state.location)) return state;
+      const history = [...state.history.slice(0, state.historyIndex + 1), location].slice(-MAX_HISTORY);
+      return { ...state, location, history, historyIndex: history.length - 1 };
     }
     case "remember": {
       if (Object.keys(action.patch).some((key) => !["query", "scrollTop", "focusId"].includes(key))) return state;

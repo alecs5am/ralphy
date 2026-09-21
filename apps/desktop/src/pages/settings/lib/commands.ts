@@ -29,11 +29,12 @@ const chord = (key: string, modifiers: Partial<Omit<Chord, "key">> = {}): Chord 
 export const SETTINGS_COMMANDS: readonly SettingsCommand[] = [
   { id: "app.settings", group: "Application", name: "Open settings", scope: "Global", chord: chord(",", { meta: true }) },
   { id: "app.sidebar", group: "Application", name: "Toggle sidebar", scope: "Global", chord: chord("b", { meta: true }) },
+  { id: "app.agent", group: "Application", name: "Toggle agent", scope: "Global", chord: chord("r", { meta: true }) },
   /* The lens pair, and the place switch beside it. Handoff 13 names all three chords: the lens
      changes how you are working inside My Work, the place switch changes where you are. */
-  { id: "view.desk", group: "Application", name: "Desk lens", scope: "Global", chord: chord("1", { meta: true }) },
-  { id: "view.chat", group: "Application", name: "Chat lens", scope: "Global", chord: chord("2", { meta: true }) },
-  { id: "app.marketplace", group: "Application", name: "Marketplace", scope: "Global", chord: chord("3", { meta: true }) },
+  { id: "view.desk", group: "Application", name: "Focus content", scope: "Global", chord: chord("1", { meta: true }) },
+  { id: "view.chat", group: "Application", name: "Show agent", scope: "Global", chord: chord("2", { meta: true }) },
+  { id: "app.marketplace", group: "Application", name: "Explore creative library", scope: "Global", chord: chord("3", { meta: true }) },
   { id: "nav.back", group: "Navigation", name: "Back", scope: "Global", chord: chord("[", { meta: true }) },
   { id: "nav.forward", group: "Navigation", name: "Forward", scope: "Global", chord: chord("]", { meta: true }) },
   { id: "nav.findProjects", group: "Navigation", name: "Find a project", scope: "Global", chord: chord("f", { meta: true }) },
@@ -48,9 +49,9 @@ export const SETTINGS_COMMANDS: readonly SettingsCommand[] = [
   { id: "view.close", group: "View panel", name: "Close view", scope: "Global", chord: chord("w", { meta: true }) },
   { id: "view.prev", group: "View panel", name: "Previous view", scope: "Global", chord: chord("ArrowLeft", { meta: true, alt: true }) },
   { id: "view.next", group: "View panel", name: "Next view", scope: "Global", chord: chord("ArrowRight", { meta: true, alt: true }) },
-  { id: "view.units", group: "View panel", name: "Units view", scope: "Global", chord: chord("u", { meta: true }) },
+  { id: "view.units", group: "View panel", name: "Content view", scope: "Global", chord: chord("u", { meta: true }) },
   { id: "view.calendar", group: "View panel", name: "Calendar view", scope: "Global", chord: chord("y", { meta: true }) },
-  { id: "view.shared", group: "View panel", name: "Shared library view", scope: "Global", chord: chord("l", { meta: true }) },
+  { id: "view.shared", group: "View panel", name: "Shared assets view", scope: "Global", chord: chord("l", { meta: true }) },
   { id: "view.memory", group: "View panel", name: "Memory view", scope: "Global", chord: chord("m", { meta: true }) },
   { id: "view.context", group: "View panel", name: "Context view", scope: "Global", chord: chord("e", { meta: true }) },
   { id: "chat.send", group: "Chat", name: "Send message", scope: "Chat", chord: chord("Enter") },

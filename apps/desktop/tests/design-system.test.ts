@@ -89,7 +89,7 @@ const agentRailTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/ag
 const pickerSource = readFileSync(join(process.cwd(), "src/widgets/sidebar/ui/WorkspacePicker.tsx"), "utf8");
 // The sidebar card is three files now -- the card, its chrome vocabulary and its lists -- and
 // every claim below is about the card, not about which of them holds a given row.
-const contextSidebarSource = ["ContextSidebar.tsx", "sidebar-chrome.ts", "sidebar-sections.tsx"]
+const contextSidebarSource = ["ContextSidebar.tsx", "sidebar-chrome.ts", "sidebar-sections.tsx", "sidebar-projects.tsx"]
   .map((file) => readFileSync(join(process.cwd(), "src/widgets/sidebar/ui", file), "utf8")).join("\n");
 const librarySource = readFileSync(join(process.cwd(), "src/pages/library/ui/LibraryScreen.tsx"), "utf8");
 const workspaceOverviewTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/workspace-overview.css"), "utf8");
@@ -295,12 +295,11 @@ type GeometryResult = {
   activityEntityFontSize: number | null;
   forbidden: number;
   projectHeaderCount: number;
-  projectTabsCenterOffset: number | null;
-  gooeyBlobCoverage: number | null;
+  projectDockCount: number;
+  projectDetailsActions: string[];
+  projectBackToMedia: boolean;
+  projectDetailsReceivePointer: boolean | null;
   unitCardsInGridFlow: boolean | null;
-  projectTabsHeaderOffset: number | null;
-  projectTabsReceivePointer: boolean | null;
-  projectTabsAppRegion: string | null;
   memoryRegionPadding: string | null;
   memoryTopbarBorder: string | null;
   memoryFilterBorder: string | null;
@@ -359,10 +358,10 @@ async function chromiumGeometry(markup: { workspace: string; documentsEditing: s
             const documentNode = await win.webContents.debugger.sendCommand("DOM.getDocument");
             const focusSelectors = ({
               workspace: [".page-header-action[title='Refresh workspace']"],
-              documents: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"],
-              media: [".project-dock button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"],
-              units: [".project-dock button[aria-selected=true]", ".unit-card"],
-              activity: [".project-dock button[aria-selected=true]", ".activity-scroll"],
+              documents: [".page-header-more summary", ".document-search input", ".document-row", ".document-detail-heading"],
+              media: [".page-header-more summary", ".select-menu-trigger", ".snappy-slider"],
+              units: [".page-header-more summary", ".unit-card"],
+              activity: [".page-header-more summary", ".activity-scroll"],
               memory: [".memory-rule-head"],
             })[screen];
             for (const selector of focusSelectors) {
@@ -375,7 +374,7 @@ async function chromiumGeometry(markup: { workspace: string; documentsEditing: s
               const root = document.getElementById("root");
               const selectors = screen === "workspace"
                 ? [".main-region", ".screen-header", ".workspace-overview-meta", ".workspace-overview-scroll", ".workspace-overview-section", ".workspace-content-plan", ".workspace-plan-days", ".workspace-plan-events", ".workspace-unit-outcomes", ".workspace-outcome-groups", ".workspace-operations-grid", ".workspace-operations-panel"]
-                : [".main-region", ...({ documents: [".project-header", ".project-controls", ".project-domain-body", ".project-dock", ".documents-workbench", ".documents-master", ".documents-detail"], media: [".project-header", ".project-controls", ".project-domain-body", ".project-dock", ".media-panel", ".media-domain-toolbar", ".project-media-grid", ".asset-grid-scroll"], units: [".project-header", ".project-controls", ".project-domain-body", ".project-dock", ".units-workbench", ".units-grid-scroll", ".units-grid", ".unit-card"], activity: [".project-header", ".project-controls", ".project-domain-body", ".project-dock", ".activity-scroll"], memory: [".memory-filters", ".memory-rulebook", ".memory-rule"] })[screen]];
+                : [".main-region", ...({ documents: [".page-header", ".project-domain-body", ".documents-workbench", ".documents-master", ".documents-detail"], media: [".page-header", ".project-domain-body", ".media-panel", ".media-domain-toolbar", ".project-media-grid", ".asset-grid-scroll"], units: [".page-header", ".project-domain-body", ".units-workbench", ".units-grid-scroll", ".units-grid", ".unit-card"], activity: [".page-header", ".project-domain-body", ".activity-scroll"], memory: [".memory-filters", ".memory-rulebook", ".memory-rule"] })[screen]];
               const overflows = [];
               for (const selector of selectors) for (const element of root.querySelectorAll(selector)) {
                 if (element.scrollWidth > element.clientWidth + 1) overflows.push(selector + ":" + element.scrollWidth + ">" + element.clientWidth);
@@ -396,7 +395,7 @@ async function chromiumGeometry(markup: { workspace: string; documentsEditing: s
               const mediaInsets = [".project-region", ".asset-grid-scroll"].map((selector) => {
                 const element = root.querySelector(selector); return element ? parseFloat(getComputedStyle(element).paddingLeft) : 0;
               }).filter((value) => value > 0);
-              const focusSelectors = ({ workspace: [".page-header-action[title='Refresh workspace']"], documents: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"], media: [".project-dock button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"], units: [".project-dock button[aria-selected=true]", ".unit-card"], activity: [".project-dock button[aria-selected=true]", ".activity-scroll"], memory: [".memory-rule-head"] })[screen];
+              const focusSelectors = ({ workspace: [".page-header-action[title='Refresh workspace']"], documents: [".page-header-more summary", ".document-search input", ".document-row", ".document-detail-heading"], media: [".page-header-more summary", ".select-menu-trigger", ".snappy-slider"], units: [".page-header-more summary", ".unit-card"], activity: [".page-header-more summary", ".activity-scroll"], memory: [".memory-rule-head"] })[screen];
               const focus = focusSelectors.map((selector) => {
                 const target = root.querySelector(selector);
                 const style = getComputedStyle(target);
@@ -449,25 +448,19 @@ async function chromiumGeometry(markup: { workspace: string; documentsEditing: s
               const mediaMetaFontSize = fontSize(".media-card-tile .asset-copy small");
               const activityTimeFontSize = fontSize(".activity-event time");
               const activityEntityFontSize = fontSize(".activity-event > span:not(.activity-icon)");
-              const projectHeaderCount = root.querySelectorAll(".project-header").length;
-              const projectControls = root.querySelector(".project-controls");
-              const controlsRect = projectControls?.getBoundingClientRect();
-              const tabsRect = root.querySelector(".project-controls .project-dock")?.getBoundingClientRect();
-              const blobsRect = null;
-              const projectTabsCenterOffset = controlsRect && tabsRect ? Math.abs((controlsRect.left + controlsRect.width / 2) - (tabsRect.left + tabsRect.width / 2)) : null;
-              const headerRect = root.querySelector(".main-header")?.getBoundingClientRect();
-              const projectTabsHeaderOffset = headerRect && tabsRect ? Math.abs((headerRect.top + headerRect.height / 2) - (tabsRect.top + tabsRect.height / 2)) : null;
-              const projectTab = root.querySelector(".project-controls [role=tab]");
-              const projectTabRect = projectTab?.getBoundingClientRect();
-              const projectTabHit = projectTabRect ? document.elementFromPoint(projectTabRect.left + projectTabRect.width / 2, projectTabRect.top + projectTabRect.height / 2) : null;
-              const projectTabsReceivePointer = projectTab ? projectTab === projectTabHit || projectTab.contains(projectTabHit) : null;
-              const projectTabsAppRegion = projectControls ? getComputedStyle(projectControls).getPropertyValue("-webkit-app-region") : null;
-              const gooeyBlobCoverage = tabsRect ? 1 : null;
+              const projectHeaderCount = root.querySelectorAll(".project-region .page-header").length;
+              const projectDockCount = root.querySelectorAll(".project-dock, [role=tablist][aria-label='Project view']").length;
+              const projectDetailsActions = [...root.querySelectorAll(".project-region .page-header-more button")].map((button) => button.textContent.trim());
+              const projectBackToMedia = !!root.querySelector(".project-region button[aria-label='Back to media']");
+              const projectDetails = root.querySelector(".project-region summary[aria-label='Project details']");
+              const detailsRect = projectDetails?.getBoundingClientRect();
+              const detailsHit = detailsRect ? document.elementFromPoint(detailsRect.left + detailsRect.width / 2, detailsRect.top + detailsRect.height / 2) : null;
+              const projectDetailsReceivePointer = projectDetails ? projectDetails === detailsHit || projectDetails.contains(detailsHit) : null;
               const unitCards = [...root.querySelectorAll(".unit-card")];
               const unitCardsInGridFlow = screen !== "units" ? null : unitCards.length > 0 && unitCards.every((card) => getComputedStyle(card).position !== "absolute");
               const forbidden = [...root.querySelectorAll(".load-more, .project-preview, .pagination")].length + (screen === "media" ? [...root.querySelectorAll(".media-panel button")].filter((button) => button.textContent.trim() === "Open").length : 0);
               const style = (selector) => { const element = root.querySelector(selector); return element ? getComputedStyle(element) : null; };
-              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, scrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewNarrativeColumns, overviewColumnRatio, overviewScrollOwners, splitVerticalContained, masterRowEdgeInset, masterRowSearchOffset, masterRowTopInset, masterRowHeight, masterRowGap, revisionEdgeInset, revisionTopInset, revisionGap, mediaTitleFontSize, mediaMetaFontSize, activityTimeFontSize, activityEntityFontSize, forbidden, projectHeaderCount, projectTabsCenterOffset, gooeyBlobCoverage, unitCardsInGridFlow, projectTabsHeaderOffset, projectTabsReceivePointer, projectTabsAppRegion,
+              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, scrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewNarrativeColumns, overviewColumnRatio, overviewScrollOwners, splitVerticalContained, masterRowEdgeInset, masterRowSearchOffset, masterRowTopInset, masterRowHeight, masterRowGap, revisionEdgeInset, revisionTopInset, revisionGap, mediaTitleFontSize, mediaMetaFontSize, activityTimeFontSize, activityEntityFontSize, forbidden, projectHeaderCount, projectDockCount, projectDetailsActions, projectBackToMedia, projectDetailsReceivePointer, unitCardsInGridFlow,
                 memoryRegionPadding: style(".memory-region")?.padding ?? null,
                 memoryTopbarBorder: style(".memory-topbar")?.borderBottomWidth ?? null,
                 memoryFilterBorder: style(".memory-filters")?.borderTopWidth ?? null,
@@ -852,14 +845,28 @@ describe("design system contract", () => {
     expect(marketplaceTheme).toMatch(/--container-marketplace-split:\s*760px/);
     expect(marketplaceSurfaceSource).not.toMatch(/@(?:min|max)-\[/);
     expect(marketplaceSurfaceSource).not.toContain("@container/header");
-    expect(marketplaceSurfaceSource).toMatch(/marketplace-header[^"]*grid-cols-\(--marketplace-header-columns\)[^"]*@max-marketplace-split\/main-region:grid-cols-1/);
-    // Both detail layouts collapse to one column against the content row, and the hero and its
-    // action cluster collapse with them. The two-column form is one role key, shared.
+    // Explore lends its compact toolbar to the shared window row. Only the expanded filters
+    // wrap; shared page controls own the search and action-label breakpoints.
+    expect(marketplaceSurfaceSource).toContain('<PageHeader title={title} icon={Compass} headingId="marketplace-heading">');
+    expect(layerSource("src/shared/ui")).toContain("createPortal(header, host)");
+    expect(pageHeaderTheme).toContain("container: page-controls / inline-size");
+    expect(pageHeaderTheme).toContain("@container page-controls");
+    expect(marketplaceSurfaceSource).not.toMatch(/marketplace-toolbar[^"]*flex-wrap/);
+    expect(marketplaceSurfaceSource).toMatch(/marketplace-filter-row[^"]*flex-wrap/);
+    expect(marketplaceSurfaceSource).toContain("hidden={!filtersOpen}");
+    expect(marketplaceSurfaceSource).toContain("aria-expanded={filtersOpen}");
+    // Model and unavailable detail layouts still collapse against the content row.
+    // Creative details use a full-width preview with wrapping actions instead of a metadata column.
     expect(marketplaceTheme).toMatch(/--marketplace-detail-columns:\s*minmax\(0, 1fr\) minmax\(250px, 320px\)/);
     expect(marketplaceSurfaceSource).toMatch(/DETAIL_LAYOUT = "[^"]*grid-cols-\(--marketplace-detail-columns\)[^"]*@max-marketplace-split\/main-region:grid-cols-1/);
     expect(marketplaceSurfaceSource).toMatch(/DETAIL_HERO = "[^"]*@max-marketplace-split\/main-region:grid-cols-1/);
     expect(marketplaceSurfaceSource).toMatch(/DETAIL_ACTIONS = "[^"]*@max-marketplace-split\/main-region:col-start-1/);
-    expect(marketplaceSurfaceSource.match(/marketplace-(?:model|public)-detail-layout \$\{DETAIL_LAYOUT\}/g)).toHaveLength(3);
+    expect(marketplaceSurfaceSource.match(/marketplace-(?:model|public)-detail-layout \$\{DETAIL_LAYOUT\}/g)).toHaveLength(2);
+    expect(marketplaceSurfaceSource).toMatch(/EXPLORE_DETAIL = "flex min-w-0 flex-col/);
+    expect(marketplaceSurfaceSource).toMatch(/EXPLORE_HEADER = "flex min-w-0 flex-wrap/);
+    // Browse cards fill the shared 9:16 frame; detail previews still preserve the source ratio.
+    expect(marketplaceSurfaceSource).toContain('"size-full object-cover"');
+    expect(marketplaceTheme).toMatch(/--marketplace-gallery-columns:\s*repeat\(auto-fill, minmax\(min\(100%, 250px\), 1fr\)\)/);
     // The chrome ring stays a stylesheet rule: the mode switch and the navigation rows stand on
     // the black sidebar widget and belong to ContextSidebar, not to this area.
     expect(marketplaceStyles).toMatch(/#app-mode-marketplace:focus-visible,[\s\S]*Marketplace categories[\s\S]*outline:\s*2px solid var\(--instrument-focus-on-dark\)/);
@@ -930,7 +937,7 @@ describe("design system contract", () => {
     expect(projectTheme).toMatch(/--spacing-project-plate:\s*min\(360px, 100%\)/);
   });
 
-  test("allows trusted media URLs for image previews", () => {
+  test("allows trusted media previews and waveform reads only at approved CDN paths", () => {
     const html = readFileSync(join(process.cwd(), "index.html"), "utf8");
     const sources = (directive: string) => html.match(new RegExp(`${directive} ([^;]+)`))?.[1].split(/\s+/) ?? [];
     expect(html).toMatch(/img-src[^;]*ralphy-media:/);
@@ -940,7 +947,8 @@ describe("design system contract", () => {
     expect(sources("media-src")).toEqual(expect.arrayContaining(["https://ralphy.b-cdn.net/blocks/", "https://ralphy.b-cdn.net/units/"]));
     expect(sources("img-src")).not.toContain("https://ralphy.b-cdn.net");
     expect(sources("media-src")).not.toContain("https://ralphy.b-cdn.net");
-    expect(html).not.toMatch(/(?:default-src|script-src|connect-src)[^;]*ralphy\.b-cdn\.net/);
+    expect(sources("connect-src")).toEqual(["'self'", "ws:", "https://ralphy.b-cdn.net/blocks/", "https://ralphy.b-cdn.net/units/"]);
+    expect(html).not.toMatch(/(?:default-src|script-src)[^;]*ralphy\.b-cdn\.net/);
   });
 
   test("allows guarded media URLs for font previews through the registered Electron protocol", () => {
@@ -988,7 +996,7 @@ describe("design system contract", () => {
     expect(sharedLibraryTheme).toMatch(/--type-specimen: 40px/);
     expect(sharedLibraryTheme).toMatch(/--type-specimen-display: 76px/);
     expect([...new Set(sharedLibrarySurfaceSource.match(/\bfont-(?:thin|light|normal|medium|semibold|bold|extrabold|black)\b/g))].sort())
-      .toEqual(["font-normal", "font-semibold"]);
+      .toEqual(["font-medium", "font-normal"]);
     // The desk-wide button ring is gone from the stylesheet: reset.css paints the one 2px ring on
     // every :focus-visible, and a control standing on a black widget names the on-instrument ring
     // explicitly because the theme ink would be black on black in light. The Electron geometry
@@ -1294,22 +1302,20 @@ describe("design system contract", () => {
     expect(results.filter(({ screen }) => screen === "activity").flatMap(({ width, activityTimeFontSize, activityEntityFontSize }) =>
       activityTimeFontSize !== null && activityTimeFontSize >= 12 && activityEntityFontSize !== null && activityEntityFontSize >= 12 ? [] : [{ width, activityTimeFontSize, activityEntityFontSize }])).toEqual([]);
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, focus }) => ({ width, selectors: focus.map(({ selector }) => selector) })))
-      .toEqual([{ width: 2560, selectors: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1360, selectors: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1100, selectors: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }]);
+      .toEqual([{ width: 2560, selectors: [".page-header-more summary", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1360, selectors: [".page-header-more summary", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1100, selectors: [".page-header-more summary", ".document-search input", ".document-row", ".document-detail-heading"] }]);
     expect(results.flatMap(({ screen, width, focus }) => focus.filter(({ width: focusWidth }) => focusWidth < 2).map((value) => ({ screen, width, focus: value })))).toEqual([]);
     expect(results.flatMap(({ screen, width, focus }) => focus.filter(({ contrast }) => contrast < 3).map((value) => ({ screen, width, focus: value })))).toEqual([]);
     expect(results.filter(({ forbidden }) => forbidden !== 0)).toEqual([]);
-    expect(results.filter(({ screen }) => screen !== "workspace").every(({ projectHeaderCount }) => projectHeaderCount === 0)).toBe(true);
-    expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsCenterOffset }) => projectTabsCenterOffset !== null && projectTabsCenterOffset < 1)).toBe(true);
-    expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsHeaderOffset }) => projectTabsHeaderOffset !== null && projectTabsHeaderOffset > 100)).toBe(true);
-    expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsReceivePointer }) => projectTabsReceivePointer)).toBe(true);
-    expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsAppRegion }) => projectTabsAppRegion === "no-drag")).toBe(true);
-    expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ gooeyBlobCoverage }) => gooeyBlobCoverage !== null && gooeyBlobCoverage >= 0.99)).toBe(true);
+    const projectResults = results.filter(({ screen }) => screen !== "workspace" && screen !== "memory");
+    expect(projectResults.map(({ screen, width, projectHeaderCount, projectDockCount }) => ({ screen, width, projectHeaderCount, projectDockCount }))).toEqual(projectResults.map(({ screen, width }) => ({ screen, width, projectHeaderCount: 1, projectDockCount: 0 })));
+    expect(projectResults.every(({ projectDetailsActions }) => projectDetailsActions.join(",") === "Documents,Activity")).toBe(true);
+    expect(projectResults.every(({ screen, projectBackToMedia }) => projectBackToMedia === (screen !== "media"))).toBe(true);
+    expect(projectResults.every(({ projectDetailsReceivePointer }) => projectDetailsReceivePointer)).toBe(true);
     expect(results.filter(({ screen }) => screen === "units").every(({ unitCardsInGridFlow }) => unitCardsInGridFlow)).toBe(true);
-    // 09-activity-inspector.css restated `outline: var(--focus-ring)` on the media card button.
-    // reset.css already draws that ring on every :focus-visible, which is why the declaration
-    // never moved a pixel; the button states only the shape the ring follows.
+    // Media cards draw their focus ring inside the rounded media plate so it stays visible.
     expect(styles).toMatch(/:focus-visible\s*\{[^}]*outline:\s*var\(--focus-ring\)/s);
-    expect(virtualAssetGridSource).toMatch(/media-card-button[^"`]*focus-visible:rounded-control/);
+    const mediaButton = /className="(media-card-button[^"]*)"/.exec(virtualAssetGridSource)?.[1] ?? "";
+    for (const token of ["rounded-cell", "focus-visible:outline-2", "focus-visible:-outline-offset-2", "focus-visible:outline-focus-on-instrument"]) expect(mediaButton).toContain(token);
     // The asset context menu's ring moved onto the row with the rest of its skin. It takes the
     // on-instrument ring, not `--fg`: the menu is a black plate in both themes, and the ring the
     // sheet drew resolved to desk ink whenever the menu opened inside `.app-mode-work`.
@@ -1398,7 +1404,7 @@ describe("design system contract", () => {
     // Opening must never narrow a fully populated Notch.
     expect(shellTheme.match(/--spacing-island-open:\s*([^;]+);/)?.[1]).toBe(shellTheme.match(/--spacing-island-max:\s*([^;]+);/)?.[1]);
     expect(shellSource).toContain("grid-rows-(--island-rows-open)");
-    expect(shellSource).toMatch(/surfaceClassName="fixed z-sheet inset-y-2 left-2 w-max max-w-overlay-fit/);
+    expect(shellSource).toMatch(/surfaceClassName="fixed z-sheet inset-y-2 right-2 w-max max-w-overlay-fit/);
     expect(instrument).not.toContain("right-rail-sheet");
   });
 
@@ -1422,10 +1428,8 @@ describe("design system contract", () => {
       // Page identity and actions moved into one shared component, including its spacing.
       ["page-header-identity", "gap-2", ["src/shared/ui/PageHeader.tsx"]],
       ["content-section", "min-w-0", ["src/pages/library/ui/LibraryScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx"]],
-      // Two renderers, not the five the deleted file's prose claimed: the overview, the
-      // marketplace and the project panel each draw their own `*-section-heading`, which the
-      // `.section-heading` rule never selected.
-      ["section-heading", "h-8", ["src/pages/library/ui/LibraryScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx"]],
+      // Project browsing uses its PageHeader directly, without a repeated section heading.
+      ["section-heading", "h-8", ["src/pages/library/ui/LibraryScreen.tsx"]],
       // The row's `gap: 14px` and `flex: none` were already dead on both renderers: each states
       // its own `gap-*` and its own flex behaviour, and a layered important utility beats an
       // unlayered declaration. `display: flex` is the one declaration that had to move.
@@ -1590,9 +1594,9 @@ describe("design system contract", () => {
     expect(workspaceMediaSource).toContain("<PageHeader");
     expect(pageHeaderTheme).toContain("container: page-controls / inline-size");
     expect(pageHeaderTheme).toContain("@container page-controls");
-    expect(pageHeaderTheme).toContain(".page-header-inline .page-header { min-height: 36px; flex-wrap: wrap; }");
-    // The three players mount on a black widget and on a light one, so the skin is a prop and no
-    // caller repaints half of a surface/ink pair from CSS.
+    expect(pageHeaderTheme).toContain(".page-header-inline .page-header { min-height: 32px; flex-wrap: wrap; }");
+    // The three players mount on dark and themed surfaces. Callers must pass the typed tone
+    // prop, either as a fixed skin or a runtime selection; preview behavior tests cover both.
     expect(readFileSync(join(process.cwd(), "src/entities/media/lib/tone.ts"), "utf8"))
       .toMatch(/export type PlayerTone = "instrument" \| "surface"/);
     for (const file of [
@@ -1601,7 +1605,7 @@ describe("design system contract", () => {
       "src/pages/shared-library/ui/SharedArtifactPreview.tsx",
       "src/pages/project/ui/UnitSocialPreview.tsx",
       "src/entities/media/ui/MediaCardPreview.tsx",
-    ]) expect(readFileSync(join(process.cwd(), file), "utf8")).toMatch(/tone="(?:instrument|surface)"/);
+    ]) expect(readFileSync(join(process.cwd(), file), "utf8")).toMatch(/\btone=(?:"(?:instrument|surface)"|\{[^}]+\})/);
     // The asset modal is fixed to the window, so its gutter is the one length in the area with no
     // container to read: a continuous clamp, which is what replaced the deleted 1040px breakpoint.
     expect(workspaceMediaTheme).toContain("--spacing-asset-modal-gutter: clamp(20px, 3.75vw, 48px)");
@@ -1667,7 +1671,7 @@ describe("design system contract", () => {
     expect(renderer).toContain('aria-label="Toggle sidebar"');
     expect(renderer).toContain('aria-label="Toggle right panel"');
     expect(renderer).not.toContain('aria-label="Toggle bottom panel"');
-    expect(app).toContain("if (event.repeat) return");
+    expect(app).toContain("if (event.repeat || event.defaultPrevented) return");
     // Every global chord resolves through one registry, so a rebinding is live immediately
     // and no handler hardcodes a key.
     expect(app).toContain("resolveCommand(event, readCommandBindings(");
@@ -1735,7 +1739,7 @@ describe("design system contract", () => {
     expect(shellStyles).toMatch(/\.instrument-desk-scroll\s*>\s*\.main-content-stage\s*\{\s*min-height:\s*100%/);
   });
 
-  test("transfers the approved dither workspace hero and project identity system", () => {
+  test("keeps a compact workspace picker with the shared dropdown and project identities", () => {
     const picker = readFileSync(
       join(process.cwd(), "src/widgets/sidebar/ui/WorkspacePicker.tsx"),
       "utf8",
@@ -1753,31 +1757,23 @@ describe("design system contract", () => {
       readFileSync(join(process.cwd(), "src/shared/ui/ProfileAvatar.tsx"), "utf8"),
     ].join("\n");
 
-    expect(/const HERO = "([^"]*)"/.exec(picker)?.[1] ?? "").toContain("workspace-hero");
-    expect(picker).toContain("workspace-hero-field-hi");
-    expect(picker).toContain("selected?.unitCount");
-    expect(picker).toContain("selected?.sharedCount");
+    expect(/const TRIGGER = "([^"]*)"/.exec(picker)?.[1] ?? "").toContain("h-7.5");
+    expect(picker).toContain('aria-label="Select workspace"');
+    expect(picker).toContain("selected?.name");
     expect(picker).not.toContain("basename(rootPath)");
     expect(picker).not.toContain("workspace-hero-pill");
     expect(picker).toContain("workspace-option-field");
     expect(picker).toContain("style={workspaceDitherVars(workspace.name)}");
     expect(projectsScreen).toContain("projectGlyphVars(project.name)");
-    expect(picker).toContain("workspaceDitherVars(selected?.name ?? value)");
     expect(sidebar).toContain("sidebar-nav-row");
     expect(sidebar).not.toContain("sidebar-mascot-peek");
     expect(sidebar).not.toContain('title="Filter projects"');
     expect(profile).not.toContain(".ralphy library");
     expect(styles).toContain("--dither-op: 1");
-    // Handoff 13: the workspace card is a widget standing on the one sidebar card, and its radius
-    // is the hero role (22) rather than the panel role (18). It states its height once and the
-    // picker and hero fill it, in markup.
-    expect(chromeTheme).toMatch(/--spacing-workspace-card:\s*118px/);
-    expect(sidebar).toMatch(/className="sidebar-context[^"]*\bh-workspace-card\b[^"]*\brounded-hero\b/);
+    // Workspace identity occupies one row so projects and content remain within reach.
+    expect(sidebar).not.toContain("h-workspace-card");
     expect(picker).toMatch(/className="workspace-picker[^"]*\bh-full\b/);
-    expect(/const HERO = "([^"]*)"/.exec(picker)?.[1] ?? "").toMatch(/\bh-full\b/);
-    // The hero is the black widget, and it now carries the class that flips the on-dark token
-    // set for its subtree, which is what makes its focus ring visible at all.
-    expect(/const HERO = "([^"]*)"/.exec(picker)?.[1] ?? "").toMatch(/\bbg-instrument\b/);
+    expect(/const TRIGGER = "([^"]*)"/.exec(picker)?.[1] ?? "").toContain("focus-visible:outline-ink");
     // Overview uses the shared project artwork, matching the project identity elsewhere.
     expect(workbenchStyles).not.toMatch(/\.project-glyph\s*\{/);
     expect(readFileSync(join(process.cwd(), "src/pages/workspace/ui/WorkspaceOperations.tsx"), "utf8"))
@@ -1842,23 +1838,16 @@ describe("design system contract", () => {
     expect(main).toContain('input.key.toLocaleLowerCase() === "r"');
     expect(main).toContain("event.preventDefault()");
     expect(preload).toContain("onToggleRightPanel");
-    // The shortcut the main process forwards now means what the lens pair means: the chat rail is
-    // unavailable under the desk lens on purpose, so opening a dock the lens closes again would
-    // have made the OS-level affordance dead.
-    expect(app).toContain("bridge.onToggleRightPanel(onToggle)");
-    /* The chord toggles the panel beside the chat, and only under the chat lens: the chat is the
-       lens, so there is nothing there for a "show me the chat" chord to show, and under the desk
-       lens the chord is silent because the lens pair (⌘1/⌘2) is what changes lens. */
-    expect(app).toContain("onToggleViewPanel={toggleViewPanel}");
-    expect(app).toContain('setViewPanel((record) => lens === "chat" ? { ...record, open: !record.open } : record)');
-    expect(app).not.toContain("toggleLens");
+    expect(app).toContain("bridge.onToggleRightPanel(() => (document.activeElement ?? document).dispatchEvent");
+    expect(app).toContain('command.id === "app.agent"');
+    expect(app).toContain("toggleAgent()");
     expect(app).toContain("useAgentChat");
     expect(app).toContain("<AgentChatPanel");
     expect(app).not.toContain("<RightPanelSummary");
     expect(panels).toContain("AgentChatPanel");
     expect(panels).not.toContain("AgentChatMenu");
     expect(panels).toContain("active.title");
-    expect(panels).toContain('aria-label="Open canvases"');
+    expect(panels).not.toContain('aria-label="Open canvases"');
     // One model control, not a provider pill beside a model pill: handoff 17's single pill lists
     // every connected provider's catalog, so a row carries both halves of the choice.
     expect(panels).not.toContain("AgentProviderMenu");
@@ -1907,7 +1896,7 @@ describe("design system contract", () => {
     // whole chip and an arrow step over it, so none of that is re-implemented in a key handler.
     expect(composer).toContain('tag.contentEditable = "false"');
     expect(composer).toContain("tag.dataset.tag =");
-    expect(composer).toMatch(/\bmx-3 mb-3\b/);
+    expect(composer).toMatch(/\bmx-2 mb-2\b/);
     expect(panels).not.toMatch(/\bborder-(?!collapse\b|0\b)/);
     expect(panels).not.toMatch(/\b(?:shadow|bg-gradient|bg-linear|bg-radial)-/);
     // Nothing of the rail is left in the sheet: both chunks are gone and what stayed is unowned.

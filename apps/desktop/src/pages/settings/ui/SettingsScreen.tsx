@@ -73,6 +73,7 @@ export function SettingsScreen({
   entryPage,
   onThemeChange,
   onBack,
+  onOpenWorkspaceSettings,
 }: {
   workspace?: { id: string; name: string } | null;
   rootPath: string | null;
@@ -84,6 +85,7 @@ export function SettingsScreen({
   entryPage?: SettingsCategory;
   onThemeChange(value: ThemePreference): void;
   onBack(): void;
+  onOpenWorkspaceSettings?(page: "memory" | "context"): void;
 }) {
   const [page, setPage] = useState(() => entryPage ?? readLastPage());
   const [detail, setDetail] = useState<SettingsDetail | null>(null);
@@ -126,6 +128,7 @@ export function SettingsScreen({
     flashId,
     setBindings: (next) => { writeCommandBindings(settingsStorage, next); setStoredBindings(next); },
     onThemeChange,
+    onOpenWorkspaceSettings,
     goTo,
     openDetail: (next) => { setDetail(next); setFlashId(null); },
   };

@@ -225,6 +225,7 @@ async function canonicalContext(request: ClaudeRunRequest): Promise<{
      there the preamble is still a prefix. */
   const preamble = await agentPreamble({
     provider: "claude",
+    permissionMode: request.permissionMode,
     workspaceId: request.workspaceId,
     projectId: request.projectId,
     rootPath,

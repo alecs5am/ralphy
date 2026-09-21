@@ -96,19 +96,9 @@ export function presentSharedArtifact(card: ArtifactMediaCardDto): SharedArtifac
 export function presentSharedLibrary(
   page: Page<ArtifactMediaCardDto>,
   selectedArtifactId: string | null,
-  query: SharedLibraryQueryState,
 ): SharedLibraryPresentation {
-  const text = query.text.trim().toLocaleLowerCase();
-  const cards = page.items.filter((card) => (
-    (query.mediaKind === "all" || card.mediaKind === query.mediaKind)
-    && (query.provenance === "all" || card.provenance === query.provenance)
-    && (!text || [card.slug, card.kind, card.mime, card.provenance, ...card.usageRoles]
-      .some((value) => value?.toLocaleLowerCase().includes(text)))
-  ));
-  if (query.sort === "name") cards.sort((left, right) => left.slug.localeCompare(right.slug));
-  if (query.sort === "size") cards.sort((left, right) => (right.bytes ?? -1) - (left.bytes ?? -1));
-  if (query.sort === "recently-selected") cards.sort((left, right) => (right.selectedAt ?? -1) - (left.selectedAt ?? -1));
-
+  // Search and ordering belong to the paginated runtime query.
+  const cards = page.items;
   const artifacts = cards.map(presentSharedArtifact);
   const selectedBytes = cards.reduce((total, card) => total + (card.bytes ?? 0), 0);
   const boundedReason = `Showing ${artifacts.length} loaded artifacts; more are available in this library.`;

@@ -33,7 +33,7 @@
 .canvas-node-result-frame { opacity: .85; }
 .canvas-node-result[data-selected="true"] .canvas-node-result-frame { opacity: 1; outline: 2px solid var(--instrument-text-primary); outline-offset: -2px; }
 .canvas-node-result[data-kind="text"] p { font-family: var(--font-mono); font-size: var(--text-mono-2xs); }
-.canvas-node-results:has(> :nth-child(2)) .canvas-node-result[data-kind="image"] { --aspect-video: 1; }
+.canvas-node-results:has(> :nth-child(2)) .canvas-node-result[data-kind="image"] { --aspect-video: var(--content-aspect); }
 .canvas-result-choice { display: flex; width: 100%; justify-content: space-between; align-items: center; padding: 6px 2px; color: var(--instrument-text-secondary-readable); font: 9px var(--font-mono); }
 .canvas-result-check { display: grid; width: 18px; height: 18px; place-items: center; border-radius: 50%; background: var(--instrument-field); }
 .canvas-node-result[data-selected="true"] .canvas-result-check { background: var(--instrument-text-primary); color: var(--instrument-card); }

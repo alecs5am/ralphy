@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { SnappySlider } from "@/shared/ui/SnappySlider";
 import { PLAYER_CHROME, PLAYER_CONTROL, playerTone, type PlayerTone } from "../lib/tone";
 
-interface VideoPlayerProps { src: string; name: string; compact?: boolean; tone?: PlayerTone; onError?(): void }
+interface VideoPlayerProps { src: string; name: string; compact?: boolean; tone?: PlayerTone; autoPlay?: boolean; loop?: boolean; onError?(): void }
 
 /* The frame is the media's own mat and stays the black media frame under either tone: a
    letterboxed video on a light plate reads as a broken image, not as a surface step. `tone`
@@ -36,7 +36,7 @@ function formatTime(seconds: number): string {
   return hours > 0 ? `${hours}:${minutes.toString().padStart(2, "0")}:${remainder.toString().padStart(2, "0")}` : `${minutes}:${remainder.toString().padStart(2, "0")}`;
 }
 
-export function VideoPlayer({ src, name, compact = false, tone = "instrument", onError }: VideoPlayerProps) {
+export function VideoPlayer({ src, name, compact = false, tone = "instrument", autoPlay = false, loop = false, onError }: VideoPlayerProps) {
   const chrome = PLAYER_CHROME[playerTone(tone)];
   const control = `${PLAYER_CONTROL} ${compact ? "size-6.5" : "size-7.5"} ${chrome.control}`;
   const readout = `${READOUT} ${compact ? "min-w-7.5" : "min-w-8.5"} ${chrome.read}`;
@@ -46,10 +46,14 @@ export function VideoPlayer({ src, name, compact = false, tone = "instrument", o
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
-  const [muted, setMuted] = useState(false);
+  const [muted, setMuted] = useState(autoPlay);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { setPlaying(false); setCurrentTime(0); setDuration(0); setError(null); }, [src]);
+  useEffect(() => {
+    const video = videoRef.current;
+    return () => video?.pause?.();
+  }, [src]);
   useEffect(() => {
     if (!playing) return;
     let frame = 0;
@@ -69,9 +73,9 @@ export function VideoPlayer({ src, name, compact = false, tone = "instrument", o
   const skip = (seconds: number) => { if (videoRef.current) videoRef.current.currentTime = Math.min(duration, Math.max(0, videoRef.current.currentTime + seconds)); };
 
   return <div className={`${FRAME}${compact ? " is-compact" : ""}`} ref={rootRef}>
-    <video ref={videoRef} className={VIDEO} src={src} aria-label={name} preload="auto" playsInline onClick={togglePlayback} onDoubleClick={enterFullscreen}
+    <video key={src} ref={videoRef} className={VIDEO} src={src} aria-label={name} preload="auto" playsInline autoPlay={autoPlay} loop={loop} muted={muted} onClick={togglePlayback} onDoubleClick={enterFullscreen}
       onCanPlay={() => setError(null)} onError={fail}
-      onLoadedMetadata={(event) => { const startTime = compactVideoStartTime(event.currentTarget.duration, compact); event.currentTarget.currentTime = startTime; setDuration(event.currentTarget.duration); setCurrentTime(startTime); setVolume(event.currentTarget.volume); setMuted(event.currentTarget.muted); }}
+      onLoadedMetadata={(event) => { const startTime = autoPlay ? 0 : compactVideoStartTime(event.currentTarget.duration, compact); event.currentTarget.currentTime = startTime; setDuration(event.currentTarget.duration); setCurrentTime(startTime); setVolume(event.currentTarget.volume); setMuted(event.currentTarget.muted); }}
       onDurationChange={(event) => setDuration(event.currentTarget.duration)} onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
       onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}
       onVolumeChange={(event) => { setVolume(event.currentTarget.volume); setMuted(event.currentTarget.muted); }} />

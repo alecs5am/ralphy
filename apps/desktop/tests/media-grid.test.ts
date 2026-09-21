@@ -176,18 +176,19 @@ describe("media grid geometry and scheduling", () => {
     } finally { await view.unmount(); }
   });
 
-  test("gives nonvisual media stable bounded masonry proportions", () => {
-    expect(mediaFallbackAspectRatio("audio", "a")).toBe(1.6);
-    expect(mediaFallbackAspectRatio(null, "document-a")).toBeGreaterThanOrEqual(0.72);
-    expect(mediaFallbackAspectRatio(null, "document-a")).toBeLessThanOrEqual(1.15);
-    expect(mediaFallbackAspectRatio(null, "document-a")).toBe(mediaFallbackAspectRatio(null, "document-a"));
-    expect(mediaFallbackAspectRatio(null, "document-a")).not.toBe(mediaFallbackAspectRatio(null, "document-b"));
+  test("uses the product 9:16 frame for every content-card fallback", () => {
+    for (const kind of ["image", "video", "audio", null] as const) {
+      expect(mediaFallbackAspectRatio(kind, "content-a")).toBe(9 / 16);
+    }
   });
 
-  test("derives non-overlapping 16:10 rows at narrow, medium, and wide widths", () => {
-    expect(assetGridGeometry(492, 190, 16)).toEqual({ columns: 2, tileWidth: 238, tileHeight: 202.75, rowHeight: 218.75, gap: 16 });
-    expect(assetGridGeometry(688, 190, 16)).toEqual({ columns: 3, tileWidth: 218.66666666666666, tileHeight: 190.66666666666666, rowHeight: 206.66666666666666, gap: 16 });
-    expect(assetGridGeometry(1000, 190, 16)).toEqual({ columns: 4, tileWidth: 238, tileHeight: 202.75, rowHeight: 218.75, gap: 16 });
+  test("derives non-overlapping 9:16 rows at narrow, medium, and wide widths", () => {
+    for (const [width, columns] of [[492, 2], [688, 3], [1000, 4]] as const) {
+      const geometry = assetGridGeometry(width, 190, 16);
+      expect(geometry.columns).toBe(columns);
+      expect(geometry.tileHeight).toBeCloseTo(geometry.tileWidth / (9 / 16));
+      expect(geometry.rowHeight).toBeCloseTo(geometry.tileHeight + 16);
+    }
   });
 
   test("caps project media density without changing normal geometry", () => {
@@ -244,6 +245,23 @@ describe("media grid geometry and scheduling", () => {
 });
 
 describe("mounted media tiles", () => {
+  test("lays mixed media out in equal 9:16 rows instead of masonry lanes", async () => {
+    const cards = [
+      mediaCard("portrait"),
+      mediaCard("sound", "audio/mpeg"),
+      mediaCard("notes", "application/pdf"),
+      mediaCard("clip", "video/mp4"),
+    ];
+    const view = await mounted(grid(cards, 199, async () => null));
+    try {
+      expect(view.host.container.querySelectorAll(".virtual-masonry-item")).toHaveLength(0);
+      expect(view.host.container.querySelectorAll(".virtual-grid-row").length).toBeGreaterThan(0);
+      const tiles = view.host.container.querySelectorAll(".media-card-tile");
+      expect(tiles).toHaveLength(4);
+      expect(tiles.every((tile) => tile.style.aspectRatio === "0.5625")).toBe(true);
+    } finally { await view.unmount(); }
+  });
+
   test("remeasures the grid when filtered results replace an empty page", async () => {
     const host = createReactHost();
     let observed = 0;
@@ -263,9 +281,9 @@ describe("mounted media tiles", () => {
       expect(observed).toBe(0);
       await act(async () => { root.render(grid(Array.from({ length: 12 }, (_, index) => mediaCard(`filtered-${index}`)), 200, async () => null)); await Promise.resolve(); await Promise.resolve(); });
       expect(observed).toBeGreaterThan(1);
-      const items = host.container.querySelectorAll(".virtual-masonry-item");
+      const items = host.container.querySelectorAll(".virtual-grid-item");
       expect(items.length).toBeGreaterThan(6);
-      expect(new Set(items.map((item) => item.style.left)).size).toBe(6);
+      expect(host.container.querySelector(".virtual-grid-row")?.style.gridTemplateColumns).toContain("repeat(6,");
     } finally {
       await act(async () => root.unmount());
       host.restore();
@@ -351,10 +369,11 @@ describe("mounted media tiles", () => {
     } finally { await view.unmount(); }
   });
 
-  test("uses the instrument desk as Media's external scroll and cursor owner", async () => {
+  test("keeps project Media as the cursor and scroll owner inside the filled desk", async () => {
     const view = await mounted(createElement(InstrumentShell, {
       sidebar: null,
       desk: grid([mediaCard("instrument-owner")], 217, async () => null),
+      deskFill: true,
       chat: null,
       island: null,
       profile: null,
@@ -370,7 +389,10 @@ describe("mounted media tiles", () => {
       const desk = view.host.container.querySelector(".instrument-desk-scroll")!;
       const innerGrid = desk.querySelector(".asset-grid-scroll")!;
       const observer = view.host.intersectionObservers[0];
-      expect(observer.root).toBe(desk);
+      expect(observer.root).toBe(innerGrid);
+      expect(desk.getAttribute("data-scroll-mode")).toBe("page");
+      expect(desk.getAttribute("class")).toContain("overflow-hidden");
+      expect(innerGrid.getAttribute("class")).toContain("overflow-y-auto");
       expect(innerGrid.getAttribute("data-instrument-scroll-owner")).toBeNull();
       expect([...desk.querySelectorAll("[data-instrument-scroll-owner]")].filter((node) => node !== desk)).toHaveLength(0);
       expect(view.host.container.querySelectorAll("[data-instrument-scroll-owner]")).toHaveLength(1);
@@ -447,17 +469,17 @@ describe("mounted media tiles", () => {
     } finally { await video.unmount(); }
   });
 
-  test("updates a masonry preview to its intrinsic image proportion", async () => {
+  test("keeps the 9:16 card frame after intrinsic media dimensions load", async () => {
     const resolver = vi.fn(async () => ({ url: "ralphy-media://preview/intrinsic", sizeBytes: 2048 }));
     const view = await mounted(grid([mediaCard("intrinsic")], 217, resolver));
     try {
-      const preview = view.host.container.querySelector(".asset-preview")!;
-      expect(preview.style.aspectRatio).toBe("1");
+      const tile = view.host.container.querySelector(".media-card-tile")!;
+      expect(tile.style.aspectRatio).toBe(String(9 / 16));
       const image = byTag(view.host.container, "IMG")[0];
       Object.defineProperty(image, "naturalWidth", { value: 1600 });
       Object.defineProperty(image, "naturalHeight", { value: 900 });
       await act(async () => { image.dispatchEvent(new Event("load", { bubbles: true })); await Promise.resolve(); });
-      expect(preview.style.aspectRatio).toBe(String(16 / 9));
+      expect(tile.style.aspectRatio).toBe(String(9 / 16));
     } finally { await view.unmount(); }
   });
 
@@ -572,7 +594,8 @@ describe("mounted media tiles", () => {
       await act(async () => { secondAudio.dispatchEvent(new Event("loadedmetadata", { bubbles: true })); await Promise.resolve(); });
       await view.rerender(grid([second], 213, resolver));
       await view.rerender(grid([second, first], 213, resolver));
-      expect(resolver.mock.calls.map(([, ref]) => ref.id)).toEqual([first.ref.id, second.ref.id, first.ref.id]);
+      expect(byTag(view.host.container, "ARTICLE")).toHaveLength(2);
+      await vi.waitFor(() => expect(resolver.mock.calls.map(([, ref]) => ref.id)).toEqual([first.ref.id, second.ref.id, first.ref.id]));
     } finally { await view.unmount(); }
   });
 
@@ -621,7 +644,7 @@ describe("mounted media tiles", () => {
     } finally { await view.unmount(); }
   });
 
-  test("dispatches click, Enter, Space, double-click, and context without nested buttons", async () => {
+  test("opens with click or Enter and selects with Space or context without nested buttons", async () => {
     const onSelect = vi.fn();
     const onOpen = vi.fn();
     const view = await mounted(tile(mediaCard("accessible"), 211, async () => null, project, onSelect, onOpen));
@@ -631,8 +654,8 @@ describe("mounted media tiles", () => {
       dispatchKey(selection, "keydown", "Enter");
       dispatchKey(selection, "keydown", " ");
       dispatchKey(selection, "keyup", " ");
-      selection.dispatchEvent(new Event("dblclick", { bubbles: true, cancelable: true }));
-      expect(onSelect).toHaveBeenCalledTimes(3);
+      selection.dispatchEvent(new Event("contextmenu", { bubbles: true, cancelable: true }));
+      expect(onSelect).toHaveBeenCalledTimes(2);
       expect(onOpen).toHaveBeenCalledTimes(2);
       expect(view.host.container.findAll((node) => node.tagName === "BUTTON")).toHaveLength(1);
     } finally { await view.unmount(); }

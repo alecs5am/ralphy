@@ -1,0 +1,9 @@
+export const EXPLORE_DETAIL = "flex min-w-0 flex-col gap-3 pb-3";
+export const EXPLORE_HEADER = "flex min-w-0 flex-wrap items-center gap-2";
+export const EXPLORE_ACTION = "inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-field bg-surface-sunken px-2.5 type-sm text-ink disabled:opacity-50 aria-disabled:opacity-50";
+export const EXPLORE_PRIMARY = "inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-field bg-instrument px-3 type-sm text-on-instrument";
+export const EXPLORE_ICON = "size-3.5 shrink-0";
+export const EXPLORE_COPY = "m-0 type-sm leading-copy text-muted wrap-anywhere";
+export const EXPLORE_INFO = "min-w-0 rounded-field bg-surface-sunken p-3 type-sm text-ink";
+export const EXPLORE_SUMMARY = "cursor-pointer type-sm font-medium text-muted";
+export const EXPLORE_CODE = "m-0 max-w-full overflow-auto rounded-field bg-surface p-3 font-mono type-xs whitespace-pre-wrap wrap-anywhere";

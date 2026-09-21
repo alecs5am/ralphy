@@ -57,11 +57,11 @@ describe("Shared Library reader", () => {
       context: { workspaceId }, limit: 50, types: ["artifact"],
     });
     await reader.loadPage(workspaceId, {
-      after: "opaque", mediaKind: "audio", provenance: "not-generation",
+      after: "opaque", mediaKind: "audio", provenance: "not-generation", search: "opening", sort: "size",
     });
     expect(request).toHaveBeenLastCalledWith("media.list", {
       context: { workspaceId }, after: "opaque", mediaKind: "audio",
-      provenance: "not-generation", limit: 50, types: ["artifact"],
+      provenance: "not-generation", search: "opening", sort: "size", limit: 50, types: ["artifact"],
     });
   });
 
@@ -77,6 +77,9 @@ describe("Shared Library reader", () => {
       [workspaceId, { mediaKind: "text" }],
       [workspaceId, { provenance: "private" }],
       [workspaceId, { extra: true }],
+      [workspaceId, { search: 12 }],
+      [workspaceId, { search: "x".repeat(257) }],
+      [workspaceId, { sort: "random" }],
     ] as const) {
       await expect(reader.loadPage(id, query as never)).rejects.toThrow();
     }

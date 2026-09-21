@@ -624,9 +624,10 @@ export function createBridgeMethods(input: {
     const value = object(params, "media.list");
     exactKeys(value, [
       "context",
-      ...["types", "filter", "mediaKind", "provenance", "after", "limit"]
+      ...["types", "projectOnly", "filter", "mediaKind", "provenance", "search", "sort", "after", "limit"]
         .filter((key) => Object.hasOwn(value, key)),
     ], "media.list");
+    if (value.projectOnly !== undefined && value.projectOnly !== true) throw new Error("projectOnly is invalid");
     const mediaKind = optionalString(value.mediaKind);
     const provenance = optionalString(value.provenance);
     if (mediaKind !== undefined && !["image", "video", "audio", "document", "other"].includes(mediaKind)) {
@@ -638,9 +639,12 @@ export function createBridgeMethods(input: {
     return listMedia({
       context: consumerQueryContext(value, methodContext),
       types: value.types as never,
+      projectOnly: value.projectOnly === true,
       filter: optionalString(value.filter) as never,
       mediaKind: mediaKind as never,
       provenance: provenance as never,
+      search: optionalString(value.search),
+      sort: optionalString(value.sort) as "oldest" | "newest" | "name" | "size" | "selected" | undefined,
       after: optionalString(value.after),
       limit: limit(value.limit),
     });

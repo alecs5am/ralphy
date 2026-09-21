@@ -1,85 +1,76 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDownToLine, ArrowLeft, ArrowUpRight, Check, Clock3, Copy, Image, LoaderCircle, Maximize2, Minimize2, RotateCcw, Scan, Square, X } from "@/shared/ui/icons";
-import type { CanvasRun, CanvasRunResult } from "../../../../shared/canvas-runtime";
-import { generationDraftFromRun, generationOutputs, type GenerationDraft, type GenerationKind, type GenerationModel } from "../../../../shared/generation-studio";
-import { MediaPreview } from "@/shared/ui/MediaPreview";
-import { ICON_BUTTON } from "@/shared/ui/IconButton";
-import { Window, WindowBody, WindowTitlebar } from "@/shared/ui/Window";
-import { estimateLabel, generationCost, generationParameterLabel, generationTab, running } from "../lib/generation-presentation";
+import { Film, Image, LoaderCircle, Music2, RotateCcw, Scan, Square } from "@/shared/ui/icons";
+import type { CanvasRunResult } from "../../../../shared/canvas-runtime";
+import { generationDraftFromRun, generationOutputs, type GenerationDraft, type GenerationKind } from "../../../../shared/generation-studio";
+import { STUDIO_BUTTON } from "@/entities/generation";
+import { estimateLabel, generationTab, running } from "../lib/generation-presentation";
 import { GenerationEmpty } from "./GenerationEmpty";
-import { SaveGenerationToUnit, type OpenGeneratedUnit, studioSelection, STUDIO_BUTTON, STUDIO_ICON } from "@/entities/generation"
+import { GenerationPreview, generationRunStatus, type GenerationPreviewProps } from "./GenerationPreview";
 
-interface ResultsProps {
-  workspaceId: string; onOpenUnit?: OpenGeneratedUnit;
-  runs: CanvasRun[]; kind: GenerationKind; model?: GenerationModel; models?: GenerationModel[]; draft: GenerationDraft;
-  lastStartedId?: string | null;
+interface ResultsProps extends Omit<GenerationPreviewProps, "run" | "resultId" | "onClose"> {
+  runs: GenerationPreviewProps["run"][]; kind: GenerationKind;
+  launch?: { draft: GenerationDraft; mode: "preview" | "execute" } | null;
   hasOlder?: boolean; loadingOlder?: boolean; onLoadOlder?(): void;
-  expanded: boolean; onExpand(): void; onPrompt(prompt: string): void;
-  onRestore(run: CanvasRun): void; onCancel(id: string): void; onExport(result: CanvasRunResult): void;
-  onReference(role: string, result: CanvasRunResult): void;
 }
-const statusLabel = (run: CanvasRun) => run.status === "succeeded" ? run.mode === "preview" ? "Estimated" : "Complete" : run.status === "pending" ? "Queued" : run.status === "running" ? run.mode === "preview" ? "Estimating" : "Generating" : run.status === "cancelled" ? "Stopped" : "Failed";
 
-function RunStatus({ run }: { run: CanvasRun }) {
-  const Icon = running(run) ? LoaderCircle : run.status === "succeeded" ? run.mode === "preview" ? Scan : Check : run.status === "failed" ? X : Square;
-  return <span className="inline-flex items-center gap-1.5 type-xs text-muted"><Icon size={11} className={running(run) ? "animate-spin motion-reduce:animate-none" : ""} />{statusLabel(run)}</span>;
+/** Thumbnails have one click target; video transport belongs to the full preview. */
+function Thumbnail({ result, previewOpen }: { result: CanvasRunResult; previewOpen: boolean }) {
+  const [failed, setFailed] = useState(false);
+  const video = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const media = video.current;
+    if (previewOpen) media?.pause();
+    return () => media?.pause();
+  }, [previewOpen, result.previewUrl]);
+  useEffect(() => setFailed(false), [result.previewUrl]);
+  const Icon = result.kind === "video" ? Film : result.kind === "audio" ? Music2 : Image;
+  const play = () => {
+    if (!previewOpen && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) void video.current?.play().catch(() => {});
+  };
+  const pause = () => { if (video.current) { video.current.pause(); video.current.currentTime = 0; } };
+  return <span className="generation-tile-media" onMouseEnter={play} onMouseLeave={pause}>
+    {!failed && result.previewUrl && !result.unavailableReason && result.kind === "image" ? <img src={result.previewUrl} alt="" loading="lazy" draggable={false} onError={() => setFailed(true)} />
+      : !failed && result.previewUrl && !result.unavailableReason && result.kind === "video" ? <video ref={video} src={result.previewUrl} muted loop playsInline preload="metadata" onError={() => setFailed(true)} />
+        : <span className="generation-tile-placeholder"><Icon size={28} strokeWidth={1.4} /><span>{result.unavailableReason || (failed ? "Preview unavailable" : result.kind === "audio" ? result.label : "No preview yet")}</span></span>}
+    {result.kind === "video" && <Film className="generation-tile-kind" size={14} />}
+  </span>;
 }
 
 export function GenerationResults(props: ResultsProps) {
-  const { runs, kind, expanded, onExpand } = props;
-  const [filter, setFilter] = useState<"outputs" | "history">("outputs");
   const [selection, setSelection] = useState<{ runId: string; resultId?: string } | null>(null);
-  const openedStart = useRef<string | null>(null);
-  useEffect(() => {
-    const id = props.lastStartedId;
-    if (!id || id === openedStart.current) return;
-    const run = runs.find((item) => item.id === id);
-    if (!run) return;
-    openedStart.current = id;
-    if (run.mode === "execute") { setFilter("outputs"); setSelection({ runId: id }); }
-  }, [props.lastStartedId, runs]);
-  const allOutputs = runs.flatMap((run) => generationOutputs(run).map((result) => ({ run, result })));
-  const visibleRuns = runs.filter((run) => generationTab(generationDraftFromRun(run)?.kind ?? "image") === generationTab(kind));
+  const trigger = useRef<HTMLElement | null>(null);
+  const gallery = useRef<HTMLElement | null>(null);
+  useEffect(() => setSelection(null), [props.kind]);
+  const visibleRuns = props.runs.filter((run) => run.mode === "execute" && generationTab(generationDraftFromRun(run)?.kind ?? "image") === generationTab(props.kind));
   const selected = visibleRuns.find((run) => run.id === selection?.runId);
-  const outputs = allOutputs.filter(({ run }) => visibleRuns.includes(run));
-  const activeRuns = visibleRuns.filter(running);
-  return <Window className="generation-results min-w-0">
-    <WindowTitlebar className="generation-titlebar generation-result-titlebar"><span className="flex min-w-0 flex-1 items-center gap-1" role="group" aria-label="Generation result view">{(["outputs", "history"] as const).map((value) => <button key={value} type="button" className="generation-result-tab" aria-pressed={filter === value} onClick={() => { setFilter(value); setSelection(null); }}>{value === "outputs" ? "Creations" : "History"}<span className="generation-count">{value === "outputs" ? outputs.length : visibleRuns.length}{props.hasOlder ? " loaded" : ""}</span></button>)}</span><button className={`${ICON_BUTTON} generation-result-expand`} type="button" onClick={onExpand} aria-label={expanded ? "Show generation controls" : "Expand creations"}>{expanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}</button></WindowTitlebar>
-    <WindowBody className="generation-gallery">
-      {selected ? <GenerationDetail {...props} run={selected} resultId={selection?.resultId} onClose={() => setSelection(null)} /> : <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        {activeRuns.map((run) => <div className="mx-4 mt-4 flex items-center gap-3 rounded-field bg-generation-tint p-3" role="status" key={run.id}><LoaderCircle size={17} className="shrink-0 animate-spin text-generation-accent motion-reduce:animate-none" /><span className="flex min-w-0 flex-1 flex-col gap-1"><strong className="type-sm font-medium">{run.mode === "preview" ? "Checking your generation" : "Your idea is taking shape"}</strong><span className="truncate type-xs text-muted">{generationDraftFromRun(run)?.prompt}</span></span><button className={STUDIO_BUTTON} type="button" onClick={() => props.onCancel(run.id)}><Square size={10} />Stop</button></div>)}
-        {filter === "outputs" ? outputs.length ? <div className="generation-output-grid">{outputs.map(({ run, result }) => <div className="generation-output-card" key={`${run.id}:${result.id}`}>
-          <div className="generation-tile-media"><MediaPreview url={result.previewUrl} kind={result.kind} label={result.label} /></div>
-          <div className="generation-output-caption"><button className="focus-visible:outline-2 focus-visible:outline-ink" type="button" onClick={() => setSelection({ runId: run.id, resultId: result.id })}><strong><span>{generationDraftFromRun(run)?.prompt || result.label}</span></strong><small>{run.snapshot.nodes.find((node) => node.kind === "model")?.title} · {new Date(run.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</small></button><button className={STUDIO_ICON} type="button" aria-label={`Open ${result.label}`} onClick={() => setSelection({ runId: run.id, resultId: result.id })}><ArrowUpRight size={13} /></button></div>
-        </div>)}</div> : <GenerationEmpty kind={kind} onPrompt={props.onPrompt} /> : visibleRuns.length ? <div className="flex flex-col gap-2 p-4">{visibleRuns.map((run) => <button className="generation-history-row focus-visible:outline-2 focus-visible:outline-ink" type="button" key={run.id} onClick={() => setSelection({ runId: run.id })}><span className="grid size-10 shrink-0 place-items-center rounded-field bg-card text-muted">{run.mode === "preview" ? <Scan size={17} /> : <Image size={17} />}</span><span className="flex min-w-0 flex-1 flex-col gap-1.5"><strong className="truncate type-sm font-medium">{generationDraftFromRun(run)?.prompt || "Generation"}</strong><span className="flex flex-wrap items-center gap-2"><RunStatus run={run} /><span className="type-xs text-muted">{run.snapshot.nodes.find((node) => node.kind === "model")?.title}</span></span></span><span className="flex shrink-0 flex-col items-end gap-1.5 type-xs text-muted"><span>{new Date(run.startedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>{generationCost(run) !== null && <span className="generation-count">{estimateLabel(run)}</span>}</span><ArrowUpRight size={12} className="shrink-0 text-muted" /></button>)}</div> : <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center"><Clock3 size={26} strokeWidth={1.3} className="text-muted" /><strong className="type-sm font-medium">A fresh creative history</strong><p className="m-0 max-w-sm type-sm leading-relaxed text-muted">Generations and estimates stay here with the prompt, references and settings used.</p></div>}
-        {props.hasOlder && <div className="flex items-center justify-center p-4"><button className={STUDIO_BUTTON} type="button" disabled={props.loadingOlder} onClick={props.onLoadOlder}>{props.loadingOlder ? "Loading older runs…" : "Load older runs"}</button></div>}
-      </div>}
-    </WindowBody>
-  </Window>;
-}
-
-function GenerationDetail({ run, resultId, onClose, ...props }: ResultsProps & { run: CanvasRun; resultId?: string; onClose(): void }) {
-  const results = generationOutputs(run);
-  const references = run.nodes.filter((entry) => run.snapshot.nodes.some((node) => node.id === entry.nodeId && node.kind === "media")).flatMap((entry) => entry.results.filter((result) => result.asset));
-  const [selectedId, setSelectedId] = useState(resultId);
-  const result = results.find((item) => item.id === selectedId) ?? results[0];
-  const draft = generationDraftFromRun(run);
-  const originalModel = (props.models ?? []).find((model) => model.id === draft?.modelId && model.provider === draft?.provider && model.kind === draft?.kind);
-  const compatible = props.model?.inputs.filter((input) => input.kind === result?.asset?.kind) ?? [];
-  const error = run.error ?? run.nodes.find((node) => node.error)?.error;
-  return <div className="flex min-h-0 flex-1 flex-col">
-    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-divider p-3"><button className={STUDIO_BUTTON} type="button" onClick={onClose}><ArrowLeft size={13} />Back</button><RunStatus run={run} /><span className="flex-1" />{running(run) && <button className={STUDIO_BUTTON} type="button" onClick={() => props.onCancel(run.id)}><Square size={10} />Stop</button>}<button className={STUDIO_BUTTON} type="button" onClick={() => { props.onRestore(run); if (props.expanded) props.onExpand(); }}><RotateCcw size={12} />Use settings</button>{result?.asset && !result.unavailableReason && <button className={STUDIO_BUTTON} type="button" onClick={() => props.onExport(result)}><ArrowDownToLine size={13} />Export</button>}</div>
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      {result ? <div className="generation-preview flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-frame text-on-instrument">{result.unavailableReason ? <p className="p-4 type-sm" role="status">{result.unavailableReason}</p> : <MediaPreview url={result.previewUrl} kind={result.kind} label={result.label} />}</div> : <div className="flex min-h-48 flex-1 flex-col items-center justify-center gap-3 bg-generation-tint p-6 text-center"><Scan size={30} strokeWidth={1.3} className="text-generation-accent" /><strong className="font-code type-metric">{run.mode === "preview" && run.status === "succeeded" ? estimateLabel(run) : statusLabel(run)}</strong><span className="max-w-sm type-sm leading-relaxed text-muted">{running(run) ? "Your model is working. You can leave this page and come back to the result." : run.mode === "preview" ? "Estimate only. No media generated and no paid request submitted." : "No output was produced by this run."}</span></div>}
-      {results.length > 1 && <div className="flex shrink-0 gap-2 border-b border-divider p-3" role="group" aria-label="Output variations">{results.map((item, index) => <button className={`${studioSelection(item.id === result?.id)}`} type="button" key={item.id} aria-pressed={item.id === result?.id} onClick={() => setSelectedId(item.id)}>Variation {index + 1}</button>)}</div>}
-      <div className="flex shrink-0 flex-col gap-3 p-4">
-        {result?.asset && !result.unavailableReason && <SaveGenerationToUnit key={`${run.id}:${result.id}`} workspaceId={props.workspaceId} source={{ canvasId: run.canvasId, runId: run.id, resultId: result.id }} kind={result.kind} label={result.label} onOpenUnit={props.onOpenUnit} />}
-        {references.length > 0 && <section aria-label="Input references" className="flex flex-col gap-2"><strong className="type-xs text-muted">Input references · source media</strong><div className="flex flex-wrap gap-2">{references.map((reference) => <figure className="m-0 flex w-24 flex-col gap-1" key={reference.id}><div className="h-20 overflow-hidden rounded-field bg-field"><MediaPreview url={reference.previewUrl} kind={reference.kind} label={reference.label} /></div><figcaption className="truncate type-xs text-muted">{reference.label}</figcaption></figure>)}</div></section>}
-        {error && <p className="m-0 rounded-field bg-field p-3 type-xs leading-relaxed whitespace-pre-wrap text-ink" role="alert">{error}</p>}
-        <p className="m-0 type-sm leading-relaxed whitespace-pre-wrap text-ink">{draft?.prompt}</p>
-        <div className="flex flex-wrap gap-1.5">{[run.snapshot.nodes.find((node) => node.kind === "model")?.title, draft?.provider, ...Object.entries(draft?.parameters ?? {}).map(([key, value]) => `${generationParameterLabel(key, originalModel)}: ${typeof value === "boolean" ? value ? "On" : "Off" : value}`)].filter(Boolean).map((value, index) => <span className="rounded-chip bg-field px-2 py-1 font-code type-mono-xs text-muted" key={index}>{value}</span>)}</div>
-        {!!compatible.length && result && !result.unavailableReason && <div className="flex flex-wrap gap-2">{compatible.map((spec) => <button className={STUDIO_BUTTON} type="button" key={spec.id} disabled={props.draft.inputs.filter((input) => input.role === spec.id).length >= spec.maxCount} onClick={() => { props.onReference(spec.id, result); if (props.expanded) props.onExpand(); }}><Copy size={12} />Use as {spec.label.toLocaleLowerCase()}</button>)}</div>}
-      </div>
-    </div>
-  </div>;
+  const launch = props.launch?.mode === "execute" && generationTab(props.launch.draft.kind) === generationTab(props.kind) ? props.launch : null;
+  const open = (runId: string, resultId: string | undefined, element: HTMLElement) => { trigger.current = element; setSelection({ runId, resultId }); };
+  const close = () => { setSelection(null); window.requestAnimationFrame(() => { const target = trigger.current?.isConnected ? trigger.current : gallery.current; if (target?.isConnected) target.focus(); }); };
+  const restore = (run: GenerationPreviewProps["run"]) => { props.onRestore(run); document.getElementById("generation-prompt")?.focus(); };
+  return <section ref={gallery} tabIndex={-1} className="generation-results min-w-0" aria-label="Generation results">
+    <div className="generation-gallery"><div className="generation-scroll flex min-h-0 flex-1 flex-col overflow-y-auto">
+      {visibleRuns.length || launch ? <div className="generation-output-grid">
+        {launch && <div className="generation-run-tile" data-status="pending" role="status" aria-label="Starting generation"><LoaderCircle size={22} className="animate-spin motion-reduce:animate-none" /><strong>{launch.mode === "preview" ? "Starting estimate…" : "Starting generation…"}</strong><p>{launch.draft.prompt}</p></div>}
+        {visibleRuns.flatMap((run) => {
+          const outputs = generationOutputs(run), active = running(run), draft = generationDraftFromRun(run);
+          const error = run.error ?? run.nodes.find((node) => node.error)?.error;
+          return [
+            ...(active || !outputs.length ? [<div className="generation-run-tile" data-status={run.status} key={`${run.id}:status`}>
+              <span className="generation-run-state" role="status">{active ? <LoaderCircle size={22} className="animate-spin motion-reduce:animate-none" /> : <Scan size={22} strokeWidth={1.4} />}<strong>{run.mode === "preview" && run.status === "succeeded" ? estimateLabel(run) : generationRunStatus(run)}</strong></span>
+              <p>{draft?.prompt || "Generation"}</p>
+              {error && <p className="generation-run-error">{error}</p>}
+              <span className="flex flex-wrap justify-center gap-2">{active ? <button className={STUDIO_BUTTON} type="button" onClick={() => props.onCancel(run.id)}><Square size={10} />Stop</button> : <button className={STUDIO_BUTTON} type="button" onClick={() => restore(run)}><RotateCcw size={12} />Use settings</button>}<button className={STUDIO_BUTTON} type="button" aria-label={`Open ${draft?.prompt || "generation"}`} onClick={(event) => open(run.id, undefined, event.currentTarget)}>Details</button></span>
+            </div>] : []),
+            ...outputs.map((result) => <button className="generation-output-card" type="button" data-kind={result.kind} key={`${run.id}:${result.id}`} aria-label={`Open ${result.label}`} onClick={(event) => open(run.id, result.id, event.currentTarget)}>
+              <Thumbnail result={result} previewOpen={!!selected} />
+              <span className="generation-output-caption"><strong>{draft?.prompt || result.label}</strong><small>{run.snapshot.nodes.find((node) => node.kind === "model")?.title} · {new Date(run.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</small></span>
+              {run.status === "failed" && <span className="generation-tile-notice">Partial output</span>}
+            </button>),
+          ];
+        })}
+      </div> : <GenerationEmpty kind={props.kind} />}
+      {props.hasOlder && <div className="flex items-center justify-center p-4"><button className={STUDIO_BUTTON} type="button" disabled={props.loadingOlder} onClick={props.onLoadOlder}>{props.loadingOlder ? "Loading older runs…" : "Load older runs"}</button></div>}
+    </div></div>
+    {selected && <GenerationPreview key={`${selected.id}:${selection?.resultId ?? ""}`} {...props} run={selected} resultId={selection?.resultId} onClose={close} />}
+  </section>;
 }

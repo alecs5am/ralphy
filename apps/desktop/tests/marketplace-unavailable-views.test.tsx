@@ -117,7 +117,7 @@ describe("Marketplace unavailable surfaces", () => {
       "Prompt negative-scope contract",
       "Prompt permission and access manifest",
       "Prompt provenance evidence contract",
-      "Marketplace usage-backlink contract",
+      "library usage-backlink contract",
       "Prompt output-shape contract",
     ]) expect(markup).toContain(contract);
     expect(markup).not.toContain("from the current contract");
@@ -264,7 +264,7 @@ describe("Marketplace unavailable surfaces", () => {
     };
     try {
       await act(async () => root.render(<MarketplaceScreenView catalog={null} location={categoryLocation} sidebarVisible snapshot={snapshot()} onBack={back} onNavigate={navigate} onRememberLocation={remember} onRetry={() => undefined} />));
-      expect(host.container.querySelector("input")?.getAttribute("aria-label")).toBe("Search Marketplace");
+      expect(host.container.querySelector("input")?.getAttribute("aria-label")).toBe("Search creative library");
       const inspect = host.container.querySelectorAll("button").find((button) => button.textContent === "Review unavailable Skill details")!;
       const originId = inspect.getAttribute("id")!;
       expect(originId).toBe("marketplace-unavailable-detail-origin-skills");

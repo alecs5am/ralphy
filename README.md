@@ -32,9 +32,9 @@ bun run install:desktop
 bun run start
 ```
 
-`bun run dev` opens the renderer development server with fixture data. For real workspaces, install the Ralphy CLI using the instructions below, or set `RALPHY_BIN` to an absolute path to your development binary. User generation data stays in the root `.ralphy/` directory.
+`bun run start` enters the pinned mise runtime, rebuilds the current-platform Ralphy binary, and passes its absolute path to Electron. This keeps an older global Bun or CLI from leaking into the desktop process. Install the pinned runtime once with `mise install bun@1.4.2`; no per-launch environment setup is required.
 
-To keep an older global Bun unchanged, use `mise install bun@1.4.2` and prefix these commands with `mise exec bun@1.4.2 --`. Before starting the desktop, run `bun run build:bin:current` through that runtime and set `RALPHY_BIN` to the absolute `dist/binaries/ralphy-<platform>-<arch>` path. Desktop subprocesses use a restricted PATH and do not inherit mise's runtime selection.
+`bun run dev` runs Electron against the Vite development server with hot reload. It uses the normal desktop profile, so saved API keys and the existing Codex/Claude Code installations and sessions remain available. Use `bun run dev:renderer` for the browser-only fixture mode.
 
 ```bash
 bun run check:desktop   # types, tests, build, architecture and styles

@@ -32,9 +32,6 @@ interface WorkspaceProjectsScreenProps {
   onToggleProjectPin(projectId: string): void;
 }
 
-/* One metric tile. `metric` stays as the class the shared metrics band selects. */
-const METRIC = "metric flex min-h-16 min-w-0 items-center gap-3 rounded-cell bg-surface px-4 py-3";
-
 /* The collage is a flush mosaic, so its tiles give up the radius MediaCardPreview's shared base
    carries and the extension badge that labels an empty frame. Both are stated from the collage
    rather than on the tile: the tile is another area's component, and appending `rounded-none` to
@@ -182,10 +179,6 @@ export function WorkspaceProjectsScreen({
     );
   }, [pinnedProjectIds, projects, query]);
 
-  const spend = projects.reduce((total, project) => total + (project.spendUsd ?? 0), 0);
-  const spendCount = projects.filter((project) => project.spendUsd !== null).length;
-  const finals = projects.reduce((total, project) => total + project.finalCount, 0);
-
   return (
     <InstrumentScreenRoot descriptor={workspaceProjectsInstrumentStates} state={projects.length === 0 ? "empty" : "ready"}>
     <main className="main-region workspace-projects-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 type-base text-ink">
@@ -193,14 +186,9 @@ export function WorkspaceProjectsScreen({
         <label className="page-header-search flex h-8 min-w-0 items-center gap-2 rounded-full bg-card px-3 text-muted focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-ink"><Search size={14} className="shrink-0" aria-hidden="true" /><input className="min-w-0 flex-1 bg-transparent type-xs text-ink outline-none" ref={searchRef} type="search" value={query} placeholder="Filter projects" aria-label="Filter projects" onChange={(event) => setQuery(event.target.value)} /><Keycap tokens={["⌘", "F"]} /></label>
       </PageHeader>
 
-      <section className="metrics-band m-0 grid w-full max-w-none grid-cols-(--metrics-band-columns) gap-px overflow-hidden rounded-panel bg-divider p-0" aria-label="Workspace project summary">
-        <div className={METRIC}><span className="metric-icon grid size-6 shrink-0 place-items-center self-center rounded-field bg-surface-sunken text-muted"><FolderOpen size={15} aria-hidden="true" /></span><span className="metric-value truncate font-code type-metric font-semibold leading-none text-ink">{projects.length}</span><span className="metric-label type-sm text-muted">Projects</span></div>
-        <div className={METRIC}><span className="metric-value truncate font-code type-metric font-semibold leading-none text-ink">{finals}</span><span className="metric-label type-sm text-muted">Final renders</span></div>
-        <div className={METRIC}><span className="metric-value truncate font-code type-metric font-semibold leading-none text-ink">{spendCount === 0 ? "—" : `$${spend.toFixed(2)}`}</span><span className="metric-label type-sm text-muted">Indexed spend</span></div>
-      </section>
-
       <section className="content-section workspace-projects m-0 w-full min-w-0 max-w-none bg-transparent p-0" aria-label="Projects">
-        <div className="section-heading mb-3 flex h-8 items-center justify-between"><h3 className="type-lg font-semibold text-ink">All projects</h3><span className="type-sm text-muted">{ordered.length}{query ? " matching" : " total"}</span></div>
+        <h2 className="sr-only">All projects</h2>
+        {query && <p className="my-2 type-xs text-muted" role="status">{ordered.length} matching projects</p>}
         {ordered.length === 0 ? (
           <div className={EMPTY_SECTION}>{query ? "No projects match this filter." : "No projects in this workspace."}</div>
         ) : (
@@ -213,4 +201,3 @@ export function WorkspaceProjectsScreen({
     </InstrumentScreenRoot>
   );
 }
-

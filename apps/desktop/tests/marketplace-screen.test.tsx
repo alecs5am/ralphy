@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import { MarketplaceBrowse, MarketplaceDiscover, MarketplaceResults, marketplaceItemDomId } from "@/pages/marketplace";
-import { MarketplaceHeader } from "@/pages/marketplace";
+import { MarketplaceHeader, isMarketplaceLocation } from "@/pages/marketplace";
 import { MarketplaceScreenView } from "@/pages/marketplace";
 import type {
   MarketplaceItemPresentation,
@@ -13,7 +13,18 @@ import type {
   MarketplaceLocation,
   MarketplaceQueryState,
 } from "@/pages/marketplace";
-import { createReactHost } from "./react-host";
+import { createReactHost as createBaseReactHost } from "./react-host";
+
+function createReactHost() {
+  const host = createBaseReactHost();
+  const create = document.createElement.bind(document);
+  vi.spyOn(document, "createElement").mockImplementation((name, options) => {
+    const element = create(name, options);
+    if (name === "video" || name === "audio") Object.assign(element, { play: vi.fn(async () => undefined), pause: vi.fn() });
+    return element;
+  });
+  return host;
+}
 
 const defaultQuery: MarketplaceQueryState = {
   text: "",
@@ -34,6 +45,7 @@ const modelPresentation: MarketplaceItemPresentation = {
   category: "models",
   name: "Alpha model",
   summary: "Text generation",
+  tags: ["assistant", "gguf"],
   sourceLabel: "Hugging Face",
   version: { status: "ready", value: "abc123" },
   updatedAt: { status: "ready", value: "2026-08-19T10:00:00.000Z" },
@@ -78,6 +90,7 @@ const templatePresentation: MarketplaceItemPresentation = {
   category: "templates",
   name: "Clean cut",
   summary: "A concise product-reveal structure",
+  tags: [],
   sourceLabel: "Ralphy public library · Live",
   version: { status: "unavailable", reason: "Version is unavailable." },
   updatedAt: { status: "unavailable", reason: "Update date is unavailable." },
@@ -119,7 +132,7 @@ const recipePresentation: MarketplaceItemPresentation = {
         kind: "media",
         storageUrl: "https://ralphy.b-cdn.net/units/voxel-dither/demo.mp4",
         beforeUrl: null,
-        afterUrl: "https://ralphy.b-cdn.net/blocks/voxel-after.png",
+        afterUrl: null,
         posterUrl: "https://ralphy.b-cdn.net/blocks/voxel-poster.png",
       },
     },
@@ -129,11 +142,12 @@ const recipePresentation: MarketplaceItemPresentation = {
 const categories = [
   ["models", "Models", "Model packages from current providers.", { status: "ready", value: 1 }],
   ["templates", "Templates", "Reusable structures for content formats.", { status: "ready", value: 1 }],
-  ["recipes", "Recipes", "Reusable production artifacts and transformations.", { status: "ready", value: 1 }],
+  ["recipes", "Effects", "Reusable production artifacts and transformations.", { status: "ready", value: 1 }],
   ["prompts", "Prompts", "Reusable generation instructions.", { status: "unavailable", reason: "Prompt catalog is unavailable in the current Desktop contract." }],
-  ["components", "Components & Effects", "Reusable visual and audio building blocks.", { status: "unavailable", reason: "Components & Effects catalog is unavailable in the current Desktop contract." }],
-  ["skills", "Skills", "Installable agent capabilities.", { status: "unavailable", reason: "Skills catalog is unavailable in the current Desktop contract." }],
-] satisfies Array<["models" | "templates" | "recipes" | "prompts" | "components" | "skills", string, string, { status: "ready"; value: number } | { status: "unavailable"; reason: string }]>;
+  ["components", "Visuals", "Reusable visual and audio building blocks.", { status: "unavailable", reason: "Visuals catalog is unavailable in the current Desktop contract." }],
+  ["sounds", "Sounds", "Reusable audio from the public library.", { status: "ready", value: 0 }],
+  ["skills", "Skills", "Bundled guides for agent workflows.", { status: "unavailable", reason: "Skills catalog is unavailable in the current Desktop contract." }],
+] satisfies Array<["models" | "templates" | "recipes" | "prompts" | "components" | "sounds" | "skills", string, string, { status: "ready"; value: number } | { status: "unavailable"; reason: string }]>;
 
 function readySnapshot(patch: Partial<Extract<MarketplaceSnapshot, { status: "ready" }>> = {}): Extract<MarketplaceSnapshot, { status: "ready" }> {
   return {
@@ -178,58 +192,73 @@ const resultsLocation: MarketplaceLocation = {
 };
 
 describe("Marketplace browse surfaces", () => {
-  test("renders source-backed Discover sections and omits unsupported merchandising claims", () => {
-    const markup = renderToStaticMarkup(<MarketplaceDiscover snapshot={readySnapshot()} onOpenCategory={() => undefined} onOpenLibrary={() => undefined} />);
+  test("renders source-backed creative previews without category cards or unsupported merchandising", () => {
+    const markup = renderToStaticMarkup(<MarketplaceDiscover snapshot={readySnapshot()} onOpenCategory={() => undefined} onOpenLibrary={() => undefined} onOpenItem={() => undefined} />);
 
-    for (const label of ["Models", "Templates", "Recipes", "Prompts", "Components &amp; Effects", "Skills"]) expect(markup).toContain(label);
-    expect(markup).toContain("1 item");
-    expect(markup).toContain("A little more possibility.");
-    expect(markup.match(/class="marketplace-category-artwork /g)).toHaveLength(6);
-    for (const purpose of ["Local inference", "Starting points", "Artifacts", "Variables", "Effects", "Workflows"]) expect(markup).toContain(purpose);
-    expect(markup).toContain("Prompt catalog is unavailable in the current Desktop contract.");
-    expect(markup).toContain("Continue where you left off");
-    expect(markup).toContain("Llama 3.2");
-    expect(markup).toContain("Registered in Ollama");
+    expect(markup).toContain('aria-label="Creative resources"');
+    expect(markup.match(/data-marketplace-item-key=/g)).toHaveLength(1);
+    expect(markup).not.toContain("marketplace-category-card");
+    expect(markup).not.toContain("Installed models");
+    expect(markup).not.toContain("Llama 3.2");
     expect(markup).not.toContain("Diffusion local");
-    expect(markup).toContain("Recently updated");
-    expect(markup).toContain("Alpha model");
+    expect(markup).not.toContain("Recently updated");
+    expect(markup).not.toContain("Alpha model");
+    expect(markup).toContain("Clean cut");
+    expect(markup).not.toContain("Voxel dither");
     expect(markup).not.toMatch(/rating|trending|recommended for you|downloads|likes/i);
     expect(markup).not.toContain("Useful for your current work");
     expect(markup).not.toContain("Community contributions");
     expect(markup).not.toContain("Not available yet");
   });
 
-  test("orders Recently updated by valid source timestamps before taking six", () => {
-    const dates = [
-      "2026-08-12T10:00:00.000Z", "invalid", "2026-08-20T10:00:00.000Z", "2026-08-14T10:00:00.000Z",
-      "2026-08-19T10:00:00.000Z", "2026-08-18T10:00:00.000Z", "2026-08-17T10:00:00.000Z", "2026-08-16T10:00:00.000Z",
-    ];
-    const items = dates.map((value, index) => ({ ...modelPresentation, key: `model:huggingface:Acme/updated-${index}`, name: `Updated ${index}`, updatedAt: { status: "ready" as const, value } }));
-    const markup = renderToStaticMarkup(<MarketplaceDiscover snapshot={readySnapshot({ items })} onOpenCategory={() => undefined} onOpenLibrary={() => undefined} />);
-
-    for (const name of ["Updated 2", "Updated 4", "Updated 5", "Updated 6", "Updated 7", "Updated 3"]) expect(markup).toContain(name);
-    expect(markup).not.toContain("Updated 0");
-    expect(markup).not.toContain("Updated 1");
-    expect(markup.indexOf("Updated 2")).toBeLessThan(markup.indexOf("Updated 4"));
-    expect(markup.indexOf("Updated 4")).toBeLessThan(markup.indexOf("Updated 5"));
+  test("opens source-backed creative gallery cards", async () => {
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const open = vi.fn();
+    try {
+      await act(async () => root.render(<MarketplaceDiscover snapshot={readySnapshot()} onOpenCategory={vi.fn()} onOpenLibrary={vi.fn()} onOpenItem={open} />));
+      const resource = host.container.querySelector(".marketplace-creative-card")!;
+      expect(resource.querySelector("img")?.getAttribute("src")).toBe(templatePresentation.template.referenceUrls[1]);
+      await act(async () => resource.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(open).toHaveBeenCalledWith(templatePresentation.key);
+      expect(host.container.querySelectorAll(".marketplace-creative-card")).toHaveLength(1);
+      expect(host.container.querySelector(".marketplace-effect-title")).toBeNull();
+    } finally { await act(async () => root.unmount()); host.restore(); }
   });
 
   test("renders one honest mixed ranking with typed previews and one detail action", () => {
     const markup = renderToStaticMarkup(<MarketplaceResults items={[modelPresentation, templatePresentation, recipePresentation]} query={defaultQuery} onOpenItem={() => undefined} />);
 
-    expect(markup).toContain("Relevance · keyword");
+    expect(markup).toContain('aria-label="Creative resources"');
     expect(markup).toContain("Models");
     expect(markup).toContain("Templates");
-    expect(markup).toContain("Recipes");
+    expect(markup).toContain("Effects");
     expect(markup).toContain("https://huggingface.co/Acme/alpha/resolve/main/preview.png");
     expect(markup).toContain("https://ralphy.b-cdn.net/blocks/template/clean-cut.png");
-    expect(markup).toContain('<video src="https://ralphy.b-cdn.net/units/voxel-dither/demo.mp4"');
+    expect(markup).toContain('src="https://ralphy.b-cdn.net/units/voxel-dither/demo.mp4"');
     expect(markup).toContain('preload="metadata"');
-    expect(markup).toContain('controlsList="nodownload"');
+    expect(markup).toContain('loop=""');
     expect(markup).toContain('muted=""');
     expect(markup).not.toContain("autoplay");
-    expect(markup.match(/View details/g)).toHaveLength(3);
+    expect(markup.match(/data-marketplace-item-key=/g)).toHaveLength(3);
     expect(markup).not.toMatch(/98,?765|432|downloads|likes|rating|trending/i);
+  });
+
+  test("hides missing previews and reveals the archived origin when returning from details", async () => {
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const open = vi.fn();
+    const archived = { ...templatePresentation, key: "template:missing", name: "Awaiting preview", template: { ...templatePresentation.template, referenceUrls: [], recipe: null } };
+    try {
+      await act(async () => root.render(<MarketplaceResults items={[archived, templatePresentation]} query={defaultQuery} onOpenItem={open} />));
+      expect(host.container.textContent).toContain("1 archived");
+      expect(host.container.textContent).not.toContain(archived.name);
+      await act(async () => root.render(<MarketplaceResults items={[archived, templatePresentation]} query={defaultQuery} originKey={archived.key} onOpenItem={open} />));
+      const row = host.container.querySelector(".marketplace-archived-list button")!;
+      expect(row.textContent).toContain(archived.name);
+      await act(async () => row.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(open).toHaveBeenCalledWith(archived.key);
+    } finally { await act(async () => root.unmount()); host.restore(); }
   });
 
   test("keeps provider sentinels and full revision hashes out of model browse copy", () => {
@@ -244,7 +273,7 @@ describe("Marketplace browse surfaces", () => {
     expect(item.model.revision).toBe(revision);
   });
 
-  test("switches failed public previews to typed text and resets when their URL changes", async () => {
+  test("archives failed previews for review and restores resources when their URL changes", async () => {
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
     try {
@@ -257,8 +286,15 @@ describe("Marketplace browse surfaces", () => {
         templateImage.dispatchEvent(new Event("error"));
         recipeVideo.dispatchEvent(new Event("error"));
       });
-      expect(host.container.textContent).toContain("Template image preview unavailable");
-      expect(host.container.textContent).toContain("Recipe video preview unavailable");
+      expect(host.container.querySelectorAll(".marketplace-creative-card")).toHaveLength(0);
+      expect(host.container.querySelectorAll(".marketplace-effect-title")).toHaveLength(0);
+      expect(host.container.textContent).toContain("2 archived");
+      const archiveToggle = host.container.querySelector("input")!;
+      Object.assign(archiveToggle, { type: "checkbox", checked: true });
+      await act(async () => archiveToggle.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(host.container.textContent.match(/Preview unavailable/g)).toHaveLength(2);
+      expect(host.container.textContent).toContain(templatePresentation.name);
+      expect(host.container.textContent).toContain(recipePresentation.name);
 
       const replacement = {
         ...recipePresentation,
@@ -272,7 +308,7 @@ describe("Marketplace browse surfaces", () => {
       };
       await act(async () => root.render(<MarketplaceResults items={[replacement]} query={defaultQuery} onOpenItem={() => undefined} />));
       expect(host.container.querySelector("img")?.getAttribute("src")).toBe("https://ralphy.b-cdn.net/units/voxel-dither/replacement.png");
-      expect(host.container.textContent).not.toContain("Recipe video preview unavailable");
+      expect(host.container.textContent).not.toContain("Preview unavailable");
     } finally {
       await act(async () => root.unmount());
       host.restore();
@@ -288,7 +324,8 @@ describe("Marketplace browse surfaces", () => {
 
     expect(markup).toContain("Civitai is unavailable");
     expect(markup).toContain("rate limited");
-    expect(markup).toContain("Results from healthy sources are still shown");
+    expect(markup).toContain("Some sources are unavailable");
+    expect(markup).not.toContain('open=""');
     expect(markup).toContain("Retry sources");
     expect(markup).toContain("Alpha model");
   });
@@ -307,7 +344,7 @@ describe("Marketplace browse surfaces", () => {
 
   test("renders loading, retained refresh, cached, no-results, first-use, and total failure states", () => {
     const loading = renderToStaticMarkup(<MarketplaceBrowse route={{ kind: "discover" }} snapshot={{ status: "loading", query: defaultQuery }} onOpenItem={() => undefined} onOpenCategory={() => undefined} onOpenLibrary={() => undefined} onRetry={() => undefined} onClearQuery={() => undefined} onClearFilters={() => undefined} />);
-    expect(loading).toContain("Loading Marketplace");
+    expect(loading).toContain("Loading creative library");
     expect(loading).toContain("aria-busy=\"true\"");
 
     const refreshing = renderToStaticMarkup(<MarketplaceBrowse route={{ kind: "results" }} snapshot={readySnapshot({ refreshing: true })} onOpenItem={() => undefined} onOpenCategory={() => undefined} onOpenLibrary={() => undefined} onRetry={() => undefined} onClearQuery={() => undefined} onClearFilters={() => undefined} />);
@@ -326,11 +363,11 @@ describe("Marketplace browse surfaces", () => {
     expect(noResults).toContain("Clear query");
 
     const firstUse = renderToStaticMarkup(<MarketplaceBrowse route={{ kind: "discover" }} snapshot={readySnapshot({ items: [], machine: { ...readySnapshot().machine!, installed: [] }, categories: readySnapshot().categories.map((category) => category.count.status === "ready" ? { ...category, count: { status: "ready", value: 0 } } : category) })} onOpenItem={() => undefined} onOpenCategory={() => undefined} onOpenLibrary={() => undefined} onRetry={() => undefined} onClearQuery={() => undefined} onClearFilters={() => undefined} />);
-    expect(firstUse).toContain("No items have been returned by the current sources yet");
+    expect(firstUse).toContain("No templates match this view");
     expect(firstUse).not.toContain("Continue where you left off");
 
-    const failure = renderToStaticMarkup(<MarketplaceBrowse route={{ kind: "results" }} snapshot={{ status: "error", error: "Marketplace sources are unavailable", sourceErrors: [{ source: "ralphy-public", scope: "public-library", message: "offline" }, { source: "models", scope: "model-catalog", message: "offline" }], sourceHealth: { publicLibrary: "unavailable", models: "unavailable" }, query: defaultQuery }} onOpenItem={() => undefined} onOpenCategory={() => undefined} onOpenLibrary={() => undefined} onRetry={() => undefined} onClearQuery={() => undefined} onClearFilters={() => undefined} />);
-    expect(failure).toContain("Marketplace sources are unavailable");
+    const failure = renderToStaticMarkup(<MarketplaceBrowse route={{ kind: "results" }} snapshot={{ status: "error", error: "Creative library sources are unavailable", sourceErrors: [{ source: "ralphy-public", scope: "public-library", message: "offline" }, { source: "models", scope: "model-catalog", message: "offline" }], sourceHealth: { publicLibrary: "unavailable", models: "unavailable" }, query: defaultQuery }} onOpenItem={() => undefined} onOpenCategory={() => undefined} onOpenLibrary={() => undefined} onRetry={() => undefined} onClearQuery={() => undefined} onClearFilters={() => undefined} />);
+    expect(failure).toContain("Creative library sources are unavailable");
     expect(failure).toContain("Last known source metadata is unavailable");
     expect(failure).toContain("Retry sources");
     expect(failure).not.toContain("Results from healthy sources are still shown");
@@ -460,17 +497,17 @@ describe("Marketplace browse surfaces", () => {
 });
 
 describe("Marketplace header and navigation composition", () => {
-  test("keeps the narrow category trigger aligned with detail route identity", async () => {
+  test("keeps category navigation and More aligned with detail route identity", async () => {
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
     const routes = [
       [{ kind: "detail", itemId: modelPresentation.key }, "Models"],
       [{ kind: "detail", itemId: templatePresentation.key }, "Templates"],
-      [{ kind: "detail", itemId: recipePresentation.key }, "Recipes"],
+      [{ kind: "detail", itemId: recipePresentation.key }, "Effects"],
       [{ kind: "unavailable-detail", category: "prompts" }, "Prompts"],
-      [{ kind: "unavailable-detail", category: "components" }, "Components & Effects"],
+      [{ kind: "unavailable-detail", category: "components" }, "Visuals"],
       [{ kind: "unavailable-detail", category: "skills" }, "Skills"],
-      [{ kind: "collection" }, "All categories"],
+      [{ kind: "collection" }, "More"],
     ] satisfies Array<[MarketplaceLocation["route"], string]>;
     try {
       for (const [route, label] of routes) {
@@ -483,7 +520,10 @@ describe("Marketplace header and navigation composition", () => {
           selectedItemId: route.kind === "detail" ? route.itemId : null,
         };
         await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={false} snapshot={readySnapshot()} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
-        expect(host.container.querySelector(".marketplace-header-category-menu .select-menu-value")?.textContent).toBe(label);
+        const moreCategory = label === "Models" || label === "Skills";
+        expect(host.container.querySelector(".marketplace-category-select .select-menu-value")?.textContent).toBe(moreCategory ? label : "More");
+        const currentCategory = host.container.querySelectorAll("button").find((button) => button.getAttribute("aria-current") === "page");
+        expect(currentCategory?.getAttribute("aria-label") ?? null).toBe(moreCategory || label === "More" ? null : label);
       }
     } finally {
       await act(async () => root.unmount());
@@ -491,7 +531,24 @@ describe("Marketplace header and navigation composition", () => {
     }
   });
 
-  test("keeps search, filters, sort, and active chips visible", () => {
+  test("returns from detail by clicking the current category or Templates", async () => {
+    const navigate = vi.fn();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const location: MarketplaceLocation = { ...resultsLocation, route: { kind: "detail", itemId: recipePresentation.key }, selectedItemId: recipePresentation.key, query: defaultQuery };
+    try {
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible snapshot={readySnapshot()} onBack={vi.fn()} onNavigate={navigate} onRememberLocation={vi.fn()} onRetry={vi.fn()} />));
+      const effects = host.container.querySelectorAll("button").find((button) => button.getAttribute("aria-current") === "page")!;
+      expect(effects.getAttribute("aria-label")).toBe("Effects");
+      await act(async () => effects.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(navigate).toHaveBeenLastCalledWith(expect.objectContaining({ route: { kind: "category", category: "recipes" }, selectedItemId: null }));
+      const templates = host.container.querySelectorAll("button").find((button) => button.getAttribute("aria-label") === "Templates")!;
+      await act(async () => templates.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(navigate).toHaveBeenLastCalledWith(expect.objectContaining({ route: { kind: "category", category: "templates" }, selectedItemId: null }));
+    } finally { await act(async () => root.unmount()); host.restore(); }
+  });
+
+  test("keeps one category selector and active chips while advanced filters start collapsed", () => {
     const query = {
       ...defaultQuery,
       text: "alpha",
@@ -500,8 +557,16 @@ describe("Marketplace header and navigation composition", () => {
     };
     const markup = renderToStaticMarkup(<MarketplaceHeader title="Search results" query={query} selectedCategory={null} sidebarVisible={true} refreshing={false} workspaces={[{ id: "ws_a", name: "UX Testing Lab" }]} selectedWorkspaceId="ws_a" onSelectWorkspace={() => undefined} onQueryChange={() => undefined} onSearch={() => undefined} onOpenCategory={() => undefined} />);
 
-    expect(markup).toContain("Search Marketplace");
-    expect(markup).toContain("Category");
+    expect(markup).toContain("Search creative library");
+    expect(markup.match(/aria-label="Library category"/g)).toHaveLength(1);
+    expect(markup.match(/aria-label="More library categories"/g)).toHaveLength(1);
+    expect([...markup.matchAll(/<button type="button" aria-label="([^"]+)" title=/g)].map((match) => match[1])).toEqual(["Templates", "Visuals", "Effects", "Sounds", "Prompts"]);
+    expect(markup).not.toContain('aria-label="All"');
+    expect(markup).not.toContain('role="radiogroup"');
+    expect(markup).not.toContain('aria-label="Category"');
+    expect(markup).toContain('aria-expanded="false"');
+    expect(markup).toContain('hidden=""');
+    expect(markup).toContain("Filters (2)");
     expect(markup).toContain("Source");
     expect(markup).toContain("License");
     expect(markup).toContain("Compatibility");
@@ -518,6 +583,24 @@ describe("Marketplace header and navigation composition", () => {
     expect(markup).toContain("Format");
     expect(markup).toContain("All modalities");
     expect(markup).toContain("All formats");
+    const templates = renderToStaticMarkup(<MarketplaceHeader title="Templates" query={{ ...defaultQuery, filters: { ...defaultQuery.filters, category: "templates" } }} selectedCategory="templates" sidebarVisible={false} refreshing={false} workspaces={[]} selectedWorkspaceId={null} onSelectWorkspace={vi.fn()} onQueryChange={vi.fn()} onSearch={vi.fn()} onOpenCategory={vi.fn()} />);
+    expect(templates).not.toMatch(/aria-label="(?:License|Compatibility|Modality|Format|Source)"/);
+  });
+
+  test("clears an exact tag without leaving an invalid persisted filter", async () => {
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const change = vi.fn();
+    const query = { ...defaultQuery, filters: { ...defaultQuery.filters, tag: "ffmpeg" } };
+    try {
+      await act(async () => root.render(<MarketplaceHeader title="Search results" query={query} selectedCategory="all" sidebarVisible refreshing={false} workspaces={[]} selectedWorkspaceId={null} onSelectWorkspace={vi.fn()} onQueryChange={change} onSearch={vi.fn()} onOpenCategory={vi.fn()} />));
+      const clear = host.container.querySelectorAll("button").find((button) => button.getAttribute("aria-label") === "Remove filter: #ffmpeg")!;
+      await act(async () => clear.dispatchEvent(new Event("click", { bubbles: true })));
+      const cleared = change.mock.calls[0]![0] as MarketplaceQueryState;
+      expect(cleared).toEqual(defaultQuery);
+      expect(Object.hasOwn(cleared.filters, "tag")).toBe(false);
+      expect(isMarketplaceLocation({ ...resultsLocation, query: cleared })).toBe(true);
+    } finally { await act(async () => root.unmount()); host.restore(); }
   });
 
   test("records the result origin before navigating to a full detail route", async () => {
@@ -550,16 +633,16 @@ describe("Marketplace header and navigation composition", () => {
     const location: MarketplaceLocation = {
       ...resultsLocation,
       route: { kind: "discover" },
-      query: { ...defaultQuery, filters: { ...defaultQuery.filters, modality: "text", format: "gguf" } },
+      query: { ...defaultQuery, sort: "updated", filters: { ...defaultQuery.filters, source: "huggingface", license: "declared", compatibility: "compatible", modality: "text", format: "gguf" } },
     };
     try {
       await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot()} onBack={() => undefined} onNavigate={navigate} onRememberLocation={() => undefined} onRetry={() => undefined} />));
-      const templates = [...host.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Templates"))!;
+      const templates = host.container.querySelectorAll("button").find((button) => button.getAttribute("aria-label") === "Templates")!;
       await act(async () => templates.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
       expect(navigate).toHaveBeenCalledWith({
         ...location,
         route: { kind: "category", category: "templates" },
-        query: { ...location.query, filters: { ...location.query.filters, category: "templates", modality: "all", format: "all" } },
+        query: { ...defaultQuery, filters: { ...defaultQuery.filters, category: "templates" } },
         selectedItemId: null,
         scrollTop: 0,
         focusId: "marketplace-heading",
@@ -570,17 +653,36 @@ describe("Marketplace header and navigation composition", () => {
     }
   });
 
-  test("opens the real Ollama inventory through the installed My Library route", async () => {
+  test("restores focus to the creative resource when returning to Discover", async () => {
+    vi.useFakeTimers();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const focusId = marketplaceItemDomId(templatePresentation.key);
+    try {
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={{ ...resultsLocation, route: { kind: "discover" }, focusId }} sidebarVisible={false} snapshot={readySnapshot()} onBack={vi.fn()} onNavigate={vi.fn()} onRememberLocation={vi.fn()} onRetry={vi.fn()} onInstallAction={vi.fn()} />));
+      await act(async () => { await vi.runAllTimersAsync(); });
+      expect(document.activeElement?.getAttribute("id")).toBe(focusId);
+    } finally { await act(async () => root.unmount()); host.restore(); vi.useRealTimers(); }
+  });
+
+  test("keeps the real Ollama inventory accessible on the installed My Library route", async () => {
     const navigate = vi.fn();
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
-    const location: MarketplaceLocation = { ...resultsLocation, route: { kind: "discover" } };
+    const modelsLocation: MarketplaceLocation = { ...resultsLocation, route: { kind: "category", category: "models" }, query: { ...defaultQuery, filters: { ...defaultQuery.filters, category: "models" } } };
     try {
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot()} onBack={() => undefined} onNavigate={navigate} onRememberLocation={() => undefined} onRetry={() => undefined} />));
-      const installed = [...host.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Llama 3.2"));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={modelsLocation} sidebarVisible={true} snapshot={readySnapshot()} onBack={vi.fn()} onNavigate={navigate} onRememberLocation={vi.fn()} onRetry={vi.fn()} />));
+      const installed = host.container.querySelectorAll("button").find((button) => button.textContent === "Installed models")!;
       expect(installed).not.toBeUndefined();
-      await act(async () => installed!.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
-      expect(navigate).toHaveBeenCalledWith({ ...location, route: { kind: "library", section: "installed" }, selectedItemId: null, scrollTop: 0, focusId: "marketplace-heading" });
+      await act(async () => installed.dispatchEvent(new Event("click", { bubbles: true })));
+      const location = navigate.mock.calls[0]![0] as MarketplaceLocation;
+      expect(location.route).toEqual({ kind: "library", section: "installed" });
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot()} onBack={() => undefined} onNavigate={navigate} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      expect(host.container.textContent).toContain("Installed on this Mac");
+      expect(host.container.textContent).toContain("Llama 3.2");
+      expect(host.container.textContent).toContain("Registered in Ollama");
+      expect(host.container.textContent).not.toContain("Diffusion local");
+      expect(navigate).toHaveBeenCalledTimes(1);
     } finally {
       await act(async () => root.unmount());
       host.restore();

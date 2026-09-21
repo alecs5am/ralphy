@@ -59,6 +59,9 @@ test("catalog exposes provider-specific audio choices and inputs without claimin
   expect(() => validateGenerationDraft({ ...draft(), kind: "video", modelId: seedance.id, provider: seedance.provider, parameters: {}, inputs: [{ role: "refVideos", asset: { path: "/local/video.mp4", name: "Video", kind: "video" } }] }, seedance, "preview")).toThrow(/does not accept/);
   expect(catalog.models.find((model) => model.kind === "sfx")!.previewSupported).toBe(false);
   const model = catalog.models[0]!;
+  expect(model.fields.find((field) => field.id === "aspectRatio")?.default).toBe("9:16");
+  expect(seedance.fields.find((field) => field.id === "aspectRatio")?.default).toBe("9:16");
+  expect(kling.fields.find((field) => field.id === "aspectRatio")?.default).toBe("9:16");
   const v3 = catalog.models.find((item) => item.id === "eleven_v3")!;
   expect(v3.fields.map((field) => field.id)).toEqual(["voice", "stability"]);
   expect(() => validateGenerationDraft({ ...draft(), kind: "voiceover", modelId: v3.id, provider: v3.provider, parameters: { voice: "test", stability: 0.55 } }, v3, "execute")).toThrow(/valid delivery/);

@@ -686,7 +686,7 @@ describe("documents workbench", () => {
         { workspaceId: "workspace-1", projectId: "project-1" }, "c++ -draft NOT",
       );
 
-      await click(textButton(host.container, "Units"));
+      await click(textButton(host.container, "Media"));
       await click(textButton(host.container, "Documents"));
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 280)); });
       expect(api.searchProjectDocuments).toHaveBeenCalledOnce();

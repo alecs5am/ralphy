@@ -181,6 +181,7 @@ const APP_GENERATION_PROVIDERS = new Set(["openrouter", "elevenlabs", "fal"]);
 let appCredentialProviders: readonly string[] | undefined;
 let currentResolver: CredentialResolver | null = null;
 const currentValues = new Map<string, string>();
+const currentErrors = new Map<string, DomainError>();
 let testCredentialSource:
   | ((providerId: string, environmentVariable: string | null) => string | null)
   | null = null;
@@ -359,6 +360,7 @@ export function createCredentialResolver(input: {
       const ref = credentialSecretRef(providerId, scopeFor(target));
       await secretStore.set(ref, value, accountUpdate(providerId, target, ref));
       if (currentResolver === resolver && !target?.accountId) {
+        currentErrors.delete(providerId);
         currentValues.set(providerId, value);
       }
     },
@@ -370,6 +372,7 @@ export function createCredentialResolver(input: {
         accountUpdate(providerId, target, null),
       );
       if (currentResolver === resolver && !target?.accountId) {
+        currentErrors.delete(providerId);
         currentValues.delete(providerId);
       }
     },
@@ -440,9 +443,17 @@ export async function activateCredentialResolver(
 ): Promise<void> {
   currentResolver = resolver;
   currentValues.clear();
+  currentErrors.clear();
   for (const providerId of providerIds) {
-    const resolved = await resolver.resolve(providerId);
-    if (resolved.value !== null) currentValues.set(providerId, resolved.value);
+    try {
+      const resolved = await resolver.resolve(providerId);
+      if (resolved.value !== null) currentValues.set(providerId, resolved.value);
+    } catch (error) {
+      // An unrelated locked store must not block app-owned connections or library reads.
+      // Keep the failure for this provider so selecting it cannot use an ambient fallback.
+      if (!(error instanceof DomainError) || error.code !== "E_SECRET_STORE") throw error;
+      currentErrors.set(providerId, error);
+    }
   }
 }
 
@@ -454,9 +465,12 @@ export function activeCredentialResolver(): CredentialResolver | null {
 export function clearActiveCredentialResolver(): void {
   currentResolver = null;
   currentValues.clear();
+  currentErrors.clear();
 }
 
 export function credentialValue(providerId: string): string | null {
+  const error = currentErrors.get(providerId);
+  if (error) throw error;
   const active = currentValues.get(providerId);
   if (active !== undefined) return active;
   const captured = startupCredentials?.get(providerId);

@@ -38,6 +38,15 @@
   --agent-model-menu-fit: calc(var(--instrument-right-rail-width) - 40px);
 }
 
+/* A chat turn keeps document rendering without document-sized headings or paragraph air. */
+.markdown-chat {
+  --document-heading-space: var(--space-2);
+  --document-heading-space-close: var(--space-1);
+  --document-paragraph-space: var(--space-2);
+  --document-list-paragraph-space: var(--space-1);
+  --document-block-space: var(--space-2);
+}
+
 @theme inline {
   /* The chat's third ink step. `muted` is the body ink and `muted-decorative` the meta one; this
      is the step between them, which the design gives to a secondary label, a tool glyph and a

@@ -31,7 +31,11 @@ describe("window state", () => {
     const main = readFileSync("electron/main.ts", "utf8");
     const shell = readFileSync("src/app/layout/InstrumentShell.tsx", "utf8");
     expect(main).toMatch(/titleBarStyle:\s*"hiddenInset"/);
-    expect(main).toMatch(/trafficLightPosition:\s*\{\s*x:\s*22,\s*y:\s*16\s*\}/);
+    const position = main.match(/trafficLightPosition:\s*\{\s*x:\s*(\d+),\s*y:\s*(\d+)\s*\}/);
+    expect(position).not.toBeNull();
+    // Native frames are 16px tall; their center shares the 32px row inside the 4px shell inset.
+    expect(Number(position?.[1])).toBe(4 + 2 + 12);
+    expect(Number(position?.[2]) + 8).toBe(4 + 32 / 2);
     expect(main).not.toMatch(/\bvibrancy\s*:/);
     expect(main).not.toMatch(/\bvisualEffectState\s*:/);
     expect(main).not.toMatch(/backgroundColor:\s*"transparent"/);

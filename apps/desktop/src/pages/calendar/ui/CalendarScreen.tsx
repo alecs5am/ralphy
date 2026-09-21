@@ -161,7 +161,7 @@ export function CalendarScreen({
         <button type="button" className={PAGE_HEADER_PRIMARY} aria-label="Schedule content" title="Schedule content" onClick={() => openSchedule()}><Plus size={14} /><span className="page-header-action-label">Schedule content</span></button>
       </PageHeader>
 
-      <div className="calendar-subbar m-0 flex min-h-10 w-full min-w-0 flex-none flex-wrap items-center gap-2 rounded-panel bg-surface px-3 py-2 type-xs text-muted">
+      <div className="calendar-subbar m-0 flex min-h-8 w-full min-w-0 flex-none flex-wrap items-center gap-2 rounded-panel bg-surface px-2 py-1 type-xs text-muted">
         <span className={`calendar-timezone ${CHIP}`}><Globe2 className={`${ICON_MD} text-muted`} />{timezoneLabel(timezone)} · {timezone}</span>
         {filters.projectIds.map((id) => <FilterChip key={id} label="Project" value={data?.projects.find((project) => project.id === id)?.name ?? id} onRemove={() => setFilters({ ...filters, projectIds: filters.projectIds.filter((value) => value !== id) })} />)}
         {filters.platforms.map((platform) => <FilterChip key={platform} label="Platform" value={capitalize(platform)} onRemove={() => setFilters({ ...filters, platforms: filters.platforms.filter((value) => value !== platform) })} />)}

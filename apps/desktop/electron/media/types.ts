@@ -67,6 +67,8 @@ export type ProjectMediaQuery = {
   filter: ProjectMediaFilter;
   mediaKind?: ProjectMediaKind;
   provenance?: MediaProvenance;
+  search?: string;
+  sort?: "oldest" | "newest" | "name" | "size" | "selected";
 };
 export type ProjectMediaAction = "open" | "finder" | "copy";
 export type SharedLibraryQuery = import("../ralphy/shared-library-reader").SharedLibraryQuery;
@@ -236,7 +238,7 @@ export interface ClaudeAuthState {
 
 export type AgentChatEvent =
   | { type: "session"; sessionId: string; tools: string[] }
-  | { type: "text-delta"; text: string }
+  | { type: "text-delta"; text: string; messageId?: string }
   | { type: "tool-start"; id: string; name: string; summary: string }
   | { type: "tool-result"; id: string; ok: boolean }
   /* What the last turn actually carried, as the provider reported it. The Context page's whole
@@ -396,7 +398,7 @@ export interface LocalModelCatalog {
   errors: { provider: LocalModelProvider; message: string }[];
 }
 
-export type MarketplacePublicCategory = "template" | "recipe";
+export type MarketplacePublicCategory = "template" | "recipe" | "asset";
 export type MarketplaceRecipeKind = "ffmpeg" | "encode" | "overlay" | "bake" | "hyperframes" | "prompt";
 export type MarketplaceJsonValue =
   | null
@@ -427,6 +429,8 @@ export interface MarketplacePublicItemDto {
   summary: string;
   referenceUrls: string[];
   recipe: MarketplaceRecipeDto | null;
+  /** Declared source tags and typed facets; absent in older cached catalogs. */
+  tags?: string[];
 }
 
 export interface MarketplacePublicSnapshotDto {
@@ -650,6 +654,7 @@ summariseAgentTitle(request: AgentChatRequest): Promise<string | null>;
 /** Everything a chat of this provider carries before it reads a message, in five layers. */
 loadAgentContext(input: {
   provider: AgentProvider;
+  permissionMode?: AgentPermissionMode;
   workspaceId?: string | null;
   project?: ProjectReference | null;
 }): Promise<import("../agent/context-page").ContextPageDto>;

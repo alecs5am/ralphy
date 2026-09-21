@@ -144,9 +144,15 @@ describe("units workbench", () => {
       await click(host.container.findAll((node) => node.getAttribute("aria-label") === "View revision 3")[0]!);
       expect(host.container.querySelector(".unit-source-preview")).toBeNull();
 
-      expect(host.container.querySelector(".iphone-mockup")).not.toBeNull();
-      await click(button(host.container, "Device mockup"));
       expect(host.container.querySelector(".iphone-mockup")).toBeNull();
+      expect(host.container.querySelector(".unit-viewer-meta")).toBeNull();
+      const pageCalls = api.loadProjectUnitPage.mock.calls.length;
+      await click(host.container.findAll((node) => node.getAttribute("aria-label") === "Grid view")[0]!);
+      expect(host.container.querySelector(".unit-viewer-main")).toBeNull();
+      expect(host.container.querySelector(".unit-revision-browser")?.getAttribute("class")).toContain("is-grid");
+      await click(host.container.findAll((node) => node.getAttribute("aria-label") === "Gallery view")[0]!);
+      expect(api.loadProjectUnitPage.mock.calls.length).toBe(pageCalls);
+      expect(api.selectProjectUnitRevision).not.toHaveBeenCalled();
       expect(host.container.querySelector(".unit-clean-preview")).not.toBeNull();
       expect(host.container.querySelector(".unit-preview-mode")).toBeNull();
       await controller.inspectUnitRevision("revision-1-3");
@@ -177,7 +183,7 @@ describe("units workbench", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject controller={controller} memory={new Map()} targetUnitId="unit-1" />); });
-      await vi.waitFor(() => expect(document.body.querySelectorAll(".unit-stage-slides img")).toHaveLength(1));
+      await vi.waitFor(() => expect(document.body.querySelectorAll(".unit-clean-preview img")).toHaveLength(1));
       expect(document.body.querySelector(".unit-stage-slide-count")).toBeNull();
     } finally {
       await act(async () => { root.unmount(); });
@@ -238,17 +244,19 @@ describe("units workbench", () => {
       await vi.waitFor(() => expect(controller.getSnapshot().unitId).toBe("unit-1"));
       await vi.waitFor(() => expect(document.body.querySelector(".unit-viewer")).not.toBeNull());
       const viewer = document.body.querySelector(".unit-viewer")! as unknown as HostNode;
+      expect(viewer.querySelector(".iphone-mockup")).toBeNull();
+      expect(viewer.querySelector(".unit-viewer-meta")).toBeNull();
+      await click(button(viewer, "Device mockup"));
       expect(viewer.findAll((node) => node.getAttribute("aria-label") === "iPhone preview")[0]).toBeDefined();
-      expect(viewer.findAll((node) => node.getAttribute("aria-label") === "Unit lifecycle")[0]).toBeDefined();
       expect(viewer.findAll((node) => node.getAttribute("aria-label") === "Preview mode")[0]).toBeDefined();
-      expect(viewer.findAll((node) => node.getAttribute("aria-label") === "Unit revisions")[0]).toBeDefined();
+      expect(viewer.findAll((node) => node.getAttribute("aria-label") === "Unit revisions list")[0]).toBeDefined();
       expect(grid.scrollTop).toBe(280);
       expect(memory).toEqual(new Map([["units-grid", 280]]));
       await vi.waitFor(() => {
         expect(viewer.findAll((node) => node.getAttribute("aria-label") === "Social platform")[0]).toBeDefined();
       });
       const socialTabs = viewer.findAll((node) => node.getAttribute("aria-label") === "Social platform")[0]!;
-      expect((socialTabs.style as unknown as Record<string, number>)["--gooey-count"]).toBe(2);
+      expect(socialTabs.findAll((node) => node.tagName === "BUTTON")).toHaveLength(2);
       await vi.waitFor(() => {
         expect(controller.getSnapshot().unitRevisions.nextCursor).toBeNull();
         expect(controller.getSnapshot().unitRevisions.items.map(({ id }: UnitRevisionDto) => id)).toContain("revision-1-1");
@@ -263,14 +271,10 @@ describe("units workbench", () => {
         expect(controller.getSnapshot().unitPreview.artifactRevisionId).toBe("cover-1");
         expect(viewer.querySelector(".unit-social-media video")).not.toBeNull();
       });
-      const platformTabs = socialTabs.findAll((node) => node.getAttribute("role") === "tab");
-      expect(platformTabs.map((node) => node.textContent)).toEqual(["", ""]);
-      expect(platformTabs.map((node) => node.getAttribute("aria-label"))).toEqual(["TikTok", "Shorts"]);
-      expect(platformTabs.map((node) => node.getAttribute("title"))).toEqual(["TikTok", "Shorts"]);
-      expect(platformTabs.map((node) => node.getAttribute("data-tooltip"))).toEqual(["TikTok", "Shorts"]);
-
+      const platformTabs = socialTabs.findAll((node) => node.tagName === "BUTTON");
+      expect(platformTabs.map((node) => node.textContent)).toEqual(["TikTok", "Shorts"]);
       await click(platformTabs[0]);
-      expect(platformTabs[0].getAttribute("aria-selected")).toBe("true");
+      expect(platformTabs[0].getAttribute("aria-pressed")).toBe("true");
       expect(viewer.findAll((node) => node.getAttribute("aria-label") === "tiktok preview")[0]).toBeDefined();
 
       const video = viewer.querySelector(".unit-social-media video")! as HostNode & {
@@ -287,10 +291,12 @@ describe("units workbench", () => {
       await click(viewer.findAll((node) => node.getAttribute("aria-label") === "Mute preview")[0]);
       expect(video.muted).toBe(true);
       const seek = viewer.findAll((node) => node.getAttribute("aria-label") === "Position in preview")[0];
+      const positionBeforeSeek = video.currentTime;
       const right = new Event("keydown", { bubbles: true, cancelable: true });
       Object.defineProperty(right, "key", { value: "ArrowRight" });
       await act(async () => { seek.dispatchEvent(right); await Promise.resolve(); });
-      expect(video.currentTime).toBeGreaterThan(4);
+      expect(video.currentTime).toBeGreaterThan(positionBeforeSeek);
+      expect(video.currentTime).toBeLessThanOrEqual(video.duration);
 
       await click(viewer.findAll((node) => node.getAttribute("aria-label") === "Close Unit preview")[0]!);
       await vi.waitFor(() => expect(document.body.querySelector(".unit-viewer")).toBeNull());
@@ -414,6 +420,8 @@ describe("units workbench", () => {
       await click(button(host.container, linkedUnit.slug));
       await vi.waitFor(() => expect(document.body.querySelector(".unit-viewer")).not.toBeNull());
       const viewer = document.body.querySelector(".unit-viewer")! as unknown as HostNode;
+      expect(viewer.textContent).not.toContain("Production details");
+      await click(viewer.findAll((node) => node.getAttribute("aria-label") === "Content details")[0]!);
       await vi.waitFor(() => expect(viewer.textContent).toContain("Production details"));
       expect(viewer.textContent).toContain("In progress");
       await click(button(viewer, "Choose this version"));
@@ -443,7 +451,8 @@ describe("units workbench", () => {
     // window, so the 820px breakpoint is a container key now.
     expect(projectTheme).toMatch(/--container-project-viewer:\s*820px/);
     expect(unitViewer).toContain("@container/unit-viewer");
-    expect(unitViewer).toContain("@max-project-viewer/unit-viewer:block");
+    expect(projectTheme).toContain("@container unit-viewer");
+    expect(projectTheme).toContain("--unit-viewer-rail-width: 56px");
     expect(unitViewer).not.toMatch(/@(?:min|max)-\[/);
   });
 
@@ -459,20 +468,19 @@ describe("units workbench", () => {
     // grid: a percentage max-height needs a definite track, and an auto grid row is not one,
     // so the phone grew past the column and the modal clipped it.
     expect(unitViewer).toMatch(/unit-social-stage[^`]*items-center justify-center[^`]*bg-transparent/);
-    // The preview frame keeps the 16/9 ratio from its utility class; the previous fixed
-    // 150px height plus aspect-ratio:auto squashed every unit card to roughly 2.5:1.
-    expect(unitsPanel).toMatch(/unit-card-preview[^"]*aspect-video[^"]*w-full/);
+    // Content cards share the product's vertical social frame.
+    expect(unitsPanel).toMatch(/unit-card-preview[^"]*aspect-content[^"]*w-full/);
     expect(unitsPanel).not.toContain("aspect-auto");
     expect(unitsPanel).not.toMatch(/unit-card[^"]*hover:(?:translate|scale)/);
-    // The stage is bounded beside its metadata, and the long-form form gives the stage the space
-    // instead. The component decides which template applies; it no longer reads its own subtree.
-    expect(projectTheme).toMatch(/--project-viewer-columns:\s*minmax\(330px, 390px\) minmax\(0, 1fr\)/);
-    expect(projectTheme).toMatch(/--project-viewer-longform-columns:\s*minmax\(0, 1\.15fr\) minmax\(420px, \.85fr\)/);
-    expect(unitViewer).toContain('grid-cols-(--project-viewer-longform-columns)" : "grid-cols-(--project-viewer-columns)');
+    // The media owns the available stage; details overlay it only when requested.
+    expect(projectTheme).toContain("--unit-viewer-rail-width: 64px");
+    expect(projectTheme).toContain(".unit-viewer-meta {");
+    expect(projectTheme).toMatch(/\.unit-viewer-meta\s*\{[^}]*position: absolute/);
+    expect(unitViewer).toContain("{detailsOpen && <aside");
+    expect(unitViewer).not.toContain("LifecycleStepper");
     expect(unitsPanel).toMatch(/unit-card-status[^`]*justify-start/);
     expect(unitsPanel).toContain('retry ? "pr-14.5"');
-    expect(unitViewer).toMatch(/unit-stage-toolbar flex[^`]*justify-center/);
-    expect(unitViewer).toContain("[&_.gooey-tabs-blobs]:hidden");
+    expect(unitViewer).toContain('PageHeaderMore label="Preview options"');
     expect(projectTheme).toMatch(/--spacing-iphone:\s*min\(100%, 316px\)/);
     // The device is sized by the height it is given and capped at its own natural size, so it
     // shrinks to fit a short stage and never stretches in a tall one. `max-h-full` cannot do
@@ -482,7 +490,7 @@ describe("units workbench", () => {
     // The transport stops at the same width, so it lines up under the device.
     expect(unitViewer).toMatch(/unit-playback grid w-full max-w-iphone/);
     expect(unitViewer).toMatch(/unit-playback-seek[^"]*cursor-pointer/);
-    expect(unitSocial).toMatch(/unit-social-media relative aspect-video h-auto/);
+    expect(unitSocial).toMatch(/unit-social-media relative aspect-content h-auto/);
   });
 
   test("renders platform-specific chrome for TikTok, Reels, and Shorts", async () => {

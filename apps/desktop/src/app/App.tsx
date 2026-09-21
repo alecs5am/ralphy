@@ -3,11 +3,10 @@ import { useMemo, useState, type CSSProperties } from "react";
 import { LayoutGroup, MotionConfig, motion } from "motion/react";
 import { AgentChatPanel } from "@/widgets/utility-panels";
 import { WelcomeScreen } from "@/widgets/welcome";
-import { useAgentChat } from "@/features/agent-chat";
-import type { CanvasAgentRequest } from "@/features/workflow-canvas";
+import { useAgentChat, type Attachment } from "@/features/agent-chat";
 import { bridge } from "@/shared/api/ipc";
 import { MigrationRecoveryScreen } from "@/pages/migration-recovery";
-import { browserLabel, retargetViewTab, unitViewRequest, ViewBrowser, ViewPanel, ViewPanelHub } from "@/widgets/view-panel";
+import { browserLabel, retargetViewTab, unitViewRequest, ViewBrowser, ViewPanel } from "@/widgets/view-panel";
 import { InstrumentShell } from "./layout/InstrumentShell";
 import { useTheme } from "@/shared/lib/ThemeProvider";
 import { WORKSPACE_PAGE_LABELS } from "@/shared/model/workbench";
@@ -42,12 +41,10 @@ export function App() {
     setError,
     welcomeVisible,
     welcomeExiting,
-    viewport,
     restoreHomeLibrary,
   } = useAppSession(theme);
   const {
     marketplace,
-    dispatchMarketplace,
     switchAppMode,
     navigateMarketplace,
     rememberMarketplace,
@@ -72,9 +69,9 @@ export function App() {
     setRightPanelWidth,
     viewPanel,
     setViewPanel,
-  } = useShellPreferences(initialPreferences.current, { restoring, rootIdentity, state });
+  } = useShellPreferences(initialPreferences.current, { restoring, rootIdentity, state, dispatch });
   const { settingsVisible, setSettingsVisible, settingsEntry, openSettings } = useSettingsDialog();
-  const [canvasRequest, setCanvasRequest] = useState<(CanvasAgentRequest & { id: string; chatId: string | null }) | null>(null);
+  const [canvasRequest, setCanvasRequest] = useState<{ prompt: string; attachment: Attachment; id: string; chatId: string | null } | null>(null);
   const [sidebarSearchRequest, setSidebarSearchRequest] = useState(0);
   const [pageHeaderHost, setPageHeaderHost] = useState<HTMLDivElement | null>(null);
   const catalog = state.catalog;
@@ -103,7 +100,7 @@ export function App() {
     openWorkspacePage,
     navigateFromOverview,
     backToOverview,
-  } = useWorkspaceNavigation({ setWorkspacePage, dispatch, selectedWorkspace, workspaces, setLens });
+  } = useWorkspaceNavigation({ setWorkspacePage, dispatch, selectedWorkspace, workspaces });
   const agentChat = useAgentChat({
     rootPath: rootIdentity?.storeId ?? null,
     workspaceId: selectedWorkspace?.id ?? null,
@@ -127,7 +124,6 @@ export function App() {
     selectedProject,
     workspacePage,
   });
-  const marketplaceSidebarVisible = marketplace.sidebarVisible && viewport.width > 1_280;
   const activeSidebarWidth = sidebarWidth;
   useAppCommands({
     settingsVisible,
@@ -139,11 +135,11 @@ export function App() {
     navigateForward,
     openWorkspace,
     clearOverviewNavigation,
-    setWorkspacePage,
+    setWorkspacePage: (page) => openView({ type: page, label: WORKSPACE_PAGE_LABELS[page] }),
     setSidebarSearchRequest,
-    toggleMarketplaceSidebar: () => dispatchMarketplace({ type: "toggle-sidebar" }),
     setSidebarVisible,
-    setLens,
+    setLens: (next) => next === "chat" ? revealCanvasChat() : setLens(next),
+    toggleAgent: () => { if (lens === "chat" && !viewExpanded) setLens("desk"); else revealCanvasChat(); },
     onNewChat: agentChat.newChat,
     switchAppMode,
   });
@@ -154,6 +150,7 @@ export function App() {
     viewTab,
     viewWidth,
     viewExpanded,
+    agentRequest,
     toggleViewExpanded,
     revealCanvasChat,
     viewChords,
@@ -170,6 +167,8 @@ export function App() {
     setLens,
     mode: marketplace.mode,
     viewChatId,
+    viewChatReady: agentChat.historyReady,
+    viewScopeKey: JSON.stringify([rootIdentity?.storeId, selectedWorkspace?.id]),
     route: state.route,
     projects,
     workspacePage,
@@ -177,10 +176,18 @@ export function App() {
     onOpenWorkspacePage: openWorkspacePage,
     onOpenProject: openProject,
   });
-  const canvasView = !!selectedWorkspace && marketplace.mode === "work" && (viewFrameActive ? viewTab.type === "canvas" : state.route.kind === "workspace" && workspacePage === "canvas");
-  const fillDesk = canvasView || (viewFrameActive && viewTab.type === "unit") || (!!selectedWorkspace && marketplace.mode === "work" && (viewFrameActive ? viewTab.type === "generation" : state.route.kind === "workspace" && workspacePage === "generation"));
-  const activeSidebarVisible = marketplace.mode === "work" ? sidebarVisible && !(canvasView && viewExpanded && (!viewFrameActive || viewPanel.open)) : marketplaceSidebarVisible;
+  const canvasView = !!selectedWorkspace && (viewFrameActive ? viewTab.type === "canvas" : state.route.kind === "workspace" && workspacePage === "canvas");
+  const fillDesk = marketplace.mode === "work" && (
+    canvasView || (viewFrameActive && viewTab.type === "unit")
+    || (viewFrameActive ? viewTab.type === "project" : state.route.kind === "project")
+    || (!!selectedWorkspace && (viewFrameActive ? viewTab.type === "generation" : state.route.kind === "workspace" && workspacePage === "generation"))
+  );
+  const activeSidebarVisible = sidebarVisible;
   const workspacePickerVisible = isWorkspacePickerVisible({ mode: marketplace.mode, sidebarVisible: activeSidebarVisible, workspaceId: selectedWorkspace?.id ?? null });
+  const requestAgentDraft = agentChat.historyReady ? (request: { prompt: string; attachment: Attachment }) => {
+    revealCanvasChat();
+    setCanvasRequest({ ...request, id: crypto.randomUUID(), chatId: viewChatId });
+  } : undefined;
 
   if (migrationRecovery) {
     return (
@@ -221,39 +228,27 @@ export function App() {
     chat={agentChat.activeChat ?? null}
     onRetryLibrary={() => void restoreHomeLibrary()}
     onOpenWorkspace={openWorkspace} onOpenUnitView={(reference, unitId, label, revisionId) => openView(unitViewRequest(reference, unitId, label, revisionId))}
-    onOpenProject={(project, unitId) => viewFrameActive ? openView(unitId ? unitViewRequest(project, unitId, "Unit") : { type: "project", targetId: project.projectId, label: project.name }) : openProject(project, unitId)}
+    onOpenProject={(project, unitId) => viewFrameActive && state.route.kind !== "library" ? openView(unitId ? unitViewRequest(project, unitId, "Unit") : { type: "project", targetId: project.projectId, label: project.name }) : openProject(project, unitId)}
     onOpenWorkspacePage={openWorkspacePage}
     onNavigateFromOverview={navigateFromOverview}
     onToggleProjectPin={(projectId) => dispatch({ type: "toggle-project-pin", projectId })}
     onOpenProviders={() => openSettings("providers")}
-    onRequestVideoAgent={(request) => { revealCanvasChat(); setCanvasRequest({ ...request, id: crypto.randomUUID(), chatId: viewChatId }); }}
+    onRequestVideoAgent={requestAgentDraft}
   />;
 
   if (workspaceDestination && overviewReturnState?.originWorkspaceId === selectedWorkspace?.id && state.route.kind === "workspace" && workspacePage === workspaceDestination.page) {
     workContent = <WorkspaceDestinationFrame destination={workspaceDestination} onBack={backToOverview}>{workContent}</WorkspaceDestinationFrame>;
   }
 
-  if (viewFrameActive && viewTab.type === "home") {
-    workContent = <ViewPanelHub
-      workspace={selectedWorkspace}
-      projects={projects.filter((project) => project.workspaceId === selectedWorkspace?.id)}
-      workspaces={workspaces}
-      chords={viewChords}
-      onOpen={openView}
-      onOpenProject={(project) => openView({ type: "project", targetId: project.projectId, label: project.name })}
-      onOpenWorkspace={(workspaceId) => { switchAppMode("work"); openWorkspace(workspaceId); }}
-    />;
-  }
-
   if (canvasView && selectedWorkspace) {
     workContent = <AppCanvas onOpenUnit={(reference, unitId, label, revisionId) => openView(unitViewRequest(reference, unitId, label, revisionId))} embedded={viewFrameActive} expanded={viewExpanded} onToggleExpanded={toggleViewExpanded} key={`${rootIdentity?.storeId}:${selectedWorkspace.id}`} workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name} storageScope={rootIdentity?.storeId ?? "local"} agentBusy={!!agentChat.state.runningChatId}
       onOpenProviders={() => openSettings("providers")} onOpenAgents={() => openSettings("agents")}
-      onRequestAgent={(request) => { revealCanvasChat(); setCanvasRequest({ ...request, id: crypto.randomUUID(), chatId: viewChatId }); }} />;
+      onRequestAgent={requestAgentDraft} />;
   }
 
   /* The guest is mounted while the tab exists rather than while it is active: the panel hides it
      behind the card, so switching to Units and back keeps the page the operator opened. */
-  const browserTab = viewFrameActive ? tabSet.tabs.find(({ type }) => type === "browser") ?? null : null;
+  const browserTab = tabSet.tabs.find(({ type }) => type === "browser") ?? null;
   const viewBrowser = browserTab && <ViewBrowser
     key={`${viewChatId}:${browserTab.id}`}
     url={browserTab.targetId}
@@ -261,7 +256,7 @@ export function App() {
   />;
 
   const { canGoBack, canGoForward } = historyEdges(marketplace, state);
-  const scrollKey = canvasView ? `canvas:${selectedWorkspace!.id}` : routeScrollKey(marketplace, state, workspacePage);
+  const scrollKey = canvasView && marketplace.mode === "work" ? `canvas:${selectedWorkspace!.id}` : routeScrollKey(marketplace, state, workspacePage);
   return (
     <MotionConfig reducedMotion={reducedMotion}>
       <LayoutGroup id="asset-workbench">
@@ -291,16 +286,15 @@ export function App() {
               chats={sidebarChats}
               onBack={navigateBack}
               onForward={navigateForward}
-              onCollapse={() => {
-                if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
-                else setSidebarVisible(false);
-              }}
+              onCollapse={() => setSidebarVisible(false)}
               onOpenSettings={openSettings}
               onSwitchMode={switchAppMode}
               onOpenMarketplaceRoute={openMarketplaceRoute}
               onOpenWorkspace={openWorkspace}
-              onOpenPage={openWorkspacePage}
-              onLens={setLens}
+              onOpenProject={(project) => openView({ type: "project", targetId: project.projectId, label: project.name })}
+              onRestoreProject={openProject}
+              onOpenPage={(page) => openView({ type: page, label: WORKSPACE_PAGE_LABELS[page] })}
+              onLens={(next) => next === "chat" ? revealCanvasChat() : setLens(next)}
             />}
             desk={<AppDesk
               mode={marketplace.mode}
@@ -308,45 +302,45 @@ export function App() {
               catalog={catalog}
               workRoute={state.route}
               location={marketplace.location}
-              marketplaceSidebarVisible={marketplaceSidebarVisible}
+              marketplaceSidebarVisible={false}
               onBack={navigateBack}
               onNavigate={navigateMarketplace}
               onRememberLocation={rememberMarketplace}
+              onRequestAgent={requestAgentDraft}
             >{workContent}</AppDesk>}
             chat={<AgentChatPanel
-              onOpenUnit={(ref, unitId, label) => { if (ref.workspaceId === selectedWorkspace?.id) openView(unitViewRequest(ref, unitId, label)); }}
-              onToggleView={toggleViewPanel}
-              onOpenCanvas={() => openView({ type: "canvas", label: "Working canvases" })}
+              onOpenUnit={(ref, unitId, label, revisionId) => { if (ref.workspaceId === selectedWorkspace?.id) { switchAppMode("work"); openView(unitViewRequest(ref, unitId, label, revisionId)); } }}
+              onToggleView={marketplace.mode === "work" ? toggleViewPanel : undefined}
               draftRequest={canvasRequest}
               onDraftRequestHandled={() => setCanvasRequest(null)}
               onClose={() => setLens("desk")}
               onOpenSettings={openSettings}
               /* Keep Context beside the active chat. */
-              onOpenContext={() => openView({ type: "context", label: WORKSPACE_PAGE_LABELS.context })}
+              onOpenContext={() => { switchAppMode("work"); openView({ type: "context", label: WORKSPACE_PAGE_LABELS.context }); }}
               chat={agentChat}
               workspace={selectedWorkspace}
-              project={selectedProject}
+              project={projects.find((project) => project.workspaceId === agentChat.activeChat.project?.workspaceId && project.projectId === agentChat.activeChat.project?.projectId) ?? null}
             />}
             island={<AppIsland
               feed={island.feed}
               context={island.context}
               projectName={selectedProject?.name ?? null}
               mock={island.mock}
-              onToggleViewPanel={toggleViewPanel}
               onSwitchMode={switchAppMode}
               onOpenWorkspace={openWorkspace}
               onNavigateMarketplace={navigateMarketplace}
               dispatch={dispatch}
             />}
-            viewOpen={viewPanel.open} deskFill={fillDesk}
-            pageHeaderRef={marketplace.mode === "work" && !viewFrameActive ? setPageHeaderHost : undefined}
-            viewExpanded={viewExpanded}
+            viewOpen={marketplace.mode === "marketplace" || viewPanel.open} deskFill={fillDesk}
+            pageHeaderRef={marketplace.mode === "marketplace" || (lens !== "chat" || viewPanel.open) && !(viewFrameActive && viewTab.type === "browser") ? setPageHeaderHost : undefined}
+            viewExpanded={marketplace.mode === "work" && viewExpanded}
+            agentRequest={agentRequest}
             viewWidth={viewWidth}
             onViewWidthChange={(width) => updateChatPanel((panel) => ({ ...panel, width }))}
-            viewPanelFrame={viewFrameActive
-              ? (page, compact) => <ViewPanel
+            viewPanelFrame={(page, compact, measuredWidth) => <ViewPanel
                 set={tabSet}
-                width={viewWidth}
+                width={measuredWidth || viewWidth}
+                chromeVisible={marketplace.mode === "work" && viewFrameActive}
                 expanded={viewExpanded || compact} compact={compact}
                 onToggleExpanded={compact ? toggleViewPanel : toggleViewExpanded}
                 chords={viewChords}
@@ -354,16 +348,15 @@ export function App() {
                 onClose={closeView}
                 onOpen={openView}
                 browser={viewBrowser}
-              >{page}</ViewPanel>
-              : undefined}
+              >{page}</ViewPanel>}
             routeScrollKey={scrollKey}
             leftVisible={activeSidebarVisible}
             leftWidth={sidebarWidth}
             onLeftWidthChange={setSidebarWidth}
             rightWidth={rightPanelWidth}
             onRightWidthChange={setRightPanelWidth}
-            lens={marketplace.mode === "work" ? lens : "desk"}
-            onLensChange={marketplace.mode === "work" ? setLens : undefined}
+            lens={lens}
+            onLensChange={(next) => next === "chat" ? revealCanvasChat() : setLens(next)}
             rightPreference={rightPanelVisible}
             rightOverlayOpen={rightOverlayOpen}
             topChrome={{
@@ -372,11 +365,7 @@ export function App() {
               onBack: navigateBack,
               onForward: navigateForward,
             }}
-            onToggleLeft={() => {
-              if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
-              else if (canvasView && viewExpanded) toggleViewExpanded();
-              else setSidebarVisible((visible) => !visible);
-            }}
+            onToggleLeft={() => setSidebarVisible((visible) => !visible)}
             onToggleRightPreference={() => setRightPanelVisible((visible) => !visible)}
             onRightOverlayOpenChange={setRightOverlayOpen}
           />
@@ -391,6 +380,7 @@ export function App() {
             entryPage={settingsEntry}
             onThemeChange={setTheme}
             onClose={() => setSettingsVisible(false)}
+            onOpenWorkspaceSettings={(page) => { setSettingsVisible(false); switchAppMode("work"); openView({ type: page, label: WORKSPACE_PAGE_LABELS[page] }); }}
           />}
         </motion.div>
       </LayoutGroup>

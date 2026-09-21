@@ -1,6 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Activity, Archive, CheckCircle2, FileText, Film, Layers3, MessageSquare, Play, Search, type AppIcon } from "@/shared/ui/icons";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ActivityRunDetail } from "../../../../electron/media/types";
 import type { ActivityDto } from "../../../../electron/ralphy/types";
@@ -8,7 +8,6 @@ import { AiBrandIcon } from "@/shared/ui/AiBrandIcon";
 import { RalphyMascot } from "@/shared/ui/RalphyMascot";
 import { SelectMenu, type SelectMenuOption } from "@/shared/ui/SelectMenu";
 import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "@/shared/instrument/screen-state-registry";
-import { useOptionalInstrumentScroll } from "@/shared/lib/instrument-scroll";
 import type { DomainPage } from "@/entities/project";
 import type { ProjectScreenController } from "../model/screen-controller";
 import { ActivityInspector } from "./ActivityInspector";
@@ -95,8 +94,6 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
   scrollMemory: Map<string, number>;
   resetToken: string;
 }) {
-  const instrumentScroll = useOptionalInstrumentScroll();
-  const ownerRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef(new Map<number, HTMLButtonElement>());
   const detailRef = useRef<Record<string, ActivityRunDetail>>({});
   const inflight = useRef(new Set<string>());
@@ -110,12 +107,9 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const remembered = useRememberedScroll(scrollMemory, "activity", resetToken);
   const attachOwner = useCallback((node: HTMLDivElement | null) => {
-    ownerRef.current = node;
-    remembered.ref(instrumentScroll ? null : node);
+    remembered.ref(node);
     setOwner((current) => current === node ? current : node);
-  }, [instrumentScroll, remembered.ref]);
-  const scrollRoot = instrumentScroll?.element ?? owner;
-  const [scrollMargin, setScrollMargin] = useState(0);
+  }, [remembered.ref]);
   const items = useMemo(() => [...page.items as ActivityDto[]].sort((left, right) => left.sequence - right.sequence), [page.items]);
   const availableModels = useMemo(() => [...new Set(Object.values(details).flatMap((detail) => summarizeActivityRun(detail).models))].sort(), [details]);
   const modelOptions = useMemo<Array<SelectMenuOption<string>>>(() => [{ value: "all", label: "All models" }, ...availableModels.map((value) => ({ value, label: value }))], [availableModels]);
@@ -144,31 +138,14 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
   }, [filtered]);
   const virtualizer = useVirtualizer({
     count: rows.length,
-    getScrollElement: () => scrollRoot,
+    getScrollElement: () => owner,
     getItemKey: (index) => rows[index]?.key ?? index,
     estimateSize: (index) => rows[index]?.type === "day" ? 34 : 48,
-    initialOffset: () => instrumentScroll ? 0 : scrollMemory.get("activity") ?? 0,
+    initialOffset: () => scrollMemory.get("activity") ?? 0,
     initialRect: { width: 800, height: 600 },
     overscan: 8,
-    scrollMargin,
   });
   const virtualRows = virtualizer.getVirtualItems();
-
-  useLayoutEffect(() => {
-    if (!ownerRef.current || !instrumentScroll?.element) {
-      setScrollMargin(0);
-      return;
-    }
-    const measure = () => {
-      const ownerBounds = ownerRef.current!.getBoundingClientRect();
-      const deskBounds = instrumentScroll.element!.getBoundingClientRect();
-      setScrollMargin(ownerBounds.top - deskBounds.top + instrumentScroll.element!.scrollTop);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(ownerRef.current);
-    return () => observer.disconnect();
-  }, [instrumentScroll]);
 
   const loadDetail = useCallback(async (event: ActivityDto) => {
     if (event.entityType.toLocaleLowerCase() !== "run" || detailRef.current[event.entityId] || inflight.current.has(event.entityId)) return;
@@ -216,11 +193,11 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
       </div>
       <div className="activity-table flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-table bg-transparent" role="table" aria-label="Project activity">
         <div className={`activity-table-head h-9 flex-none rounded-panel bg-surface px-3 type-meta uppercase tracking-mono text-muted ${ROW} ${ROW_COLUMNS}`} role="row"><span>Time</span><span className={HIDE_NARROW}>Source</span><span>Event</span><span className={HIDE_NARROW}>Entity</span><span className={HIDE_MEDIUM}>Model</span><span>Cost</span></div>
-        <div className="activity-scroll min-h-0 min-w-0 flex-1 overflow-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink" role="region" aria-label="Activity events" tabIndex={0} ref={attachOwner} onScroll={instrumentScroll ? undefined : remembered.onScroll}>
+        <div className="activity-scroll min-h-0 min-w-0 flex-1 overflow-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink" role="region" aria-label="Activity events" tabIndex={0} ref={attachOwner} onScroll={remembered.onScroll}>
           <div className="activity-virtual-list relative w-full" role="rowgroup" style={{ height: virtualizer.getTotalSize() }}>
             {virtualRows.map((row) => {
               const item = rows[row.index];
-              if (item.type === "day") return <div className="activity-row activity-day absolute top-0 left-0 flex w-full items-center gap-2.5 px-3 type-sm text-muted" role="row" key={row.key} style={{ height: row.size, transform: `translateY(${row.start - scrollMargin}px)` }}><span className="flex-none">{item.label}</span></div>;
+              if (item.type === "day") return <div className="activity-row activity-day absolute top-0 left-0 flex w-full items-center gap-2.5 px-3 type-sm text-muted" role="row" key={row.key} style={{ height: row.size, transform: `translateY(${row.start}px)` }}><span className="flex-none">{item.label}</span></div>;
               const value = item.value;
               const date = dateValue(value.createdAt);
               const milestone = isMilestone(value.action);
@@ -232,7 +209,7 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
               const detail = details[value.entityId];
               const summary = detail ? summarizeActivityRun(detail) : null;
               const eventModel = summary?.models[0] ?? null;
-              return <button type="button" role="row" className={`activity-row activity-event absolute top-0 left-0 w-full rounded-control px-2 text-left type-sm ${ROW} ${ROW_COLUMNS} ${selected === value.sequence ? "bg-instrument text-on-instrument [&_*]:text-inherit [box-shadow:var(--activity-selected-mark)]" : "bg-transparent text-ink hover:bg-surface"}${milestone ? " is-milestone" : ""}`} aria-selected={selected === value.sequence} data-action={value.action} data-tone={tone} key={row.key} ref={(node) => { if (node) rowRefs.current.set(value.sequence, node); else rowRefs.current.delete(value.sequence); }} style={{ height: row.size - 4, transform: `translateY(${row.start - scrollMargin + 2}px)` }} onClick={() => open(value)} onKeyDown={(keyboardEvent) => {
+              return <button type="button" role="row" className={`activity-row activity-event absolute top-0 left-0 w-full rounded-control px-2 text-left type-sm ${ROW} ${ROW_COLUMNS} ${selected === value.sequence ? "bg-instrument text-on-instrument [&_*]:text-inherit [box-shadow:var(--activity-selected-mark)]" : "bg-transparent text-ink hover:bg-surface"}${milestone ? " is-milestone" : ""}`} aria-selected={selected === value.sequence} data-action={value.action} data-tone={tone} key={row.key} ref={(node) => { if (node) rowRefs.current.set(value.sequence, node); else rowRefs.current.delete(value.sequence); }} style={{ height: row.size - 4, transform: `translateY(${row.start + 2}px)` }} onClick={() => open(value)} onKeyDown={(keyboardEvent) => {
                 if (keyboardEvent.key === "ArrowDown" || keyboardEvent.key === "ArrowUp") { keyboardEvent.preventDefault(); moveSelection(value, keyboardEvent.key === "ArrowDown" ? 1 : -1); }
                 if (keyboardEvent.key === "Escape") setSelected(null);
               }}>
@@ -245,7 +222,7 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
               </button>;
             })}
           </div>
-          <AutoCursorTail root={scrollRoot} hasMore={page.nextCursor !== null} loading={page.status === "loading" && page.items.length > 0} error={page.status === "error" && page.items.length > 0 ? page.error : null} onLoadMore={() => { void controller.loadMore("activity"); }} onRetry={() => { void controller.retryPage("activity"); }} />
+          <AutoCursorTail root={owner} hasMore={page.nextCursor !== null} loading={page.status === "loading" && page.items.length > 0} error={page.status === "error" && page.items.length > 0 ? page.error : null} onLoadMore={() => { void controller.loadMore("activity"); }} onRetry={() => { void controller.retryPage("activity"); }} />
         </div>
       </div>
     </div>

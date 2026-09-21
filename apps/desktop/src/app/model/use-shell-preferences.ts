@@ -7,12 +7,13 @@
  * restoration to finish: writing during restore would persist the defaults over the operator's
  * own layout before the store had answered.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { ViewPanelPreferences } from "@/widgets/view-panel";
 import type { RootIdentity } from "@/shared/api/ipc";
 import {
   updateWorkbenchPreferences,
+  type WorkbenchAction,
   type WorkbenchPreferences,
   type WorkbenchState,
   type WorkspacePage,
@@ -20,14 +21,18 @@ import {
 
 export function useShellPreferences(
   initial: WorkbenchPreferences,
-  { restoring, rootIdentity, state }: {
+  { restoring, rootIdentity, state, dispatch }: {
     restoring: boolean;
     rootIdentity: RootIdentity | null;
     state: WorkbenchState;
+    dispatch(action: WorkbenchAction): void;
   },
 ) {
-  /* The open page is a preference too: an operator who left on Calendar comes back to Calendar. */
-  const [workspacePage, setWorkspacePage] = useState<WorkspacePage>(initial.workspacePage);
+  /* Page navigation belongs to history; the existing preference still restores the last page. */
+  const workspacePage = state.workspacePage;
+  const setWorkspacePage = useCallback((page: WorkspacePage) => {
+    dispatch({ type: "open-workspace-page", page });
+  }, [dispatch]);
   const [sidebarVisible, setSidebarVisible] = useState(initial.sidebarVisible);
   const [rightPanelVisible, setRightPanelVisible] = useState(initial.rightPanelVisible);
   const [lens, setLens] = useState(initial.lens);

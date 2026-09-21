@@ -1,14 +1,10 @@
 import { act, useState } from "react";
 import { describe, expect, test, vi } from "vitest";
-
-import { InstrumentShell } from "@/app/layout/InstrumentShell";
+import { InstrumentShell, type InstrumentShellProps } from "@/app/layout/InstrumentShell";
 import { InstrumentRightRailPortal, resolveRightRailMode, useInstrumentRightRail } from "@/shared/lib/instrument-rail";
 import { createReactHost, type HostNode } from "./react-host";
 
-async function settle() {
-  await Promise.resolve();
-  await Promise.resolve();
-}
+async function settle() { await Promise.resolve(); await Promise.resolve(); }
 
 function escape() {
   return Object.assign(new Event("keydown", { bubbles: true, cancelable: true }), { key: "Escape" });
@@ -41,8 +37,7 @@ function resizeObserverHarness() {
 function RailControl() {
   const rail = useInstrumentRightRail();
   return <button type="button" data-rail-mode={rail.mode} data-rail-owner={rail.owner} onClick={(event) => {
-    if (rail.mode === "closed") rail.open(event.currentTarget);
-    else rail.close();
+    if (rail.mode === "closed") rail.open(event.currentTarget); else rail.close();
   }}>Toggle rail</button>;
 }
 
@@ -56,30 +51,20 @@ function StatefulChat() {
   return <textarea aria-label="Chat draft" value={draft} onChange={(event) => setDraft(event.currentTarget.value)} />;
 }
 
-/* The dock's own resolution -- docked above 1280/680, the modal sheet below it, closed otherwise --
-   is now only reachable for an owner that is not the chat: under the desk lens the chat rail is
-   deliberately unavailable, so a chat-owned rail is closed whatever the widths say. The four tests
-   that exercise those boundaries stand the shared library's inspector in the dock instead, which is
-   the one non-chat owner left -- media review is a context menu on the asset now. */
+// Registered inspectors retain their own dock thresholds and overlay preference.
 const REVIEW_DESK = <main><InstrumentRightRailPortal owner="shared-inspector" label="Shared item"><button type="button">Review selected media</button></InstrumentRightRailPortal></main>;
 
-const defaultProps = {
-  sidebar: <aside>Sidebar</aside>,
-  desk: <main>Desk</main>,
-  chat: <button type="button">Chat action</button>,
-  island: <RailControl />,
-  profile: <span>Profile</span>,
+const defaultProps: InstrumentShellProps = {
+  sidebar: <aside>Sidebar</aside>, desk: <main>Desk</main>,
+  chat: <button type="button">Chat action</button>, island: <RailControl />,
   routeScrollKey: "workspace:a",
-  leftVisible: true,
-  leftWidth: 240,
+  leftVisible: true, leftWidth: 240,
   onLeftWidthChange: () => undefined,
   rightWidth: 292,
   onRightWidthChange: () => undefined,
-  viewOpen: true,
-  viewWidth: 440,
+  viewOpen: true, viewWidth: 440,
   onViewWidthChange: () => undefined,
-  rightPreference: true,
-  rightOverlayOpen: false,
+  rightPreference: true, rightOverlayOpen: false,
   lens: "desk" as const,
   onLensChange: () => undefined,
   onToggleLeft: () => undefined,
@@ -92,14 +77,15 @@ async function mountShell(overrides: Partial<typeof defaultProps> = {}) {
   const observer = resizeObserverHarness();
   const { createRoot } = await import("react-dom/client");
   const root = createRoot(host.container as unknown as Element);
+  const update = (next: Partial<InstrumentShellProps> = {}) => root.render(<InstrumentShell {...defaultProps} {...overrides} {...next} />);
   const render = async (next: Partial<typeof defaultProps> = {}) => {
     await act(async () => {
-      root.render(<InstrumentShell {...defaultProps} {...overrides} {...next} />);
+      update(next);
       await settle();
     });
   };
   await render();
-  return { host, observer, root, render };
+  return { host, observer, root, render, update };
 }
 
 describe("instrument shell", () => {
@@ -117,123 +103,108 @@ describe("instrument shell", () => {
       const shell = mounted.host.container.querySelector(".instrument-shell")!;
       const desk = mounted.host.container.querySelector(".instrument-desk-scroll")!;
       expect(desk.getAttribute("class")).toContain("[&_.overscroll-contain]:overscroll-auto");
+      expect(desk.getAttribute("data-scroll-mode")).toBe("desk");
       await mounted.render({ deskFill: true });
       expect(desk.getAttribute("class")).not.toContain("[&_.overscroll-contain]:overscroll-auto");
+      expect(desk.getAttribute("data-scroll-mode")).toBe("page");
       await mounted.render({ deskFill: false });
       expect(mounted.observer.observedTargets()).toEqual(new Set([shell, desk] as unknown as Element[]));
-
       await act(async () => {
         mounted.observer.resize(shell, 1_279, 800);
         mounted.observer.resize(desk, 1_200, 700);
         await settle();
       });
       expect(shell.getAttribute("data-right-rail-mode")).toBe("closed");
-
       await act(async () => {
         mounted.observer.resize(shell, 1_280, 800);
         mounted.observer.resize(desk, 971, 700);
         await settle();
       });
       expect(shell.getAttribute("data-right-rail-mode")).toBe("closed");
-
       await act(async () => {
         mounted.observer.resize(desk, 972, 700);
         await settle();
       });
       expect(shell.getAttribute("data-right-rail-mode")).toBe("docked");
-
       await act(async () => {
         mounted.observer.resize(desk, 679, 700);
         await settle();
       });
       expect(shell.getAttribute("data-right-rail-mode")).toBe("closed");
       expect(onToggleRightPreference).not.toHaveBeenCalled();
-    } finally {
-      await act(async () => mounted.root.unmount());
-      mounted.host.restore();
-    }
+    } finally { await act(async () => mounted.root.unmount()); mounted.host.restore(); }
   });
 
-  test("swaps elastic columns and opens a narrow view without unmounting the chat", async () => {
-    const mounted = await mountShell();
+  test("keeps content left and mounted while the Agent button toggles the resizable right rail", async () => {
+    const onRightWidthChange = vi.fn();
+    const mounted = await mountShell({
+      desk: <StatefulDesk />, rightWidth: 360, onRightWidthChange,
+      onLensChange: (lens) => mounted.update({ lens }),
+    });
     try {
       const shell = mounted.host.container.querySelector(".instrument-shell")!;
-      const deskScroll = mounted.host.container.querySelector(".instrument-desk-scroll")!;
-      const deskColumn = () => mounted.host.container.querySelector(".instrument-desk-column") as HostNode;
-      await act(async () => {
-        mounted.observer.resize(shell, 1_440, 900);
-        mounted.observer.resize(deskScroll, 1_148, 830);
-        await settle();
-      });
-      // Desk lens: the route is the elastic column and states no width of its own.
-      expect(deskColumn().getAttribute("data-instrument-view-panel")).toBeNull();
-      expect(deskColumn().style.width).toBeFalsy();
-
-      await mounted.render({ lens: "chat" });
-      // Chat lens: the route becomes the fixed view panel and the rail is docked whatever the
-      // desk minimum says, because the desk is deliberately the narrow column now.
-      expect(deskColumn().getAttribute("data-instrument-view-panel")).toBe("true");
-      expect(deskColumn().style.width).toBe("440px");
-      expect(shell.getAttribute("data-right-rail-mode")).toBe("docked");
-      expect(deskColumn().getAttribute("hidden")).toBeNull();
-
-      // The width is the user's, so it is no longer a step function of the window. There is no
-      // design maximum either: what stops the panel is the chat's own floor, the larger of 360 and
-      // 12% of the frame, so the panel may take almost the whole window. At 1200 with a 240 sidebar
-      // and 32 of chrome the ceiling is 1200 - 240 - 32 - 360 = 568 -- well clear of the 440 the
-      // panel is holding, which is the point: at every width where the panel shows at all, its
-      // stored width survives.
-      await act(async () => {
-        mounted.observer.resize(shell, 1_200, 800);
-        await settle();
-      });
-      expect(deskColumn().style.width).toBe("440px");
-      expect(deskColumn().getAttribute("hidden")).toBeNull();
-      // The grabber's range is that same ceiling, so a drag cannot cross the chat's floor either.
-      const handle = mounted.host.container.querySelector(".resize-instrument-view") as HostNode;
-      expect(handle.getAttribute("aria-valuemin")).toBe("380");
-      expect(handle.getAttribute("aria-valuemax")).toBe("568");
-      // ...and it grows with the frame: at 2560 the chat floor is 360, leaving 1928 of panel.
-      await act(async () => {
-        mounted.observer.resize(shell, 2_560, 1_400);
-        await settle();
-      });
-      expect(handle.getAttribute("aria-valuemax")).toBe("1928");
-
-      await act(async () => {
-        mounted.observer.resize(shell, 1_200, 800);
-        await settle();
-      });
-
-      await act(async () => {
-        mounted.observer.resize(shell, 1_119, 800);
-        await settle();
-      });
-      expect(deskColumn().getAttribute("hidden")).toBeNull();
-      await act(async () => {
-        mounted.observer.resize(shell, 1012, 800);
-        await settle();
-      });
-      expect(deskColumn().getAttribute("hidden")).toBeNull();
-      expect(deskColumn().style.width).toBe("380px");
-      await act(async () => {
-        mounted.observer.resize(shell, 1011, 800);
-        await settle();
-      });
-      expect(deskColumn().getAttribute("hidden")).toBeNull();
-      expect(deskColumn().style.width).toBeFalsy();
-      const rail = mounted.host.container.querySelector(".instrument-right-rail") as HostNode;
-      expect(rail.getAttribute("hidden")).toBe("");
-      expect(rail.getAttribute("inert")).toBe("");
-      expect(shell.getAttribute("data-right-rail-mode")).toBe("docked");
-      await mounted.render({ lens: "chat", viewOpen: false });
-      expect(deskColumn().getAttribute("hidden")).toBe("");
-      expect(mounted.host.container.querySelector(".instrument-right-rail")).toBe(rail);
+      const desk = mounted.host.container.querySelector(".instrument-desk-column")!;
+      const rail = mounted.host.container.querySelector(".instrument-right-rail")!;
+      const content = desk.querySelector("button")!;
+      await act(async () => { mounted.observer.resize(shell, 1200, 800); content.dispatchEvent(new Event("click", { bubbles: true })); });
+      const agent = mounted.host.container.querySelector('[aria-label="Agent"]')!;
+      expect(agent).not.toBeNull();
+      expect(agent.textContent).toBe("");
+      expect(agent.getAttribute("title")).toBe("Show agent");
+      expect(agent.parentElement?.querySelector(".page-island-reserve")).not.toBeNull();
+      expect(agent.getAttribute("aria-pressed")).toBe("false");
+      await act(async () => agent.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(agent.getAttribute("aria-pressed")).toBe("true");
+      expect(desk.style.width).toBeFalsy();
+      expect(desk.getAttribute("class")).toContain("flex-1");
+      expect(desk.getAttribute("class")).not.toContain("order-last");
+      expect(rail.style.width).toBe("360px");
+      expect(rail.getAttribute("class")).toContain("flex-none");
       expect(rail.getAttribute("hidden")).toBeNull();
-    } finally {
-      await act(async () => mounted.root.unmount());
-      mounted.host.restore();
-    }
+      expect(mounted.host.container.querySelector(".resize-instrument-view")).toBeNull();
+      const handle = mounted.host.container.querySelector(".resize-instrument-rail")!;
+      expect(handle.parentNode).toBe(rail.parentNode);
+      expect(handle.getAttribute("aria-valuemin")).toBe("292");
+      expect(handle.getAttribute("aria-valuemax")).toBe("564");
+      await act(async () => handle.dispatchEvent(Object.assign(new Event("keydown", { bubbles: true }), { key: "ArrowLeft" })));
+      expect(onRightWidthChange).toHaveBeenCalledWith(376);
+      await act(async () => agent.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(rail.getAttribute("hidden")).toBe("");
+      expect(desk.querySelector("button")).toBe(content);
+      expect(content.textContent).toBe("second");
+      await mounted.render({ lens: "chat", viewExpanded: true });
+      expect(rail.getAttribute("hidden")).toBe("");
+      expect(agent.getAttribute("aria-pressed")).toBe("false");
+      await mounted.render({ lens: "chat", viewOpen: false });
+      expect(desk.getAttribute("hidden")).toBe("");
+      expect(rail.getAttribute("hidden")).toBeNull();
+      expect(rail.style.width).toBeFalsy();
+      expect(rail.getAttribute("class")).toContain("flex-1");
+    } finally { await act(async () => mounted.root.unmount()); mounted.host.restore(); }
+  });
+
+  test("opens Agent as a right sheet below the content minimum and closes it with Escape", async () => {
+    const mounted = await mountShell({
+      onLensChange: (lens) => mounted.update({ lens }),
+    });
+    try {
+      const shell = mounted.host.container.querySelector(".instrument-shell")!;
+      const desk = mounted.host.container.querySelector(".instrument-desk-column")!;
+      await act(async () => mounted.observer.resize(shell, 927, 720));
+      const agent = mounted.host.container.querySelector('[aria-label="Agent"]')!;
+      expect(agent).not.toBeNull();
+      agent.focus();
+      await act(async () => agent.dispatchEvent(new Event("click", { bubbles: true })));
+      const sheet = mounted.host.container.ownerDocument.body.querySelector('[data-instrument-overlay="right-rail-sheet"]')!;
+      expect(sheet.getAttribute("role")).toBe("dialog");
+      expect(sheet.getAttribute("class")).toContain("right-2");
+      expect(desk.getAttribute("hidden")).toBeNull();
+      expect(sheet.querySelector(".instrument-chat-rail-content")).not.toBeNull();
+      await act(async () => sheet.dispatchEvent(escape()));
+      expect(shell.getAttribute("data-right-rail-mode")).toBe("closed");
+      expect(agent.getAttribute("aria-pressed")).toBe("false");
+      expect(mounted.host.container.ownerDocument.activeElement).toBe(agent);
+    } finally { await act(async () => mounted.root.unmount()); mounted.host.restore(); }
   });
 
   test("opens the narrow rail as its registered modal sheet and restores the exact opener on Escape", async () => {
@@ -241,7 +212,7 @@ describe("instrument shell", () => {
     const mounted = await mountShell({
       desk: REVIEW_DESK,
       rightOverlayOpen: overlayOpen,
-      onRightOverlayOpenChange: (open) => { overlayOpen = open; void mounted.render({ rightOverlayOpen: open }); },
+      onRightOverlayOpenChange: (open) => { overlayOpen = open; mounted.update({ rightOverlayOpen: open }); },
     });
     try {
       const shell = mounted.host.container.querySelector(".instrument-shell")!;
@@ -264,7 +235,6 @@ describe("instrument shell", () => {
       expect(desk.getAttribute("inert")).toBe("");
       expect(desk.style.overflow).toBe("hidden");
       expect(mounted.host.container.ownerDocument.body.style.overflow).toBe("hidden");
-
       await act(async () => {
         sheet.dispatchEvent(escape());
         await settle();
@@ -273,10 +243,7 @@ describe("instrument shell", () => {
       expect(mounted.host.container.ownerDocument.activeElement).toBe(opener);
       expect(desk.getAttribute("inert")).toBeNull();
       expect(desk.style.overflow).toBeFalsy();
-    } finally {
-      await act(async () => mounted.root.unmount());
-      mounted.host.restore();
-    }
+    } finally { await act(async () => mounted.root.unmount()); mounted.host.restore(); }
   });
 
   test("keeps desk component state and focus while automatic rail geometry changes", async () => {
@@ -295,10 +262,7 @@ describe("instrument shell", () => {
       expect(desk.querySelector("button")).toBe(button);
       expect(button.textContent).toBe("second");
       expect(mounted.host.container.ownerDocument.activeElement).toBe(button);
-    } finally {
-      await act(async () => mounted.root.unmount());
-      mounted.host.restore();
-    }
+    } finally { await act(async () => mounted.root.unmount()); mounted.host.restore(); }
   });
 
   test("resizes the docked rail up to 1000px and clamps it against the desk minimum", async () => {
@@ -316,12 +280,9 @@ describe("instrument shell", () => {
       });
       expect(shell.getAttribute("data-right-rail-mode")).toBe("docked");
       expect(rail().style.width).toBe("292px");
-
       await mounted.render({ rightWidth: 1_000 });
       expect(rail().style.width).toBe("1000px");
       expect(handle().getAttribute("aria-valuemax")).toBe("1000");
-
-      // Past the ceiling the rail holds at 1000 rather than following the request.
       await mounted.render({ rightWidth: 4_000 });
       expect(rail().style.width).toBe("1000px");
 
@@ -333,10 +294,7 @@ describe("instrument shell", () => {
       expect(rail().style.width).toBe("480px");
       expect(handle().getAttribute("aria-valuemax")).toBe("480");
       expect(onRightWidthChange).not.toHaveBeenCalled();
-    } finally {
-      await act(async () => mounted.root.unmount());
-      mounted.host.restore();
-    }
+    } finally { await act(async () => mounted.root.unmount()); mounted.host.restore(); }
   });
 
   test("sizes the sidebar column from its own width and clamps it to the sidebar bounds", async () => {
@@ -345,14 +303,10 @@ describe("instrument shell", () => {
       const shell = mounted.host.container.querySelector(".instrument-shell")!;
       const handle = () => mounted.host.container.querySelector(".resize-instrument-sidebar")!;
       const leftColumn = () => (shell.style as unknown as Record<string, string>)["--instrument-left-width"];
-      // The column follows the width it is given, not the default: the fixture asks for 240.
       expect(leftColumn()).toBe("240px");
       expect(handle().getAttribute("aria-valuenow")).toBe("240");
-
       await mounted.render({ leftWidth: 360 });
       expect(leftColumn()).toBe("360px");
-
-      // Past the bounds the column holds at the limit rather than following the request.
       await mounted.render({ leftWidth: 4_000 });
       expect(leftColumn()).toBe("420px");
       await mounted.render({ leftWidth: 10 });
@@ -362,24 +316,21 @@ describe("instrument shell", () => {
       await mounted.render({ leftWidth: 320, leftVisible: false });
       expect(leftColumn()).toBe("0px");
       expect(mounted.host.container.querySelector(".resize-instrument-sidebar")).toBeNull();
-    } finally {
-      await act(async () => mounted.root.unmount());
-      mounted.host.restore();
-    }
+    } finally { await act(async () => mounted.root.unmount()); mounted.host.restore(); }
   });
 
   test("keeps one chat DOM subtree, draft, and focus while the rail reparents", async () => {
     let overlayOpen = true;
     const mounted = await mountShell({
-      chat: <StatefulChat />,
+      chat: <StatefulChat />, lens: "chat",
       rightOverlayOpen: overlayOpen,
-      onRightOverlayOpenChange: (open) => { overlayOpen = open; void mounted.render({ rightOverlayOpen: open }); },
+      onRightOverlayOpenChange: (open) => { overlayOpen = open; mounted.update({ rightOverlayOpen: open }); },
     });
     try {
       const shell = mounted.host.container.querySelector(".instrument-shell")!;
       const desk = mounted.host.container.querySelector(".instrument-desk-scroll")!;
       await act(async () => {
-        mounted.observer.resize(shell, 1_100, 720);
+        mounted.observer.resize(shell, 900, 720);
         mounted.observer.resize(desk, 860, 672);
         await settle();
       });
@@ -396,18 +347,14 @@ describe("instrument shell", () => {
       expect(dockedDraft).toBe(draft);
       expect(dockedDraft.value).toBe("Keep this exact draft");
       expect(mounted.host.container.ownerDocument.activeElement).toBe(draft);
-
       await act(async () => {
-        mounted.observer.resize(shell, 1_100, 720);
+        mounted.observer.resize(shell, 900, 720);
         mounted.observer.resize(desk, 860, 672);
         await settle();
       });
       expect(mounted.host.container.ownerDocument.body.querySelector("textarea")).toBe(draft);
       expect((draft as HostNode & { value: string }).value).toBe("Keep this exact draft");
-    } finally {
-      await act(async () => mounted.root.unmount());
-      mounted.host.restore();
-    }
+    } finally { await act(async () => mounted.root.unmount()); mounted.host.restore(); }
   });
 
   test("routes a registered inspector through the shared dock host and reports its owner", async () => {
@@ -427,10 +374,46 @@ describe("instrument shell", () => {
       expect(rail.textContent).toContain("Inspect selected artifact");
       expect(mounted.host.container.querySelector("[data-rail-owner=\"shared-inspector\"]")).not.toBeNull();
       expect(rail.querySelector(".instrument-chat-rail-content")?.getAttribute("hidden")).not.toBeNull();
-    } finally {
-      await act(async () => mounted.root.unmount());
-      mounted.host.restore();
+    } finally { await act(async () => mounted.root.unmount()); mounted.host.restore(); }
+  });
+
+  test("Agent takes the rail from an inspector and reopening the inspector returns its controls", async () => {
+    function Inspector() {
+      const rail = useInstrumentRightRail();
+      return <main><button type="button" onClick={(event) => rail.open(event.currentTarget)}>Inspect artifact</button><InstrumentRightRailPortal owner="shared-inspector" label="Shared item"><button type="button">Artifact details</button></InstrumentRightRailPortal></main>;
     }
+    let lens: "desk" | "chat" = "desk", rightOverlayOpen = false;
+    const mounted = await mountShell({ desk: <Inspector />,
+      onLensChange: (next) => { lens = next; mounted.update({ lens, rightOverlayOpen }); },
+      onRightOverlayOpenChange: (open) => { rightOverlayOpen = open; mounted.update({ lens, rightOverlayOpen }); },
+    });
+    try {
+      const shell = mounted.host.container.querySelector(".instrument-shell")!;
+      const desk = mounted.host.container.querySelector(".instrument-desk-scroll")!;
+      await act(async () => { mounted.observer.resize(shell, 1440, 900); mounted.observer.resize(desk, 1200, 852); });
+      const rail = mounted.host.container.querySelector(".instrument-right-rail")!;
+      expect(rail.textContent).toContain("Artifact details");
+      const agent = mounted.host.container.querySelector('[aria-label="Agent"]')!;
+      await act(async () => agent.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(agent.getAttribute("aria-pressed")).toBe("true");
+      expect(rail.textContent).not.toContain("Artifact details");
+      expect(rail.querySelector(".instrument-chat-rail-content")?.getAttribute("hidden")).toBeNull();
+      await act(async () => desk.querySelector("button")!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(rail.textContent).toContain("Artifact details");
+      expect(agent.getAttribute("aria-pressed")).toBe("false");
+      await mounted.render({ lens: "chat", agentRequest: 1 });
+      expect(agent.getAttribute("aria-pressed")).toBe("true");
+      await mounted.render({ lens: "desk", rightRailEnabled: false });
+      expect(shell.getAttribute("data-right-rail-mode")).toBe("closed");
+      rightOverlayOpen = true;
+      await mounted.render({ lens: "chat", rightOverlayOpen });
+      await act(async () => desk.querySelector("button")!.dispatchEvent(new Event("click", { bubbles: true })));
+      await act(async () => mounted.observer.resize(shell, 927, 720));
+      const sheet = mounted.host.container.ownerDocument.body.querySelector('[data-instrument-overlay="right-rail-sheet"]')!;
+      await act(async () => sheet.dispatchEvent(escape()));
+      expect(shell.getAttribute("data-right-rail-mode")).toBe("closed");
+      expect(rightOverlayOpen).toBe(false);
+    } finally { await act(async () => mounted.root.unmount()); mounted.host.restore(); }
   });
 
   test("clears transient overlay state when the same rail becomes dock-eligible", async () => {
@@ -446,7 +429,6 @@ describe("instrument shell", () => {
       });
       expect(shell.getAttribute("data-right-rail-mode")).toBe("overlay");
       onRightOverlayOpenChange.mockClear();
-
       await act(async () => {
         mounted.observer.resize(shell, 1_440, 900);
         mounted.observer.resize(desk, 1_200, 852);
@@ -455,9 +437,6 @@ describe("instrument shell", () => {
       expect(shell.getAttribute("data-right-rail-mode")).toBe("docked");
       expect(onRightOverlayOpenChange).toHaveBeenCalledOnce();
       expect(onRightOverlayOpenChange).toHaveBeenCalledWith(false);
-    } finally {
-      await act(async () => mounted.root.unmount());
-      mounted.host.restore();
-    }
+    } finally { await act(async () => mounted.root.unmount()); mounted.host.restore(); }
   });
 });

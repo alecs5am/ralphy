@@ -78,6 +78,8 @@ const flag = (id: keyof AppPreferences) => (values: AppPreferences) => values[id
 export const SETTINGS_INDEX: readonly SettingsIndexEntry[] = [
   { id: "general.sendShortcut", title: "Send shortcut in agent chat", page: "general", section: "Application behaviour", keywords: "send enter shortcut chat submit", state: value("general.sendShortcut") },
   { id: "general.library", title: "Home Ralphy library", page: "general", section: "Library", keywords: "path library store folder root", state: () => "Open storage to check" },
+  { id: "general.memory", title: "Workspace memory", page: "general", section: "Workspace", keywords: "memory preferences knowledge agent workspace", state: () => "Current workspace" },
+  { id: "general.context", title: "Workspace context", page: "general", section: "Workspace", keywords: "context instructions references agent workspace", state: () => "Current workspace" },
   { id: "appearance.theme", title: "Appearance", page: "appearance", section: "Theme", keywords: "theme dark light system contrast", state: () => "System, Dark or Light" },
   { id: "appearance.motion", title: "Interface motion", page: "appearance", section: "Motion", keywords: "motion animation reduce transitions", state: flag("appearance.motion") },
   { id: "keys.bindings", title: "Command shortcuts", page: "keys", section: "Application", keywords: "shortcut keybinding hotkey chord keyboard", state: () => "Command registry" },

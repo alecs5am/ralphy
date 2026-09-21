@@ -52,8 +52,8 @@
 
 .instrument-desk-scroll > .main-content-stage { min-height: 100%; }
 
-/* The desk is the app's only scroll surface, so every named scroll region inside it has to give
-   up its own scrolling or the reader gets two nested scrollbars for one page. The list names 24
+/* Ordinary routes scroll at desk level. Full-height editors and media pages own their scroller
+   and are excluded, so these rules cannot turn a bounded media grid into a second page. The list names 24
    classes across eight areas, none of them this one's, and it is declared from this area only
    because `.instrument-desk-scroll` is the element that makes the rule true. There is no utility
    form for a blanket over other areas' elements. Measured: the `height`, `max-height` and
@@ -61,7 +61,7 @@
    `overscroll-behavior` and `scrollbar-gutter` halves still render.
 
    Owned by: no single area. */
-.instrument-desk-scroll :is(
+.instrument-desk-scroll:not([data-scroll-mode="page"]) :is(
   .main-content-stage,
   .app-mode-surface,
   .main-region,
@@ -92,7 +92,7 @@
   scrollbar-gutter: auto !important;
 }
 
-.instrument-desk-scroll :is(
+.instrument-desk-scroll:not([data-scroll-mode="page"]) :is(
   .documents-workbench,
   .units-workbench,
   .activity-log
@@ -109,31 +109,6 @@
   max-height: 100%;
   align-self: start;
   overflow-y: auto;
-}
-
-/* Owner: workbench chrome (`components/ContextSidebar.tsx`). The mode switch's gooey travelling
-   indicator, in pill geometry: two blobs on different durations stretch through each other while
-   the filter fuses them. Measured live, including its reduced-motion path -- unlike the sidebar's
-   own slide-in, every declaration below does apply, so nothing here needs moving to win. */
-.mode-goo-filter { position: absolute; width: 0; height: 0; pointer-events: none; }
-.mode-goo { position: absolute; z-index: 0; inset: 4px; pointer-events: none; }
-.mode-goo-blob {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: calc(100% / var(--mode-count, 2));
-  border-radius: var(--radius-pill);
-  corner-shape: round;
-  background: var(--instrument-selected-surface);
-  transform: translateX(calc(var(--mode-index, 0) * 100%));
-}
-.mode-goo-blob-leading { transition: transform 300ms var(--ease); }
-.mode-goo-blob-trailing { transition: transform 480ms var(--ease); }
-
-@media (prefers-reduced-motion: reduce) {
-  .mode-goo { filter: none !important; }
-  .mode-goo-blob-leading { transition-duration: 0ms; }
-  .mode-goo-blob-trailing { display: none; }
 }
 
 /* Owner: workbench project (`components/ProjectControls.tsx`, `instrument/ProjectDock.tsx`,

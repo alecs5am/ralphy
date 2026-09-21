@@ -61,7 +61,8 @@ describe("the picker's cursor", () => {
   test("caps the field's growth and reads at the chat's type step", () => {
     expect(source).toContain("max-h-agent-composer");
     expect(source).toContain("overflow-y-auto");
-    expect(source).toContain("type-md");
+    expect(source).toContain("type-sm");
+    expect(source).not.toContain("type-md");
     expect(source).not.toContain("type-body");
   });
 });

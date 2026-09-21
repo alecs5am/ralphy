@@ -1085,10 +1085,13 @@ export interface BridgeMethodContract {
     expectedRevisionId: string | null;
   }, DocumentBindingDto>;
   "media.list": Contract<ScopedCursorParams & {
+    projectOnly?: true;
     filter?: MediaFilter;
     types?: MediaRef["type"][];
     mediaKind?: MediaKind;
     provenance?: MediaProvenance;
+    search?: string;
+    sort?: "oldest" | "newest" | "name" | "size" | "selected";
   }, Page<MediaCardDto>>;
   "media.show": Contract<ScopedParams & { ref: MediaRef }, MediaCardDto>;
   "media.generation.show": Contract<ScopedParams & { target: MediaGenerationTarget } & CursorParams, MediaGenerationDetailDto>;

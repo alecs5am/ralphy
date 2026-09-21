@@ -63,6 +63,7 @@ export function family(name: string): keyof typeof FAMILIES {
 /* One call's reading. Where the handoff prints an exit code or a line count there is nothing on the
    wire to print, so the status is what the row can honestly say. */
 export function rowMeta(entry: AgentChatEntry): string {
+  if (entry.tool?.status === "unconfirmed") return "NO RESULT";
   return (entry.tool?.status === "failed" ? "failed" : entry.tool?.status === "running" ? "running" : "done")
     .toLocaleUpperCase();
 }
@@ -72,11 +73,13 @@ export function rowMeta(entry: AgentChatEntry): string {
 export function groupMeta(entries: readonly AgentChatEntry[]): string {
   const failed = entries.filter(({ tool }) => tool?.status === "failed").length;
   const running = entries.filter(({ tool }) => tool?.status === "running").length;
-  const done = entries.length - failed - running;
+  const unconfirmed = entries.filter(({ tool }) => tool?.status === "unconfirmed").length;
+  const done = entries.length - failed - running - unconfirmed;
   return [
     done > 0 ? `${done} DONE` : null,
     failed > 0 ? `${failed} FAILED` : null,
     running > 0 ? `${running} RUNNING` : null,
+    unconfirmed > 0 ? `${unconfirmed} NO RESULT` : null,
   ].filter(Boolean).join(" · ");
 }
 

@@ -66,7 +66,7 @@ export const marketplaceDetailInstrumentStates = defineInstrumentScreenStates({
   routeKey: "marketplace.detail",
   states: ["loading", "ready", "unavailable", "error"],
   rootMarker: "marketplace-detail",
-  landmarks: ["Item details", "Marketplace"],
+  landmarks: ["Item details", "Creative library"],
 } as const);
 
 export const marketplaceInstalledInstrumentStates = defineInstrumentScreenStates({
@@ -226,7 +226,7 @@ export function MarketplaceModelDetail({ reference, onBack, onReviewDownload }: 
         <section className={ASIDE_SECTION}><h3 className={DETAIL_HEADING}>License and access</h3><strong className="text-ink">{display(detail.license, "License not declared")}</strong><p className={DETAIL_COPY}>{detail.gated ? "Provider access is required before any files can be fetched." : "The provider reports public access. Review its terms before use."}</p>{detail.permissions.map((permission) => <p className={DETAIL_COPY} key={permission}>{permission}</p>)}</section>
         <section className={ASIDE_SECTION}><h3 className={DETAIL_HEADING}>Local installation</h3><p className={DETAIL_COPY}>{localStateCopy(detail)}</p><p className={DETAIL_COPY}>Required runtime · {detail.comfort.runtime}</p></section>
         <section className={ASIDE_SECTION}><h3 className={DETAIL_HEADING}>Used by Ralphy</h3><p className={DETAIL_COPY}>Usage backlinks are unavailable from the current Desktop contract.</p></section>
-        <section className={ASIDE_SECTION}><h3 className={DETAIL_HEADING}>Works with</h3><p className={DETAIL_COPY}>Related Marketplace items are unavailable from the current contract.</p></section>
+        <section className={ASIDE_SECTION}><h3 className={DETAIL_HEADING}>Works with</h3><p className={DETAIL_COPY}>Related library items are unavailable from the current contract.</p></section>
         <section className={ASIDE_SECTION}><h3 className={DETAIL_HEADING}>Used by</h3><p className={DETAIL_COPY}>Workspace, project, and chat backlinks are unavailable from the current contract.</p></section>
       </aside>
     </div>

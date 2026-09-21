@@ -5,3 +5,8 @@ npm/contracts/farm-identity-v1.golden.json:generic-api-key:5
 
 # Imported CLI documentation example uses the literal placeholder YOUR_API_KEY.
 apps/desktop/resources/prompt-pack/.agents/skills/researcher/references/site-grounding.md:curl-auth-header:115
+
+# Generated Remocn catalog stores public 40-character Git commit SHAs in a
+# minified JSON line. Gitleaks misclassifies those immutable source references
+# as Sourcegraph tokens; the catalog contains no credential-bearing fields.
+apps/desktop/src/pages/marketplace/lib/generated/remocn-foundations.generated.json:sourcegraph-access-token:1

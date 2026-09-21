@@ -28,6 +28,19 @@ type Target = {
   out: string;
 };
 
+export function desktopLaunch(
+  distDir: string,
+  target: Target,
+  env: NodeJS.ProcessEnv = process.env,
+  script: "start" | "dev" = "start",
+) {
+  return {
+    command: "bun",
+    args: ["run", "--cwd", "apps/desktop", script],
+    env: { ...env, RALPHY_BIN: path.join(distDir, target.out) },
+  };
+}
+
 const ALL_TARGETS: Target[] = [
   { target: "bun-darwin-arm64", out: "ralphy-darwin-arm64" },
   { target: "bun-darwin-x64", out: "ralphy-darwin-x64" },
@@ -173,6 +186,24 @@ async function main() {
   console.log(`  → ${distDir}`);
 
   if (withSmoke) smoke(distDir);
+
+  const desktopScript = args.includes("--desktop-dev")
+    ? "dev"
+    : args.includes("--desktop")
+      ? "start"
+      : null;
+  if (desktopScript) {
+    const launch = desktopLaunch(distDir, currentTarget(), process.env, desktopScript);
+    const code = await new Promise<number | null>((resolve, reject) => {
+      const child = spawn(launch.command, launch.args, {
+        env: launch.env,
+        stdio: "inherit",
+      });
+      child.on("error", reject);
+      child.on("close", resolve);
+    });
+    if (code !== 0) throw new Error(`desktop exited ${code ?? "without a status"}`);
+  }
 }
 
 const isDirect =

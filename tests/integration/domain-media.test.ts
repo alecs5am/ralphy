@@ -42,6 +42,7 @@ import {
   startConsumerSession,
 } from "../../cli/lib/store/sessions.js";
 import { StoreConflictError } from "../../cli/lib/store/types.js";
+import { createUnitWithRevision } from "../../cli/lib/store/units.js";
 import { verifyDomainStore } from "../../cli/lib/store/verify.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { installConsumer } from "../helpers/consumer-auth.js";
@@ -359,6 +360,33 @@ describe("media cards", () => {
     );
   });
 
+  test("uses the latest Artifact revision as the current media file", async () => {
+    const root = makeRoot();
+    const f = await fixture(root);
+    const artifact = createArtifact({
+      projectId: f.project.id,
+      slug: "latest-file",
+      kind: "image",
+    });
+    const revision = addArtifactRevision({
+      artifactId: artifact.id,
+      objectId: f.projectObject.id,
+      state: "candidate",
+    });
+
+    expect(getMediaCard({
+      context: { workspaceId: f.workspace.id, projectId: f.project.id },
+      ref: { type: "artifact", id: artifact.id },
+    })).toMatchObject({
+      selectedRevisionId: revision.id,
+      selectedState: "candidate",
+      selectedObjectId: f.projectObject.id,
+      mime: "image/png",
+      bytes: 11,
+      target: { type: "object", id: f.projectObject.id },
+    });
+  });
+
   test("classifies an exact batch once per selected media type", async () => {
     const root = makeRoot();
     const f = await fixture(root);
@@ -461,6 +489,14 @@ describe("media cards", () => {
     expect(seen).toContain(f.runObject.id);
     expect(seen).not.toContain(f.siblingObject.id);
 
+    const projectOnly = listMedia({
+      context: { workspaceId: f.workspace.id, projectId: f.project.id },
+      types: ["object"],
+      projectOnly: true,
+      limit: 100,
+    });
+    expect(projectOnly.items.map((card) => card.ref.id)).toEqual([f.projectObject.id]);
+
     const workspaceView = listMedia({
       context: { workspaceId: f.workspace.id },
       limit: 100,
@@ -556,6 +592,77 @@ describe("media cards", () => {
       .toThrow(/media kind/i);
     expect(() => listMedia({ context, provenance: "maybe" as never, limit: 1 }))
       .toThrow(/media provenance/i);
+  });
+
+  test("searches before paging and sorts matching media stably in either direction", async () => {
+    const root = makeRoot();
+    const f = await fixture(root);
+    const context = { workspaceId: f.workspace.id, projectId: f.project.id };
+    const db = openDomainDb();
+    db.prepare("UPDATE artifacts SET slug = 'Late hero', created_at = 30 WHERE id = ?").run(f.artifact.id);
+    db.prepare("UPDATE run_objects SET purpose = 'hero', created_at = 30 WHERE id = ?").run(f.runObject.id);
+    const search = { context, search: " HERO ", limit: 1 };
+    const oldest = listMedia(search);
+    const second = listMedia({ ...search, after: oldest.nextCursor });
+    expect([...oldest.items, ...second.items].map((card) => card.ref.id)).toEqual([f.artifact.id, f.runObject.id].sort());
+    expect(second.nextCursor).toBeNull();
+    const newest = listMedia({ ...search, sort: "newest" });
+    const last = listMedia({ ...search, sort: "newest", after: newest.nextCursor });
+    expect([...newest.items, ...last.items].map((card) => card.ref.id)).toEqual([f.artifact.id, f.runObject.id].sort().reverse());
+    expect(last.nextCursor).toBeNull();
+    for (const sort of ["name", "size", "selected"] as const) {
+      const query = { ...search, sort };
+      const first = listMedia(query);
+      const next = listMedia({ ...query, after: first.nextCursor });
+      const expected = sort === "name" ? [f.runObject.id, f.artifact.id] : [f.artifact.id, f.runObject.id];
+      expect([...first.items, ...next.items].map((card) => card.ref.id)).toEqual(expected);
+      expect(next.nextCursor).toBeNull();
+      expect(() => listMedia({ ...query, search: "other", after: first.nextCursor })).toThrow(/cursor/i);
+      expect(() => listMedia({ ...query, sort: "oldest", after: first.nextCursor })).toThrow(/cursor/i);
+      expect(() => listMedia({ ...query, context: { workspaceId: f.workspace.id, projectId: f.sibling.id }, after: first.nextCursor })).toThrow(/cursor/i);
+    }
+    expect(listMedia({ context, search: "image/png", limit: 100 }).items.map((card) => card.ref.id)).not.toContain(f.siblingObject.id);
+    expect(listMedia({ context, types: ["run-object"], search: "not-generation", limit: 1 }).items[0]?.ref.id).toBe(f.runObject.id);
+    expect(listMedia({ context, search: "%", limit: 1 }).items).toEqual([]);
+    expect(() => listMedia({ context, search: "x".repeat(257), limit: 1 })).toThrow(/search/i);
+    expect(() => listMedia({ context, sort: "random" as never, limit: 1 })).toThrow(/sort/i);
+  });
+
+  test("searches visible current content titles and usage roles without leaking sibling titles", async () => {
+    const root = makeRoot();
+    const f = await fixture(root);
+    const context = { workspaceId: f.workspace.id, projectId: f.project.id };
+    createUnitWithRevision({ projectId: f.project.id, slug: "spring-launch", format: "image", items: [{ artifactRevisionId: f.revision.id, role: "master", position: 0 }] });
+    addArtifactUsage({ artifactRevisionId: f.revision.id, role: "reference", projectId: f.project.id });
+    expect(listMedia({ context, search: "spring-launch", limit: 1 }).items.map((card) => card.ref.id)).toEqual([f.artifact.id]);
+    expect(listMedia({ context, search: "spring launch", limit: 1 }).items.map((card) => card.ref.id)).toEqual([f.artifact.id]);
+    expect(listMedia({ context, search: "reference", limit: 1 }).items.map((card) => card.ref.id)).toEqual([f.artifact.id]);
+    expect(listMedia({ context: { workspaceId: f.workspace.id, projectId: f.sibling.id }, search: "spring-launch", limit: 1 }).items).toEqual([]);
+    const shared = createArtifact({ workspaceId: f.workspace.id, slug: "shared-cover", kind: "image" });
+    const sharedRevision = addArtifactRevision({ artifactId: shared.id, objectId: f.sharedObject.id, state: "working" });
+    selectArtifactRevision({ artifactId: shared.id, revisionId: sharedRevision.id, expectedRevisionId: null });
+    createUnitWithRevision({ projectId: f.sibling.id, slug: "private-sibling-title", format: "image", items: [{ artifactRevisionId: sharedRevision.id, role: "master", position: 0 }] });
+    expect(listMedia({ context, search: "private-sibling-title", limit: 1 }).items).toEqual([]);
+    expect(listMedia({ context: { workspaceId: f.workspace.id }, search: "private-sibling-title", limit: 1 }).items).toEqual([]);
+    expect(listMedia({ context: { workspaceId: f.workspace.id, projectId: f.sibling.id }, search: "private-sibling-title", limit: 1 }).items.map((card) => card.ref.id)).toEqual([shared.id]);
+  });
+
+  test("pages unknown sizes and selection dates after known media without losing equal null values", async () => {
+    const root = makeRoot();
+    const f = await fixture(root);
+    const unknown = ["unselected-one", "unselected-two"].map((slug) => createArtifact({ projectId: f.project.id, slug, kind: "image" }));
+    for (const sort of ["size", "selected"] as const) {
+      const query = { context: { workspaceId: f.workspace.id, projectId: f.project.id }, types: ["artifact"] as const, sort, limit: 1 };
+      const ids: string[] = [];
+      let after: string | null = null;
+      do {
+        const page = listMedia({ ...query, types: [...query.types], after });
+        ids.push(...page.items.map((card) => card.ref.id));
+        after = page.nextCursor;
+      } while (after && ids.length < 4);
+      expect(ids).toEqual([f.artifact.id, ...unknown.map((card) => card.id).sort().reverse()]);
+      expect(after).toBeNull();
+    }
   });
 
   test("media facets classify the closed MIME matrix", async () => {
@@ -726,7 +833,7 @@ describe("media cards", () => {
     const page = listMedia({ context, types: ["artifact"], limit: 100 });
     const byId = new Map(page.items.map((card) => [card.ref.id, card]));
     for (const [id, provenance] of expected) {
-      expect(byId.get(id)).toMatchObject({ mediaKind: id === unselected.id ? "other" : "image", provenance });
+      expect(byId.get(id)).toMatchObject({ mediaKind: "image", provenance });
       expect(getMediaCard({ context, ref: { type: "artifact", id } })).toMatchObject({ provenance });
     }
     expect(listMedia({

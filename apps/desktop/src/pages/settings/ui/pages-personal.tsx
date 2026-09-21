@@ -52,6 +52,10 @@ export function GeneralPage({ ctx }: { ctx: SettingsContext }) {
       <Row title="Agent and model defaults" description="Choose a connected agent for new conversations."><button className={action()} onClick={() => ctx.goTo("agents")}>Manage agents</button></Row>
       <Row title="Access for new chats" description="New conversations start with the mode chosen in Permissions."><button className={action()} onClick={() => ctx.goTo("permissions")}>Agent access</button></Row>
     </Plate></Section>
+    {ctx.workspace && ctx.onOpenWorkspaceSettings && <Section title={ctx.workspace.name}><Plate>
+      <Row title="Memory" description="Saved preferences and knowledge for this workspace." id="general.memory"><button className={action()} onClick={() => ctx.onOpenWorkspaceSettings?.("memory")}>Manage memory</button></Row>
+      <Row title="Context" description="Workspace instructions and reference material available to agents." id="general.context"><button className={action()} onClick={() => ctx.onOpenWorkspaceSettings?.("context")}>Manage context</button></Row>
+    </Plate></Section>}
     <Section title="LIBRARY"><Plate>
       <Row title="Home Ralphy library" description={info?.libraryPath ?? "Reading library location…"} id="general.library"><button className={action()} disabled={!info?.libraryPath} onClick={() => void bridge.revealDesktopFolder("library").catch(() => setError("The library folder could not be opened."))}><FolderOpen size={14} />Show in Finder</button></Row>
       <Row title="Storage and cache" description="Inspect available disk space and clear disposable browser data."><button className={action()} onClick={() => ctx.goTo("storage")}>Open storage</button></Row>

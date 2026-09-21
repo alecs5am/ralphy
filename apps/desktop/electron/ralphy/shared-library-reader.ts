@@ -30,6 +30,8 @@ export type SharedLibraryQuery = {
   after?: string | null;
   mediaKind?: MediaKind;
   provenance?: MediaProvenance;
+  search?: string;
+  sort?: "name" | "size" | "selected";
 };
 export type SharedLibraryAction = "open" | "finder";
 
@@ -78,9 +80,11 @@ function query(value: unknown): SharedLibraryQuery {
   if (value === undefined) return {};
   const input = record(value);
   if (!input || !Reflect.ownKeys(input).every((key) => (
-    key === "after" || key === "mediaKind" || key === "provenance"
+    key === "after" || key === "mediaKind" || key === "provenance" || key === "search" || key === "sort"
   )) || (input.mediaKind !== undefined && !MEDIA_KINDS.has(input.mediaKind as MediaKind))
-    || (input.provenance !== undefined && !MEDIA_PROVENANCE.has(input.provenance as MediaProvenance))) {
+    || (input.provenance !== undefined && !MEDIA_PROVENANCE.has(input.provenance as MediaProvenance))
+    || (input.search !== undefined && (typeof input.search !== "string" || input.search.length > 256))
+    || (input.sort !== undefined && !["name", "size", "selected"].includes(input.sort as string))) {
     throw new Error("Invalid Shared Library query");
   }
   cursor(input.after);
@@ -203,6 +207,8 @@ export function createSharedLibraryReader({
         ...(after ? { after } : {}),
         ...(input.mediaKind === undefined ? {} : { mediaKind: input.mediaKind }),
         ...(input.provenance === undefined ? {} : { provenance: input.provenance }),
+        ...(input.search === undefined ? {} : { search: input.search }),
+        ...(input.sort === undefined ? {} : { sort: input.sort }),
         limit: PAGE_LIMIT,
         types: ["artifact"],
       }), context.workspaceId);

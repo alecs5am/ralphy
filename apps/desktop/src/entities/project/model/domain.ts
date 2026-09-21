@@ -56,7 +56,7 @@ export function createProjectDomainState(project: ProjectRef, generation = 1): P
     generation,
     overview: { status: "idle", value: null, error: null },
     pages: pages(),
-    media: { filter: "all" },
+    media: { filter: "all", sort: "newest" },
     preview: { status: "idle", value: null, error: null, requestId: null },
   };
 }

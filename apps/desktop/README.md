@@ -65,13 +65,15 @@ bun install --frozen-lockfile
 bun run start
 ```
 
-Development launches use this repository's `cli/index.ts` through Bun on the desktop's restricted PATH. If your global Bun is older, install the pinned runtime with `mise install bun@1.4.2`, then run `mise exec bun@1.4.2 -- bun run build:bin:current` from the repository root. Set `RALPHY_BIN` to the absolute `dist/binaries/ralphy-<platform>-<arch>` executable before starting the app. A shell's mise activation alone does not select the runtime for desktop subprocesses. Packaged applications always use their bundled runtime and require no external Bun for CLI operations.
+For a real workspace, use `bun run start` at the repository root. That launcher enters the pinned Bun runtime, rebuilds the current-platform Ralphy binary, and passes it to Electron through `RALPHY_BIN`. Running this package's `start` script directly is a low-level path and expects a compatible `RALPHY_BIN`. Packaged applications always use their bundled runtime and require no external Bun for CLI operations.
 
-For renderer-only development with fixture data:
+For Electron development with Vite hot reload, run this from the repository root:
 
 ```bash
 bun run dev
 ```
+
+This uses the normal desktop profile and inherited home-directory environment, so saved API keys and existing Codex/Claude Code installations and sessions are reused. For renderer-only development with fixture data, run `bun run dev:renderer`.
 
 ## Validate
 

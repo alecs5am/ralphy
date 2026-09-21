@@ -25,6 +25,7 @@ import {
   getFormats,
 } from "../lib/library/client.js";
 import type { BlockKind } from "../lib/library/types.js";
+import type { LibraryBlockFilter } from "../lib/library/tags.js";
 
 /** The `library <entity>` selectors and how each maps to the client. */
 const BLOCK_ENTITIES: Record<string, BlockKind> = {
@@ -52,8 +53,8 @@ async function runShowUnit(id: string): Promise<void> {
   out(unit);
 }
 
-async function runListBlocks(kind: BlockKind): Promise<void> {
-  const blocks = await getBlocks(kind);
+async function runListBlocks(kind: BlockKind, filter: LibraryBlockFilter): Promise<void> {
+  const blocks = await getBlocks(kind, filter);
   out(
     blocks.map((b) => ({
       id: b.id,
@@ -61,6 +62,7 @@ async function runListBlocks(kind: BlockKind): Promise<void> {
       ...(b.sub != null ? { sub: b.sub } : {}),
       ...(b.recipeKind != null ? { recipeKind: b.recipeKind } : {}),
       blurb: b.blurb,
+      tags: b.tags ?? [],
     })),
   );
 }
@@ -112,7 +114,9 @@ export function libraryCmd() {
     sub
       .command("list")
       .description(`List all ${entity}`)
-      .action(guard(() => runListBlocks(kind)));
+      .option("--query <text>", "Search names, descriptions, and declared tags")
+      .option("--tag <tag>", "Match a declared tag exactly")
+      .action((filter: LibraryBlockFilter) => guard(() => runListBlocks(kind, filter))());
     sub
       .command("show <id>")
       .description(`Show one ${kind} block by id`)
@@ -142,6 +146,7 @@ Examples:
   ralphy library units show animated-fb-ad
   ralphy library templates list
   ralphy library recipes show noir-grade
+  ralphy library recipes list --tag ffmpeg --query dither
   ralphy library blueprints list
   ralphy library blueprints show choose-magicschool
   ralphy library formats list

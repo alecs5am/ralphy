@@ -1,0 +1,106 @@
+[
+  {
+    "id": "aurora-field",
+    "name": "Aurora field",
+    "summary": "A soft chromatic background with an editable palette.",
+    "tags": [
+      "gradient",
+      "background",
+      "organic",
+      "svg"
+    ],
+    "body": "A layered radial-gradient field for title cards and calm product backdrops. Change the three gradient stops to fit the brand; place text over the quieter center.",
+    "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 640\"><defs><radialGradient id=\"a\" cx=\".18\" cy=\".15\" r=\".9\"><stop stop-color=\"#bceaa5\"/><stop offset=\"1\" stop-color=\"#bceaa5\" stop-opacity=\"0\"/></radialGradient><radialGradient id=\"b\" cx=\".88\" cy=\".7\" r=\".8\"><stop stop-color=\"#cb9278\"/><stop offset=\"1\" stop-color=\"#cb9278\" stop-opacity=\"0\"/></radialGradient><radialGradient id=\"c\" cx=\".32\" cy=\".9\" r=\".62\"><stop stop-color=\"#306b6a\"/><stop offset=\"1\" stop-color=\"#306b6a\" stop-opacity=\"0\"/></radialGradient></defs><rect width=\"640\" height=\"640\" fill=\"#102a31\"/><g id=\"field\"><rect width=\"640\" height=\"640\" fill=\"url(#a)\"/><rect width=\"640\" height=\"640\" fill=\"url(#b)\"/><rect width=\"640\" height=\"640\" fill=\"url(#c)\"/></g></svg>"
+  },
+  {
+    "id": "type-opener",
+    "name": "The type opener",
+    "summary": "Oversized editorial type with one sharp accent.",
+    "tags": [
+      "typography",
+      "title",
+      "editorial",
+      "svg"
+    ],
+    "body": "An editorial opener with a small issue line, large two-line title and an accent rule. Edit the title, index and subtitle; animate the title group vertically for a restrained reveal.",
+    "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 640\"><defs></defs><rect width=\"640\" height=\"640\" fill=\"#e9e9dc\"/><text x=\"48\" y=\"65\" fill=\"#4a5145\" font-family=\"Arial,sans-serif\" font-size=\"17\" >STUDIO NOTES / 01</text><g id=\"title\"><text x=\"42\" y=\"276\" fill=\"#243629\" font-family=\"Arial,sans-serif\" font-size=\"132\" font-weight=\"700\" letter-spacing=\"-8\">Make</text><text x=\"42\" y=\"404\" fill=\"#243629\" font-family=\"Arial,sans-serif\" font-size=\"132\" font-weight=\"700\" letter-spacing=\"-8\">it felt.</text></g><path d=\"M48 454H592\" stroke=\"#e77a35\" stroke-width=\"14\"/><text x=\"48\" y=\"570\" fill=\"#4a5145\" font-family=\"Arial,sans-serif\" font-size=\"22\" >A different kind of first impression.</text></svg>"
+  },
+  {
+    "id": "caption-stack",
+    "name": "Caption stack",
+    "summary": "Readable phrase-by-phrase captions for a vertical edit.",
+    "tags": [
+      "captions",
+      "short-form",
+      "typography",
+      "svg"
+    ],
+    "body": "A high-contrast three-line caption treatment. Replace phrases with actual transcription, align timing to spoken words and highlight only one meaningful phrase at a time.",
+    "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 640\"><defs></defs><rect width=\"640\" height=\"640\" fill=\"#213127\"/><g id=\"captions\"><rect x=\"66\" y=\"198\" width=\"494\" height=\"72\" rx=\"10\" fill=\"#f5f0e8\"/><rect x=\"86\" y=\"282\" width=\"474\" height=\"72\" rx=\"10\" fill=\"#dcff6b\"/><rect x=\"146\" y=\"366\" width=\"414\" height=\"72\" rx=\"10\" fill=\"#f5f0e8\"/><text x=\"90\" y=\"247\" fill=\"#141714\" font-family=\"Arial,sans-serif\" font-size=\"43\" font-weight=\"700\">ONE GOOD IDEA</text><text x=\"110\" y=\"331\" fill=\"#141714\" font-family=\"Arial,sans-serif\" font-size=\"40\" font-weight=\"700\">IS ALL IT TAKES</text><text x=\"170\" y=\"415\" fill=\"#141714\" font-family=\"Arial,sans-serif\" font-size=\"40\" font-weight=\"700\">TO GET GOING.</text></g><text x=\"66\" y=\"565\" fill=\"#aeb3a5\" font-family=\"Arial,sans-serif\" font-size=\"20\" >Phrase by phrase. Always readable.</text></svg>"
+  },
+  {
+    "id": "lower-third",
+    "name": "A quiet introduction",
+    "summary": "An understated name and role plate for interviews.",
+    "tags": [
+      "lower-third",
+      "interview",
+      "identity",
+      "svg"
+    ],
+    "body": "A compact lower-third label with a vertical accent. Replace name and role, anchor it inside title-safe margins and keep it visible long enough to read before fading out.",
+    "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 640\"><defs></defs><rect width=\"640\" height=\"640\" fill=\"#e1e5d9\"/><path d=\"M0 410L640 190V640H0Z\" fill=\"#cad0bc\"/><g id=\"nameplate\"><rect x=\"48\" y=\"392\" width=\"544\" height=\"155\" fill=\"#f8f6ee\"/><rect x=\"48\" y=\"392\" width=\"8\" height=\"155\" fill=\"#b86446\"/><text x=\"81\" y=\"458\" fill=\"#262b29\" font-family=\"Arial,sans-serif\" font-size=\"41\" font-weight=\"600\">Alex Morgan</text><text x=\"82\" y=\"500\" fill=\"#59605b\" font-family=\"Arial,sans-serif\" font-size=\"22\" >Designer &amp; storyteller</text></g><text x=\"48\" y=\"80\" fill=\"#4d5851\" font-family=\"Arial,sans-serif\" font-size=\"18\" >THE PEOPLE BEHIND THE WORK</text></svg>"
+  },
+  {
+    "id": "split-quote",
+    "name": "Words worth keeping",
+    "summary": "A large quote card with an unobtrusive attribution.",
+    "tags": [
+      "quote",
+      "editorial",
+      "social",
+      "svg"
+    ],
+    "body": "A quote layout for a carousel or interview cutaway. Use the exact approved quote, keep line lengths short, and include a factual attribution. Never invent a quote or author.",
+    "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 640\"><defs></defs><rect width=\"640\" height=\"640\" fill=\"#302d29\"/><text x=\"48\" y=\"170\" fill=\"#d77957\" font-family=\"Arial,sans-serif\" font-size=\"180\" >\u201c</text><g id=\"quote\"><text x=\"62\" y=\"267\" fill=\"#eee9df\" font-family=\"Arial,sans-serif\" font-size=\"68\" >The details</text><text x=\"62\" y=\"345\" fill=\"#eee9df\" font-family=\"Arial,sans-serif\" font-size=\"68\" >are the</text><text x=\"62\" y=\"423\" fill=\"#eee9df\" font-family=\"Arial,sans-serif\" font-size=\"68\" >whole thing.</text></g><path d=\"M64 480H576\" stroke=\"#726255\"/><text x=\"64\" y=\"544\" fill=\"#c2b5a6\" font-family=\"Arial,sans-serif\" font-size=\"18\" >A PLACE FOR YOUR QUOTE</text></svg>"
+  },
+  {
+    "id": "chapter-divider",
+    "name": "Next chapter",
+    "summary": "A simple chapter card for an essay or documentary.",
+    "tags": [
+      "chapter",
+      "documentary",
+      "title",
+      "svg"
+    ],
+    "body": "A chapter separator with a large chapter number and restrained title. Change the index and section name, then use a short hold between longer segments.",
+    "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 640\"><defs></defs><rect width=\"640\" height=\"640\" fill=\"#242b2c\"/><text x=\"44\" y=\"380\" fill=\"#3b4145\" font-family=\"Arial,sans-serif\" font-size=\"320\" font-weight=\"700\" letter-spacing=\"-24\">02</text><g id=\"chapter\"><path d=\"M52 431H587\" stroke=\"#dfedba\" stroke-width=\"2\"/><text x=\"52\" y=\"500\" fill=\"#dfedba\" font-family=\"Arial,sans-serif\" font-size=\"58\" >A closer look</text><text x=\"54\" y=\"550\" fill=\"#a5afa9\" font-family=\"Arial,sans-serif\" font-size=\"18\" >CHAPTER TWO</text></g></svg>"
+  },
+  {
+    "id": "orbit-mark",
+    "name": "Orbit mark",
+    "summary": "A geometric motion accent with a clear center of gravity.",
+    "tags": [
+      "geometry",
+      "motion",
+      "accent",
+      "svg"
+    ],
+    "body": "An abstract orbital mark built from named SVG groups. Recolor the strokes and central disk; rotate the orbit group slowly around the viewBox center for a looping identity accent.",
+    "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 640\"><defs></defs><rect width=\"640\" height=\"640\" fill=\"#e4e8df\"/><g id=\"orbits\" stroke=\"#4a6365\" fill=\"none\" stroke-width=\"2\"><ellipse cx=\"320\" cy=\"320\" rx=\"256\" ry=\"100\" transform=\"rotate(-35 320 320)\"/><ellipse cx=\"320\" cy=\"320\" rx=\"256\" ry=\"100\" transform=\"rotate(35 320 320)\"/><ellipse cx=\"320\" cy=\"320\" rx=\"100\" ry=\"256\"/></g><g id=\"core\"><circle cx=\"320\" cy=\"320\" r=\"72\" fill=\"#df623f\"/><circle cx=\"520\" cy=\"179\" r=\"13\" fill=\"#243a3b\"/></g></svg>"
+  },
+  {
+    "id": "end-frame",
+    "name": "Leave a note",
+    "summary": "A closing frame with space for a useful next step.",
+    "tags": [
+      "end-card",
+      "cta",
+      "social",
+      "svg"
+    ],
+    "body": "A minimal end card with one next action. Replace sample text with a real next step, URL or release date; keep it short enough to read within the final three seconds.",
+    "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 640\"><defs></defs><rect width=\"640\" height=\"640\" fill=\"#e9b7a1\"/><text x=\"48\" y=\"67\" fill=\"#513f38\" font-family=\"Arial,sans-serif\" font-size=\"17\" >UNTIL NEXT TIME</text><g id=\"closing\"><text x=\"48\" y=\"280\" fill=\"#403a35\" font-family=\"Arial,sans-serif\" font-size=\"112\" font-weight=\"700\" letter-spacing=\"-5\">Keep</text><text x=\"48\" y=\"394\" fill=\"#403a35\" font-family=\"Arial,sans-serif\" font-size=\"112\" font-weight=\"700\" letter-spacing=\"-5\">looking.</text><path d=\"M53 493H567M537 463L567 493L537 523\" stroke=\"#403a35\" stroke-width=\"6\" fill=\"none\"/></g><text x=\"48\" y=\"580\" fill=\"#513f38\" font-family=\"Arial,sans-serif\" font-size=\"18\" >YOUR NEXT CHAPTER STARTS HERE</text></svg>"
+  }
+]

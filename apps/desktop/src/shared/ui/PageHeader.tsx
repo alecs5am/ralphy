@@ -8,21 +8,21 @@ export const usePageHeaderHost = () => useContext(PageHeaderHost);
 export const PAGE_HEADER_BUTTON = "page-header-action inline-flex h-8 flex-none items-center justify-center gap-2 rounded-full bg-card px-3 type-xs text-ink hover:bg-row-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink disabled:opacity-40";
 export const PAGE_HEADER_PRIMARY = `${PAGE_HEADER_BUTTON} page-header-primary`;
 
-/** The page still owns its controls and state; only their DOM destination changes in desk mode. */
-export function PageHeader({ title, icon: Icon, meta, description, children }: {
-  title: string; icon: AppIcon; meta?: ReactNode; description?: string; children?: ReactNode;
+/** Pages keep their controls and state while lending one header to the active window chrome. */
+export function PageHeader({ title, icon: Icon, meta, description, headingId, children }: {
+  title: string; icon: AppIcon; meta?: ReactNode; description?: string; headingId?: string; children?: ReactNode;
 }) {
   const host = usePageHeaderHost();
-  const header = <div className="page-header flex min-w-0 flex-1 items-center gap-2 text-ink" role="group" aria-label={`${title} controls`}>
+  const header = <div className="page-header flex min-w-0 flex-1 items-center gap-2 text-ink" data-page-title={title} role="group" aria-label={`${title} controls`}>
     <div className="page-header-identity flex min-w-0 flex-1 items-center gap-2 [-webkit-app-region:drag]" title={typeof meta === "string" ? `${title} · ${meta}` : title}>
       <Icon size={15} className="shrink-0 text-muted" aria-hidden="true" />
-      <h1 className="m-0 truncate type-sm font-semibold">{title}</h1>
+      <h1 id={headingId} tabIndex={headingId ? -1 : undefined} className="m-0 truncate type-sm font-semibold">{title}</h1>
       {meta && <span className="page-header-meta min-w-0 truncate type-xs text-muted">{meta}</span>}
     </div>
     {description && <span className="sr-only">{description}</span>}
     {children && <div className="page-header-actions flex min-w-0 items-center gap-1">{children}</div>}
   </div>;
-  return host ? createPortal(header, host) : <div className="page-header-inline shrink-0 p-1">{header}</div>;
+  return host ? createPortal(header, host) : <div className="page-header-inline sticky top-0 z-sticky shrink-0 rounded-panel bg-card p-1.5">{header}</div>;
 }
 
 export function PageHeaderMore({ label = "More page actions", children }: { label?: string; children: ReactNode }) {

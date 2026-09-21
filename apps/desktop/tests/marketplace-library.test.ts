@@ -133,6 +133,7 @@ describe("Marketplace public catalog trust boundary", () => {
         category: "template",
         name: "Choose the Door",
         summary: "A safe choice.",
+        tags: [],
         referenceUrls: ["https://ralphy.b-cdn.net/blocks/template/choose-the-door/preview.png"],
         recipe: null,
       },
@@ -141,6 +142,7 @@ describe("Marketplace public catalog trust boundary", () => {
         category: "recipe",
         name: "Voxel Dither",
         summary: "Retro effect",
+        tags: ["ffmpeg"],
         referenceUrls: ["https://ralphy.b-cdn.net/units/voxel-dither/demo.mp4"],
         recipe: {
           kind: "ffmpeg",
@@ -161,6 +163,21 @@ describe("Marketplace public catalog trust boundary", () => {
       .not.toMatch(/<script|demoHtml|sourcePath|absolutePath|unknownSecret/i);
     expect(snapshot.items[1]?.recipe?.artifact).toBe(exactArtifact);
     expect(JSON.stringify(snapshot)).not.toContain("/Users/demo");
+  });
+
+  test("round-trips sound tags through cache and still reads pre-tag caches", async () => {
+    const live = await loadMarketplacePublicLibrary({ fetcher: fetcher(response(document([
+      { kind: "asset", sub: "music", id: "bed", name: "Bed", blurb: "Scene music", tags: [" Calm ", "calm"], refs: ["https://ralphy.b-cdn.net/blocks/asset/bed/demo.mp3"] },
+    ]))), cachePath, now: () => NOW });
+    const offline = () => loadMarketplacePublicLibrary({ fetcher: fetcher(new Error("offline")), cachePath, now: () => NOW + 1 });
+    expect((await offline()).items).toEqual(live.items);
+    const cache = JSON.parse(await readFile(cachePath, "utf8"));
+    delete cache.items[0].tags;
+    await writeFile(cachePath, JSON.stringify(cache));
+    expect((await offline()).items[0]).toMatchObject({ category: "asset", id: "bed" });
+    cache.items[0].tags = ["<script>bad</script>"];
+    await writeFile(cachePath, JSON.stringify(cache));
+    await expect(offline()).rejects.toThrow("Marketplace catalog is unavailable");
   });
 
   test("rejects redirects, mismatched response URLs, bad status, content type, and bounded headers", async () => {

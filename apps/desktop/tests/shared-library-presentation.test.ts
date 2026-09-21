@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { ArtifactMediaCardDto, Page } from "../electron/ralphy/types";
 import {
-  DEFAULT_SHARED_LIBRARY_QUERY,
   presentSharedArtifact,
   presentSharedLibrary,
 } from "@/pages/shared-library";
@@ -107,8 +106,8 @@ describe("Shared Library presentation", () => {
         mime: null,
         bytes: null,
       }),
-    ]), null, DEFAULT_SHARED_LIBRARY_QUERY);
-    const bounded = presentSharedLibrary(page([artifact()], "next-page"), "artifact-a", DEFAULT_SHARED_LIBRARY_QUERY);
+    ]), null);
+    const bounded = presentSharedLibrary(page([artifact()], "next-page"), "artifact-a");
 
     expect(complete.totalCount).toEqual({ status: "ready", value: 2 });
     expect(complete.totalSelectedBytes).toEqual({ status: "ready", value: 120 });
@@ -118,13 +117,13 @@ describe("Shared Library presentation", () => {
       totalCount: { status: "partial", value: 1, reason: "Showing 1 loaded artifacts; more are available in this library." },
       totalSelectedBytes: { status: "partial", value: 120, reason: "Showing 1 loaded artifacts; more are available in this library." },
     });
-    expect(presentSharedLibrary(page([]), null, DEFAULT_SHARED_LIBRARY_QUERY)).toMatchObject({
+    expect(presentSharedLibrary(page([]), null)).toMatchObject({
       totalCount: { status: "ready", value: 0 },
       totalSelectedBytes: { status: "ready", value: 0 },
     });
   });
 
-  test("searches only returned local fields and applies exact filters and stable sorts", () => {
+  test("preserves the returned order and selects only an artifact in the loaded result", () => {
     const items = [
       artifact({ ref: { type: "artifact", id: "artifact-a" }, slug: "zeta", bytes: 120, selectedAt: 200 }),
       artifact({
@@ -139,29 +138,10 @@ describe("Shared Library presentation", () => {
       }),
     ];
 
-    const search = (text: string) => presentSharedLibrary(page(items), null, { ...DEFAULT_SHARED_LIBRARY_QUERY, text }).artifacts.map(({ id }) => id);
-    for (const [field, text, expected] of [
-      ["slug", "zeta", ["artifact-a"]],
-      ["kind", "REFERENCE-IMAGE", ["artifact-b"]],
-      ["MIME", "image/png", ["artifact-b"]],
-      ["referencedAs", "visual anchor", ["artifact-b"]],
-      ["provenance", "not-generation", ["artifact-b"]],
-      ["selected state is outside the search contract", "approved", []],
-      ["artifact ID is outside the search contract", "artifact-b", []],
-    ] as const) {
-      expect(search(text), field).toEqual(expected);
-    }
-
-    expect(presentSharedLibrary(page(items), null, {
-      ...DEFAULT_SHARED_LIBRARY_QUERY, mediaKind: "image", provenance: "not-generation",
-    }).artifacts.map(({ id }) => id)).toEqual(["artifact-b"]);
-    for (const [sort, expected] of [
-      ["recently-selected", ["artifact-a", "artifact-b", "artifact-c"]],
-      ["name", ["artifact-b", "artifact-c", "artifact-a"]],
-      ["size", ["artifact-b", "artifact-a", "artifact-c"]],
-    ] as const) {
-      expect(presentSharedLibrary(page(items), null, { ...DEFAULT_SHARED_LIBRARY_QUERY, sort }).artifacts.map(({ id }) => id), sort)
-        .toEqual(expected);
-    }
+    expect(presentSharedLibrary(page(items), "artifact-b")).toMatchObject({
+      artifacts: [{ id: "artifact-a" }, { id: "artifact-b" }, { id: "artifact-c" }],
+      selectedArtifactId: "artifact-b",
+    });
+    expect(presentSharedLibrary(page(items), "missing").selectedArtifactId).toBeNull();
   });
 });

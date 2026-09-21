@@ -4,7 +4,7 @@ import {
   type ChildProcessWithoutNullStreams,
 } from "node:child_process";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { TextDecoder } from "node:util";
 
 import {
@@ -130,8 +130,13 @@ function exactLimits(value: unknown): value is typeof BRIDGE_LIMITS {
     );
 }
 
-function guiSafePath(home: string): string {
+function guiSafePath(home: string, sourcePath?: string): string {
+  const miseBunRoot = `${join(home, ".local", "share", "mise", "installs", "bun")}/`;
+  const miseBunPaths = (sourcePath ?? "")
+    .split(delimiter)
+    .filter((entry) => entry.startsWith(miseBunRoot) && entry.endsWith("/bin"));
   return [
+    ...miseBunPaths,
     join(home, ".bun", "bin"),
     join(home, ".local", "bin"),
     "/opt/homebrew/bin",
@@ -140,12 +145,12 @@ function guiSafePath(home: string): string {
     "/bin",
     "/usr/sbin",
     "/sbin",
-  ].join(":");
+  ].join(delimiter);
 }
 
 function bridgeEnvironment(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const home = source.HOME || homedir();
-  const environment: NodeJS.ProcessEnv = { PATH: guiSafePath(home) };
+  const environment: NodeJS.ProcessEnv = { PATH: guiSafePath(home, source.PATH) };
   for (const key of PASSTHROUGH_ENV_KEYS) {
     if (source[key]) environment[key] = source[key];
   }

@@ -3,6 +3,7 @@ import { isAbsolute } from "node:path";
 import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { assertTrustedSender, toIpcResult } from "../ipc-security";
+import { parseProjectMediaQuery } from "../media/project-query";
 import { parseBoundedJsonValue } from "../json-value";
 import type {
   ActivityDto,
@@ -39,7 +40,6 @@ import type {
 } from "./types";
 import {
   MEDIA_CHANNELS,
-  PROJECT_MEDIA_FILTERS,
 } from "../media/types";
 import type { RalphySession } from "./session";
 import { saveMediaReview, type DesktopMediaReviewInput } from "./media-review";
@@ -636,19 +636,7 @@ function asMediaPage(value: unknown, project: ProjectRef): ProjectPage {
   return value as ProjectPage;
 }
 
-function mediaQuery(value: ProjectMediaQuery | undefined): ProjectMediaQuery {
-  const query = value ?? { filter: "all" };
-  const raw = record(query);
-  if (!raw || !exactKeys(raw, [
-    "filter",
-    ...["mediaKind", "provenance"].filter((key) => Object.hasOwn(raw, key)),
-  ]) || !PROJECT_MEDIA_FILTERS.includes(raw.filter as ProjectMediaFilter)
-    || (raw.mediaKind !== undefined && !PROJECT_MEDIA_KINDS.has(raw.mediaKind as ProjectMediaKind))
-    || (raw.provenance !== undefined && !MEDIA_PROVENANCE.has(raw.provenance as MediaProvenance))) {
-    throw new Error("Invalid Media query");
-  }
-  return raw as ProjectMediaQuery;
-}
+
 
 interface ProjectMediaIpcEvent {
   sender: unknown;
@@ -1164,7 +1152,7 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
         return { ...page, items };
       }
       if (input.tab === "media") {
-        const query = mediaQuery(input.mediaQuery);
+        const query = parseProjectMediaQuery(input.mediaQuery ?? { filter: "all" });
         const filter = query.filter === "all" ? {} : { filter: query.filter };
         return asMediaPage(await request("media.list", {
           context,
@@ -1172,8 +1160,15 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
           ...filter,
           ...(query.mediaKind === undefined ? {} : { mediaKind: query.mediaKind }),
           ...(query.provenance === undefined ? {} : { provenance: query.provenance }),
+          ...(query.search === undefined ? {} : { search: query.search }),
+          ...(query.sort === undefined ? {} : { sort: query.sort }),
           limit: PROJECT_PAGE_LIMIT,
-          types: query.filter === "advanced-objects" ? ["object"] : ["artifact", "run-object"],
+          projectOnly: true,
+          types: query.filter === "advanced-objects"
+            ? ["object"]
+            : query.filter === "run-diagnostics" || query.filter === "run-cache-temp"
+              ? ["run-object"]
+              : ["artifact"],
         }), context);
       }
       if (input.tab === "compositions") {

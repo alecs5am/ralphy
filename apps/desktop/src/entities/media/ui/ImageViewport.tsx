@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type PointerEvent, type WheelEvent } from 
 import { clampImageTransform, containedImageSize, scaleFromWheel, zoomAroundPoint, type ImageTransform, type Size } from "../lib/image-viewport";
 import { PLAYER_CHROME, PLAYER_CONTROL, PLAYER_MAT, playerTone, type PlayerTone } from "../lib/tone";
 
-interface ImageViewportProps { src: string; name: string; compact?: boolean; tone?: PlayerTone; onError?(): void }
+interface ImageViewportProps { src: string; name: string; compact?: boolean; tone?: PlayerTone; onLoad?(width: number, height: number): void; onError?(): void }
 const RESET: ImageTransform = { scale: 1, x: 0, y: 0 };
 
 /* The mat the picture sits on. The dot grid the stylesheet drew here was two stacked radial
@@ -13,7 +13,7 @@ const VIEWPORT = "image-viewport relative grid size-full min-h-0 min-w-0 place-i
    and the ink that reads on it as one pair. */
 const ZOOM = "image-zoom-controls absolute bottom-4.5 left-1/2 flex h-10 -translate-x-1/2 items-center gap-0.5 rounded-control px-1.25 backdrop-blur-media";
 
-export function ImageViewport({ src, name, compact = false, tone = "instrument", onError }: ImageViewportProps) {
+export function ImageViewport({ src, name, compact = false, tone = "instrument", onLoad, onError }: ImageViewportProps) {
   const skin = playerTone(tone);
   // Read out of the maps before the class string: the style audit scans class attributes for
   // arbitrary values, and a `${MAP[key]}` interpolation reads as one.
@@ -87,7 +87,7 @@ export function ImageViewport({ src, name, compact = false, tone = "instrument",
       }} onPointerUp={finishDrag} onPointerCancel={finishDrag}>
       <img className="viewer-image max-w-none object-contain [will-change:transform] pointer-events-none" src={src} alt={name} draggable={false}
         style={{ width: fittedSize.width || undefined, height: fittedSize.height || undefined, transform: `translate3d(${transform.x}px, ${transform.y}px, 0) scale(${transform.scale})` }}
-        onLoad={(event) => { setNaturalSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight }); setTransform(RESET); }} onError={onError} />
+        onLoad={(event) => { const { naturalWidth, naturalHeight } = event.currentTarget; setNaturalSize({ width: naturalWidth, height: naturalHeight }); setTransform(RESET); onLoad?.(naturalWidth, naturalHeight); }} onError={onError} />
       {!compact && <div className={`${ZOOM} ${chrome.plate}`}>
         <button className={zoomButton} type="button" aria-label="Zoom out" title="Zoom out" disabled={transform.scale <= 1} onClick={() => setScale(transform.scale / 1.35)}><ZoomOut size={15} /></button>
         <span className={`min-w-12 text-center font-code type-xs ${chrome.read}`}>{Math.round(transform.scale * 100)}%</span>

@@ -87,6 +87,35 @@ function keydown(target: EventTarget, key: string, modifiers: Partial<Pick<Keybo
 }
 
 describe("Project media presentation", () => {
+  test("switches from the 9:16 grid to a Finder-style gallery with an original-ratio stage", async () => {
+    const second = { ...card, ref: { type: "artifact" as const, id: "artifact-2" }, slug: "Second asset" };
+    const controller = createProjectScreenController({
+      ...projectApi(),
+      loadProjectPage: async () => ({ items: [card, second], nextCursor: null }),
+    }, project);
+    await controller.selectTab("media");
+    const preview = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue({ url: "ralphy-media://asset/preview", sizeBytes: 2048 });
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      const gallery = host.container.findAll((node) => node.getAttribute("aria-label") === "Gallery view")[0];
+      expect(gallery).toBeDefined();
+      await act(async () => { gallery.dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); await Promise.resolve(); });
+      expect(host.container.querySelector(".media-gallery")).toBeDefined();
+      const stage = host.container.querySelector(".media-gallery-stage")!;
+      await vi.waitFor(() => expect(stage.querySelector(".image-viewport")).not.toBeNull());
+      const secondThumb = host.container.findAll((node) => node.getAttribute("aria-label") === "Show Second asset")[0];
+      await act(async () => { secondThumb.dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+      expect(controller.getSnapshot().selectedMedia).toEqual(second);
+    } finally {
+      await act(async () => root.unmount());
+      preview.mockRestore();
+      controller.dispose();
+      host.restore();
+    }
+  });
+
   test("shows a saved Needs Work verdict without relabeling ordinary candidate media", () => {
     expect(productionMediaReviewStatus({ ...card, selectedState: "candidate" })).toEqual({ status: "ready", value: "candidate" });
     expect(productionMediaReviewStatus({ ...card, selectedState: "candidate", latestReviewVerdict: "needs-work" })).toEqual({ status: "ready", value: "needs-work" });
@@ -148,10 +177,55 @@ describe("Project media presentation", () => {
     expect(tile).toContain('aria-label="Campaign hero, selected"');
     expect(tile).not.toContain('aria-label="Open Campaign hero"');
     expect(tile.match(/<button/g)).toHaveLength(1);
-    expect(tile).toContain("aspect-ratio:1");
+    expect(tile).toContain("aspect-ratio:0.5625");
     expect(tile).toContain("Image · image/png");
     expect(tile).toContain("image/png · 2.0 KB · approved · cover");
     expect(grid).toContain("asset-grid-scroll");
+  });
+
+  test("shows only loading feedback while the initial media page is pending", () => {
+    const api = { ...projectApi(), loadProjectPage: () => new Promise<never>(() => undefined) };
+    const controller = createProjectScreenController(api, project);
+    void controller.selectTab("media");
+    const markup = renderToStaticMarkup(<ProjectScreenView project={project} controller={controller} snapshot={controller.getSnapshot()} />);
+    expect(markup).toContain("Loading media…");
+    expect(markup).not.toContain("No media matches");
+    controller.dispose();
+  });
+
+  test("searches the server after typing and keeps search and sort on subsequent pages", async () => {
+    const api = { ...projectApi(), loadProjectPage: vi.fn(async ({ mediaQuery, cursor }) => ({ items: mediaQuery?.search ? [card] : [runObject], nextCursor: cursor ? null : "more" })) };
+    const controller = createProjectScreenController(api as never, project);
+    await controller.start();
+    const tilePreview = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      const input = host.container.findAll((node) => node.getAttribute("aria-label") === "Search project media")[0] as HostNode & { value: string };
+      input.value = "  Campaign  ";
+      await act(async () => { input.dispatchEvent(new Event("input", { bubbles: true })); });
+      expect(api.loadProjectPage).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 280));
+        input.value = "Campaign hero";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      expect(input.value).toBe("Campaign hero");
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 280)); });
+      expect(api.loadProjectPage).toHaveBeenLastCalledWith(expect.objectContaining({ mediaQuery: { filter: "all", sort: "newest", search: "Campaign hero" } }));
+      expect(button(host.container, "Campaign hero")).toBeDefined();
+      const images = host.container.querySelectorAll("input").find((node) => node.getAttribute("aria-label") === "Images")!;
+      Object.assign(images, { type: "radio", checked: true });
+      await act(async () => { images.dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+      expect(api.loadProjectPage).toHaveBeenLastCalledWith(expect.objectContaining({ mediaQuery: { filter: "all", sort: "newest", search: "Campaign hero", mediaKind: "image" } }));
+      await act(async () => { await controller.setMediaQuery({ sort: "name" }); await controller.loadMore("media"); });
+      expect(api.loadProjectPage).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: "more", mediaQuery: { filter: "all", search: "Campaign hero", mediaKind: "image", sort: "name" } }));
+      input.value = "";
+      await act(async () => { input.dispatchEvent(new Event("input", { bubbles: true })); });
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 280)); });
+      expect(api.loadProjectPage).toHaveBeenLastCalledWith(expect.objectContaining({ mediaQuery: { filter: "all", mediaKind: "image", sort: "name" } }));
+    } finally { await act(async () => root.unmount()); tilePreview.mockRestore(); host.restore(); }
   });
 
   test("full media grid keeps selection, viewer, context actions, focus, and density on one tile surface", async () => {
@@ -180,10 +254,11 @@ describe("Project media presentation", () => {
 
       await act(async () => { first.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })); await Promise.resolve(); });
       expect(controller.getSnapshot().selectedMedia).toEqual(card);
-      expect(controller.getSnapshot().mediaViewerOpen).toBe(false);
-      expect(api.resolveProjectPreview).not.toHaveBeenCalled();
+      expect(controller.getSnapshot().mediaViewerOpen).toBe(true);
+      expect(api.resolveProjectPreview).toHaveBeenCalled();
+      await act(async () => { controller.closeMediaViewer(); await Promise.resolve(); });
 
-      await act(async () => { secondTile.dispatchEvent(new Event("dblclick", { bubbles: true, cancelable: true })); await Promise.resolve(); });
+      await act(async () => { secondTile.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })); await Promise.resolve(); });
       expect(controller.getSnapshot().mediaViewerOpen).toBe(true);
       await act(async () => { controller.closeMediaViewer(); await Promise.resolve(); });
 
@@ -232,11 +307,11 @@ describe("Project media presentation", () => {
       expect(host.container.querySelector(".project-preview")).toBeNull();
       expect(host.container.findAll((node) => node.tagName === "BUTTON" && node.getAttribute("aria-label") === "Open Campaign hero")).toHaveLength(0);
       const slider = host.container.findAll((node) => node.getAttribute("role") === "slider" && node.getAttribute("aria-label") === "Grid density")[0];
-      const tileWidth = () => Number.parseFloat(host.container.querySelector(".virtual-masonry-item")!.style.width);
+      const columns = () => Number.parseInt(/repeat\((\d+)/.exec(host.container.querySelector(".virtual-grid-row")!.style.gridTemplateColumns)?.[1] ?? "0", 10);
       await act(async () => { keydown(slider, "Home"); await Promise.resolve(); });
-      const compactWidth = tileWidth();
+      const compactColumns = columns();
       await act(async () => { keydown(slider, "End"); await Promise.resolve(); });
-      expect(tileWidth()).toBeGreaterThan(compactWidth * 1.8);
+      expect(columns()).toBeLessThan(compactColumns);
     } finally {
       await act(async () => { root.unmount(); await Promise.resolve(); });
       mediaAction.mockRestore();
@@ -300,6 +375,27 @@ describe("Project media presentation", () => {
     expect(loadProjectPage).toHaveBeenCalledOnce();
   });
 
+  test("gives media the whole viewer when provenance is unavailable and keeps the reference in a tooltip", async () => {
+    const controller = createProjectScreenController({ ...projectApi(), loadProjectPage: async () => ({ items: [card], nextCursor: null }) }, project);
+    await controller.selectTab("media");
+    const tilePreview = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await controller.openMediaViewer(card); });
+      const body = globalThis.document.body as unknown as HostNode;
+      const dialog = body.findAll((node) => node.getAttribute("role") === "dialog")[0];
+      expect(dialog.querySelector(".asset-modal-inspector")).toBeNull();
+      expect(dialog.querySelector(".asset-modal-body")?.getAttribute("class")).toContain("grid-cols-1");
+      const header = dialog.querySelector(".asset-modal-toolbar")!;
+      expect(header.textContent).toContain("Image");
+      expect(header.textContent).not.toContain("artifact-1");
+      expect(header.findAll((node) => node.getAttribute("title") === "artifact · artifact-1")).toHaveLength(1);
+      expect(button(dialog, "Previous").disabled).toBe(true);
+      expect(button(dialog, "Next").disabled).toBe(true);
+    } finally { await act(async () => root.unmount()); tilePreview.mockRestore(); host.restore(); }
+  });
+
   test("mounts the production media viewer with safe generation details and loaded-row controls", async () => {
     const prompt = '<img src=x onerror="steal()"> Keep this literal';
     const epochMs = 1_775_000_000_000;
@@ -340,7 +436,7 @@ describe("Project media presentation", () => {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
       const opener = button(host.container, "diagnostic log");
       opener.focus();
-      await act(async () => { opener.dispatchEvent(new Event("dblclick", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+      await act(async () => { opener.dispatchEvent(new Event("click", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
 
       expect(controller.getSnapshot().mediaViewerOpen).toBe(true);
       const body = globalThis.document.body as unknown as HostNode;
@@ -410,7 +506,7 @@ describe("Project media presentation", () => {
       expect((globalThis.document.body as unknown as HostNode).textContent).toContain("Not a generation");
       await act(async () => { keydown(globalThis.window, "ArrowRight"); await Promise.resolve(); });
       expect(controller.getSnapshot().selectedMedia).toEqual(object);
-      expect((globalThis.document.body as unknown as HostNode).textContent).toContain("Provenance unavailable");
+      expect((globalThis.document.body as unknown as HostNode).querySelector(".asset-modal-inspector")).toBeNull();
       expect(api.loadProjectGeneration).toHaveBeenCalledTimes(5);
       expect(api.loadProjectPage).toHaveBeenCalledOnce();
 
@@ -454,7 +550,7 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
-      await act(async () => { button(host.container, "diagnostic log").dispatchEvent(new Event("dblclick", { bubbles: true })); await Promise.resolve(); });
+      await act(async () => { button(host.container, "diagnostic log").dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
       const dialog = (globalThis.document.body as unknown as HostNode).findAll((node) => node.getAttribute("role") === "dialog")[0];
       const attempts = dialog.findAll((node) => node.getAttribute("class") === "generation-attempt");
       const attempt = (number: number) => attempts.find((node) => node.textContent.startsWith(`Attempt ${number}`))!;
@@ -503,7 +599,7 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
-      await act(async () => { button(host.container, "diagnostic log").dispatchEvent(new Event("dblclick", { bubbles: true })); await Promise.resolve(); });
+      await act(async () => { button(host.container, "diagnostic log").dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
       const body = globalThis.document.body as unknown as HostNode;
       expect(body.findAll((node) => node.getAttribute("role") === "status").map((node) => node.textContent)).toEqual(expect.arrayContaining(["Loading preview…", "Loading generation details…"]));
 
@@ -523,7 +619,7 @@ describe("Project media presentation", () => {
     }
   });
 
-  test("restores focus to the stable Media tab after filtering removes the opener", async () => {
+  test("restores focus to the stable media search field after filtering removes the opener", async () => {
     const api = {
       ...projectApi(),
       loadProjectPage: vi.fn(async ({ mediaQuery }: { mediaQuery?: { filter: string } }) => ({ items: mediaQuery?.filter === "references" ? [] : [runObject], nextCursor: null })),
@@ -537,7 +633,7 @@ describe("Project media presentation", () => {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
       const opener = button(host.container, "diagnostic log");
       opener.focus();
-      await act(async () => { opener.dispatchEvent(new Event("dblclick", { bubbles: true })); await Promise.resolve(); });
+      await act(async () => { opener.dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
       const dialog = (globalThis.document.body as unknown as HostNode).findAll((node) => node.getAttribute("role") === "dialog")[0];
       expect(globalThis.document.activeElement).toBe(dialog);
 
@@ -555,7 +651,7 @@ describe("Project media presentation", () => {
     }
   });
 
-  test("restores focus to the replacement Media tab when an open viewer controller is disposed", async () => {
+  test("restores focus to the replacement media search field when an open viewer controller is disposed", async () => {
     const first = createProjectScreenController(projectApi(), project);
     await first.selectTab("media");
     const replacement = createProjectScreenController(projectApi(), project);
@@ -567,7 +663,7 @@ describe("Project media presentation", () => {
       await act(async () => { root.render(<MountedProject key="root-1" controller={first} />); await Promise.resolve(); });
       const opener = button(host.container, "diagnostic log");
       opener.focus();
-      await act(async () => { opener.dispatchEvent(new Event("dblclick", { bubbles: true })); await Promise.resolve(); });
+      await act(async () => { opener.dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
       const removedDialog = (globalThis.document.body as unknown as HostNode).findAll((node) => node.getAttribute("role") === "dialog")[0];
       expect(globalThis.document.activeElement).toBe(removedDialog);
 
@@ -587,15 +683,12 @@ describe("Project media presentation", () => {
     }
   });
 
-  test("shows the unselected Artifact revision chooser and replaces it with the selected image", async () => {
-    const unselected: MediaCardDto = { ...card, selectedRevisionId: null, selectedState: null, mime: null, bytes: null, selectedAt: null, selectedObjectId: null, storageClass: null, target: null };
-    const selected: MediaCardDto = { ...card, selectedRevisionId: "revision-1", target: { type: "object", id: "object-1" } };
-    const revision = { id: "revision-1", artifactId: "artifact-1", objectId: "object-1", revisionNo: 1, parentRevisionId: null, iterationId: null, state: "approved" as const, authoredBySessionId: null, createdAt: 2 };
+  test("opens the current Artifact file without a revision chooser", async () => {
     const api = {
       ...projectApi(),
-      loadProjectPage: vi.fn(async () => ({ items: [unselected], nextCursor: "more" })),
-      loadProjectMediaRevisions: vi.fn(async () => ({ items: [revision], nextCursor: null })),
-      selectProjectMediaRevision: vi.fn(async () => selected),
+      loadProjectPage: vi.fn(async () => ({ items: [card], nextCursor: "more" })),
+      loadProjectMediaRevisions: vi.fn(async () => ({ items: [], nextCursor: null })),
+      selectProjectMediaRevision: vi.fn(async () => card),
       resolveProjectPreview: vi.fn(async () => ({ url: "ralphy-media://asset/hero", sizeBytes: 2048 })),
       loadProjectGeneration: vi.fn(async (_project: unknown, target: MediaGenerationDetailDto["target"]) => ({ status: "unknown" as const, target, reason: "not-recorded" as const })),
     };
@@ -606,17 +699,13 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
-      await act(async () => { button(host.container, "Campaign hero").dispatchEvent(new Event("dblclick", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+      await act(async () => { button(host.container, "Campaign hero").dispatchEvent(new Event("click", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
       const body = globalThis.document.body as unknown as HostNode;
-      expect(body.textContent).toContain("Select a revision");
-      expect(body.textContent).toContain("Revision 1 · approved");
-      expect(api.resolveProjectPreview).not.toHaveBeenCalled();
-      expect(api.loadProjectGeneration).not.toHaveBeenCalled();
-
-      await act(async () => { textButton(body, "Select").dispatchEvent(new Event("click", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
       const image = body.findAll((node) => node.tagName === "IMG" && node.getAttribute("alt") === "Campaign hero")[0];
       expect(image.getAttribute("src")).toBe("ralphy-media://asset/hero");
-      expect(controller.getSnapshot().domain.pages.media).toMatchObject({ items: [selected], nextCursor: "more" });
+      expect(body.textContent).not.toContain("Select a revision");
+      expect(api.loadProjectMediaRevisions).not.toHaveBeenCalled();
+      expect(api.selectProjectMediaRevision).not.toHaveBeenCalled();
     } finally {
       await act(async () => { root.unmount(); await new Promise((resolve) => setTimeout(resolve, 0)); });
       tilePreview.mockRestore();

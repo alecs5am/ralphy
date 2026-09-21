@@ -8,6 +8,8 @@ import { MarketplacePublicItemDetail } from "@/pages/marketplace";
 import type { MarketplacePublicItemDto } from "../electron/media/types";
 import type { MarketplaceItemPresentation, MarketplaceSnapshot } from "@/pages/marketplace";
 import type { MarketplaceLocation, MarketplaceQueryState } from "@/pages/marketplace";
+import { studioCatalog } from "../src/pages/marketplace/lib/studio-catalog";
+import { marketplacePreview } from "../src/pages/marketplace/ui/MarketplaceItemPreview";
 import { createReactHost, type HostNode } from "./react-host";
 
 const query: MarketplaceQueryState = {
@@ -19,6 +21,8 @@ const query: MarketplaceQueryState = {
 const unavailable = (field: string) => ({ status: "unavailable" as const, reason: `${field} is unavailable from public-library schema 1.` });
 
 const common = {
+  origin: "public" as const,
+  tags: ["cinematic", "editorial"],
   summary: "Source-backed reusable outcome.",
   sourceLabel: "Ralphy public library · Live",
   version: unavailable("Version"),
@@ -116,6 +120,51 @@ function deferred<T>() {
 afterEach(() => vi.restoreAllMocks());
 
 describe("Marketplace public item details", () => {
+  test("uses and searches the exact item while comparing aligned previews", async () => {
+    const onUse = vi.fn();
+    const onTag = vi.fn();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<MarketplacePublicItemDetail item={recipe} onBack={vi.fn()} onUse={onUse} onTag={onTag} />));
+      expect(host.container.querySelector("details")?.getAttribute("open")).toBeNull();
+      expect(host.container.querySelectorAll("img")).toHaveLength(2);
+      expect(host.container.querySelector("img")?.getAttribute("src")).toContain("after.png");
+      const comparison = host.container.querySelector("input")!;
+      expect((comparison as unknown as HTMLInputElement).type).toBe("range");
+      Object.assign(comparison, { value: "80" });
+      await act(async () => comparison.dispatchEvent(new Event("input", { bubbles: true })));
+      expect(comparison.getAttribute("aria-valuetext")).toBe("80% original visible");
+      expect((host.container.querySelector(".explore-effect-preview")?.style as unknown as Record<string, string>)["--explore-compare-position"]).toBe("80%");
+      await act(async () => button(host.container, "Use in chat").dispatchEvent(new Event("click", { bubbles: true })));
+      await act(async () => button(host.container, "cinematic").dispatchEvent(new Event("click", { bubbles: true })));
+      expect(onUse).toHaveBeenCalledWith(recipe);
+      expect(onTag).toHaveBeenCalledWith("cinematic");
+    } finally { await act(async () => root.unmount()); host.restore(); }
+  });
+
+  test("plays sounds explicitly with inline controls and keeps studio demos separate from missing remote previews", () => {
+    const sound = { ...common, key: "asset:atmosphere", category: "sounds" as const, name: "Atmosphere", sound: { id: "atmosphere", category: "asset" as const, name: "Atmosphere", summary: "A short atmosphere.", referenceUrls: ["https://ralphy.b-cdn.net/blocks/sounds/atmosphere.mp3"], recipe: null } };
+    const markup = renderToStaticMarkup(<MarketplacePublicItemDetail item={sound} onBack={vi.fn()} />);
+    expect(markup).toContain("<audio ");
+    expect(markup).toContain('aria-label="Play preview Atmosphere"');
+    expect(markup).not.toContain('controls=""');
+    expect(markup).not.toContain("explore-sound-transport");
+    expect(markup).not.toContain("autoPlay");
+    expect(markup).not.toContain("<img ");
+    const remote = { ...recipe, recipe: { ...recipe.recipe, id: "old-radio-ps1-vo", recipe: { ...recipe.recipe.recipe!, demo: null } } };
+    const missing = renderToStaticMarkup(<MarketplacePublicItemDetail item={remote} onBack={vi.fn()} />);
+    expect(missing).toContain("No preview yet");
+    expect(missing).not.toContain("<audio ");
+    const sample = studioCatalog().find((item) => item.key === "studio:recipes:old-radio-ps1-vo")!;
+    const preview = renderToStaticMarkup(<MarketplacePublicItemDetail item={sample} onBack={vi.fn()} />);
+    expect(preview).toContain('aria-label="Play original Old radio / PS1 voice"');
+    expect(preview).toContain('aria-label="Play effect Old radio / PS1 voice"');
+    expect(marketplacePreview(sample)?.url).toContain("old-radio-ps1-vo.mp3");
+    expect(marketplacePreview(sample)?.before?.url).toContain("voice-source.mp3");
+    expect(preview).not.toContain("autoPlay");
+  });
+
   test("copies a usable template reference without offering an unavailable review", async () => {
     const copyText = vi.spyOn(bridge, "copyText").mockResolvedValue();
     const host = createReactHost();
@@ -132,34 +181,33 @@ describe("Marketplace public item details", () => {
     }
   });
 
-  test("renders every shared section and only source-backed Template evidence", () => {
+  test("puts source previews first and keeps provenance in a closed disclosure", () => {
     const markup = renderToStaticMarkup(<MarketplacePublicItemDetail item={template} onBack={() => undefined} />);
-    for (const heading of [
-      "What it gives you", "Preview or example", "Use when", "Do not use when", "Compatibility",
-      "What will be added", "Permissions and access", "Version and provenance", "Works with", "Used by",
-    ]) expect(markup).toContain(heading);
-    for (const heading of [
-      "Expected deliverable shape", "Scene structure", "Slots and variables", "Common model stack and assets",
-      "Composition skeleton", "Examples and common failure modes",
-    ]) expect(markup).toContain(heading);
-    expect(markup).toContain("Scene structure is unavailable from public-library schema 1");
-    expect(markup).toContain("License is unavailable from public-library schema 1");
+    expect(markup).toContain("Version and provenance");
+    expect(markup).toContain("License");
+    expect(markup).toContain("Not specified");
+    expect(markup).not.toContain("public-library schema 1");
+    expect(markup).not.toContain("What will be added");
+    expect(markup).toContain("<details ");
+    expect(markup).not.toContain("<details open");
+    expect(markup.indexOf("<img ")).toBeLessThan(markup.indexOf("<details "));
+    expect(markup).toContain("cinematic");
     expect(markup).toContain('src="https://ralphy.b-cdn.net/blocks/template/story-arc.png"');
 
     const fallback = renderToStaticMarkup(<MarketplacePublicItemDetail item={{ ...template, template: { ...template.template, referenceUrls: [] } }} onBack={() => undefined} />);
-    expect(fallback).toContain("Template reference preview is unavailable from public-library schema 1");
+    expect(fallback).toContain("No preview yet");
   });
 
   test("keeps prompt-kind records as Recipes and renders body, inert artifact, parameters, and source previews", () => {
     const markup = renderToStaticMarkup(<MarketplacePublicItemDetail item={recipe} onBack={() => undefined} />);
-    expect(markup).toContain("Recipes");
+    expect(markup).toContain("Effects");
     expect(markup).not.toContain("Prompts");
     expect(markup).toContain("Source instructions");
     expect(markup).toContain("Recipe body from source");
     expect(markup).toContain("Artifact");
     expect(markup).toContain("Named parameters");
-    expect(markup).toContain("Required tools");
-    expect(markup).toContain("Source-provided preview");
+    expect(markup).not.toContain("Required tools");
+    expect(markup).toContain("Preview comparison");
     expect(markup).toContain("Before");
     expect(markup).toContain("After");
     expect(markup).not.toContain("seed fixes composition, not pixels");
@@ -179,11 +227,14 @@ describe("Marketplace public item details", () => {
     const markup = renderToStaticMarkup(<MarketplacePublicItemDetail item={item} onBack={() => undefined} />);
     expect(markup).not.toContain("https://evil.example");
     expect(markup).not.toContain("/private/poster.png");
-    expect(markup).toContain('<video src="https://ralphy.b-cdn.net/blocks/recipe/before.mp4"');
-    expect(markup).toContain('<video src="https://ralphy.b-cdn.net/units/recipe/after.mp4"');
+    expect(markup).toContain('src="https://ralphy.b-cdn.net/blocks/recipe/before.mp4"');
+    expect(markup).toContain('src="https://ralphy.b-cdn.net/units/recipe/after.mp4"');
     expect(markup).toContain('controlsList="nodownload"');
-    expect(markup).toContain('aria-label="Before preview for Prompt-shaped recipe"');
     expect(markup).toContain('aria-label="After preview for Prompt-shaped recipe"');
+    // Playback starts after mounting, once the reduced-motion preference is known.
+    expect(markup).not.toContain('autoPlay=""');
+    expect(markup).toContain('muted=""');
+    expect(markup).toContain('loop=""');
     expect(markup).not.toContain('<img src="https://ralphy.b-cdn.net/blocks/recipe/before.mp4"');
 
     const arbitraryScheme = renderToStaticMarkup(<MarketplacePublicItemDetail item={{ ...template, template: { ...template.template, referenceUrls: ["data:image/png;base64,AAAA"] } }} onBack={() => undefined} />);
@@ -233,14 +284,14 @@ describe("Marketplace public item details", () => {
     const image = host.container.querySelector("img");
     expect(image).not.toBeNull();
     await act(async () => image!.dispatchEvent(new Event("error")));
-    expect(host.container.textContent).toContain("Template reference preview image is unavailable");
+    expect(host.container.textContent).toContain("This preview could not load");
 
     const replacement = { ...template, template: { ...template.template, referenceUrls: ["https://ralphy.b-cdn.net/units/template/story-arc.mp4"] } };
     await act(async () => root.render(<MarketplacePublicItemDetail item={replacement} onBack={() => undefined} />));
     const video = host.container.querySelector("video");
     expect(video?.getAttribute("src")).toBe("https://ralphy.b-cdn.net/units/template/story-arc.mp4");
     expect(video?.getAttribute("controlsList")).toBe("nodownload");
-    expect(host.container.textContent).not.toContain("Template reference preview image is unavailable");
+    expect(host.container.textContent).not.toContain("This preview could not load");
 
     await act(async () => root.unmount());
     host.restore();
@@ -273,10 +324,10 @@ describe("Marketplace public item details", () => {
     };
     try {
       await act(async () => root.render(<MarketplaceScreenView catalog={null} location={staleLocation} sidebarVisible snapshot={snapshot([], [])} onBack={onBack} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
-      expect(host.container.textContent).toContain("Marketplace item unavailable");
-      expect(host.container.textContent).toContain("This Marketplace item is unavailable because its saved reference is invalid or stale.");
+      expect(host.container.textContent).toContain("Library item unavailable");
+      expect(host.container.textContent).toContain("This library item is unavailable because its saved reference is invalid or stale.");
       expect(host.container.textContent).not.toContain("This route does not expose a mutation yet");
-      const back = button(host.container, "Back to Marketplace");
+      const back = button(host.container, "Back to creative library");
       await act(async () => back.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
       expect(onBack).toHaveBeenCalledOnce();
     } finally {
@@ -290,7 +341,7 @@ describe("Marketplace public item details", () => {
     const markup = renderToStaticMarkup(<MarketplacePublicItemDetail item={item} onBack={() => undefined} />);
     expect(markup).toContain('aria-disabled="true"');
     expect(markup).toContain('aria-describedby="marketplace-recipe-copy-unavailable"');
-    expect(markup).toContain("Artifact copy is unavailable because public-library schema 1 did not provide an artifact");
+    expect(markup).toContain("No copyable instructions supplied");
   });
 
   test("copies the exact artifact and announces success or failure without moving focus", async () => {
@@ -381,7 +432,7 @@ describe("Marketplace public item details", () => {
       onRetry={() => undefined}
     />);
     expect(markup).toContain("Story arc");
-    expect(markup).toContain("What it gives you");
+    expect(markup).toContain("Details &amp; instructions");
     expect(markup).not.toContain("This route does not expose a mutation yet");
   });
 
@@ -398,7 +449,7 @@ describe("Marketplace public item details", () => {
     const filteredQuery = { ...query, text: "does not match", filters: { ...query.filters, category: "recipes" as const } };
     const filtered = renderToStaticMarkup(<MarketplaceScreenView {...props} location={{ ...props.location, query: filteredQuery }} snapshot={{ ...snapshot([], [template.template]), query: filteredQuery }} />);
     expect(filtered).toContain("Story arc");
-    expect(filtered).toContain("What it gives you");
+    expect(filtered).toContain("Details &amp; instructions");
 
     const loading = renderToStaticMarkup(<MarketplaceScreenView {...props} snapshot={{ status: "loading", query }} />);
     expect(loading).toContain("Loading public item details");
@@ -407,7 +458,7 @@ describe("Marketplace public item details", () => {
     expect(unavailable).toContain("Public item details are unavailable because the Ralphy public library is unavailable");
 
     const missing = renderToStaticMarkup(<MarketplaceScreenView {...props} snapshot={snapshot([], [])} />);
-    expect(missing).toContain("This Marketplace item is unavailable because its saved reference is invalid or stale.");
-    expect(missing).toContain("Back to Marketplace");
+    expect(missing).toContain("This library item is unavailable because its saved reference is invalid or stale.");
+    expect(missing).toContain("Back to creative library");
   });
 });

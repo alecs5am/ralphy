@@ -29,7 +29,7 @@ export interface AgentChatTool {
   id: string;
   name: string;
   summary: string;
-  status: "running" | "complete" | "failed";
+  status: "running" | "complete" | "failed" | "unconfirmed";
 }
 
 export interface AgentChatEntry {
@@ -39,14 +39,20 @@ export interface AgentChatEntry {
      transcript with a clock on one line and none on the others is a transcript with two shapes. */
   at: number;
   text?: string;
+  /** Provider message identity survives interleaved tool events and text from other messages. */
+  messageId?: string;
   tool?: AgentChatTool;
   /* A `result` entry: the turn's end, as the provider reported it. It is what the transcript's
      "worked for" row reads, and the only place a duration or a cost is a fact rather than a guess. */
   run?: { durationMs: number; costUsd: number; outcome?: "completed" | "cancelled" | "failed" };
 }
 
+export interface AgentChatProject { workspaceId: string; projectId: string }
+
 export interface AgentConversation {
   id: string;
+  /** Fixed at creation; browsing another project never moves a conversation. */
+  project?: AgentChatProject | null;
   title: string;
   /* Whether the title is the chat's own name or still the first prompt wearing one. A generated
      name is asked for once, and the flag is what stops a reload from asking again. */
@@ -84,6 +90,7 @@ export interface AgentChatState {
 
 export interface CreateAgentChatOptions {
   chatId: string;
+  project?: AgentChatProject | null;
   provider: AgentProvider;
   model: string;
   now: number;
@@ -112,8 +119,10 @@ export function validLocalId(value: string): boolean {
 export function createConversation(options: CreateAgentChatOptions): AgentConversation {
   if (!validLocalId(options.chatId)) throw new Error("Invalid agent chat id");
   if (!MODEL_ID.test(options.model)) throw new Error("Invalid agent model");
+  if (options.project && (!validLocalId(options.project.workspaceId) || !validLocalId(options.project.projectId))) throw new Error("Invalid chat project");
   return {
     id: options.chatId,
+    project: options.project ? { ...options.project } : null,
     title: "New chat",
     titled: false,
     provider: options.provider,
@@ -154,11 +163,20 @@ function reduceEvent(
 ): AgentConversation {
   if (event.type === "session") return { ...chat, sessionId: event.sessionId };
   if (event.type === "text-delta") {
-    if (chat.streamingAssistantId !== null) {
+    let assistantId = chat.streamingAssistantId;
+    if (event.messageId) {
+      assistantId = null;
+      for (let index = chat.entries.length - 1; index >= 0; index--) {
+        const entry = chat.entries[index];
+        if (entry.kind === "user") break;
+        if (entry.kind === "assistant" && entry.messageId === event.messageId) { assistantId = entry.id; break; }
+      }
+    }
+    if (assistantId != null) {
       return {
         ...chat,
         entries: chat.entries.map((entry) => (
-          entry.id === chat.streamingAssistantId
+          entry.id === assistantId
             ? { ...entry, text: `${entry.text ?? ""}${event.text}` }
             : entry
         )),
@@ -166,7 +184,7 @@ function reduceEvent(
     }
     const id = chat.nextId;
     return {
-      ...appendEntry(chat, { kind: "assistant", at: now, text: event.text }),
+      ...appendEntry(chat, { kind: "assistant", at: now, text: event.text, ...(event.messageId ? { messageId: event.messageId } : {}) }),
       streamingAssistantId: id,
     };
   }
@@ -206,7 +224,7 @@ function reduceEvent(
     return {
       /* The turn's own record, not the chat's: a transcript keeps every turn's reading, and
          `lastCostUsd` only ever answers for the newest one. */
-      ...appendEntry(chat, {
+      ...appendEntry(settleUnconfirmedTools(chat), {
         kind: "result",
         at: now,
         run: { durationMs: event.durationMs, costUsd: event.costUsd, outcome: event.cancelled ? "cancelled" : event.ok ? "completed" : "failed" },
@@ -228,10 +246,16 @@ function reduceEvent(
     };
   }
   return {
-    ...appendEntry(chat, { kind: "error", at: now, text: event.message }),
+    ...appendEntry(settleUnconfirmedTools(chat), { kind: "error", at: now, text: event.message }),
     busy: false,
     streamingAssistantId: null,
   };
+}
+
+/** A finished turn cannot keep a tool running, but silence does not prove success or failure. */
+function settleUnconfirmedTools(chat: AgentConversation): AgentConversation {
+  return { ...chat, entries: chat.entries.map((entry) => entry.tool?.status === "running"
+    ? { ...entry, tool: { ...entry.tool, status: "unconfirmed" } } : entry) };
 }
 
 function updateChat(
@@ -273,7 +297,7 @@ export function reduceAgentChat(
   if (action.type === "set-provider") {
     const active = state.chats.find(({ id }) => id === state.activeChatId);
     if (!active || active.entries.length > 0 || active.busy) {
-      return reduceAgentChat(state, { ...action, type: "new-chat" });
+      return reduceAgentChat(state, { ...action, project: active?.project ?? null, type: "new-chat" });
     }
     return updateChat(state, active.id, (chat) => ({
       ...chat,

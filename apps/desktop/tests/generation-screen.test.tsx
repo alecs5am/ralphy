@@ -7,6 +7,7 @@ import type { CanvasRun, CanvasRunResult } from "../shared/canvas-runtime";
 import { createReactHost, type HostNode } from "./react-host";
 import { generationSnapshot } from "../electron/canvas/generation-draft";
 import { APP_PREFERENCE_DEFAULTS, settingsStorage, writeAppPreferences } from "@/shared/model/app-preferences";
+import * as selectMenu from "@/shared/ui/SelectMenu";
 
 const imageModel: GenerationModel = {
   id: "test-image", name: "Image engine", provider: "test", kind: "image", description: "Image test model", available: true, previewSupported: true,
@@ -32,7 +33,8 @@ function run(id: string, mode: "preview" | "execute", prompt: string, results: C
 
 afterEach(() => vi.restoreAllMocks());
 function button(container: HostNode, label: string): HostNode {
-  const result = (container.ownerDocument.body as unknown as HostNode).querySelectorAll("button").find((node) => node.getAttribute("aria-label") === label || node.textContent === label || node.textContent.startsWith(label));
+  const body = container.ownerDocument.body as unknown as HostNode;
+  const result = [...(body.querySelector("[data-instrument-overlay='media-viewer']")?.querySelectorAll("button,summary") ?? []), ...body.querySelectorAll("button,summary")].find((node) => node.getAttribute("aria-label") === label || node.textContent === label || node.textContent.startsWith(label));
   if (!result) throw new Error(`Missing button: ${label}`);
   return result;
 }
@@ -40,6 +42,7 @@ const click = async (container: HostNode, label: string) => {
   await act(async () => button(container, label).dispatchEvent(new Event("click", { bubbles: true })));
   await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 };
+const preview = (container: HostNode) => (container.ownerDocument.body as unknown as HostNode).querySelector("[data-instrument-overlay='media-viewer']")!;
 
 async function mount(runs: CanvasRun[] = []) {
   vi.spyOn(bridge, "loadGenerationCatalog").mockResolvedValue({ models: [imageModel, otherModel, voiceModel], providers: [{ id: "test", label: "Test provider", available: true, capabilities: ["image", "voice"] }], errors: [] });
@@ -57,6 +60,88 @@ async function mount(runs: CanvasRun[] = []) {
   return { host, root, save, start, exportAsset, onOpenProviders, async close() { await act(async () => root.unmount()); host.restore(); } };
 }
 
+test("the gallery leads Create while its bottom composer retains prompt, local media types, and settings", async () => {
+  const mounted = await mount([run("generated", "execute", "Saved creative prompt", [output])]);
+  const { host } = mounted;
+  try {
+    const layout = host.container.querySelector(".generation-layout")!;
+    expect(layout.children[0]?.getAttribute("class")).toContain("generation-results-slot");
+    const slot = host.container.querySelector(".generation-composer-slot")!;
+    expect((layout.style as unknown as Record<string, string>)["--generation-composer-height"]).toBe(`${slot.getBoundingClientRect().height}px`);
+    expect(layout.querySelector(".generation-scroll")).not.toBeNull();
+    const composer = host.container.querySelector(".generation-composer")!;
+    expect(composer.querySelectorAll("[role='group']").some((node) => node.getAttribute("aria-label") === "Generation type")).toBe(false);
+    expect(host.container.querySelectorAll("[role='group']").some((node) => node.getAttribute("aria-label") === "Generation type")).toBe(true);
+    const prompt = composer.querySelector("#generation-prompt")!;
+    const options = composer.querySelectorAll(".generation-options").find((node) => node.querySelector("summary")?.getAttribute("aria-label") === "Generation settings")!;
+    expect(options.getAttribute("open")).toBeNull();
+    await click(host.container, "Generation settings");
+    expect(options.getAttribute("open")).not.toBeNull();
+    expect(composer.querySelector("#generation-steps")).not.toBeNull();
+    await click(host.container, "Increase variations");
+    expect(mounted.save).toHaveBeenLastCalledWith("workspace", expect.objectContaining({ variants: 2 }));
+    await click(host.container, "Close generation settings");
+    expect(options.getAttribute("open")).toBeNull();
+    await click(host.container, "Generation settings");
+    await act(async () => button(host.container, "Close generation settings").dispatchEvent(Object.assign(new Event("keydown", { bubbles: true, cancelable: true }), { key: "Escape" })));
+    expect(options.getAttribute("open")).toBeNull();
+    expect(host.container.ownerDocument.activeElement?.getAttribute("aria-label")).toBe("Generation settings");
+    await click(host.container, "Generation references");
+    expect(composer.querySelectorAll(".generation-options").find((node) => node.querySelector("summary")?.getAttribute("aria-label") === "Generation references")?.getAttribute("open")).not.toBeNull();
+    expect(button(host.container, "Add reference image")).toBeDefined();
+    await click(host.container, "Close generation references");
+    await click(host.container, "Open Generated frame");
+    expect(preview(host.container)?.querySelector(".generation-preview")).not.toBeNull();
+    expect(layout.querySelector(".generation-scroll")?.querySelector(".generation-preview")).toBeNull();
+    expect(composer.querySelector("#generation-prompt")).toBe(prompt);
+    await click(host.container, "Close generation preview");
+    await click(host.container, "Audio");
+    await click(host.container, "Images");
+    expect((composer.querySelector("#generation-prompt") as unknown as HTMLTextAreaElement).value).toBe(draft.prompt);
+    expect(composer.querySelector("#generation-prompt")).toBe(prompt);
+    expect(host.container.querySelectorAll("button").some((node) => node.getAttribute("aria-label") === "Expand creations")).toBe(false);
+  } finally { await mounted.close(); }
+});
+
+test("quick parameters update the draft without opening settings or losing the other inputs", async () => {
+  const menu = vi.spyOn(selectMenu, "SelectMenu");
+  const mounted = await mount();
+  try {
+    const aspect = menu.mock.calls.find(([props]) => props.ariaLabel === "Aspect ratio")![0];
+    await act(async () => aspect.onValueChange("wide"));
+    expect(mounted.save).toHaveBeenLastCalledWith("workspace", { ...draft, parameters: { ...draft.parameters, aspect: "wide" } });
+    expect(button(mounted.host.container, "Aspect ratio").textContent).toContain("Wide");
+    expect(mounted.host.container.querySelectorAll(".generation-options").every((node) => node.getAttribute("open") === null)).toBe(true);
+    await click(mounted.host.container, "Choose generation model");
+    await click(mounted.host.container, "Other engine");
+    expect(mounted.host.container.querySelectorAll("[role='combobox']").some((node) => node.getAttribute("aria-label") === "Aspect ratio")).toBe(false);
+    expect(mounted.start).not.toHaveBeenCalled();
+  } finally { await mounted.close(); }
+});
+
+test("a restored draft stays editable while its model catalog is still loading", async () => {
+  const mounted = await mount();
+  let resolveCatalog!: (catalog: Awaited<ReturnType<typeof bridge.loadGenerationCatalog>>) => void;
+  vi.mocked(bridge.loadGenerationCatalog).mockReturnValueOnce(new Promise((resolve) => { resolveCatalog = resolve; }));
+  try {
+    await act(async () => mounted.root.render(<GenerationScreen workspaceId="workspace" workspaceName="Test studio" rootEpoch={2} />));
+    const prompt = mounted.host.container.querySelector("#generation-prompt")!;
+    expect(prompt.closest("fieldset")!.disabled).toBe(false);
+    for (const label of ["Choose generation model", "Video", "Audio", "Estimate", "Generate"]) expect(button(mounted.host.container, label).disabled).toBe(true);
+    Object.assign(prompt, { attachEvent() {}, detachEvent() {}, selectionStart: 0, selectionEnd: 0 });
+    await act(async () => {
+      prompt.dispatchEvent(new Event("focusin", { bubbles: true }));
+      (prompt as unknown as HTMLTextAreaElement).value = "Written while models load";
+      prompt.dispatchEvent(new Event("keyup", { bubbles: true }));
+    });
+    expect(mounted.save).toHaveBeenLastCalledWith("workspace", { ...draft, prompt: "Written while models load" });
+    await act(async () => resolveCatalog({ models: [imageModel], providers: [], errors: [] }));
+    expect(mounted.host.container.querySelector("#generation-prompt")).toBe(prompt);
+    expect((prompt as unknown as HTMLTextAreaElement).value).toBe("Written while models load");
+    expect(button(mounted.host.container, "Generate").disabled).toBe(false);
+  } finally { await mounted.close(); }
+});
+
 test.each([{ failed: false, video: false }, { failed: false, video: true }, { failed: true, video: false }])("references stay separate from creations and default detail output (%j)", async ({ failed, video }) => {
   const created: CanvasRunResult = video ? { ...output, kind: "video", asset: { path: "/workspace/output.mp4", name: "output.mp4", kind: "video" } } : output;
   const generated = run("referenced", "execute", "Referenced prompt", failed ? [] : [created, { ...created, id: "second", label: "Second variation" }]);
@@ -67,17 +152,19 @@ test.each([{ failed: false, video: false }, { failed: false, video: true }, { fa
   if (failed) { generated.status = "failed"; generated.error = "Request rejected before output"; }
   const mounted = await mount([generated]);
   try {
-    if (video) await click(mounted.host.container, "Video");
+    if (video) { await click(mounted.host.container, "Video"); for (const clip of mounted.host.container.querySelectorAll("video")) Object.assign(clip, { pause: vi.fn(), play: vi.fn().mockResolvedValue(undefined) }); }
     expect(mounted.host.container.querySelectorAll(".generation-output-card")).toHaveLength(failed ? 0 : 2);
-    await click(mounted.host.container, "History"); await click(mounted.host.container, "Referenced prompt");
-    expect(mounted.host.container.querySelectorAll("section").find((node) => node.getAttribute("aria-label") === "Input references")?.textContent).toContain("Source image");
+    await click(mounted.host.container, failed ? "Open Referenced prompt" : "Open Generated frame");
+    await click(mounted.host.container, "Generation details");
+    const detail = preview(mounted.host.container);
+    expect(detail.querySelectorAll("section").find((node) => node.getAttribute("aria-label") === "Input references")?.textContent).toContain("Source image");
     if (failed) {
-      expect(mounted.host.container.textContent).toContain("No output was produced by this run.");
-      expect(mounted.host.container.querySelectorAll("[role='group']").find((node) => node.getAttribute("aria-label") === "Output variations")).toBeUndefined();
-      expect(mounted.host.container.querySelectorAll("button").some((node) => node.textContent === "Export" || node.textContent.startsWith("Use as"))).toBe(false);
+      expect(detail.textContent).toContain("No output was produced by this run.");
+      expect(detail.querySelectorAll("[role='group']").find((node) => node.getAttribute("aria-label") === "Output variations")).toBeUndefined();
+      expect(detail.querySelectorAll("button").some((node) => node.textContent === "Export" || node.textContent.startsWith("Use as"))).toBe(false);
     } else {
-      expect(mounted.host.container.querySelector(`.generation-preview ${video ? "video" : "img"}`)?.getAttribute("src")).toBe(created.previewUrl);
-      expect(mounted.host.container.querySelectorAll("[role='group']").find((node) => node.getAttribute("aria-label") === "Output variations")?.querySelectorAll("button")).toHaveLength(2);
+      expect(detail.querySelector(`.generation-preview ${video ? "video" : "img"}`)?.getAttribute("src")).toBe(created.previewUrl);
+      expect(detail.querySelectorAll("[role='group']").find((node) => node.getAttribute("aria-label") === "Output variations")?.querySelectorAll("button")).toHaveLength(2);
       await click(mounted.host.container, "Export"); expect(mounted.exportAsset).toHaveBeenCalledWith("workspace", created.asset);
     }
   } finally { await mounted.close(); }
@@ -95,8 +182,11 @@ test("completed partial output survives a failed run and older-page controls exp
     expect(load).toHaveBeenLastCalledWith("workspace", "older-page");
     expect(mounted.host.container.querySelectorAll(".generation-output-card")).toHaveLength(1);
     await click(mounted.host.container, "Open Generated frame");
-    expect(mounted.host.container.textContent).toContain("Second variant failed");
+    expect(preview(mounted.host.container).textContent).toContain("Second variant failed");
     await click(mounted.host.container, "Export"); expect(mounted.exportAsset).toHaveBeenCalledWith("workspace", output.asset);
+    mounted.exportAsset.mockRejectedValueOnce(new Error("Export destination unavailable"));
+    await click(mounted.host.container, "Export");
+    expect(preview(mounted.host.container).querySelector("[role='alert']")?.textContent).toContain("Export destination unavailable");
   } finally { await mounted.close(); }
 });
 
@@ -112,7 +202,7 @@ test("renders model schema fields, switches schemas, and opens unavailable provi
     expect(steps.getAttribute("step")).toBe("1");
     expect(host.container.querySelector("#generation-negative")).not.toBeNull();
     expect(host.container.querySelectorAll("input").some((input) => (input as unknown as HTMLInputElement).type === "checkbox")).toBe(true);
-    expect(button(host.container, "Square").getAttribute("aria-pressed")).toBe("true");
+    expect(button(host.container, "Aspect ratio").textContent).toContain("Square");
     expect(button(host.container, "Decrease variations").disabled).toBe(true);
     expect(button(host.container, "Increase variations").disabled).toBe(false);
     await click(host.container, "Estimate");
@@ -173,6 +263,7 @@ test("selects voices in a searchable popup, preserves the form, and applies cust
   };
   try {
     await click(host.container, "Audio");
+    expect(host.container.querySelectorAll(".generation-options").find((node) => node.querySelector("summary")?.getAttribute("aria-label") === "Generation settings")?.getAttribute("open")).not.toBeNull();
     const prompt = host.container.querySelector("#generation-prompt");
     await click(host.container, "Choose a voice");
     const popup = host.container.ownerDocument.body.querySelector("[data-instrument-overlay='generation-voices']")!;
@@ -205,7 +296,7 @@ test("selects voices in a searchable popup, preserves the form, and applies cust
   } finally { await mounted.close(); }
 });
 
-test("keeps estimates out of creations and supports settings, export, and compatible reference actions", async () => {
+test("keeps estimates out of the media grid and preserves settings, export, and reference actions", async () => {
   const generated = run("generated", "execute", "Saved creative prompt", [output]);
   generated.snapshot.nodes[0]!.config!.parameters = { steps: 18, aspect: "wide", audio: true, guidanceScale: 5 };
   const estimated = run("estimate", "preview", "Estimate prompt");
@@ -214,25 +305,24 @@ test("keeps estimates out of creations and supports settings, export, and compat
   try {
     expect(host.container.querySelectorAll("img")).toHaveLength(1);
     expect(host.container.textContent).not.toContain("Estimate prompt");
+    expect(host.container.querySelectorAll("[aria-label='Generation result view']")).toHaveLength(0);
     await click(host.container, "Choose generation model");
     await click(host.container, "Other engine");
     await click(host.container, "Open Generated frame");
-    expect(host.container.textContent).toContain("Aspect ratio: wide");
-    expect(host.container.textContent).toContain("Generate audio: On");
-    expect(host.container.textContent).toContain("Guidance scale: 5");
+    expect(preview(host.container).querySelector(".generation-preview-info")).toBeNull();
+    await click(host.container, "Generation details");
+    expect(preview(host.container).textContent).toContain("Aspect ratio:wide");
+    expect(preview(host.container).textContent).toContain("Generate audio:On");
+    expect(preview(host.container).textContent).toContain("Guidance scale:5");
     await click(host.container, "Use settings");
     expect(save).toHaveBeenLastCalledWith("workspace", expect.objectContaining({ prompt: "Saved creative prompt", parameters: generated.snapshot.nodes[0]!.config!.parameters }));
     await click(host.container, "Export");
     expect(exportAsset).toHaveBeenCalledWith("workspace", output.asset);
+    await click(host.container, "Reference");
     await click(host.container, "Use as reference image");
     expect(save).toHaveBeenLastCalledWith("workspace", expect.objectContaining({ inputs: [{ role: "refs", asset: output.asset }] }));
-    await click(host.container, "Back");
-    await click(host.container, "History");
-    await click(host.container, "Estimate prompt");
-    expect(host.container.querySelectorAll("img")).toHaveLength(0);
-    expect(host.container.textContent).toContain("$0.04");
-    expect(host.container.textContent).toContain("Estimate only. No media generated and no paid request submitted.");
-    expect(host.container.querySelectorAll("button").some((node) => node.textContent === "Export")).toBe(false);
+    await click(host.container, "Close generation preview");
+    expect(host.container.querySelectorAll(".generation-run-tile")).toHaveLength(0);
   } finally { await mounted.close(); }
 });
 
@@ -246,20 +336,20 @@ test("announces native start failures and failed run details as alerts", async (
     expect(mounted.host.container.querySelector("[data-instrument-state]")?.getAttribute("data-instrument-state")).toBe("error");
     await click(mounted.host.container, "Dismiss generation error");
     expect(mounted.host.container.querySelector("[role='alert']")).toBeNull();
-    await click(mounted.host.container, "History");
-    await click(mounted.host.container, "Failed prompt");
-    expect(mounted.host.container.querySelector("[role='alert']")?.textContent).toContain("Provider rejected the request");
+    await click(mounted.host.container, "Open Failed prompt");
+    expect(preview(mounted.host.container).querySelector("[role='alert']")?.textContent).toContain("Provider rejected the request");
   } finally { await mounted.close(); }
 });
 
-test("changing generation type closes a selected result from the previous type", async () => {
+test("changing generation type closes a selected result and keeps the empty gallery free of prompt cards", async () => {
   const mounted = await mount([run("generated", "execute", "Saved creative prompt", [output])]);
   try {
     await click(mounted.host.container, "Open Generated frame");
     await click(mounted.host.container, "Audio");
     expect(mounted.host.container.querySelectorAll(".generation-preview")).toHaveLength(0);
     expect(mounted.host.container.querySelectorAll("img")).toHaveLength(0);
-    expect(mounted.host.container.textContent).toContain("Make something resonate.");
+    expect(mounted.host.container.textContent).toContain("Your audio will appear here");
+    expect(mounted.host.container.querySelectorAll(".generation-prompt-study")).toHaveLength(0);
   } finally { await mounted.close(); }
 });
 
@@ -279,4 +369,30 @@ test("the cost warning follows settings and changing variations clears the previ
     await act(async () => writeAppPreferences(settingsStorage, { ...APP_PREFERENCE_DEFAULTS }));
     await mounted.close();
   }
+});
+
+test("submission appears in the grid immediately, can stop, and never opens a preview automatically", async () => {
+  const mounted = await mount();
+  let resolve!: (run: CanvasRun) => void;
+  mounted.start.mockReturnValueOnce(new Promise((yes) => { resolve = yes; }));
+  const pending = { ...run("new-run", "execute", draft.prompt), status: "running" as const };
+  const cancel = vi.spyOn(bridge, "cancelGenerationRun").mockResolvedValue({ ...pending, status: "cancelled" });
+  try {
+    await act(async () => mounted.host.container.querySelector("#generation-form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    expect(mounted.host.container.querySelector(".generation-run-tile")?.getAttribute("aria-label")).toBe("Starting generation");
+    expect(preview(mounted.host.container)).toBeNull();
+    await act(async () => resolve(pending));
+    expect(mounted.host.container.querySelector(".generation-run-tile")?.getAttribute("data-status")).toBe("running");
+    expect(preview(mounted.host.container)).toBeNull();
+    await click(mounted.host.container, "Stop");
+    expect(cancel).toHaveBeenCalledWith("workspace", "new-run");
+    await click(mounted.host.container, "Use settings");
+    expect(mounted.start).toHaveBeenCalledTimes(1);
+    mounted.start.mockResolvedValueOnce(run("finished", "execute", draft.prompt, [output]));
+    await act(async () => mounted.host.container.querySelector("#generation-form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    expect(mounted.host.container.querySelectorAll(".generation-output-card")).toHaveLength(1);
+    expect(preview(mounted.host.container)).toBeNull();
+    await click(mounted.host.container, "Open Generated frame");
+    expect(preview(mounted.host.container).querySelector(".generation-preview img")).not.toBeNull();
+  } finally { await mounted.close(); }
 });

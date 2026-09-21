@@ -1,165 +1,98 @@
-import { ArrowLeft } from "@/shared/ui/icons";
-import { useEffect, useState } from "react";
+import { ArrowLeft, Bookmark, Copy, MessageCircle } from "@/shared/ui/icons";
+import { useEffect, useRef, useState } from "react";
 import { MarkdownView } from "@/shared/ui/MarkdownView";
 import { bridge } from "@/shared/api/ipc";
-import {
-  ASIDE_SECTION,
-  DETAIL_ACTIONS,
-  DETAIL_BACK,
-  DETAIL_COLUMN,
-  DETAIL_COPY,
-  DETAIL_EYEBROW,
-  DETAIL_HEADING,
-  DETAIL_HERO,
-  DETAIL_LAYOUT,
-  DETAIL_LEAD,
-  DETAIL_ROUTE,
-  DETAIL_SECTION,
-  DETAIL_TITLE,
-  HERO_ACTION_GLYPH,
-  HERO_ACTION_PRIMARY,
-  HERO_ACTION_SECONDARY,
-  HERO_STATE,
-} from "../lib/detail-chrome";
-import type { Availability, MarketplacePackItemPresentation } from "../lib/presentation";
-import { MarketplaceCategorySignature } from "./MarketplaceCategoryIdentity";
-
-const FACT_ROW = "flex min-w-0 items-start gap-2.5 py-1.25";
-const FACT_LABEL = "flex-none type-xs text-muted";
-const FACT_VALUE = "m-0 ml-auto min-w-0 type-xs leading-snug text-right wrap-anywhere";
-const TAG = "inline-flex items-center rounded-control bg-surface-sunken px-2 py-1 font-mono type-meta text-muted";
+import type { MarketplaceItemPresentation, MarketplacePackItemPresentation } from "../lib/presentation";
+import { EXPLORE_ACTION, EXPLORE_COPY, EXPLORE_DETAIL, EXPLORE_HEADER, EXPLORE_ICON, EXPLORE_INFO, EXPLORE_PRIMARY, EXPLORE_SUMMARY } from "../lib/explore-detail-chrome";
+import { MarketplaceDetailFacts, MarketplaceDetailTags } from "./MarketplaceDetailInfo";
 
 const CATEGORY_LABEL: Record<MarketplacePackItemPresentation["category"], string> = {
-  skills: "Skills",
-  prompts: "Prompts",
-  templates: "Templates",
-  recipes: "Recipes",
-  components: "Components & Effects",
+  skills: "Skills", prompts: "Prompts", templates: "Templates", recipes: "Effects", components: "Visuals",
 };
 
-/* A bundled document is Ralphy's own prose about running Ralphy. It is not a
-   web page, and nothing in it should be able to reach one -- no remote image
-   loads, no link opens. Every reference it names is a file in the same pack. */
+/* Bundled references name local files, not navigable URLs. */
 const allowNoUrl = () => false;
-
 type Body =
-  | { state: "loading" }
-  | { state: "ready"; markdown: string; truncated: boolean }
-  | { state: "absent"; reason: string };
+  | { state: "loading"; id: string }
+  | { state: "ready"; id: string; markdown: string; truncated: boolean }
+  | { state: "absent"; id: string; reason: string };
 
 export type MarketplacePackInstallAction = "install" | "uninstall" | "enable" | "disable";
-
 export interface MarketplacePackItemDetailProps {
   item: MarketplacePackItemPresentation;
-  /** The workspace whose bookmarks are being edited. */
   workspaceName: string | null;
   onBack(): void;
   onInstallAction(action: MarketplacePackInstallAction, entryId: string): void;
+  onUse?(item: MarketplaceItemPresentation): void;
+  onTag?(tag: string): void;
 }
 
-/* Existing install records become bookmarks without changing their disk schema. */
 function installLine(item: MarketplacePackItemPresentation, workspaceName: string | null): string {
   const where = workspaceName === null ? "the selected workspace" : `“${workspaceName}”`;
-  if (item.install.status === "no-workspace") return "Create a workspace to save this document for later.";
-  if (item.install.status === "available") return `Save a reference for ${where}. This document is already bundled with the app; saving does not change agent capabilities.`;
-  const when = new Date(item.install.installedAt).toISOString().slice(0, 10);
-  return `Saved for ${where} on ${when}. This bookmark does not change agent capabilities.`;
+  if (item.install.status === "no-workspace") return "Select a workspace to save this for later.";
+  return item.install.status === "available" ? `Save a reference for ${where}.` : `Saved for ${where}.`;
 }
 
-function available(value: Availability<string>): string {
-  return value.status === "ready" ? value.value : value.reason;
-}
-
-export function MarketplacePackItemDetail({ item, workspaceName, onBack, onInstallAction }: MarketplacePackItemDetailProps) {
+export function MarketplacePackItemDetail({ item, workspaceName, onBack, onInstallAction, onUse, onTag }: MarketplacePackItemDetailProps) {
   const entry = item.pack;
-  const [body, setBody] = useState<Body>({ state: "loading" });
-  const [copyStatus, setCopyStatus] = useState<{ id: string; message: string } | null>(null);
+  const [body, setBody] = useState<Body>({ state: "loading", id: entry.id });
+  const [copyStatus, setCopyStatus] = useState<{ id: string; message: string; failed?: boolean } | null>(null);
+  const generation = useRef(0);
 
   useEffect(() => {
+    let current = true;
+    generation.current += 1;
+    setCopyStatus(null);
     if (entry.path === null) {
-      setBody({ state: "absent", reason: "This entry is an index row: the bundled catalog names it, but carries no document for it." });
+      setBody({ state: "absent", id: entry.id, reason: "This catalog entry does not include instructions yet." });
       return;
     }
-    /* A detail the user navigated away from must not land in the new one. */
-    let current = true;
-    setBody({ state: "loading" });
+    setBody({ state: "loading", id: entry.id });
     bridge.loadMarketplacePackDocument(entry.id)
       .then((document) => {
-        if (current) setBody({ state: "ready", markdown: document.markdown, truncated: document.truncated });
+        if (current) setBody({ state: "ready", id: entry.id, markdown: document.markdown, truncated: document.truncated });
       })
       .catch((cause: unknown) => {
-        if (!current) return;
-        const message = (cause instanceof Error ? cause.message : String(cause)).slice(0, 512);
-        setBody({ state: "absent", reason: message });
+        if (current) setBody({ state: "absent", id: entry.id, reason: (cause instanceof Error ? cause.message : String(cause)).slice(0, 512) });
       });
-    return () => { current = false; };
+    return () => { current = false; generation.current += 1; };
   }, [entry.id, entry.path]);
 
   const copyDocument = async () => {
-    if (body.state !== "ready") return;
+    if (body.state !== "ready" || body.id !== entry.id) return;
+    const requestGeneration = ++generation.current;
     try {
       await bridge.copyText(body.markdown);
-      setCopyStatus({ id: entry.id, message: "Document copied" });
+      if (requestGeneration === generation.current) setCopyStatus({ id: entry.id, message: "Document copied" });
     } catch {
-      setCopyStatus({ id: entry.id, message: "The document could not be copied. Please try again." });
+      if (requestGeneration === generation.current) setCopyStatus({ id: entry.id, message: "The document could not be copied. Please try again.", failed: true });
     }
   };
 
-  const categoryLabel = CATEGORY_LABEL[item.category];
-  return <article className={`marketplace-pack-detail marketplace-detail-route ${DETAIL_ROUTE}`} aria-labelledby="marketplace-pack-title">
-    <button className={`marketplace-pack-back ${DETAIL_BACK}`} type="button" onClick={onBack}>
-      <ArrowLeft className={HERO_ACTION_GLYPH} aria-hidden="true" />Back to {categoryLabel}
-    </button>
-    <header className={`marketplace-pack-hero ${DETAIL_HERO}`}>
-      <span className={DETAIL_EYEBROW}>{categoryLabel} · {item.sourceLabel}</span>
-      <h2 className={DETAIL_TITLE} id="marketplace-pack-title">{item.name}</h2>
-      <p className={DETAIL_LEAD}>{item.summary}</p>
-      <div className={`marketplace-pack-actions ${DETAIL_ACTIONS}`}>
-        <button className={HERO_ACTION_PRIMARY} type="button" disabled={item.install.status === "no-workspace"} onClick={() => onInstallAction(item.install.status === "installed" ? "uninstall" : "install", item.pack.id)}>{item.install.status === "installed" ? "Remove from saved" : "Save to workspace"}</button>
-        {body.state === "ready" && <button className={HERO_ACTION_SECONDARY} type="button" onClick={() => { void copyDocument(); }}>Copy document</button>}
-      </div>
-      <p className={`marketplace-pack-install-state ${HERO_STATE}`}>{installLine(item, workspaceName)}</p>
-      {copyStatus?.id === entry.id && <p className={HERO_STATE} role="status">{copyStatus.message}</p>}
-      {body.state === "ready" && body.truncated && <p className={`marketplace-pack-truncated ${HERO_STATE}`}>This document is longer than the reader shows; the full text ships in the pack.</p>}
-      <MarketplaceCategorySignature category={item.category} />
+  const ready = body.id === entry.id && body.state === "ready";
+  return <article className={`marketplace-pack-detail marketplace-detail-route ${EXPLORE_DETAIL}`} aria-labelledby="marketplace-pack-title">
+    <header className={`marketplace-pack-hero ${EXPLORE_HEADER}`}>
+      <button className={EXPLORE_ACTION} type="button" aria-label={`Back to ${CATEGORY_LABEL[item.category]}`} title={`Back to ${CATEGORY_LABEL[item.category]}`} onClick={onBack}><ArrowLeft className={EXPLORE_ICON} aria-hidden="true" /></button>
+      <h2 className="m-0 min-w-0 flex-1 type-base font-medium wrap-anywhere" id="marketplace-pack-title">{item.name}</h2>
+      <button className={EXPLORE_ACTION} type="button" disabled={item.install.status === "no-workspace"} onClick={() => onInstallAction(item.install.status === "installed" ? "uninstall" : "install", entry.id)}><Bookmark className={EXPLORE_ICON} aria-hidden="true" />{item.install.status === "installed" ? "Remove from saved" : "Save to workspace"}</button>
+      {onUse && <button className={EXPLORE_PRIMARY} type="button" onClick={() => onUse(item)}><MessageCircle className={EXPLORE_ICON} aria-hidden="true" />Use in chat</button>}
     </header>
-
-    <div className={`marketplace-pack-detail-layout ${DETAIL_LAYOUT}`}>
-      <div className={`marketplace-pack-detail-main ${DETAIL_COLUMN}`}>
-        <section className={DETAIL_SECTION}>
-          <h3 className={DETAIL_HEADING}>Document</h3>
-          {body.state === "loading" && <p className={DETAIL_COPY} role="status" aria-busy="true">Reading the bundled document…</p>}
-          {body.state === "absent" && <p className={DETAIL_COPY}>{body.reason}</p>}
-          {body.state === "ready" && <MarkdownView markdown={body.markdown} allowUrl={allowNoUrl} />}
-        </section>
+    <p className={EXPLORE_COPY}>{item.summary}</p>
+    <MarketplaceDetailTags tags={item.tags ?? entry.tags} onTag={onTag} />
+    {copyStatus?.id === entry.id && <p className={`${EXPLORE_COPY} [&[role=alert]]:text-alert-bright`} role={copyStatus.failed ? "alert" : "status"}>{copyStatus.message}</p>}
+    <details className={EXPLORE_INFO}>
+      <summary className={EXPLORE_SUMMARY}>{item.category === "prompts" ? "Read prompt" : "Details & instructions"}</summary>
+      <div className="mt-3 flex min-w-0 flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {ready && <button className={EXPLORE_ACTION} type="button" onClick={() => { void copyDocument(); }}><Copy className={EXPLORE_ICON} aria-hidden="true" />Copy document</button>}
+          <p className={EXPLORE_COPY}>{installLine(item, workspaceName)}</p>
+        </div>
+        {body.id !== entry.id || body.state === "loading" ? <p className={EXPLORE_COPY} role="status" aria-busy="true">Reading instructions…</p>
+          : body.state === "absent" ? <p className={EXPLORE_COPY} role="status">{body.reason}</p>
+            : <section className="min-w-0"><MarkdownView markdown={body.markdown} allowUrl={allowNoUrl} />{body.truncated && <p className={EXPLORE_COPY}>Showing an excerpt. The complete document is included in the app.</p>}</section>}
+        <MarketplaceDetailFacts item={item} />
+        {entry.path && <p className="m-0 font-mono type-xs text-muted wrap-anywhere">{entry.path}</p>}
       </div>
-
-      <aside className={`marketplace-pack-detail-aside ${DETAIL_COLUMN}`}>
-        <section className={ASIDE_SECTION}>
-          <h3 className={DETAIL_HEADING}>Version and provenance</h3>
-          <dl className="m-0 flex flex-col gap-px">
-            <div className={FACT_ROW}><dt className={FACT_LABEL}>Source</dt><dd className={FACT_VALUE}>{item.sourceLabel}</dd></div>
-            <div className={FACT_ROW}><dt className={FACT_LABEL}>Slug</dt><dd className={`${FACT_VALUE} font-mono`}>{entry.slug}</dd></div>
-            <div className={FACT_ROW}><dt className={FACT_LABEL}>Document</dt><dd className={`${FACT_VALUE} font-mono`}>{entry.path ?? "No document in this build"}</dd></div>
-            <div className={FACT_ROW}><dt className={FACT_LABEL}>Version</dt><dd className={FACT_VALUE}>{available(item.version)}</dd></div>
-            <div className={FACT_ROW}><dt className={FACT_LABEL}>Updated</dt><dd className={FACT_VALUE}>{available(item.updatedAt)}</dd></div>
-            <div className={FACT_ROW}><dt className={FACT_LABEL}>License</dt><dd className={FACT_VALUE}>{available(item.license)}</dd></div>
-            <div className={FACT_ROW}><dt className={FACT_LABEL}>Publisher identity</dt><dd className={FACT_VALUE}>{available(item.publisherIdentity)}</dd></div>
-            <div className={FACT_ROW}><dt className={FACT_LABEL}>Content audit</dt><dd className={FACT_VALUE}>{available(item.contentAudit)}</dd></div>
-            <div className={FACT_ROW}><dt className={FACT_LABEL}>Compatibility</dt><dd className={FACT_VALUE}>{available(item.compatibility)}</dd></div>
-          </dl>
-        </section>
-        <section className={ASIDE_SECTION}>
-          <h3 className={DETAIL_HEADING}>Tags</h3>
-          {entry.tags.length > 0
-            ? <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">{entry.tags.map((tag) => <li className={TAG} key={tag}>{tag}</li>)}</ul>
-            : <p className={DETAIL_COPY}>This entry declares no tags.</p>}
-        </section>
-        <section className={ASIDE_SECTION}>
-          <h3 className={DETAIL_HEADING}>Used by</h3>
-          <p className={DETAIL_COPY}>Usage backlinks are unavailable from the current Desktop contract.</p>
-        </section>
-      </aside>
-    </div>
+    </details>
   </article>;
 }

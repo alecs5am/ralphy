@@ -17,7 +17,7 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from "@/shared/ui/icons";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentProps } from "react";
 
 import { AudioWaveform } from "@/entities/media";
 import { VideoPlayer } from "@/entities/media";
@@ -30,6 +30,7 @@ export type SocialPreviewProps = {
   caption?: string;
   previewMode?: "post" | "clean";
   guides?: boolean;
+  tone?: ComponentProps<typeof AudioWaveform>["tone"];
 };
 
 // Every social frame is a black widget in both themes, so its ink is the on-instrument family
@@ -44,27 +45,26 @@ const RAIL_ACTION = "unit-social-action grid justify-items-center gap-0.5";
 const AVATAR = "unit-social-avatar grid place-items-center rounded-full bg-device-edge type-sm text-on-instrument";
 const EMPTY = "preview-empty grid place-items-center text-on-instrument-muted";
 
-export function UnitMediaView({ item }: { item: UnitMedia }) {
+export function UnitMediaView({ item, tone = "instrument" }: { item: UnitMedia; tone?: SocialPreviewProps["tone"] }) {
   if ("text" in item.preview) return <div className="h-full overflow-auto bg-surface p-4 text-ink"><DocumentContent format={item.preview.format} text={item.preview.text} /></div>;
   if (item.kind === "image") return <img src={item.preview.url} alt={item.role} />;
-  /* The social mockup is a black screen. */
-  if (item.kind === "video") return <VideoPlayer src={item.preview.url} name={item.role} compact tone="instrument" />;
-  if (item.kind === "audio") return <AudioWaveform src={item.preview.url} name={item.role} sizeBytes={item.preview.sizeBytes} compact tone="instrument" />;
+  if (item.kind === "video") return <VideoPlayer src={item.preview.url} name={item.role} compact tone={tone} autoPlay loop />;
+  if (item.kind === "audio") return <AudioWaveform src={item.preview.url} name={item.role} sizeBytes={item.preview.sizeBytes} compact tone={tone} />;
   return <a href={item.preview.url}>Open {item.role}</a>;
 }
 
-function FirstMedia({ media }: Pick<SocialPreviewProps, "media">) {
+function FirstMedia({ media, tone = "instrument" }: Pick<SocialPreviewProps, "media" | "tone">) {
   const item = media.find((candidate) => candidate.kind === "video") ?? media[0];
-  return item ? <UnitMediaView item={item} /> : <div className={EMPTY}>No media in this revision.</div>;
+  return item ? <UnitMediaView item={item} tone={tone} /> : <div className={EMPTY}>No media in this revision.</div>;
 }
 
-function Carousel({ media }: Pick<SocialPreviewProps, "media">) {
+function Carousel({ media, tone = "instrument" }: Pick<SocialPreviewProps, "media" | "tone">) {
   const [index, setIndex] = useState(0);
   useEffect(() => setIndex(0), [media]);
   const move = (delta: number) => setIndex((value) => (value + delta + media.length) % media.length);
   return <div className="unit-stage-carousel relative size-full min-h-0 overflow-hidden">
     <div className="unit-stage-slides flex size-full [transition:transform_var(--dur-slow)_var(--ease)] motion-reduce:[transition:none] motion-reduce:duration-0" style={{ transform: `translateX(-${index * 100}%)` }}>
-      {media.map((item) => <div className="size-full shrink-0 grow-0 basis-full overflow-hidden" key={item.id}><UnitMediaView item={item} /></div>)}
+      {media.map((item, itemIndex) => <div className="size-full shrink-0 grow-0 basis-full overflow-hidden" key={item.id}>{item.kind !== "video" || itemIndex === index ? <UnitMediaView item={item} tone={tone} /> : null}</div>)}
       {media.length === 0 && <div className={EMPTY}>No media in this revision.</div>}
     </div>
     {media.length > 1 && <>
@@ -143,13 +143,13 @@ function XPost({ slug, caption, media }: SocialPreviewProps) {
 
 function YouTubePlayer({ slug, media }: SocialPreviewProps) {
   return <article className={`unit-social-preview is-youtube-player ${FRAME} grid h-auto w-social-player grid-rows-(--project-player-rows) rounded-widget`} aria-label="youtube preview">
-    <div className="unit-social-media relative aspect-video h-auto min-h-0 overflow-hidden [&>*]:size-full [&>*]:min-h-0"><FirstMedia media={media} /><Play className="unit-youtube-play absolute left-1/2 top-1/2 size-14.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-media-plate p-4.5" /></div>
+    <div className="unit-social-media relative aspect-content h-auto min-h-0 overflow-hidden [&>*]:size-full [&>*]:min-h-0"><FirstMedia media={media} /><Play className="unit-youtube-play absolute left-1/2 top-1/2 size-14.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-media-plate p-4.5" /></div>
     <footer className="grid grid-cols-(--project-row-columns) gap-1.25 p-2.5 [&_svg]:size-3"><strong className="col-span-full type-md">{slug}</strong><span className="flex items-center gap-1 font-code type-meta text-on-instrument-muted">Ralphy · Preview</span><span className="flex items-center gap-1 font-code type-meta text-on-instrument-muted"><ThumbsUp /> Like　<Share2 /> Share</span></footer>
   </article>;
 }
 
-function CleanPreview({ media }: Pick<SocialPreviewProps, "media">) {
-  return <article className={`unit-clean-preview ${FRAME}`} aria-label="Clean media preview"><FirstMedia media={media} /></article>;
+function CleanPreview({ media, tone = "surface" }: Pick<SocialPreviewProps, "media" | "tone">) {
+  return <article className={`unit-clean-preview ${FRAME}`} aria-label="Clean media preview"><FirstMedia media={media} tone={tone} /></article>;
 }
 
 function GenericPreview({ media, slug }: SocialPreviewProps) {
@@ -157,13 +157,13 @@ function GenericPreview({ media, slug }: SocialPreviewProps) {
 }
 
 export function UnitSocialPreview({ target, ...props }: SocialPreviewProps & { target: SocialTarget }) {
-  if (props.previewMode !== "clean" && target.variant === "post" && props.caption && props.media.every((item) => item.kind === "document")) {
+  if (target.variant === "post" && props.caption && props.media.every((item) => item.kind === "document")) {
     return <article className="unit-text-post flex size-full flex-col gap-5 overflow-auto bg-surface p-5 pt-12 text-ink" aria-label={`${target.platform} preview`}>
-      <header className="type-sm text-muted">{target.label} · Text post</header>
+      {props.previewMode !== "clean" && <header className="type-sm text-muted">{target.label} · Text post</header>}
       {props.media.length ? props.media.map((item) => "text" in item.preview ? <DocumentContent key={item.id} format={item.preview.format} text={item.preview.text} /> : null) : <p className="m-0 whitespace-pre-wrap type-lg leading-relaxed">{props.caption}</p>}
     </article>;
   }
-  if (props.previewMode === "clean") return target.variant === "carousel" ? <article className={`unit-clean-preview ${FRAME}`} aria-label="Clean media preview"><Carousel media={props.media} /></article> : <CleanPreview media={props.media} />;
+  if (props.previewMode === "clean") return target.variant === "carousel" ? <article className={`unit-clean-preview ${FRAME}`} aria-label="Clean media preview"><Carousel media={props.media} tone={props.tone ?? "surface"} /></article> : <CleanPreview media={props.media} tone={props.tone} />;
   if (target.platform === "instagram" && (target.variant === "carousel" || target.variant === "post")) return <InstagramPost {...props} />;
   if (target.platform === "x") return <XPost {...props} />;
   if (target.platform === "youtube" && target.variant === "video") return <YouTubePlayer {...props} />;

@@ -1,10 +1,12 @@
-import { AlertCircle, Check, Copy, ExternalLink, Eye, FolderOpen, GalleryHorizontalEnd, RefreshCw } from "@/shared/ui/icons";
+import { AlertCircle, Check, Copy, ExternalLink, Eye, FileText, Film, FolderOpen, GalleryHorizontalEnd, Image, LayoutGrid, MoreHorizontal, Music2, RefreshCw, Search } from "@/shared/ui/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ProjectMediaFilter, ProjectMediaKind } from "../../../../electron/media/types";
+import type { ProjectMediaFilter, ProjectMediaKind, ProjectMediaQuery } from "../../../../electron/media/types";
 import type { MediaCardDto, MediaProvenance } from "../../../../electron/ralphy/types";
 import type { ProjectSummary } from "@/shared/api/ipc";
-import { VirtualAssetGrid } from "..";
+import { MediaGallery } from "./MediaGallery";
+import { VirtualAssetGrid } from "./VirtualAssetGrid";
 import { SelectMenu, type SelectMenuOption } from "@/shared/ui/SelectMenu";
+import { SegmentedControl, type SegmentedControlOption } from "@/shared/ui/SegmentedControl";
 import { SnappySlider } from "@/shared/ui/SnappySlider";
 import { bridge } from "@/shared/api/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "@/shared/instrument/screen-state-registry";
@@ -19,17 +21,27 @@ const lifecycleOptions: Array<SelectMenuOption<ProjectMediaFilter>> = [
   ["approved", "Approved"], ["rejected", "Rejected"], ["superseded", "Superseded"],
   ["run-diagnostics", "Run diagnostics"], ["run-cache-temp", "Cache/temp"], ["advanced-objects", "Advanced objects"],
 ].map(([value, label]) => ({ value, label } as SelectMenuOption<ProjectMediaFilter>));
-const kindOptions: Array<SelectMenuOption<"all" | ProjectMediaKind>> = [
-  { value: "all", label: "All" }, { value: "image", label: "Images" }, { value: "video", label: "Video" },
-  { value: "audio", label: "Audio" }, { value: "document", label: "Documents" }, { value: "other", label: "Other" },
+const kindOptions: Array<SegmentedControlOption<"all" | ProjectMediaKind>> = [
+  { value: "all", label: "All", icon: <LayoutGrid size={14} aria-hidden="true" /> },
+  { value: "image", label: "Images", icon: <Image size={14} aria-hidden="true" /> },
+  { value: "video", label: "Video", icon: <Film size={14} aria-hidden="true" /> },
+  { value: "audio", label: "Audio", icon: <Music2 size={14} aria-hidden="true" /> },
+  { value: "document", label: "Documents", icon: <FileText size={14} aria-hidden="true" /> },
+  { value: "other", label: "Other", icon: <MoreHorizontal size={14} aria-hidden="true" /> },
 ];
 const provenanceOptions: Array<SelectMenuOption<"all" | MediaProvenance>> = [
   { value: "all", label: "All" }, { value: "generation", label: "Generated" },
   { value: "not-generation", label: "Not generated" }, { value: "unknown", label: "Unknown" },
 ];
-// Density is a target tile width, so a hard 4-column cap swallowed the whole slider:
-// every stop below 290 still resolved to 4 columns. The default stop keeps the approved
-// 4-column mosaic at 1440 and the slider now walks 3 to 7 columns around it.
+const sortOptions: Array<SelectMenuOption<NonNullable<ProjectMediaQuery["sort"]>>> = [
+  { value: "newest", label: "Newest first" }, { value: "oldest", label: "Oldest first" },
+  { value: "selected", label: "Recently selected" }, { value: "name", label: "Name" }, { value: "size", label: "Largest first" },
+];
+const viewOptions: Array<SegmentedControlOption<"grid" | "gallery">> = [
+  { value: "grid", label: "Grid view", icon: <LayoutGrid size={14} aria-hidden="true" /> },
+  { value: "gallery", label: "Gallery view", icon: <GalleryHorizontalEnd size={14} aria-hidden="true" /> },
+];
+const SELECT = "flex h-8 items-center gap-1.5 rounded-control bg-surface-sunken px-2 type-xs text-muted hover:bg-surface-hover hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
 const densityStops = [150, 170, 190, 210, 230, 250, 270, 290, 310];
 
 type ContextState = { card: MediaCardDto; x: number; y: number; opener: HTMLElement } | null;
@@ -71,7 +83,16 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
   scrollMemory: Map<string, number>;
   scrollResetToken: string;
 }) {
-  const [density, setDensity] = useState(230);
+  const [density, setDensity] = useState(190);
+  const [view, setView] = useState<"grid" | "gallery">("grid");
+  const query = snapshot.domain.media;
+  const [search, setSearch] = useState(query.search ?? "");
+  useEffect(() => setSearch(controller.getSnapshot().domain.media.search ?? ""), [controller]);
+  useEffect(() => {
+    if (search.trim() === (query.search ?? "")) return;
+    const timer = window.setTimeout(() => { void controller.setMediaQuery({ search: search.trim() || undefined }); }, 250);
+    return () => window.clearTimeout(timer);
+  }, [controller, query.search, search]);
   const [context, setContext] = useState<ContextState>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const review = useMediaReview({ workspaceName, project, rootEpoch, onSaved: () => { void controller.retry(); } });
@@ -123,22 +144,34 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
   };
 
   if (page.status === "error" && page.items.length === 0) return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state="error"><div className={PROJECT_LOCAL_ERROR} role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{page.error ?? "Media could not be loaded."}</span><button className={COMMAND_BUTTON} type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div></InstrumentScreenRoot>;
-  const query = snapshot.domain.media;
-  return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state={mediaInstrumentState(page, snapshot)}><section className="media-panel relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-transparent p-0 type-base text-ink [&_.media-card-tile.is-selected]:bg-chip [&_.media-card-tile.is-selected]:shadow-none" aria-label="Project media">
-    <div className="media-domain-toolbar m-0 flex min-h-11 w-full max-w-none flex-none flex-wrap items-center gap-2 rounded-cell bg-surface-sunken p-2 [&_.select-menu-trigger]:min-w-media-filter" aria-label="Media filters">
-      <SelectMenu overlayOwner="project.media" value={query.filter} options={lifecycleOptions} ariaLabel="Lifecycle or source" prefix="Source" onValueChange={(filter) => { void controller.setMediaQuery({ filter }); }} />
-      <SelectMenu overlayOwner="project.media" value={query.mediaKind ?? "all"} options={kindOptions} ariaLabel="Media type" prefix="Type" onValueChange={(mediaKind) => { void controller.setMediaQuery({ mediaKind: mediaKind === "all" ? undefined : mediaKind }); }} />
-      <SelectMenu overlayOwner="project.media" value={query.provenance ?? "all"} options={provenanceOptions} ariaLabel="Generation provenance" prefix="Generation" onValueChange={(provenance) => { void controller.setMediaQuery({ provenance: provenance === "all" ? undefined : provenance }); }} />
-      <span className="media-item-count ml-auto font-code type-xs whitespace-nowrap text-muted">{page.items.length.toLocaleString()} items</span>
-      <div className="grid-size-control flex h-control-md min-w-32 flex-none items-center gap-2 rounded-control bg-surface-sunken px-2.75 type-sm text-muted [&_.snappy-slider]:w-grid-density" title="Grid density"><GalleryHorizontalEnd size={15} aria-hidden="true" /><SnappySlider value={density} min={150} max={310} step={20} values={densityStops} defaultValue={230} ariaLabel="Grid density" onValueChange={setDensity} /></div>
+  return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state={mediaInstrumentState(page, snapshot)}><section className="media-panel relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-1 overflow-hidden bg-transparent p-0 type-base text-ink [&_.media-card-tile.is-selected]:bg-chip [&_.media-card-tile.is-selected]:shadow-none" aria-label="Project media">
+    <div className="media-domain-toolbar m-0 flex min-h-8 w-full min-w-0 flex-none flex-wrap items-center gap-1" aria-label="Media filters">
+      <label className="flex h-8 min-w-32 flex-1 items-center gap-2 rounded-control bg-surface-sunken px-2 text-muted">
+        <Search size={14} aria-hidden="true" />
+        <input className="min-w-0 flex-1 border-0 bg-transparent type-base text-ink placeholder:text-muted" type="search" data-media-focus-fallback="true" maxLength={256} aria-label="Search project media" placeholder="Search media" value={search} onInput={(event) => setSearch(event.currentTarget.value)} />
+      </label>
+      <SegmentedControl value={query.mediaKind ?? "all"} options={kindOptions} ariaLabel="Media type" onValueChange={(mediaKind) => { void controller.setMediaQuery({ mediaKind: mediaKind === "all" ? undefined : mediaKind }); }} />
+      <SelectMenu tone="caller" className={SELECT} overlayOwner="project.media" value={query.sort ?? "newest"} options={sortOptions} ariaLabel="Sort media" onValueChange={(sort) => { void controller.setMediaQuery({ sort }); }} />
+      <details className="relative shrink-0" onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
+        <summary className={`${SELECT} cursor-pointer list-none`}>Filters{query.filter !== "all" || query.provenance ? " · Active" : ""}</summary>
+        <div className="absolute right-0 top-full z-popover mt-1 grid min-w-media-filter gap-2 rounded-menu bg-card p-2">
+          <div className="grid gap-1"><span className="type-xs text-muted">Lifecycle or source</span><SelectMenu tone="caller" className={`${SELECT} w-full min-w-media-filter`} overlayOwner="project.media" value={query.filter} options={lifecycleOptions} ariaLabel="Lifecycle or source" onValueChange={(filter) => { void controller.setMediaQuery({ filter }); }} /></div>
+          <div className="grid gap-1"><span className="type-xs text-muted">Generation</span><SelectMenu tone="caller" className={`${SELECT} w-full min-w-media-filter`} overlayOwner="project.media" value={query.provenance ?? "all"} options={provenanceOptions} ariaLabel="Generation provenance" onValueChange={(provenance) => { void controller.setMediaQuery({ provenance: provenance === "all" ? undefined : provenance }); }} /></div>
+          {(query.filter !== "all" || query.provenance) && <button type="button" className={SELECT} onClick={() => { void controller.setMediaQuery({ filter: "all", provenance: undefined }); }}>Clear filters</button>}
+        </div>
+      </details>
+      <SegmentedControl<"grid" | "gallery"> value={view} options={viewOptions} ariaLabel="Media view" onValueChange={setView} />
+      {view === "grid" && <div className="grid-size-control flex h-8 flex-none items-center gap-2 rounded-control bg-surface-sunken px-2 type-sm text-muted [&_.snappy-slider]:w-grid-density" title="Grid density"><LayoutGrid size={15} aria-hidden="true" /><SnappySlider value={density} min={150} max={310} step={20} values={densityStops} defaultValue={190} ariaLabel="Grid density" onValueChange={setDensity} /></div>}
     </div>
     {actionError && <div className={`${PROJECT_LOCAL_ERROR_ROW} media-action-error mb-2 min-h-9`} role="alert">{actionError}</div>}
     {page.status === "error" && page.items.length > 0 && page.nextCursor === null && <div className={`${PROJECT_LOCAL_ERROR_ROW} media-action-error mb-2 min-h-9`} role="alert"><span>{page.error ?? "Media could not be updated."}</span><button className={COMMAND_BUTTON} type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
-    <div className="project-media-grid flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent p-0 [&_.asset-grid-scroll]:min-h-90 [&_.asset-grid-scroll]:flex-1 [&_.asset-grid-scroll]:overflow-x-hidden [&_.asset-grid-scroll]:overflow-y-auto [&_.asset-grid-scroll]:p-0">
+    <div className="project-media-grid flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent p-0">
       {page.status === "loading" && page.items.length === 0 && <div className={PROJECT_SKELETON} role="status">Loading media…</div>}
-      {page.status === "ready" && page.items.length === 0
+      {page.status === "loading" && page.items.length === 0 ? null : page.status === "ready" && page.items.length === 0
         ? <div className={EMPTY_SECTION}>No media matches these filters.</div>
-        : <VirtualAssetGrid key={scrollResetToken} items={page.items as MediaCardDto[]} project={snapshot.domain.project} rootEpoch={rootEpoch} selectedRef={snapshot.selectedMedia?.ref ?? null} resolvePreview={bridge.resolveProjectPreview} onSelect={(card) => controller.selectMedia(card)} onOpen={(card) => { void controller.openMediaViewer(card); }} onContextMenu={openContext} density={density} gap={10} hasMore={page.nextCursor !== null} loadingMore={page.status === "loading" && page.items.length > 0 && page.nextCursor !== null} appendError={page.status === "error" && page.items.length > 0 && page.nextCursor !== null ? page.error : null} onLoadMore={() => { void controller.loadMore("media"); }} onRetryAppend={() => { void controller.retryPage("media"); }} scrollMemory={scrollMemory} scrollKey="media" scrollResetToken={scrollResetToken} />}
+        : view === "grid"
+          ? <VirtualAssetGrid key={scrollResetToken} items={page.items as MediaCardDto[]} project={snapshot.domain.project} rootEpoch={rootEpoch} selectedRef={snapshot.selectedMedia?.ref ?? null} resolvePreview={bridge.resolveProjectPreview} onSelect={(card) => controller.selectMedia(card)} onOpen={(card) => { void controller.openMediaViewer(card); }} onContextMenu={openContext} density={density} gap={4} hasMore={page.nextCursor !== null} loadingMore={page.status === "loading" && page.items.length > 0 && page.nextCursor !== null} appendError={page.status === "error" && page.items.length > 0 && page.nextCursor !== null ? page.error : null} onLoadMore={() => { void controller.loadMore("media"); }} onRetryAppend={() => { void controller.retryPage("media"); }} scrollMemory={scrollMemory} scrollKey="media" scrollResetToken={scrollResetToken} />
+          : <MediaGallery items={page.items as MediaCardDto[]} project={snapshot.domain.project} rootEpoch={rootEpoch} selectedRef={snapshot.selectedMedia?.ref ?? null} resolvePreview={bridge.resolveProjectPreview} onSelect={(card) => controller.selectMedia(card)} onOpen={(card) => { void controller.openMediaViewer(card); }} onContextMenu={openContext} hasMore={page.nextCursor !== null} loadingMore={page.status === "loading" && page.items.length > 0 && page.nextCursor !== null} appendError={page.status === "error" && page.items.length > 0 && page.nextCursor !== null ? page.error : null} onLoadMore={() => { void controller.loadMore("media"); }} onRetryAppend={() => { void controller.retryPage("media"); }} />}
     </div>
     {context && <div ref={menuRef} className={MENU} data-instrument-overlay="media-context-menu" aria-label="Media actions" style={{ left: context.x, top: context.y }}>
       <button className={MENU_ROW} type="button" onClick={() => { void action("preview"); }}><Eye size={15} aria-hidden="true" />Preview</button>

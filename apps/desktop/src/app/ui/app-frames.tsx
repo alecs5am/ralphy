@@ -8,7 +8,6 @@
  */
 import { useEffect, useRef, type ReactNode } from "react";
 
-import { bridge } from "@/shared/api/ipc";
 import { InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
 import { COMMAND_BUTTON } from "@/shared/ui/route-chrome";
 import { usePageHeaderHost } from "@/shared/ui/PageHeader";
@@ -20,7 +19,7 @@ export function ProjectScreenLoadingFallback() {
     <InstrumentScreenRoot descriptor={unitsInstrumentStates} state="loading">
       {/* Same as the loaded screen: the mode surface owns the desk wash, so this fallback
           neither repaints it nor paints over the view panel's page card. */}
-      <main className="main-region project-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden p-2 pb-6">
+      <main className="main-region project-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-hidden p-1">
         <div className="project-indexing flex min-h-0 flex-1 flex-col items-center justify-center gap-1 type-xs text-muted">
           {/* The indeterminate run is a real child, not a `::after`: a pseudo-element needs a
               `content: ""` that no named utility states, and the plate has room for the span. */}
@@ -32,15 +31,6 @@ export function ProjectScreenLoadingFallback() {
       </main>
     </InstrumentScreenRoot>
   );
-}
-
-/* The main process forwards a "show me the chat" shortcut. Under the chat lens the chat is
-   permanent -- it is the lens -- so there is nothing for the chord to show; what it toggles there
-   is the panel beside it. Under the desk lens it does nothing at all: the lens pair is what
-   changes lens, and a chord that silently changed lens made the pair a decoration. */
-export function InstrumentRightRailShortcut({ onToggle, children }: { onToggle(): void; children: ReactNode }) {
-  useEffect(() => bridge.onToggleRightPanel(onToggle), [onToggle]);
-  return children;
 }
 
 export function WorkspaceDestinationFrame({ destination, onBack, children }: {

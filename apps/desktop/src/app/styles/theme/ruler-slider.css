@@ -1,0 +1,13 @@
+.ruler-slider { position: relative; height: 32px; border-radius: var(--radius-pill); background: var(--instrument-field); }
+.ruler-slider:hover { background: var(--instrument-generation-field-hover); }
+.ruler-slider:has(input:focus-visible) { outline: 2px solid var(--instrument-text-primary); outline-offset: 2px; }
+.ruler-slider-fill { position: absolute; inset: 0 auto 0 0; width: calc(16px + (100% - 32px) * var(--ruler-progress)); border-radius: 16px 5px 5px 16px; background: var(--instrument-generation-brand); }
+.ruler-slider-ticks { position: absolute; inset: 0 16px; pointer-events: none; }
+.ruler-slider-ticks i { position: absolute; width: 1px; height: 8px; top: 12px; background: var(--instrument-generation-ruler-tick); transform: translateX(-50%); }
+.ruler-slider-ticks i[data-major="true"] { width: 1.5px; height: 14px; top: 9px; background: var(--instrument-generation-ruler-major); }
+.ruler-slider-ticks i[data-filled="true"] { background: color-mix(in srgb, var(--instrument-brand-ink) 36%, transparent); }
+.ruler-slider input { position: absolute; top: 0; left: 9px; width: calc(100% - 18px); height: 32px; margin: 0; appearance: none; outline: none; cursor: ew-resize; background: transparent; }
+.ruler-slider input::-webkit-slider-runnable-track { height: 32px; background: transparent; }
+.ruler-slider input::-webkit-slider-thumb { appearance: none; width: 14px; height: 28px; margin-top: 2px; border-radius: var(--radius-sm); background: linear-gradient(var(--instrument-widget-dark), var(--instrument-widget-dark)) center / 2px 12px no-repeat var(--instrument-brand-ink); }
+.ruler-slider input::-moz-range-track { height: 32px; background: transparent; }
+.ruler-slider input::-moz-range-thumb { width: 14px; height: 28px; border: 0; border-radius: var(--radius-sm); background: linear-gradient(var(--instrument-widget-dark), var(--instrument-widget-dark)) center / 2px 12px no-repeat var(--instrument-brand-ink); }

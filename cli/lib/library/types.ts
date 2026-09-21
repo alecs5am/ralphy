@@ -72,6 +72,8 @@ export interface Block {
   sub?: AssetSub;
   /** Reference-example media for the block page. */
   refs?: string[];
+  tags?: string[];
+  format?: string;
   createdAt?: string;
   /** Recipe-only (#082): the treatment class. */
   recipeKind?: RecipeKind;

@@ -13,7 +13,9 @@ test("searches full message text among 60 chats, renames and restores archived c
   try {
     await render("hypothesis");
     expect(host.container.textContent).toContain("No conversations match");
-    await click("Archived · 1");
+    await click("Collapse chats");
+    expect(host.container.textContent).not.toContain("No conversations match");
+    await click("Show archived chats");
     expect(host.container.textContent).toContain("Chat 1");
     expect(host.container.textContent).not.toContain("Chat 59");
     expect(host.container.textContent).toContain("keep their history and running work");

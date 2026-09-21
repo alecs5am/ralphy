@@ -31,7 +31,7 @@ import { CANVAS_BUTTON, NODE_ICONS } from "./canvas-chrome";
 export function CanvasScreen({ onOpenUnit, workspaceId, workspaceName, storageScope, agentBusy, onRequestAgent, onOpenProviders, onOpenAgents, headerHost: explicitHeaderHost, windowAction }: {
   workspaceId: string; workspaceName: string; storageScope: string; agentBusy: boolean;
   onOpenUnit?: import("@/entities/generation").OpenGeneratedUnit;
-  onRequestAgent(request: CanvasAgentRequest): void; onOpenProviders?(): void; onOpenAgents?(): void;
+  onRequestAgent?(request: CanvasAgentRequest): void; onOpenProviders?(): void; onOpenAgents?(): void;
   headerHost?: HTMLElement | null; windowAction?: ReactNode;
 }) {
   const pageHeaderHost = usePageHeaderHost();
@@ -138,7 +138,7 @@ export function CanvasScreen({ onOpenUnit, workspaceId, workspaceName, storageSc
     if (!saved) return;
     setShowRuns(true); setCatalogNode(null); setShowPlan(false); await runtime.start(saved, mode, nodeId);
   };
-  const askAgent = async () => { const saved = editor.dirty ? await save() : editor.saved; if (saved) onRequestAgent(canvasAgentRequest(saved, "edit")); };
+  const askAgent = async () => { const saved = editor.dirty ? await save() : editor.saved; if (saved) onRequestAgent?.(canvasAgentRequest(saved, "edit")); };
   const duplicateNodes = (ids: string[] = selectedIds) => { if (draft) { try { editor.edit(duplicateCanvasNodes(draft, ids)); } catch (cause) { editor.setError(cause instanceof Error ? cause.message : String(cause)); } } };
   const removeNodes = (selected: string[] = selectedIds) => { if (draft) { const ids = new Set(selected); editor.edit({ ...draft, nodes: draft.nodes.filter((node) => !ids.has(node.id)), edges: draft.edges.filter((edge) => !ids.has(edge.from) && !ids.has(edge.to)) }); setSelectedIds([]); } };
   const useResult = (result: CanvasRunResult) => {
@@ -221,16 +221,16 @@ export function CanvasScreen({ onOpenUnit, workspaceId, workspaceName, storageSc
     {headerHost && header && createPortal(header, headerHost)}
     {error && <div className="canvas-message absolute left-4 right-4 top-16 z-surface-overlay rounded-window flex shrink-0 items-start gap-2 border-b border-divider bg-panel px-4 py-3 type-xs" role="alert"><span className="min-w-0 flex-1 leading-relaxed">{error}</span><button className={CANVAS_BUTTON} type="button" aria-label="Dismiss canvas message" onClick={() => { editor.setError(null); runtime.setError(null); }}><X size={12} /></button></div>}
     {!draft ? <PageHeaderHost.Provider value={headerHost ?? null}><CanvasLibrary workspaceName={workspaceName} items={editor.items} loading={editor.loading} onCreate={editor.create} onSelect={editor.select} onReload={() => { void editor.reload(); }} /></PageHeaderHost.Provider> : <>
-      {!headerHost && <div className="shrink-0 bg-panel p-2">{header}</div>}
-      <div className="canvas-stage relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-window" ref={stage}>
+      <div className="canvas-stage relative flex min-h-0 min-w-0 flex-1 overflow-hidden" ref={stage}>
+        {!headerHost && <div className="canvas-header-float absolute left-4 right-4 top-3 z-surface-overlay rounded-panel bg-card p-1">{header}</div>}
         <CanvasBoard key={draft.id} canvas={draft} selection={selectedIds} nodeData={nodeData} onEdit={editor.edit} onError={editor.setError} onSelection={setSelectedIds} onReady={(instance) => { board.current = instance; }} onViewport={(value) => { viewport.current = { canvasId: draft.id, value }; }} controls={<><button className={`${CANVAS_BUTTON} h-7 px-2`} type="button" aria-label="Undo canvas change" disabled={!editor.canUndo || busy} onClick={editor.undo}><Undo2 size={13} /></button><button className={`${CANVAS_BUTTON} h-7 px-2`} type="button" aria-label="Redo canvas change" disabled={!editor.canRedo || busy} onClick={editor.redo}><Redo2 size={13} /></button><CanvasShortcuts /></>} onDropFiles={dropFiles} dropDisabled={busy} importing={importing} inactive={showRuns && resultsExpanded} />
 
-        <Window className="canvas-actions absolute right-4 top-4 z-surface-overlay" inert={showRuns && resultsExpanded} aria-hidden={showRuns && resultsExpanded}>
+        <Window className="canvas-actions absolute right-4 z-surface-overlay" inert={showRuns && resultsExpanded} aria-hidden={showRuns && resultsExpanded}>
           <div className="flex items-center gap-1 rounded-frame bg-card p-1" role="toolbar" aria-label="Canvas tools">
         <button className={CANVAS_BUTTON} type="button" aria-label="Execution plan" title="Execution plan" aria-pressed={showPlan} onClick={() => { setShowPlan((value) => !value); setCatalogNode(null); setShowRuns(false); }}><GitBranch size={14} /><span>{isBoard ? "Board guide" : !plan?.outputs.length ? "Add Output" : `${runnableNodes.length} steps`}</span></button>
         {!isBoard && !!blockedNodes.length && <button className={`${CANVAS_BUTTON} type-xs text-muted`} type="button" title={`${blockedNodes[0].title}: ${readiness.get(blockedNodes[0].id)!.issues.join(" · ")}`} aria-label={`${blockedNodes.length} steps need input`} onClick={() => focusNode(blockedNodes[0].id)}><CircleAlert size={14} /><span>{blockedNodes.length}</span></button>}
         <button className={CANVAS_BUTTON} type="button" aria-label="Run history" title="Run history" aria-pressed={showRuns} onClick={() => { setShowRuns((value) => !value); setCatalogNode(null); setShowPlan(false); }}><History size={14} /></button>
-        <button className={CANVAS_BUTTON} type="button" aria-label="Ask agent to edit" title="Work on this canvas with your agent" disabled={agentBusy || busy} onClick={() => { void askAgent(); }}><MessageSquare size={14} /></button>
+        <button className={CANVAS_BUTTON} type="button" aria-label="Ask agent to edit" title="Work on this canvas with your agent" disabled={!onRequestAgent || agentBusy || busy} onClick={() => { void askAgent(); }}><MessageSquare size={14} /></button>
         <button className={CANVAS_BUTTON} type="button" disabled={busy || !canRun} aria-label="Preview" title="Preview inputs and estimated cost" onClick={() => { void start("preview", runTarget); }}><Scan size={14} /><span className="sr-only">Preview</span></button>
             <details className="canvas-more relative" onBlur={(event) => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) event.currentTarget.open = false; }}><summary className={`${CANVAS_BUTTON} cursor-pointer list-none`} aria-label="More canvas actions" title="More canvas actions"><MoreHorizontal size={16} /></summary><Window className="canvas-more-menu absolute right-0 top-full mt-2 w-64"><div className="flex flex-col gap-2 rounded-frame bg-card p-3"><span className="font-code type-mono-xs text-muted">{draft.nodes.length} nodes · {draft.edges.length} connections</span><div className="flex items-center gap-2"><button className={CANVAS_BUTTON} type="button" aria-label="Rename canvas" title="Rename canvas" disabled={busy} onClick={(event) => { const menu = event.currentTarget.closest("details"); if (menu) menu.open = false; setRenaming(true); }}><Pencil size={12} /><span>Rename canvas</span></button><span className="flex-1" />{windowAction}</div>{editor.dirty ? <><span className="type-xs text-muted">Draft backed up on this Mac</span><button className={`${CANVAS_BUTTON} h-7`} type="button" disabled={busy} onClick={editor.discard}>Discard draft</button></> : <button className={`${CANVAS_BUTTON} h-7`} type="button" disabled={busy} onClick={editor.duplicate}><Copy size={12} />Duplicate canvas</button>}</div></Window></details>
           </div>

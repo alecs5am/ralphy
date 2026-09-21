@@ -6,7 +6,8 @@
   "description": "Fast macOS media review workbench for Ralphy workspaces and projects.",
   "main": "dist-electron/main.cjs",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/dev-electron.mjs",
+    "dev:renderer": "vite",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build:renderer": "vite build",

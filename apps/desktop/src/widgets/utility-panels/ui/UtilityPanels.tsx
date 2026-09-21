@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, MessageSquare, PanelRightClose, PanelsTopLeft, Plus, Workflow } from "@/shared/ui/icons";
+import { ArrowUp, MessageSquare, PanelRightClose, PanelsTopLeft, Plus } from "@/shared/ui/icons";
 import { motion } from "motion/react";
 import type { ProjectReference, ProjectSummary, WorkspaceSummary } from "@/shared/api/ipc";
 import type { AgentChatController } from "@/features/agent-chat";
@@ -36,7 +36,6 @@ export function AgentChatPanel({
   onClose,
   onOpenSettings,
   onOpenContext,
-  onOpenCanvas,
   onOpenUnit,
   onToggleView,
   draftRequest,
@@ -48,8 +47,7 @@ export function AgentChatPanel({
   onClose(): void;
   onOpenSettings(page?: "agents"): void;
   onOpenContext(): void;
-  onOpenCanvas?(): void;
-  onOpenUnit?(project: ProjectReference, unitId: string, label: string): void;
+  onOpenUnit?(project: ProjectReference, unitId: string, label: string, revisionId?: string): void;
   onToggleView?(): void;
   draftRequest?: { id: string; prompt: string; chatId: string | null; attachment?: Attachment } | null;
   onDraftRequestHandled?(): void;
@@ -127,7 +125,6 @@ export function AgentChatPanel({
       <header className="utility-panel-header agent-chat-header relative z-sticky flex h-8.5 flex-none items-center justify-between pr-2 pl-2.5 text-ink [-webkit-app-region:drag] [&_button]:[-webkit-app-region:no-drag]">
         <span className="flex min-w-0 items-center gap-2 type-sm text-muted"><MessageSquare size={14} aria-hidden="true" /><span className="truncate text-ink">{active.title || "New chat"}</span></span>
         <span className="agent-header-actions flex items-center gap-0.5">
-          {onOpenCanvas && <button className={HEADER_GLYPH} type="button" title="Open canvases" aria-label="Open canvases" onClick={onOpenCanvas}><Workflow size={15} strokeWidth={1.5} aria-hidden="true" /></button>}
           {onToggleView && <button className={HEADER_GLYPH} type="button" title="Toggle workspace panel" aria-label="Toggle workspace panel" onClick={onToggleView}><PanelsTopLeft size={15} strokeWidth={1.5} aria-hidden="true" /></button>}
           <button
             className={HEADER_GLYPH}
@@ -135,7 +132,7 @@ export function AgentChatPanel({
             title="New chat"
             aria-label="New chat"
             disabled={active.entries.length === 0}
-            onClick={chat.newChat}
+            onClick={() => chat.newChat(chat.activeChat.project)}
           >
             <Plus size={15} strokeWidth={1.5} />
           </button>
@@ -171,7 +168,7 @@ export function AgentChatPanel({
             </button>
           )}
           <div
-            className="agent-chat-messages flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-4 pb-4"
+            className="agent-chat-messages flex min-h-0 flex-1 flex-col overflow-y-auto p-2"
             ref={messagesRef}
             onScroll={(event) => {
               const node = event.currentTarget;
@@ -276,18 +273,18 @@ function AgentEmptyChat({
   const place = project?.name ?? workspace?.name ?? null;
   /* The block keeps its own measure however wide the zone is: with the view panel closed the chat
      takes the window, and four opener cards stretched across it stop being cards. */
-  return <div className="agent-empty-chat mx-auto flex min-h-agent-empty w-full max-w-agent-empty-block flex-1 flex-col items-center justify-center gap-4 text-center">
+  return <div className="agent-empty-chat mx-auto flex min-h-agent-empty w-full max-w-agent-empty-block flex-1 flex-col items-center justify-center gap-2 text-center">
     {/* The mark is the block. It used to sit at 32 inside a 52 plate, and the plate read as a frame
         around the animation rather than as a mount for it. */}
     <AgentMark mode="idle" size={52} className="text-ink" />
-    <strong className="type-heading font-normal text-ink">
+    <strong className="type-sm font-medium text-ink">
       {place
         ? <>What should we work on in <span className="underline decoration-unreviewed decoration-1 underline-offset-4">{place}</span>?</>
         : "What should we work on?"}
     </strong>
     <div className="agent-openers grid w-full grid-cols-2 gap-2">
       {OPENERS.map(({ icon: Icon, label, prompt }) => <button
-        className="flex flex-col gap-3 rounded-lg bg-chat-field p-3 text-left hover:bg-chat-control"
+        className="flex flex-col gap-2 rounded-lg bg-chat-field p-2 text-left hover:bg-chat-control"
         type="button"
         key={label}
         onClick={() => onOpener(prompt)}

@@ -74,7 +74,7 @@ describe("workspace projects navigation", () => {
       <SharedLibraryScreen workspaceId="workspace-1" workspaceName="Launch Studio" rootEpoch={7} />,
     );
 
-    expect(markup).toContain("Shared Library");
+    expect(markup).toContain("Shared assets");
     expect(markup).toContain("Reusable workspace artifacts for people and agents");
     expect(markup).not.toContain("Shared Library is not wired yet");
   });
@@ -214,30 +214,29 @@ describe("workspace projects navigation", () => {
         onOpenMarketplaceRoute={() => undefined}
         onOpenWorkspace={() => undefined}
         onOpenPage={() => undefined}
+        projects={projects}
       />,
     );
 
-    /* Context sits beside Memory, which is the handoff's own placement: both answer "what does the
-       agent already know", and one of them is the durable half of the other. */
     expect(WORKSPACE_PAGES).toEqual(["overview", "generation", "projects", "canvas", "units", "shared", "memory", "context", "calendar"]);
-    expect(readWorkbenchPreferences({ getItem: () => null, setItem: () => undefined }).workspacePage).toBe("overview");
-    expect(markup).toContain("Overview");
+    expect(readWorkbenchPreferences({ getItem: () => null, setItem: () => undefined }).workspacePage).toBe("projects");
     expect(markup).toContain("Create");
-    expect(markup.indexOf("Overview")).toBeLessThan(markup.indexOf("Create"));
     expect(markup.indexOf("Create")).toBeLessThan(markup.indexOf("Projects"));
-    expect(markup.indexOf("Overview")).toBeLessThan(markup.indexOf("Projects"));
-    expect(markup).toContain("Memory");
-    expect(markup).toContain("Context");
+    expect(markup).not.toContain(">Overview<");
+    expect(markup).not.toContain(">Memory<");
+    expect(markup).not.toContain(">Context<");
+    expect(markup).not.toContain(">More<");
     expect(markup).toContain("Calendar");
-    expect(markup).toContain("Shared library");
+    expect(markup).toContain("Shared assets");
     expect(markup).not.toContain("THIS COMPUTER");
     // The sidebar user pill opens Settings directly instead of a one-item menu.
     expect(markup).toContain("Open settings");
-    expect(markup).toContain("My Work");
-    expect(markup).toContain("Marketplace");
+    expect(markup).toContain("Explore");
+    expect(markup).not.toContain("My Work");
+    expect(markup).not.toContain("Application mode");
     expect(markup).not.toContain("Local Models");
     expect(markup).not.toContain("Filter projects");
-    expect(markup).not.toContain("Launch film");
+    expect(markup).toContain("Launch film");
   });
 
   test("lands a route on every workspace page, so a view tab is not the tab it was opened from", () => {
@@ -257,10 +256,11 @@ describe("workspace projects navigation", () => {
     expect(app).toContain('if (tab.type !== "home") routeToView(');
   });
 
-  test("adapts the same sidebar to all Marketplace destinations without workspace chrome", () => {
+  test("keeps workspace navigation available while exploring", () => {
     const markup = renderToStaticMarkup(
       <ContextSidebar
         mode="marketplace"
+        lens="desk"
         route={{ kind: "workspace", workspaceId: workspace.id }}
         page="overview"
         pageActive={false}
@@ -282,12 +282,12 @@ describe("workspace projects navigation", () => {
       />,
     );
 
-    expect(markup).toContain("Discover");
-    expect(markup).toContain("Components &amp; Effects");
-    expect(markup).toContain("MY LIBRARY");
-    expect(markup).toContain("Saved");
+    expect(markup).toContain("Explore");
+    expect(markup).toContain("Create");
+    expect(markup).toContain('aria-label="Projects"');
+    expect(markup).toContain('aria-label="Chats"');
     expect(markup).not.toContain("Needs attention");
-    expect(markup).not.toContain("Launch Studio");
+    expect(markup).toContain("Launch Studio");
     expect(markup).not.toContain("Local Models");
   });
 

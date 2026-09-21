@@ -83,7 +83,6 @@ import {
   APP_CHANNELS,
   MEDIA_CHANNELS,
   MAX_WAVEFORM_DECODE_BYTES,
-  PROJECT_MEDIA_FILTERS,
   type CatalogResult,
   type AgentChatEnvelope,
   type AgentProvider,
@@ -93,10 +92,7 @@ import {
   type MediaEvent,
   type MediaPreviewSource,
   type ProjectReference,
-  type ProjectMediaFilter,
-  type ProjectMediaKind,
   type ProjectMediaQuery,
-  type MediaProvenance,
   type WorkerRequest,
   type WorkerResponse,
 } from "./media/types";
@@ -131,6 +127,7 @@ import {
   createActivitySynchronizer,
   type ActivitySynchronizer,
 } from "./ralphy/activity-sync";
+import { parseProjectMediaQuery } from "./media/project-query";
 import { createProjectReader, parseUnitScope, registerProjectMediaIpc } from "./ralphy/project-reader";
 import { registerSharedLibraryIpc } from "./ralphy/shared-library-reader";
 import { createMemoryReader } from "./ralphy/memory-reader";
@@ -180,6 +177,9 @@ import {
   parseLocalModelSearchInput,
   searchLocalModels,
 } from "./local-models";
+
+// Match the packaged app's profile so development reuses its settings and credentials.
+app.setName("ralphy-media");
 
 // Keep native credential/settings storage in the same profile as Chromium.
 const userDataOverride = app.commandLine.getSwitchValue("user-data-dir");
@@ -1092,14 +1092,14 @@ function registerAgentIpc(): void {
   securedHandle(AGENT_CHANNELS.context, async (event, rawInput: unknown) => {
     assertTrustedSender(event);
     const operation = captureBridgeRoot();
-    const row = (rawInput ?? {}) as { provider?: unknown; project?: unknown; workspaceId?: unknown };
+    const row = (rawInput ?? {}) as { provider?: unknown; permissionMode?: unknown; project?: unknown; workspaceId?: unknown };
     const provider = row.provider === "claude" || row.provider === "openrouter" ? row.provider : "codex";
     const request = parseAgentChatRequest({
       chatId: "context",
       provider,
       model: "default",
       prompt: "context",
-      permissionMode: "plan",
+      permissionMode: row.permissionMode ?? "plan",
       project: row.project ?? null,
       workspaceId: row.workspaceId ?? null,
     });
@@ -1123,6 +1123,7 @@ function registerAgentIpc(): void {
     const pack = await readPackState(rootPath, bundledPromptPack());
     const page = await readContextPage({
       provider,
+      permissionMode: request.permissionMode,
       rootPath,
       workspaceId,
       projectPath,
@@ -1449,25 +1450,6 @@ function parseProjectDomainPage(value: unknown): {
     ...(input.cursor === undefined ? {} : { cursor: input.cursor as string | number | null }),
     ...(mediaQuery === undefined ? {} : { mediaQuery }),
   };
-}
-
-function parseProjectMediaQuery(value: unknown): ProjectMediaQuery {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Invalid Media query");
-  }
-  const query = value as Record<string, unknown>;
-  const keys = Reflect.ownKeys(query);
-  if (!keys.every((key) => key === "filter" || key === "mediaKind" || key === "provenance")
-    || !PROJECT_MEDIA_FILTERS.includes(query.filter as ProjectMediaFilter)
-    || (query.mediaKind !== undefined && ![
-      "image", "video", "audio", "document", "other",
-    ].includes(query.mediaKind as ProjectMediaKind))
-    || (query.provenance !== undefined && ![
-      "generation", "not-generation", "unknown",
-    ].includes(query.provenance as MediaProvenance))) {
-    throw new Error("Invalid Media query");
-  }
-  return query as ProjectMediaQuery;
 }
 
 function parseProjectMediaRef(value: unknown): { type: "artifact" | "run-object" | "object"; id: string } {
@@ -1856,16 +1838,11 @@ function createWindow(): void {
     minWidth: MINIMUM_WINDOW_SIZE.width,
     minHeight: MINIMUM_WINDOW_SIZE.height,
     titleBarStyle: "hiddenInset",
-    /* The app has one chrome line and the lights stand on it. y is the light's own frame origin and
-       that frame is 16 tall, so the line is y + 8 = 24 -- the same line macOS itself uses, read off
-       a native window through the accessibility API rather than guessed: ChatGPT's lights report a
-       frame origin 16 below its window top. Every chrome row is 32 tall on the window's 8 line, so
-       its centre is 8 + 16 = 24 too. x stays at 22 rather than the system's 15, because our window
-       pads itself by 8 and the sidebar card by 14: the lights belong inside the card, not on its
-       edge. Both rows share the one line deliberately -- the lights are drawn at a fixed window
-       offset, so a second line would be a row they can never sit on, and repositioning them per
-       sidebar toggle would put an IPC round trip in the middle of an animation. */
-    trafficLightPosition: { x: 22, y: 16 },
+    /* Native light frames measure 16px tall. Match their center to the 32px chrome row inside
+       the 4px shell inset: y = 4 + 16 - 8. The first light aligns with the sidebar header's
+       content: x = 4px shell + 2px sidebar frame + 12px header padding. These window-relative
+       coordinates stay fixed when resizing or toggling the sidebar. */
+    trafficLightPosition: { x: 18, y: 12 },
     backgroundColor: nativeTheme.shouldUseDarkColors ? INSTRUMENT_PALETTE.dark.desk : INSTRUMENT_PALETTE.light.desk,
     show: !SMOKE_TEST && !INSTRUMENT_SHELL_AUDIT,
     webPreferences: secureWebPreferences(join(__dirname, "preload.cjs")),
@@ -1896,10 +1873,10 @@ function createWindow(): void {
     if (
       input.type === "keyDown"
       && command
-      && input.key.toLocaleLowerCase() === "r"
+      && (input.code === "KeyR" || input.key.toLocaleLowerCase() === "r")
     ) {
       event.preventDefault();
-      sendIfWindowAlive(createdWindow, APP_CHANNELS.toggleRightPanel, undefined);
+      if (!input.isAutoRepeat) sendIfWindowAlive(createdWindow, APP_CHANNELS.toggleRightPanel, undefined);
     }
   });
   win = createdWindow;

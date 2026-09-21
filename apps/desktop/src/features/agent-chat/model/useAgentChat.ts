@@ -27,6 +27,7 @@ import type {
 
 import {
   type AgentChatState,
+  type AgentChatProject,
   type AgentConversation,
   type CreateAgentChatOptions,
 } from "./chat-state";
@@ -49,7 +50,7 @@ export interface AgentChatController {
   retryHistory(): void;
   send(text: string, additionalContext?: string): void;
   stop(): void;
-  newChat(): void;
+  newChat(project?: AgentChatProject | null): void;
   selectChat(chatId: string): void;
   renameChat(chatId: string, title: string): void;
   archiveChat(chatId: string, archived: boolean): void;
@@ -93,7 +94,6 @@ function message(error: unknown): string {
 export function useAgentChat({
   rootPath,
   workspaceId,
-  project,
   enabled = true,
 }: {
   rootPath: string | null;
@@ -216,23 +216,21 @@ export function useAgentChat({
       provider: chat.provider,
       model: chat.model,
       prompt: context ? `${prompt}\n\n${context}` : prompt,
-      workspaceId: scope?.workspaceId ?? project?.workspaceId ?? null,
-      project: project
-        ? { workspaceId: project.workspaceId, projectId: project.projectId }
-        : null,
+      workspaceId,
+      project: chat.project ?? null,
       claudeAuthMethod: chat.claudeAuthMethod,
       permissionMode: chat.permissionMode,
       resumeSessionId: chat.sessionId,
     }).catch((error: unknown) => {
       receiveEvent({
         storeId: rootPath,
-        workspaceId: scope?.workspaceId ?? project?.workspaceId ?? null,
+        workspaceId,
         provider: chat.provider,
         chatId: chat.id,
         event: { type: "error", code: "send-failed", message: message(error) },
       });
     });
-  }, [connected, project, receiveEvent, rootPath, workspaceId, state.activeChatId, state.chats, state.runningChatId]);
+  }, [connected, receiveEvent, rootPath, workspaceId, state.activeChatId, state.chats, state.runningChatId]);
 
   const login = useCallback(async (provider: "claude" | "codex"): Promise<void> => {
     setAuthAction(provider);
@@ -294,8 +292,9 @@ export function useAgentChat({
     stop: () => {
       void bridge.stopAgent().catch((error: unknown) => setConnectionError(message(error)));
     },
-    newChat: () => ready && dispatch({
+    newChat: (project) => ready && (!project || project.workspaceId === workspaceId) && dispatch({
       ...fallbackChat(),
+      project: project ?? null,
       type: "new-chat",
     }),
     selectChat: (chatId) => dispatch({ type: "select-chat", chatId }),

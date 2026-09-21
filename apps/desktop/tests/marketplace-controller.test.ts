@@ -9,6 +9,7 @@ import type {
 } from "../electron/media/types";
 import { createMarketplaceController, type MarketplaceApi } from "@/pages/marketplace";
 import type { MarketplaceQueryState } from "@/pages/marketplace";
+import { studioCatalog } from "@/pages/marketplace/lib/studio-catalog";
 
 const machine = {
   platform: "macOS",
@@ -136,7 +137,7 @@ describe("Marketplace controller", () => {
       status: "ready",
       refreshing: false,
       sourceHealth: { publicLibrary: "ready", models: "ready" },
-      items: [{ category: "models", key: "model:huggingface:Acme/alpha" }],
+      items: expect.arrayContaining([expect.objectContaining({ category: "models", key: "model:huggingface:Acme/alpha" })]),
     });
   });
 
@@ -200,7 +201,7 @@ describe("Marketplace controller", () => {
     await publicFailed.start();
     expect(publicFailed.getSnapshot()).toMatchObject({
       status: "ready",
-      items: [{ category: "models" }],
+      items: expect.arrayContaining([expect.objectContaining({ category: "models" })]),
       sourceHealth: { publicLibrary: "unavailable", models: "ready" },
       sourceErrors: [
         { source: "ralphy-public", scope: "public-library", message: "Ralphy public library is unavailable" },
@@ -215,7 +216,7 @@ describe("Marketplace controller", () => {
     await modelsFailed.start();
     expect(modelsFailed.getSnapshot()).toMatchObject({
       status: "ready",
-      items: [{ category: "templates" }],
+      items: expect.arrayContaining([expect.objectContaining({ category: "templates", key: "template:clean-cut" })]),
       sourceHealth: { publicLibrary: "ready", models: "unavailable" },
       sourceErrors: [
         { source: "ralphy-bundled", scope: "bundled-catalog", message: "This build carries no bundled catalog" },
@@ -228,18 +229,21 @@ describe("Marketplace controller", () => {
       vi.fn(async () => { throw new Error("offline"); }),
     ), query());
     await healthyEmpty.start();
-    expect(healthyEmpty.getSnapshot()).toMatchObject({ status: "ready", items: [], sourceHealth: { publicLibrary: "ready", models: "unavailable" } });
+    expect(healthyEmpty.getSnapshot()).toMatchObject({ status: "ready", sourceHealth: { publicLibrary: "ready", models: "unavailable" } });
+    const emptySnapshot = healthyEmpty.getSnapshot();
+    expect(emptySnapshot.status === "ready" && emptySnapshot.items.every((item) => item.studio)).toBe(true);
   });
 
-  test("publishes an error only when the public library and selected model source are both unavailable", async () => {
+  test("keeps all bundled examples available when every external source is unavailable", async () => {
     const rejected = vi.fn(async () => { throw new Error("offline"); });
     const total = createMarketplaceController(api(rejected, rejected as MediaWorkbenchBridge["searchLocalModels"]), query());
     await total.start();
     expect(total.getSnapshot()).toMatchObject({
-      status: "error",
-      error: "Marketplace sources are unavailable",
+      status: "ready",
       sourceHealth: { publicLibrary: "unavailable", models: "unavailable" },
     });
+    const offline = total.getSnapshot();
+    expect(offline.status === "ready" && offline.items.length).toBe(studioCatalog().length);
 
     const fulfilledFailure = createMarketplaceController(api(
       vi.fn(async () => { throw new Error("offline"); }),
@@ -249,14 +253,14 @@ describe("Marketplace controller", () => {
       ])),
     ), query());
     await fulfilledFailure.start();
-    expect(fulfilledFailure.getSnapshot()).toMatchObject({ status: "error", sourceHealth: { publicLibrary: "unavailable", models: "unavailable" } });
+    expect(fulfilledFailure.getSnapshot()).toMatchObject({ status: "ready", sourceHealth: { publicLibrary: "unavailable", models: "unavailable" } });
 
     const modelHealthyEmpty = createMarketplaceController(api(
       vi.fn(async () => { throw new Error("offline"); }),
       vi.fn(async () => catalog([])),
     ), query());
     await modelHealthyEmpty.start();
-    expect(modelHealthyEmpty.getSnapshot()).toMatchObject({ status: "ready", items: [], sourceHealth: { publicLibrary: "unavailable", models: "ready" } });
+    expect(modelHealthyEmpty.getSnapshot()).toMatchObject({ status: "ready", sourceHealth: { publicLibrary: "unavailable", models: "ready" } });
   });
 
   test("suppresses stale query results and retains current content while refreshing", async () => {
@@ -293,11 +297,13 @@ describe("Marketplace controller", () => {
       const refresh = controller.refresh();
       const refreshing = controller.getSnapshot();
       expect(refreshing).toMatchObject({ status: "ready", refreshing: true });
-      expect(refreshing.status === "ready" ? refreshing.items.map(({ name }) => name).sort() : []).toEqual(["New model", "New template"]);
+      expect(refreshing.status === "ready" ? refreshing.items.filter((item) => !item.studio).map(({ name }) => name).sort() : []).toEqual(["New model", "New template"]);
       refreshLibrary.resolve(publicSnapshot([]));
       refreshModels.resolve(catalog([]));
       await refresh;
-      expect(controller.getSnapshot()).toMatchObject({ status: "ready", refreshing: false, items: [] });
+      expect(controller.getSnapshot()).toMatchObject({ status: "ready", refreshing: false });
+      const refreshed = controller.getSnapshot();
+      expect(refreshed.status === "ready" && refreshed.items.every((item) => item.studio)).toBe(true);
     } finally {
       vi.useRealTimers();
     }
@@ -312,14 +318,14 @@ describe("Marketplace controller", () => {
       .mockReturnValueOnce(returnedAll.promise);
     const controller = createMarketplaceController(api(vi.fn(async () => publicSnapshot()), searchLocalModels), query("all"));
     await controller.start();
-    expect(controller.getSnapshot()).toMatchObject({ status: "ready", sourceHealth: { models: "ready" }, items: [{ category: "models" }, { category: "templates" }] });
+    expect(controller.getSnapshot()).toMatchObject({ status: "ready", sourceHealth: { models: "ready" }, items: expect.arrayContaining([expect.objectContaining({ category: "models" }), expect.objectContaining({ category: "templates" })]) });
 
     controller.setQuery(query("modelscope"));
-    expect(controller.getSnapshot()).toEqual({ status: "loading", query: query("modelscope") });
+    expect(controller.getSnapshot()).toMatchObject({ status: "ready", refreshing: true, query: query("modelscope"), items: [] });
     expect(searchLocalModels).toHaveBeenNthCalledWith(2, { provider: "modelscope", sort: "updated", limit: 24 });
 
     controller.setQuery(query("all"));
-    expect(controller.getSnapshot()).toEqual({ status: "loading", query: query("all") });
+    expect(controller.getSnapshot()).toMatchObject({ status: "ready", refreshing: true, query: query("all") });
     expect(searchLocalModels).toHaveBeenNthCalledWith(3, { provider: "all", sort: "updated", limit: 24 });
     returnedAll.resolve(catalog([{ ...model, provider: "civitai", id: "84", name: "Fresh all", providerUrl: "https://civitai.com/models/84" }]));
     await Promise.resolve();
@@ -332,7 +338,7 @@ describe("Marketplace controller", () => {
       status: "ready",
       query: { filters: { source: "all" } },
       sourceHealth: { models: "ready" },
-      items: [{ category: "templates" }, { name: "Fresh all", model: { provider: "civitai" } }],
+      items: expect.arrayContaining([expect.objectContaining({ category: "templates" }), expect.objectContaining({ name: "Fresh all", model: expect.objectContaining({ provider: "civitai" }) })]),
     });
     expect(JSON.stringify(controller.getSnapshot())).not.toContain("Stale ModelScope");
   });

@@ -1,4 +1,4 @@
-import type { MediaWorkbenchBridge } from "../../../../electron/media/types";
+import type { MediaWorkbenchBridge, SharedLibraryQuery } from "../../../../electron/media/types";
 import type { ArtifactMediaCardDto, Page } from "../../../../electron/ralphy/types";
 import {
   DEFAULT_SHARED_LIBRARY_QUERY,
@@ -49,10 +49,16 @@ export function createSharedLibraryController(
     page: Page<ArtifactMediaCardDto>,
     state: Pick<Extract<SharedLibrarySnapshot, { status: "ready" }>, "refreshing" | "loadingMore" | "pageError" | "refreshError">,
   ): Extract<SharedLibrarySnapshot, { status: "ready" }> => {
-    const value = presentSharedLibrary(page, selectedArtifactId, query);
+    const value = presentSharedLibrary(page, selectedArtifactId);
     selectedArtifactId = value.selectedArtifactId;
     return { status: "ready", value, query, ...state };
   };
+  const serverQuery = (): SharedLibraryQuery => ({
+    ...(query.text.trim() ? { search: query.text.trim() } : {}),
+    ...(query.mediaKind === "all" ? {} : { mediaKind: query.mediaKind }),
+    ...(query.provenance === "all" ? {} : { provenance: query.provenance }),
+    sort: query.sort === "recently-selected" ? "selected" : query.sort,
+  });
 
   const replace = async () => {
     if (disposed) return;
@@ -64,7 +70,7 @@ export function createSharedLibraryController(
       emit({ status: "loading", query });
     }
     try {
-      const page = await api.loadSharedLibraryPage(workspaceId);
+      const page = await api.loadSharedLibraryPage(workspaceId, serverQuery());
       if (disposed || currentRequest !== requestId) return;
       loaded = page;
       emit(ready(page, { refreshing: false, loadingMore: false, pageError: null, refreshError: null }));
@@ -103,7 +109,7 @@ export function createSharedLibraryController(
       const currentRequest = ++requestId;
       emit(ready(current, { refreshing: false, loadingMore: true, pageError: null, refreshError: snapshot.refreshError }));
       try {
-        const page = await api.loadSharedLibraryPage(workspaceId, { after: cursor });
+        const page = await api.loadSharedLibraryPage(workspaceId, { ...serverQuery(), after: cursor });
         if (disposed || currentRequest !== requestId) return;
         const seen = new Set(current.items.map(({ ref }) => ref.id));
         loaded = {
@@ -123,7 +129,13 @@ export function createSharedLibraryController(
     },
     setQuery(patch) {
       if (disposed) return;
+      const previous = serverQuery();
       query = { ...query, ...patch };
+      if (started && JSON.stringify(previous) !== JSON.stringify(serverQuery())) {
+        loaded = null;
+        void replace();
+        return;
+      }
       if (snapshot.status === "loading") emit({ status: "loading", query });
       if (snapshot.status === "error") emit({ ...snapshot, query });
       if (snapshot.status === "ready" && loaded) {

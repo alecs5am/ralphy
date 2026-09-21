@@ -10,7 +10,7 @@ Use Bun 1.4.2, pinned in `.bun-version` and `package.json`. Bun 1.3.14 can close
 
 Keep the global Bun installation unchanged with `mise install bun@1.4.2`, then run checks through `mise exec bun@1.4.2 -- bun run test:integration` (and the other package scripts).
 
-For desktop development, first run `mise exec bun@1.4.2 -- bun run build:bin:current`, then start the app with `RALPHY_BIN` set to the absolute path of the resulting `dist/binaries/ralphy-<platform>-<arch>` executable. Desktop subprocesses use a restricted PATH, so a shell's mise activation alone does not select the CLI runtime. Packaged desktop builds compile and embed the supported runtime automatically; they require no user-installed Bun.
+For desktop development, run `bun run dev` from the repository root. The launcher enters Bun 1.4.2 through mise, rebuilds the current-platform binary, and runs Electron against Vite with the normal desktop profile and inherited Codex/Claude environment. Use `bun run start` for a production-style local build or `bun run dev:renderer` for browser-only fixtures. Packaged desktop builds compile and embed the supported runtime automatically; they require no user-installed Bun.
 
 ## English-only output (hard rule, applies to EVERY dev edit)
 

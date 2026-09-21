@@ -18,6 +18,7 @@ import { ICON_BUTTON } from "./IconButton";
  */
 
 export const WINDOW = "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-window bg-panel p-0.5";
+export const WINDOW_FLUSH = "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-window bg-panel";
 /**
  * The titlebar is one line: what this is, what state it is in, and its actions.
  *

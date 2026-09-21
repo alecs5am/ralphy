@@ -23,7 +23,7 @@ export type ProjectView = Exclude<ProjectTab, "compositions">;
  * owns them, in `workbench.ts`.
  */
 export type AppMode = "work" | "marketplace";
-export const MARKETPLACE_CATEGORIES = ["models", "templates", "recipes", "prompts", "components", "skills"] as const;
+export const MARKETPLACE_CATEGORIES = ["models", "templates", "recipes", "prompts", "components", "sounds", "skills"] as const;
 export const MARKETPLACE_LIBRARY_SECTIONS = ["installed", "saved", "added", "downloads", "updates", "attention"] as const;
 export const MARKETPLACE_UNAVAILABLE_DETAIL_CATEGORIES = ["prompts", "components", "skills"] as const;
 export type MarketplaceCategory = (typeof MARKETPLACE_CATEGORIES)[number];
@@ -45,6 +45,8 @@ export interface MarketplaceFilterState {
   compatibility: "all" | "compatible" | "unknown" | "incompatible";
   modality: "all" | "text" | "image" | "video" | "audio" | "multimodal";
   format: "all" | "gguf" | "safetensors" | "onnx" | "mlx";
+  /** Optional for compatibility with saved locations from earlier builds. */
+  tag?: string;
 }
 
 export interface MarketplaceQueryState {

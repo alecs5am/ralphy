@@ -60,7 +60,8 @@ test("Create opens without a chat, forwards provider settings, and remounts on r
     </ViewPanel>));
     expect(host.container.querySelectorAll(".view-panel")).toHaveLength(1);
     expect(host.container.querySelectorAll("[data-workspace]")).toHaveLength(1);
-    expect(host.container.querySelectorAll(".rounded-window")).toHaveLength(1);
+    expect(host.container.querySelectorAll(".rounded-window")).toHaveLength(0);
+    expect(host.container.querySelectorAll(".view-panel-tabs")).toHaveLength(0);
     expect(readWorkbenchPreferences({ getItem: () => JSON.stringify({ workspacePage: "generation" }), setItem: noAction }).workspacePage).toBe("generation");
   } finally {
     await act(async () => root.unmount());
@@ -94,15 +95,15 @@ test("view overflow retains the displaced tab and excludes the visible active ta
   const { createRoot } = await import("react-dom/client");
   const root = createRoot(host.container as unknown as Element);
   let set = tabSetFor(EMPTY_VIEW_PANEL, null);
-  for (const type of ["units", "memory", "calendar", "context"] as const) set = openViewTab(set, { type, label: type });
+  for (const label of ["Image", "Video", "Audio", "Article"]) set = openViewTab(set, { type: "unit", targetId: `ws/prj/${label}`, label });
   try {
-    await act(async () => root.render(<ViewPanel set={set} width={310} chords={{}} onOpen={noAction} onClose={noAction} onSelect={noAction}>Content</ViewPanel>));
-    expect(host.container.querySelector(".view-panel-tab")?.textContent).toContain("context");
+    await act(async () => root.render(<ViewPanel set={set} width={210} chords={{}} onOpen={noAction} onClose={noAction} onSelect={noAction}>Content</ViewPanel>));
+    expect(host.container.querySelector(".view-panel-tab")?.textContent).toContain("Article");
     await act(async () => host.container.querySelector(".view-panel-overflow")!.dispatchEvent(new Event("click", { bubbles: true })));
     const menu = document.body.querySelector(".view-panel-overflow-list");
-    expect(menu?.textContent).toContain("units");
-    expect(menu?.textContent).toContain("memory");
-    expect(menu?.textContent).toContain("calendar");
-    expect(menu?.textContent).not.toContain("context");
+    expect(menu?.textContent).toContain("Image");
+    expect(menu?.textContent).toContain("Video");
+    expect(menu?.textContent).toContain("Audio");
+    expect(menu?.textContent).not.toContain("Article");
   } finally { await act(async () => root.unmount()); host.restore(); }
 });

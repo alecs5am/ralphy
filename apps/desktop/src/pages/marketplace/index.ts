@@ -15,3 +15,5 @@ export * from "./ui/MarketplaceWorkflows";
 export * from "./model/controller";
 export * from "./model/navigation";
 export * from "./lib/presentation";
+export * from "./lib/agent-request";
+export { studioCatalog } from "./lib/studio-catalog";

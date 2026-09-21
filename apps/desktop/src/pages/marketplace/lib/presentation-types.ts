@@ -24,6 +24,30 @@ export type Availability<T> =
   | { status: "empty"; reason: string }
   | { status: "unavailable"; reason: string };
 
+export interface MarketplaceStudioExample {
+  body: string;
+  artifact?: string;
+  format?: string;
+  duration?: string;
+  steps?: string[];
+  modules?: { key: string; step: number; role: string }[];
+  reference?: { title: string; url: string };
+  mediaCredit?: string;
+  pack?: { id: string; name: string; publisher: string };
+  settings?: Record<string, number | string | boolean>;
+  effectId?: string;
+  visualId?: "photo-orbit" | "cascading-stack" | "filmstrip" | "split-reveal" | "contact-sheet" | "type-opener" | "aurora-field" | "orbit-mark";
+  remocnVisual?: {
+    id: string;
+    slug: string;
+    group: string;
+    scene: string;
+    title: string;
+    summary: string;
+  };
+  preview: { url: string; kind: "image" | "video" | "audio"; posterUrl?: string; before?: { url: string; kind: "image" | "video" | "audio"; posterUrl?: string } };
+}
+
 interface MarketplaceCommonItem {
   /* Which source produced this row. `category` alone stopped identifying the
      shape once the bundled pack started supplying Templates and Recipes too. */
@@ -31,6 +55,7 @@ interface MarketplaceCommonItem {
   key: string;
   name: string;
   summary: string;
+  tags: string[];
   sourceLabel: string;
   version: Availability<string>;
   updatedAt: Availability<string>;
@@ -38,6 +63,7 @@ interface MarketplaceCommonItem {
   publisherIdentity: Availability<string>;
   contentAudit: Availability<string>;
   compatibility: Availability<string>;
+  studio?: MarketplaceStudioExample;
 }
 
 export interface MarketplaceModelDto {
@@ -80,12 +106,15 @@ export type MarketplaceItemPresentation =
   | (MarketplaceCommonItem & { origin: "models"; category: "models"; model: MarketplaceModelDto })
   | (MarketplaceCommonItem & { origin: "public"; category: "templates"; template: MarketplacePublicItemDto })
   | (MarketplaceCommonItem & { origin: "public"; category: "recipes"; recipe: MarketplacePublicItemDto })
+  | (MarketplaceCommonItem & { origin: "public"; category: "components"; recipe: MarketplacePublicItemDto })
+  | (MarketplaceCommonItem & { origin: "public"; category: "prompts"; recipe: MarketplacePublicItemDto })
+  | (MarketplaceCommonItem & { origin: "public"; category: "sounds"; sound: MarketplacePublicItemDto })
   /* The pack ships documents, never model weights, so `models` is not one of
      its categories -- saying so keeps every `category === "models"` narrowing
      in the renderer exact. */
   | (MarketplaceCommonItem & {
     origin: "pack";
-    category: Exclude<MarketplaceCategory, "models">;
+    category: Exclude<MarketplaceCategory, "models" | "sounds">;
     pack: MarketplacePackEntryDto;
     /* For the workspace the Marketplace is installing into: "off the shelf",
        "taken and on", "taken and off". No workspace selected is not the same

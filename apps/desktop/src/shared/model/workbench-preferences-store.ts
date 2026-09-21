@@ -40,7 +40,7 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
     projectId: null,
     pinnedWorkspaceIds: [],
     pinnedProjectIds: [],
-    workspacePage: "overview",
+    workspacePage: "projects",
     sidebarVisible: true,
     lens: "desk",
     rightPanelVisible: true,
@@ -64,7 +64,7 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
       pinnedProjectIds: strings(record.pinnedProjectIds),
       workspacePage: WORKSPACE_PAGES.includes(record.workspacePage as WorkspacePage)
         ? record.workspacePage as WorkspacePage
-        : "overview",
+        : "projects",
       sidebarVisible:
         typeof record.sidebarVisible === "boolean" ? record.sidebarVisible : true,
       lens: record.lens === "chat" ? "chat" : "desk",

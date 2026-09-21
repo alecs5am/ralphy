@@ -9,7 +9,7 @@
 import { PageHeaderHost } from "@/shared/ui/PageHeader";
 import type { CSSProperties, ReactNode } from "react";
 
-import { MARKETPLACE_SIDEBAR_WIDTH, MarketplaceScreen, type MarketplaceMemoryPatch } from "@/pages/marketplace";
+import { MARKETPLACE_SIDEBAR_WIDTH, MarketplaceScreen, type MarketplaceMemoryPatch, type MarketplaceAgentRequest } from "@/pages/marketplace";
 import type { CatalogResult } from "@/shared/api/ipc";
 import type { AppMode, MarketplaceLocation } from "@/shared/model/routes";
 import type { WorkbenchRoute } from "@/shared/model/workbench";
@@ -28,6 +28,7 @@ export function AppDesk({
   onBack,
   onNavigate,
   onRememberLocation,
+  onRequestAgent,
   children,
 }: {
   mode: AppMode;
@@ -41,6 +42,7 @@ export function AppDesk({
   onBack(): void;
   onNavigate(location: MarketplaceLocation): void;
   onRememberLocation(patch: MarketplaceMemoryPatch): void;
+  onRequestAgent?(request: MarketplaceAgentRequest): void;
   children: ReactNode;
 }) {
   return <div className={`main-content-stage flex min-w-0 flex-1 ${fillHeight ? "h-full min-h-0 overflow-hidden" : ""}`}>
@@ -48,7 +50,7 @@ export function AppDesk({
         is the surface the route stands on, and a desk wash over it turned a white card
         grey -- visible in the light theme, and the same error in the dark one. */}
     <div className={`app-mode-surface app-mode-work min-h-0 min-w-0 flex-1 text-ink ${viewFrameActive ? "bg-transparent" : "bg-desk"} ${mode === "work" ? "flex" : "hidden"}`} hidden={mode !== "work"} inert={mode !== "work"}>
-      <PageHeaderHost.Provider value={mode === "work" && !viewFrameActive ? pageHeaderHost ?? null : null}><InstrumentFloatHost escape={mode === "work"}>{children}</InstrumentFloatHost></PageHeaderHost.Provider>
+      <PageHeaderHost.Provider value={mode === "work" ? pageHeaderHost ?? null : null}><InstrumentFloatHost escape={mode === "work"}>{children}</InstrumentFloatHost></PageHeaderHost.Provider>
     </div>
     <div
       className={`app-mode-surface app-mode-marketplace min-h-0 min-w-0 flex-1 ${mode === "marketplace" ? "flex" : "hidden"}`}
@@ -56,7 +58,7 @@ export function AppDesk({
       inert={mode !== "marketplace"}
       style={{ "--sidebar-w": `${MARKETPLACE_SIDEBAR_WIDTH}px` } as CSSProperties}
     >
-      <MarketplaceScreen
+      <PageHeaderHost.Provider value={mode === "marketplace" ? pageHeaderHost ?? null : null}><MarketplaceScreen
         catalog={catalog}
         workRoute={workRoute}
         location={location}
@@ -64,7 +66,8 @@ export function AppDesk({
         onBack={onBack}
         onNavigate={onNavigate}
         onRememberLocation={onRememberLocation}
-      />
+        onRequestAgent={onRequestAgent}
+      /></PageHeaderHost.Provider>
     </div>
   </div>;
 }

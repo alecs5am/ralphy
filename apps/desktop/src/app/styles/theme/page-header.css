@@ -1,33 +1,33 @@
 @layer components {
 /* Active desk pages lend their controls to the existing window row. */
-.instrument-content-column:has(.page-header-host) { container: page-shell / inline-size; }
+.instrument-content-column { container: page-shell / inline-size; }
 .instrument-content-column:has(.page-header-host) .project-domain-body { padding-bottom: 0 !important; }
 .page-header-host { container: page-controls / inline-size; }
 .page-header-host .canvas-switcher { background: var(--instrument-card); }
 .page-island-reserve { width: 240px; }
-.instrument-top-row[data-page-controls] .dynamic-island:not([data-open]) .dynamic-island-shell { width: 240px !important; }
-.instrument-top-row[data-page-controls] .dynamic-island:not([data-open]) .dynamic-island-context-label { max-width: 110px; }
-.instrument-top-row[data-page-controls] .dynamic-island:not([data-open]):has(.dynamic-island-task) .dynamic-island-context-label,
-.instrument-top-row[data-page-controls] .dynamic-island:not([data-open]) .dynamic-island-project { display: none !important; }
+.instrument-top-row .dynamic-island:not([data-open]) .dynamic-island-shell { width: 240px !important; }
+.instrument-top-row .dynamic-island:not([data-open]) .dynamic-island-context-label { max-width: 110px; }
+.instrument-top-row .dynamic-island:not([data-open]):has(.dynamic-island-task) .dynamic-island-context-label,
+.instrument-top-row .dynamic-island:not([data-open]) .dynamic-island-project { display: none !important; }
 @container page-controls (max-width: 420px) { .canvas-save-label { display: none; } }
 @container page-shell (max-width: 1000px) {
   .page-island-reserve { width: 168px; }
-  .instrument-top-row[data-page-controls] .dynamic-island:not([data-open]) .dynamic-island-shell { width: 168px !important; }
-  .instrument-top-row[data-page-controls] .dynamic-island:not([data-open]) .dynamic-island-context,
-  .instrument-top-row[data-page-controls] .dynamic-island:not([data-open]) .dynamic-island-task > span,
-  .instrument-top-row[data-page-controls] .dynamic-island:not([data-open]) .dynamic-island-trigger > i { display: none !important; }
+  .instrument-top-row .dynamic-island:not([data-open]) .dynamic-island-shell { width: 168px !important; }
+  .instrument-top-row .dynamic-island:not([data-open]):has(.dynamic-island-task) .dynamic-island-context,
+  .instrument-top-row .dynamic-island:not([data-open]) .dynamic-island-task > span,
+  .instrument-top-row .dynamic-island:not([data-open]) .dynamic-island-trigger > i { display: none !important; }
 }
 @container page-shell (max-width: 640px) {
   .page-island-reserve { width: 40px; }
-  .instrument-top-row[data-page-controls] .dynamic-island:not([data-open]) .dynamic-island-shell { width: 40px !important; }
-  .instrument-top-row[data-page-controls] .dynamic-island:not([data-open]) .dynamic-island-trigger { padding-inline: 8px !important; }
-  .instrument-top-row[data-page-controls] .dynamic-island:not([data-open]) .dynamic-island-trigger > :not(.dynamic-island-expand) { display: none !important; }
+  .instrument-top-row .dynamic-island:not([data-open]) .dynamic-island-shell { width: 40px !important; }
+  .instrument-top-row .dynamic-island:not([data-open]) .dynamic-island-trigger { padding-inline: 8px !important; }
+  .instrument-top-row .dynamic-island:not([data-open]) .dynamic-island-trigger > :not(.dynamic-island-expand) { display: none !important; }
 }
 
 }
 
 .page-header-inline { container: page-controls / inline-size; }
-.page-header-inline .page-header { min-height: 36px; flex-wrap: wrap; }
+.page-header-inline .page-header { min-height: 32px; flex-wrap: wrap; }
 .page-header-host > .page-header { height: 32px; }
 .page-header-search { width: 240px; }
 .page-header-actions:has(.page-header-search) { flex: 1; justify-content: flex-end; }
@@ -39,11 +39,12 @@
 .page-header .project-dock button { width: 32px; height: 32px; }
 .page-header-host .page-header .calendar-filter-popover { max-height: calc(100vh - 64px); overflow-y: auto; }
 @layer components {
+  .page-header:has(.marketplace-toolbar) .page-header-identity { flex: 0 1 auto !important; }
   .page-header-primary, .page-header-segments .page-header-action[aria-pressed="true"] { background: var(--instrument-desk-primary-surface) !important; color: var(--instrument-desk-primary-ink) !important; }
   .page-header-primary:focus-visible, .page-header-segments .page-header-action[aria-pressed="true"]:focus-visible { outline-color: var(--instrument-desk-primary-ink) !important; }
   @container page-controls (max-width: 850px) {
     .page-header-meta { display: none !important; }
-    .page-header:has(.page-header-period) .page-header-action-label { display: none !important; }
+    .page-header:has(.page-header-period, .marketplace-toolbar) .page-header-action-label { display: none !important; }
   }
   .page-header-segments button { height: 28px !important; min-height: 28px !important; }
   @container page-controls (max-width: 560px) {

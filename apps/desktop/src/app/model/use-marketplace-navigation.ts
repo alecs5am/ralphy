@@ -25,6 +25,7 @@ export function useMarketplaceNavigation(workbenchDispatch: (action: WorkbenchAc
     readMarketplaceNavigation,
   );
   const previousAppMode = useRef(marketplace.mode);
+  const restoreWorkFocus = useRef(false);
 
   useEffect(() => {
     writeMarketplaceNavigation(localStorage, marketplace);
@@ -34,7 +35,7 @@ export function useMarketplaceNavigation(workbenchDispatch: (action: WorkbenchAc
     const previous = previousAppMode.current;
     previousAppMode.current = marketplace.mode;
     const focusId = previous === "marketplace" && marketplace.mode === "work"
-      ? marketplace.workReturnFocusId
+      ? restoreWorkFocus.current ? marketplace.workReturnFocusId : null
       : previous === "work" && marketplace.mode === "marketplace"
         ? marketplace.location.focusId ?? "marketplace-heading"
         : previous === "marketplace" && marketplace.mode === "marketplace"
@@ -44,7 +45,8 @@ export function useMarketplaceNavigation(workbenchDispatch: (action: WorkbenchAc
     document.getElementById(focusId)?.focus({ preventScroll: true });
   }, [marketplace.location.focusId, marketplace.location.route, marketplace.mode, marketplace.workReturnFocusId]);
 
-  const switchAppMode = useCallback((mode: AppMode) => {
+  const switchAppMode = useCallback((mode: AppMode, restoreFocus = false) => {
+    restoreWorkFocus.current = restoreFocus;
     const returnFocusId = mode === "marketplace"
       ? (document.activeElement as HTMLElement | null)?.getAttribute("id") || null
       : null;
@@ -81,7 +83,7 @@ export function useMarketplaceNavigation(workbenchDispatch: (action: WorkbenchAc
   const navigateBack = useCallback(() => {
     if (marketplace.mode === "marketplace") {
       if (marketplace.historyIndex > 0) dispatchMarketplace({ type: "back" });
-      else switchAppMode("work");
+      else switchAppMode("work", true);
       return;
     }
     workbenchDispatch({ type: "back" });

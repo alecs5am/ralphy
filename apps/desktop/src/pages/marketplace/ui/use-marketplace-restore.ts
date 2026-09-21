@@ -9,6 +9,7 @@
  * than a focus that arrives after the operator has started typing.
  */
 import { useEffect, useRef, type RefObject } from "react";
+import { usePageHeaderHost } from "@/shared/ui/PageHeader";
 
 export function useMarketplaceRestore({ scrollRef, scrollTop, focusId, focusRouteKey, itemOrigin, originAvailability }: {
   scrollRef: RefObject<HTMLDivElement | null>;
@@ -19,6 +20,7 @@ export function useMarketplaceRestore({ scrollRef, scrollTop, focusId, focusRout
   originAvailability: "pending" | "available" | "missing" | "not-item";
 }) {
   const restoredOrigin = useRef<string | null>(null);
+  const headerHost = usePageHeaderHost();
   const originRequestKey = `${focusRouteKey}:${focusId}`;
 
   useEffect(() => {
@@ -66,5 +68,5 @@ export function useMarketplaceRestore({ scrollRef, scrollTop, focusId, focusRout
     };
     frame = window.requestAnimationFrame(restoreFocus);
     return () => window.cancelAnimationFrame(frame);
-  }, [focusId, focusRouteKey, itemOrigin, originAvailability, originRequestKey]);
+  }, [focusId, focusRouteKey, itemOrigin, originAvailability, originRequestKey, headerHost]);
 }

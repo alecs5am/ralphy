@@ -7,6 +7,7 @@ import {
   type MarketplaceSourceIssue,
 } from "../lib/presentation";
 import type { MarketplaceQueryState } from "./navigation";
+import { studioCatalog } from "../lib/studio-catalog";
 
 export interface MarketplaceController {
   subscribe(listener: () => void): () => void;
@@ -42,6 +43,7 @@ export function createMarketplaceController(
   initialQuery: MarketplaceQueryState,
 ): MarketplaceController {
   let query = initialQuery;
+  const studioItems = studioCatalog();
   let snapshot: MarketplaceSnapshot = { status: "loading", query };
   let started = false;
   let disposed = false;
@@ -78,7 +80,7 @@ export function createMarketplaceController(
     const requestQuery = query;
     const requestProvider = modelProviderRequest(requestQuery);
     if (snapshot.status === "ready") emit({ ...snapshot, query: requestQuery, refreshing: true });
-    else emit({ status: "loading", query: requestQuery });
+    else emit({ ...presentMarketplaceSources(null, null, requestQuery, [], { publicLibrary: "unavailable", models: "unavailable" }, null, null, studioItems), refreshing: true });
     const modelQuery = requestQuery.text.trim();
     const [library, pack, installs, models] = await Promise.allSettled([
       api.loadMarketplacePublicLibrary(),
@@ -130,19 +132,14 @@ export function createMarketplaceController(
       publicLibrary: library.status === "fulfilled" ? "ready" : "unavailable",
       models: modelHealth,
     };
-    /* One live source is enough to render a Marketplace. Only when nothing this
-       build can reach answers is the screen actually in error. */
-    if (library.status === "rejected" && modelHealth === "unavailable" && packCatalog === null) {
-      emit({ status: "error", error: "Marketplace sources are unavailable", sourceErrors, sourceHealth, query: resultQuery });
-      return;
-    }
+    // Studio examples remain useful even when every external catalog is offline.
     lastPublic = library.status === "fulfilled" ? library.value : null;
     lastPack = packCatalog;
     if (requestInstallRevision === installRevision) lastInstalls = installs.status === "fulfilled" ? installs.value : {
       schemaVersion: 1, selectedWorkspaceId: null, installs: [], warning: "Saved items could not be loaded. Please refresh the catalog.",
     };
     lastModels = models.status === "fulfilled" ? { provider: requestProvider, value: models.value } : null;
-    emit(presentMarketplaceSources(lastPublic, retainedModels(resultQuery), resultQuery, sourceErrors, sourceHealth, lastPack, lastInstalls));
+    emit(presentMarketplaceSources(lastPublic, retainedModels(resultQuery), resultQuery, sourceErrors, sourceHealth, lastPack, lastInstalls, studioItems));
   };
 
   return {
@@ -175,7 +172,7 @@ export function createMarketplaceController(
       }
       if (snapshot.status === "ready") {
         emit({
-          ...presentMarketplaceSources(lastPublic, retainedModels(query), query, snapshot.sourceErrors, snapshot.sourceHealth, lastPack, lastInstalls),
+          ...presentMarketplaceSources(lastPublic, retainedModels(query), query, snapshot.sourceErrors, snapshot.sourceHealth, lastPack, lastInstalls, studioItems),
           refreshing: textChanged ? false : snapshot.refreshing,
         });
       } else if (snapshot.status === "loading") {
@@ -206,7 +203,7 @@ export function createMarketplaceController(
       lastInstalls = next;
       if (snapshot.status !== "ready") return;
       emit(presentMarketplaceSources(
-        lastPublic, retainedModels(query), query, snapshot.sourceErrors, snapshot.sourceHealth, lastPack, lastInstalls,
+        lastPublic, retainedModels(query), query, snapshot.sourceErrors, snapshot.sourceHealth, lastPack, lastInstalls, studioItems,
       ));
     },
     dispose() {

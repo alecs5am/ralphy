@@ -10,7 +10,7 @@
 import type { ReactNode } from "react";
 import { FileText, Folder, Layers } from "@/shared/ui/icons";
 
-import { ATTACHMENT_KINDS } from "../lib/attachments";
+import { ATTACHMENT_KINDS, type AttachmentKind } from "../lib/attachments";
 import { bridge } from "@/shared/api/ipc";
 import type { ProjectSummary, WorkspaceSummary } from "@/shared/api/ipc";
 import type { UnitDto } from "../../../../electron/ralphy/types";
@@ -53,10 +53,10 @@ const TAG_ON_INVERSE = `${TAG} bg-desk-primary-ink/14 text-desk-primary-ink`;
 export function AgentTaggedText({ text }: { text: string }) {
   const parts: ReactNode[] = [];
   let index = 0;
-  for (const match of text.matchAll(/@(unit|file|project|media|memory|scheduled):([^\s]+)/g)) {
+  for (const match of text.matchAll(/@(unit|file|project|media|memory|scheduled|library):([^\s]+)/g)) {
     const at = match.index;
     if (at > index) parts.push(text.slice(index, at));
-    const kind = match[1] as TagKind;
+    const kind = match[1] as AttachmentKind;
     /* The bubble's chip is one style for every kind -- the operator's own bubble inverts, and a
        per-kind ink cannot survive that -- so the attachment kinds render here too, by glyph. */
     const Icon = ATTACHMENT_KINDS[kind].icon;

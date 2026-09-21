@@ -23,10 +23,9 @@
   /* A glyph, copy, and one trailing state note. */
   --project-agent-row-columns: auto minmax(0, 1fr) auto;
 
-  /* The unit viewer: a bounded stage beside its metadata, and the long-form form, which gives
-     the stage the space instead. */
-  --project-viewer-columns: minmax(330px, 390px) minmax(0, 1fr);
-  --project-viewer-longform-columns: minmax(0, 1.15fr) minmax(420px, .85fr);
+  --unit-viewer-rail-width: 64px;
+  --unit-viewer-grid-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+  --unit-viewer-details-width: min(320px, 100%);
   /* The viewer's transport: two 26px controls around a seek bar between two timestamps. */
   --project-playback-columns: 26px auto minmax(0, 1fr) auto 26px;
 
@@ -67,9 +66,9 @@
   --spacing-units-empty: 320px;             /* the filtered empty state holds the grid's height */
   --spacing-revision-card: 176px;           /* six visual revisions fit the desktop viewer */
   --spacing-revision-card-min: 152px;
-  --aspect-creative-preview: 4 / 3;         /* a shared canvas for portrait images and video stills */
-  --spacing-unit-viewer-width: min(1280px, 90vw);  /* the viewer never touches the window edge */
-  --spacing-unit-viewer-height: min(880px, 90vh);
+  --aspect-creative-preview: var(--content-aspect); /* the shared vertical content canvas */
+  --spacing-unit-viewer-width: calc(100vw - 16px);
+  --spacing-unit-viewer-height: calc(100dvh - 16px);
   --spacing-iphone: min(100%, 316px);       /* the phone mockup and the transport under it */
   /* The same phone stated as a height: 316px at --aspect-iphone. A stage taller than this
      must not stretch the device, and one shorter than it makes the device shrink to fit. */
@@ -126,5 +125,94 @@
      `unit-viewer` is the portalled viewer, declared on its own surface. */
   --container-project-split: 760px;      /* the documents split becomes one column */
   --container-project-stack: 719px;      /* ...and the master becomes a bounded first row */
-  --container-project-viewer: 820px;     /* the unit viewer stacks its stage over its metadata */
+  --container-project-viewer: 820px;
+}
+
+/* Versions take one narrow rail; metadata is an optional overlay, never a permanent column. */
+.unit-viewer-header .page-header-more > summary {
+  width: calc(var(--space-1) * 7) !important;
+  height: calc(var(--space-1) * 7) !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+.unit-viewer-header .page-header-more > summary svg { flex-shrink: 0; }
+.unit-viewer-layout [aria-pressed="true"] {
+  background: var(--instrument-card);
+  color: var(--instrument-text-primary);
+}
+.unit-viewer-control[aria-expanded="true"] { background: var(--instrument-row-hover); color: var(--instrument-text-primary); }
+.unit-revision-browser { min-height: 0; min-width: 0; overflow: auto; padding: var(--space-1); }
+.unit-revision-browser.is-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: var(--unit-viewer-rail-width);
+  flex: 0 0 var(--unit-viewer-rail-width);
+  scrollbar-width: thin;
+}
+.unit-revision-browser.is-grid {
+  display: grid;
+  grid-template-columns: var(--unit-viewer-grid-columns);
+  align-content: start;
+  gap: calc(var(--space-1) * 2);
+  flex: 1;
+}
+.unit-revision-option {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: none;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  color: var(--instrument-text-secondary-readable);
+  text-align: left;
+}
+.unit-revision-option:focus-visible { outline: 2px solid var(--instrument-text-primary); outline-offset: -2px; }
+.unit-revision-thumb { width: 100%; aspect-ratio: var(--content-aspect); border-radius: var(--radius-sm); }
+.unit-revision-option.is-viewing .unit-revision-thumb { outline: 2px solid var(--instrument-brand); outline-offset: -2px; }
+.unit-revision-label {
+  position: absolute;
+  bottom: var(--space-1);
+  left: var(--space-1);
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--instrument-media-plate);
+  color: var(--instrument-text-on-dark-primary);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  pointer-events: none;
+  opacity: 0;
+}
+.unit-revision-option:hover .unit-revision-label,
+.unit-revision-option:focus-visible .unit-revision-label { opacity: 1; }
+.unit-revision-saved {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  width: calc(var(--space-1) * 4);
+  height: calc(var(--space-1) * 4);
+  padding: calc(var(--space-1) / 2);
+  border-radius: var(--radius-sm);
+  background: var(--instrument-media-plate);
+  color: var(--instrument-text-on-dark-primary);
+}
+.unit-social-stage.is-clean .unit-clean-preview { background: transparent !important; color: var(--instrument-text-primary) !important; }
+.unit-social-stage.is-clean .preview-empty { color: var(--instrument-text-secondary-readable) !important; }
+.unit-viewer-meta {
+  position: absolute;
+  inset: var(--space-1) var(--space-1) var(--space-1) auto;
+  z-index: var(--z-surface-overlay);
+  display: flex;
+  width: var(--unit-viewer-details-width);
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-panel);
+  background: var(--instrument-card);
+  box-shadow: 0 4px 24px color-mix(in srgb, var(--instrument-text-primary) 12%, transparent), 0 0 0 1px var(--instrument-divider);
+}
+@container unit-viewer (max-width: 620px) {
+  .unit-revision-browser.is-rail { --unit-viewer-rail-width: 56px; }
+  .unit-revision-browser.is-grid { --unit-viewer-grid-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr)); }
+  .unit-viewer-state { display: none; }
 }

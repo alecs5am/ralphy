@@ -11,15 +11,20 @@ import {
   type KeyProvider,
 } from "../../cli/lib/store/secrets.js";
 import {
+  activateCredentialResolver,
+  clearActiveCredentialResolver,
   captureCredentialEnvironment,
   captureStartupCredentialEnvironment,
   createCredentialResolver,
+  credentialConfigured,
+  credentialValue,
   credentialSecretRef,
   OPENROUTER_CREDENTIAL,
   STATIC_CREDENTIAL_DESCRIPTORS,
   scrubCredentialEnvironment,
   type CredentialDescriptor,
 } from "../../cli/lib/providers/credentials.js";
+import { DomainError } from "../../cli/lib/errors/domain.js";
 import {
   listConnectors,
   resetProviderCache,
@@ -32,6 +37,7 @@ const SECRET_SENTINEL = "task-2b-secret-sentinel";
 let root: TmpRoot | null = null;
 
 afterEach(() => {
+  clearActiveCredentialResolver();
   captureStartupCredentialEnvironment({});
   closeDomainDb();
   resetProviderCache();
@@ -58,6 +64,45 @@ function fixture() {
 }
 
 describe("provider credential descriptors", () => {
+  test("unrelated locked credentials do not block app providers, while affected providers fail closed", async () => {
+    const { dataRoot } = fixture();
+    const values = new Map<string, string>();
+    const storeError = new DomainError("E_SECRET_STORE");
+    let locked = true;
+    const resolver = createCredentialResolver({
+      dataRoot,
+      context: { kind: "scope", workspaceId: "ws_a" },
+      appCredentialProviders: ["openrouter"],
+      capturedEnvironment: new Map([["openrouter", "app-key"], ["anthropic", "hidden-fallback"]]),
+      secretStore: {
+        read: async (ref) => { if (locked) throw storeError; return values.get(ref) ?? null; },
+        set: async (ref, value) => { values.set(ref, value); },
+        delete: async (ref) => { values.delete(ref); },
+      },
+    });
+    const providerIds = STATIC_CREDENTIAL_DESCRIPTORS.map(({ providerId }) => providerId);
+    await activateCredentialResolver(resolver, providerIds);
+    expect(credentialValue("openrouter")).toBe("app-key");
+    expect(credentialConfigured("openrouter")).toBe(true);
+    captureStartupCredentialEnvironment({ ANTHROPIC_API_KEY: "ambient-startup-key" });
+    expect(() => credentialValue("anthropic")).toThrow(storeError);
+    expect(() => credentialConfigured("anthropic")).toThrow(storeError);
+    await expect(resolver.status("anthropic")).rejects.toThrow(storeError);
+    captureStartupCredentialEnvironment({});
+    await resolver.set("anthropic", "repaired-key");
+    expect(credentialValue("anthropic")).toBe("repaired-key");
+    await activateCredentialResolver(resolver, providerIds);
+    await resolver.clear("anthropic");
+    expect(credentialValue("anthropic")).toBeNull();
+    await activateCredentialResolver(resolver, providerIds);
+    locked = false;
+    await activateCredentialResolver(resolver, providerIds);
+    expect(credentialValue("anthropic")).toBe("hidden-fallback");
+    locked = true;
+    await activateCredentialResolver(resolver, providerIds);
+    clearActiveCredentialResolver();
+    expect(credentialValue("anthropic")).toBeNull();
+  });
   test("app startup captures the native snapshot despite shell overrides and scrubs both key names", () => {
     const env = { RALPHY_APP_CREDENTIALS: "openrouter", RALPHY_APP_OPENROUTER_API_KEY: "selected-app-key", OPENROUTER_API_KEY: "shell-override", FAL_KEY: "hidden-shell-key" };
     const captured = captureStartupCredentialEnvironment(env);

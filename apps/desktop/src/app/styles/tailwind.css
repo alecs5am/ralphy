@@ -17,13 +17,18 @@
 @import "./theme/workspace-overview.css";
 @import "./theme/shared-library.css";
 @import "./theme/marketplace.css";
+@import "./theme/explore-guides.css";
+@import "./theme/explore-effects.css";
+@import "./theme/explore-sounds.css";
 @import "./theme/agent-rail.css";
+@import "./theme/chat-cards.css";
 @import "./theme/context.css";
 @import "./theme/workspace-media.css";
 @import "./theme/shell.css";
 @import "./theme/canvas.css";
 @import "./theme/page-header.css";
 @import "./theme/generation.css";
+@import "./theme/ruler-slider.css";
 @import "./theme/video-workspace.css";
 
 @theme inline {
@@ -96,6 +101,9 @@
   --radius-chip: var(--radius-sm);
   --radius-key: var(--radius-keycap);
   --radius-key-face: var(--radius-keycap-face);
+
+  /* The product's default media frame. Source files keep their native dimensions inside it. */
+  --aspect-content: var(--content-aspect);
 
 
   --height-control-sm: var(--control-sm);

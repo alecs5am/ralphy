@@ -6,6 +6,18 @@ import { MarkdownView } from "@/shared/ui/MarkdownView";
 import { createReactHost } from "./react-host";
 
 describe("MarkdownView", () => {
+  test("chat uses the compact body step for headings and copy without changing document typography", () => {
+    const markdown = "# Heading\n\nBody\n\n- List item";
+    const chat = renderToStaticMarkup(<MarkdownView tone="chat" markdown={markdown} />);
+    const document = renderToStaticMarkup(<MarkdownView markdown={markdown} />);
+    expect(chat).toContain("markdown-chat type-sm leading-row");
+    expect(chat).toContain("[&amp;_:is(h1,h2,h3,h4,h5,h6)]:type-sm");
+    expect(chat).not.toContain("type-xl");
+    expect(chat).not.toContain("leading-document ");
+    expect(document).toContain("[&amp;_h1]:type-xl");
+    expect(document).not.toContain("markdown-chat");
+  });
+
   test("renders common GFM and safe model-card HTML without flattening tables", () => {
     const markup = renderToStaticMarkup(<MarkdownView baseUrl="https://huggingface.co/Qwen/Qwen3.8-27B/resolve/main/" markdown={`---
 library_name: transformers

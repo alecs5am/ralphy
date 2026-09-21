@@ -1,5 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { extname, join, relative, resolve } from "node:path";
+import { isVerifiedMediaSource } from "./instrument-media-sources.mjs";
 
 const root = resolve(".");
 const mockMarkers = [
@@ -23,7 +24,7 @@ export async function auditInstrumentSource({ productionDist = resolve(root, "di
   for (const path of sourceFiles) {
     const text = await readFile(path, "utf8");
     const name = relative(root, path);
-    if (name !== "src/shared/instrument/palette.ts" && name !== "src/app/styles/tokens.css" && /#[\da-f]{3,8}\b/i.test(text)) violations.push(`${name}: direct color literal`);
+    if (name !== "src/shared/instrument/palette.ts" && name !== "src/app/styles/tokens.css" && !isVerifiedMediaSource(name, text) && /#[\da-f]{3,8}\b/i.test(text)) violations.push(`${name}: direct color literal`);
     if (text.includes('from "@radix-ui/react-dialog"') && name !== "src/shared/instrument/overlay-registry.tsx" && !text.includes("data-instrument-overlay")) violations.push(`${name}: raw dialog lacks Instrument registry marker`);
   }
   const main = await readFile(resolve(root, "src/app/main.tsx"), "utf8");

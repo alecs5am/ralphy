@@ -34,7 +34,7 @@ export function SharedArtifactPreview({ artifact, workspaceId, rootEpoch, resolv
       if (current) setPreview({ status: "unavailable", reason: "The preview could not be loaded." });
     });
     return () => { current = false; };
-  }, [artifact.id, artifact.preview, resolvePreview, rootEpoch, workspaceId]);
+  }, [artifact.id, artifact.preview, artifact.selectedRevisionId, resolvePreview, rootEpoch, workspaceId]);
 
   if (preview.status === "loading") return <span className="shared-artifact-preview-state" aria-hidden="true">Loading preview…</span>;
   if (preview.status === "unavailable") return <span className="shared-artifact-preview-state" title={preview.reason}><ImageOff aria-hidden="true" /><span>Preview unavailable</span></span>;

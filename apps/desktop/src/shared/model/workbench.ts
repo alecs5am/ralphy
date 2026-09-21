@@ -15,7 +15,7 @@ export * from "./workbench-preferences-store";
 
 export type WorkbenchRoute =
   | { kind: "library" }
-  | { kind: "workspace"; workspaceId: string }
+  | { kind: "workspace"; workspaceId: string; page?: WorkspacePage }
   | { kind: "project"; workspaceId: string; projectId: string };
 
 
@@ -68,6 +68,7 @@ export type WorkbenchLens = "desk" | "chat";
 
 export interface WorkbenchState {
   route: WorkbenchRoute;
+  workspacePage: WorkspacePage;
   history: WorkbenchRoute[];
   historyIndex: number;
   catalog: CatalogResult | null;
@@ -82,6 +83,7 @@ export type WorkbenchAction =
   | { type: "catalog-received"; catalog: CatalogResult }
   | { type: "open-library" }
   | { type: "open-workspace"; workspaceId: string }
+  | { type: "open-workspace-page"; page: WorkspacePage }
   | { type: "open-project"; project: ProjectReference }
   | { type: "close-project-tab"; project: ProjectReference }
   | { type: "back" }
@@ -91,8 +93,8 @@ export type WorkbenchAction =
 
 
 export const PANEL_SIZE_LIMITS = {
-  sidebar: { min: 216, max: 420, default: 260 },
-  right: { min: 292, max: 1_000, default: 292 },
+  sidebar: { min: 216, max: 420, default: 240 },
+  right: { min: 292, max: 1_000, default: 360 },
   bottom: { min: 160, max: 720, default: 220 },
 } as const;
 
@@ -101,6 +103,7 @@ export function createInitialWorkbenchState(
 ): WorkbenchState {
   return {
     route: { kind: "library" },
+    workspacePage: preferences?.workspacePage ?? "projects",
     history: [{ kind: "library" }],
     historyIndex: 0,
     catalog: null,
@@ -112,12 +115,14 @@ export function createInitialWorkbenchState(
 }
 
 function navigate(state: WorkbenchState, route: WorkbenchRoute): WorkbenchState {
+  if (route.kind === "workspace") route = { ...route, page: route.page ?? state.workspacePage };
   const current = state.history[state.historyIndex];
   if (JSON.stringify(current) === JSON.stringify(route)) return state;
   const history = [...state.history.slice(0, state.historyIndex + 1), route];
   return {
     ...state,
     route,
+    workspacePage: route.kind === "workspace" ? route.page ?? state.workspacePage : state.workspacePage,
     history,
     historyIndex: history.length - 1,
   };
@@ -132,23 +137,24 @@ function toggle(values: string[], value: string): string[] {
 function validRouteForCatalog(
   route: WorkbenchRoute,
   catalog: CatalogResult,
+  workspacePage: WorkspacePage,
 ): WorkbenchRoute {
   const fallbackWorkspaceId = mostRecentWorkspaceId(catalog.workspaces);
   const fallback: WorkbenchRoute = fallbackWorkspaceId
-    ? { kind: "workspace", workspaceId: fallbackWorkspaceId }
+    ? { kind: "workspace", workspaceId: fallbackWorkspaceId, page: workspacePage }
     : { kind: "library" };
   if (route.kind === "library") return fallback;
   if (!catalog.workspaces.some((workspace) => workspace.id === route.workspaceId)) {
     return fallback;
   }
-  if (route.kind === "workspace") return route;
+  if (route.kind === "workspace") return { ...route, page: route.page ?? workspacePage };
   return catalog.projects.some(
     (project) =>
       project.workspaceId === route.workspaceId &&
       project.projectId === route.projectId,
   )
     ? route
-    : { kind: "workspace", workspaceId: route.workspaceId };
+    : { kind: "workspace", workspaceId: route.workspaceId, page: workspacePage };
 }
 
 export function workbenchReducer(
@@ -158,7 +164,7 @@ export function workbenchReducer(
   switch (action.type) {
     case "library-opened": {
       const route: WorkbenchRoute = action.workspaceId
-        ? { kind: "workspace", workspaceId: action.workspaceId }
+        ? { kind: "workspace", workspaceId: action.workspaceId, page: state.workspacePage }
         : { kind: "library" };
       return {
         ...state,
@@ -174,7 +180,7 @@ export function workbenchReducer(
       if (action.catalog.generation < state.catalogGeneration) return state;
       {
         const catalog = action.catalog;
-        const route = validRouteForCatalog(state.route, catalog);
+        const route = validRouteForCatalog(state.route, catalog, state.workspacePage);
         const routeChanged = JSON.stringify(route) !== JSON.stringify(state.route);
         const tabs = state.tabs.filter((tab) => catalog.projects.some(
           (project) => project.workspaceId === tab.workspaceId && project.projectId === tab.projectId,
@@ -198,6 +204,14 @@ export function workbenchReducer(
       };
     case "open-workspace":
       return navigate(state, { kind: "workspace", workspaceId: action.workspaceId });
+    case "open-workspace-page": {
+      const workspaceId = state.route.kind === "library"
+        ? mostRecentWorkspaceId(state.catalog?.workspaces ?? [])
+        : state.route.workspaceId;
+      return workspaceId
+        ? navigate(state, { kind: "workspace", workspaceId, page: action.page })
+        : { ...state, workspacePage: action.page };
+    }
     case "open-project":
       return {
         ...navigate(state, { kind: "project", ...action.project }),
@@ -227,18 +241,22 @@ export function workbenchReducer(
     case "back": {
       if (state.historyIndex === 0) return state;
       const historyIndex = state.historyIndex - 1;
+      const route = state.history[historyIndex];
       return {
         ...state,
-        route: state.history[historyIndex],
+        route,
+        workspacePage: route.kind === "workspace" ? route.page ?? state.workspacePage : state.workspacePage,
         historyIndex,
       };
     }
     case "forward": {
       if (state.historyIndex >= state.history.length - 1) return state;
       const historyIndex = state.historyIndex + 1;
+      const route = state.history[historyIndex];
       return {
         ...state,
-        route: state.history[historyIndex],
+        route,
+        workspacePage: route.kind === "workspace" ? route.page ?? state.workspacePage : state.workspacePage,
         historyIndex,
       };
     }

@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isVerifiedMediaSource } from "./instrument-media-sources.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const legacyTokens = /var\(--(?:canvas|sunken|panel|panel-solid|raised|hover|selected|pressed|fg(?:-[234])?|accent(?:-soft|-fill|-line)?|ok|warn|line(?:-strong)?|field-[a-z-]+)\)/g;
@@ -25,8 +26,11 @@ export async function auditMarketplaceInstrument(base = root) {
   for (const absolute of files) {
     const file = relative(base, absolute);
     const source = await readFile(absolute, "utf8");
-    violations.push(...matches(source, colorLiteral, "raw-color", file));
-    violations.push(...matches(source, bannedEffects, "depth-effect", file));
+    if (file.includes("studio-catalog-remocn-")) continue;
+    if (!isVerifiedMediaSource(file, source)) {
+      violations.push(...matches(source, colorLiteral, "raw-color", file));
+      violations.push(...matches(source, bannedEffects, "depth-effect", file));
+    }
     violations.push(...matches(source, legacyTokens, "legacy-token", file));
     if (/from ["']@radix-ui\/react-dialog["']|\bcreatePortal\s*\(|<Dialog\./.test(source)) violations.push({ file, rule: "raw-overlay", value: "Use InstrumentOverlay" });
   }

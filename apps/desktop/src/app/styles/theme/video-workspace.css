@@ -45,7 +45,7 @@
 .video-scene { display: flex; flex-direction: column; gap: 5px; min-width: 0; text-align: left; padding: 4px; border-radius: var(--radius-row); }
 .video-scene[aria-pressed=true] { background: var(--instrument-field); }
 .video-scene[aria-pressed=true] .video-scene-thumb { box-shadow: 0 0 0 2px var(--video-accent); }
-.video-scene-thumb { position: relative; display: grid; place-items: center; aspect-ratio: 16/9; width: 100%; border-radius: var(--radius-tab); overflow: hidden; background: var(--instrument-field); color: var(--instrument-text-secondary-readable); }
+.video-scene-thumb { position: relative; display: grid; place-items: center; aspect-ratio: var(--content-aspect); width: 100%; border-radius: var(--radius-tab); overflow: hidden; background: var(--instrument-field); color: var(--instrument-text-secondary-readable); }
 .video-scene-thumb :is(img,video) { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .video-scene-thumb :is(small,em) { position: absolute; bottom: 6px; padding: 3px 5px; border-radius: 4px; background: var(--video-console); color: var(--video-console-ink); font: 10px/1 var(--font-mono); font-style: normal; }
 .video-scene-thumb small { left: 6px; } .video-scene-thumb em { right: 6px; }
@@ -53,7 +53,7 @@
 .video-scene-meta { font: 9px/1.3 var(--font-mono); color: var(--instrument-text-secondary-readable); }
 .video-assets { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px 8px; }
 .video-asset { display: flex; flex-direction: column; min-width: 0; gap: 4px; text-align: left; }
-.video-asset > span { position: relative; display: grid; place-items: center; aspect-ratio: 1; width: 100%; border-radius: var(--radius-md); overflow: hidden; background: var(--instrument-field); color: var(--instrument-text-secondary-readable); }
+.video-asset > span { position: relative; display: grid; place-items: center; aspect-ratio: var(--content-aspect); width: 100%; border-radius: var(--radius-md); overflow: hidden; background: var(--instrument-field); color: var(--instrument-text-secondary-readable); }
 .video-asset :is(img,video) { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .video-asset i { position: absolute; display: grid; place-items: center; right: 5px; bottom: 5px; width: 20px; height: 20px; border-radius: 50%; color: var(--instrument-text-primary); background: var(--instrument-card); }
 .video-asset strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; font-size: var(--text-mono-2xs); }

@@ -1,3 +1,5 @@
+import { DEFAULT_CONTENT_ASPECT } from "../../../../shared/content-format";
+
 export interface AssetGridGeometry {
   columns: number;
   tileWidth: number;
@@ -13,17 +15,14 @@ export function assetGridGeometry(width: number, targetTileWidth: number, gap: n
   const columnLimit = Number.isFinite(maxColumns) ? Math.max(1, Math.floor(maxColumns)) : Number.POSITIVE_INFINITY;
   const columns = Math.min(naturalColumns, columnLimit);
   const tileWidth = Math.max(1, (safeWidth - safeGap * (columns - 1)) / columns);
-  const tileHeight = Math.max(1, tileWidth * 0.625) + 54;
+  const tileHeight = Math.max(1, tileWidth / DEFAULT_CONTENT_ASPECT);
   return { columns, tileWidth, tileHeight, rowHeight: tileHeight + safeGap, gap: safeGap };
 }
 
 export function mediaFallbackAspectRatio(kind: "image" | "video" | "audio" | null, stableKey: string): number {
-  if (kind === "audio") return 1.6;
-  if (kind === "video") return 16 / 9;
-  if (kind === "image") return 1;
-  let hash = 2_166_136_261;
-  for (const character of stableKey) hash = Math.imul(hash ^ character.charCodeAt(0), 16_777_619) >>> 0;
-  return [0.72, 0.8, 0.9, 1, 1.15][hash % 5]!;
+  void kind;
+  void stableKey;
+  return DEFAULT_CONTENT_ASPECT;
 }
 
 type PreviewKind = "image" | "video" | "audio";

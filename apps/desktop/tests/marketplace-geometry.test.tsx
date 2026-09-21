@@ -47,7 +47,7 @@ type GeometryResult = {
   motion: Array<{ selector: string; transition: string; animation: string }>;
 };
 
-type GeometrySmoke = { results: GeometryResult[]; myWorkWidths: number[] };
+type GeometrySmoke = { results: GeometryResult[]; myWorkWidths: number[]; headers: Array<{ width: number; category: string; searchWidth: number; inputWidth: number; categoryClipped: boolean; overflows: string[]; height: number }> };
 
 const states = [
   "discover", "results", "category", "no-results-partial", "model-detail", "model-review",
@@ -73,7 +73,10 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
   try {
     const styleLinks = builtStylesheetLink();
     writeFileSync(join(directory, "harness.tsx"), `
+      import { useState } from "react";
       import { createRoot } from "react-dom/client";
+      import { ShellTopRow } from ${JSON.stringify(join(process.cwd(), "src/app/layout/ShellTopRow.tsx"))};
+      import { PageHeaderHost } from ${JSON.stringify(join(process.cwd(), "src/shared/ui/PageHeader.tsx"))};
       import { ContextSidebar } from ${JSON.stringify(join(process.cwd(), "src/widgets/sidebar/ui/ContextSidebar.tsx"))};
       import { MarketplaceScreenView, MARKETPLACE_SCREEN, MARKETPLACE_SCROLL } from ${JSON.stringify(join(process.cwd(), "src/pages/marketplace/ui/MarketplaceScreen.tsx"))};
       import { MarketplaceHeader } from ${JSON.stringify(join(process.cwd(), "src/pages/marketplace/ui/MarketplaceHeader.tsx"))};
@@ -84,15 +87,16 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
       const query = { text: "", filters: { category: "all", source: "all", license: "all", compatibility: "all", modality: "all", format: "all" }, sort: "relevance" };
       const publicItems = [{ id: "clean-cut", category: "template", name: "Clean cut", summary: "A concise source-backed template with a deliberately long but bounded summary.", referenceUrls: ["https://example.invalid/reference"], recipe: null }, { id: "voxel-dither", category: "recipe", name: "Voxel dither", summary: "A reproducible image treatment", referenceUrls: [], recipe: { kind: "ffmpeg", body: "# Recipe\\n\\n<script>window.__untrusted = true</script>\\nApply the bounded source artifact.", artifact: "ffmpeg -i input.mp4 output.mp4", parameters: null, demo: { kind: "media", storageUrl: null, beforeUrl: null, afterUrl: null, posterUrl: null } } }];
       const model = { provider: "huggingface", id: "Acme/alpha", name: "Alpha model", author: "Acme", task: "text-generation", modality: "text", modelType: "base", baseModel: "Alpha", license: "apache-2.0", gated: false, revision: "abc123", lastModified: "2026-08-19T10:00:00.000Z", tags: ["assistant", "gguf"], iconUrl: null, previewUrl: null, providerUrl: "https://huggingface.co/Acme/alpha", recommendedPackage: { format: "GGUF", bytes: 8589934592, files: ["alpha.gguf"] }, comfort: { level: "comfortable", label: "Comfortable here", score: 4, runtime: "ollama", estimatedMemoryBytes: 10737418240, evidence: ["Fits available memory"] }, state: "remote", permissions: [] };
-      const modelItem = { key: "model:huggingface:Acme/alpha", category: "models", name: "Alpha model", summary: "Text generation", sourceLabel: "Hugging Face", version: { status: "ready", value: "abc123" }, updatedAt: { status: "ready", value: "2026-08-19T10:00:00.000Z" }, license: { status: "ready", value: "apache-2.0" }, publisherIdentity: { status: "unavailable", reason: "Publisher verification is unavailable." }, contentAudit: { status: "unavailable", reason: "Content audit is unavailable." }, compatibility: { status: "ready", value: "Comfortable here" }, model };
+      const modelItem = { origin: "models", key: "model:huggingface:Acme/alpha", category: "models", name: "Alpha model", summary: "Text generation", tags: ["assistant", "gguf"], sourceLabel: "Hugging Face", version: { status: "ready", value: "abc123" }, updatedAt: { status: "ready", value: "2026-08-19T10:00:00.000Z" }, license: { status: "ready", value: "apache-2.0" }, publisherIdentity: { status: "unavailable", reason: "Publisher verification is unavailable." }, contentAudit: { status: "unavailable", reason: "Content audit is unavailable." }, compatibility: { status: "ready", value: "Comfortable here" }, model };
       const source = { schemaVersion: 1, source: "live", refreshedAt: "2026-08-20T10:00:00.000Z", sourceUpdatedAt: null, warning: null, items: publicItems };
       const publicPresentations = publicItems.map((item) => projectMarketplacePublicItem(item, "live"));
       const categories = [
         ["models", "Models", "Model packages from current providers.", { status: "ready", value: 1 }],
         ["templates", "Templates", "Reusable structures for content formats.", { status: "ready", value: 1 }],
-        ["recipes", "Recipes", "Reusable production artifacts and transformations.", { status: "ready", value: 1 }],
+        ["recipes", "Effects", "Reusable production artifacts and transformations.", { status: "ready", value: 1 }],
         ["prompts", "Prompts", "Reusable generation instructions.", { status: "unavailable", reason: "Prompt catalog is unavailable in the current Desktop contract." }],
-        ["components", "Components & Effects", "Reusable visual and audio building blocks.", { status: "unavailable", reason: "Components catalog is unavailable in the current Desktop contract." }],
+        ["components", "Visuals", "Reusable visual and audio building blocks.", { status: "unavailable", reason: "Visuals catalog is unavailable in the current Desktop contract." }],
+        ["sounds", "Sounds", "Reusable source audio.", { status: "ready", value: 0 }],
         ["skills", "Skills", "Installable agent capabilities.", { status: "unavailable", reason: "Skills catalog is unavailable in the current Desktop contract." }],
       ].map(([category, label, purpose, count]) => ({ category, label, purpose, count, catalog: count.status === "ready" ? "ready" : "unavailable" }));
       const machine = { platform: "macOS", architecture: "arm64", cpu: "Apple M3 Max", totalMemoryBytes: 38654705664, freeDiskBytes: 214748364800, runtimes: [{ id: "ollama", label: "Ollama", available: true, detail: "Detected" }], installed: [{ id: "llama3.2:latest", name: "Llama 3.2", runtime: "ollama", digest: "sha256:abc", bytes: 2147483648, format: "GGUF", updatedAt: "2026-08-18T09:00:00.000Z" }] };
@@ -124,9 +128,9 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
         return <main className={MARKETPLACE_SCREEN} data-sidebar-visible={sidebarVisible ? "true" : "false"}><MarketplaceHeader title="Downloads" query={query} selectedCategory={null} sidebarVisible={sidebarVisible} refreshing={false} workspaces={[{ id: "ws_a", name: "UX Testing Lab" }]} selectedWorkspaceId="ws_a" onSelectWorkspace={noop} onQueryChange={noop} onSearch={noop} onOpenCategory={noop} /><div className={MARKETPLACE_SCROLL}><p className="marketplace-target-state">Source-backed download presentation</p><MarketplaceDownloads presentation={{ availability: "ready", jobs: [{ id: "active", label: "Alpha model", state: "active", progress: 42, nextAction: "Downloading verified package" }, { id: "failed", label: "Beta model", state: "failed", progress: null, nextAction: "Retry unavailable" }, { id: "done", label: "Gamma model", state: "completed", progress: 100, nextAction: "Load health unavailable" }] }} /></div></main>;
       }
       function Harness({ state, sidebar, chat, mode = "marketplace", sidebarWidth = 248 }) {
-        const sidebarVisible = mode === "work" ? sidebar : sidebar && window.innerWidth > 1280;
+        const sidebarVisible = sidebar;
         const workflow = state === "model-review" ? <MarketplaceActionReview kind="model-download" targets={marketplaceTargets(catalog, { kind: "project", workspaceId: "workspace-1", projectId: "project-1" }, "model-download")} itemLabel="Alpha model" onCancel={noop} /> : state === "target-chooser" ? <MarketplaceTargetChooser targets={marketplaceTargets(catalog, { kind: "project", workspaceId: "workspace-1", projectId: "project-1" }, "recipe-target")} onCancel={noop} /> : null;
-        const marketplace = state === "downloads" ? <Downloads sidebarVisible={sidebarVisible} /> : <Screen state={state} sidebarVisible={sidebarVisible} />;
+        const marketplace = state === "downloads" ? <Downloads sidebarVisible={false} /> : <Screen state={state} sidebarVisible={false} />;
         return <div className={"workbench" + (sidebarVisible ? "" : " sidebar-collapsed") + (chat ? " has-right-panel" : "")} style={{ "--sidebar-w": sidebarWidth + "px", "--inspector-w": "336px", "--sidebar-column": sidebarVisible ? "var(--sidebar-w)" : "0px", "--right-column": chat ? "var(--inspector-w)" : "0px" }}>
           {sidebarVisible && <ContextSidebar mode={mode} route={{ kind: "library" }} page="overview" pageActive={false} marketplaceRoute={(locations[state]?.route ?? locations.discover.route)} rootPath={null} workspaces={[]} workspaceId={null} pinnedWorkspaceIds={[]} canGoBack={false} canGoForward={false} onBack={noop} onForward={noop} onToggleSidebar={noop} onOpenSettings={noop} onSwitchMode={noop} onOpenMarketplaceRoute={noop} onOpenWorkspace={noop} onOpenPage={noop} />}
           <section className="main-shell" style={{ gridColumn: 2 }}><div className="main-content-stage"><div className="app-mode-surface">{marketplace}</div></div></section>
@@ -135,6 +139,14 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
         </div>;
       }
       const root = createRoot(document.getElementById("root"));
+      function HeaderHarness({ category }) {
+        const [headerHost, setHeaderHost] = useState(null);
+        return <div className="instrument-shell flex h-full gap-1 p-1"><aside style={{ width: 251, flexShrink: 0 }} /><div className="instrument-content-column min-w-0 flex-1">
+          <ShellTopRow leftVisible agentVisible={false} topChrome={{ canGoBack: true, canGoForward: false, onBack: noop, onForward: noop }} onToggleLeft={noop} onAgentToggle={noop} pageHeaderRef={setHeaderHost} />
+          <PageHeaderHost.Provider value={headerHost}><MarketplaceHeader title={category === "components" ? "Visuals" : "Templates"} query={query} selectedCategory={category} sidebarVisible refreshing={false} workspaces={[]} selectedWorkspaceId={null} onSelectWorkspace={noop} onQueryChange={noop} onSearch={noop} onOpenCategory={noop} onOpenSaved={noop} /></PageHeaderHost.Provider>
+        </div></div>;
+      }
+      window.renderHeaderGeometry = (category) => root.render(<HeaderHarness category={category} />);
       window.renderMarketplaceGeometry = (state, sidebar, chat) => root.render(<Harness key={state + sidebar + chat} state={state} sidebar={sidebar} chat={chat} />);
       window.renderMyWorkSidebarGeometry = (sidebarWidth) => root.render(<Harness key={"work" + sidebarWidth} state="discover" sidebar chat={false} mode="work" sidebarWidth={sidebarWidth} />);
     `);
@@ -182,11 +194,11 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
           win.setContentSize(value.width, value.height);
           await waitForSize(value.width, value.height);
           await win.webContents.executeJavaScript(\`(async()=>{window.renderMarketplaceGeometry(\${JSON.stringify(value.state)},\${JSON.stringify(value.sidebar)},\${JSON.stringify(value.chat)});await new Promise(r=>setTimeout(r,20));await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));})()\`);
-          const renderedSidebar = value.sidebar && value.width > 1280;
-          const selectors = renderedSidebar ? ["#app-mode-marketplace", ".sidebar-nav[aria-label='Marketplace categories'] .sidebar-nav-row", ".marketplace-search input", ".marketplace-filter-row .select-menu-trigger"] : [".marketplace-header-category-menu .select-menu-trigger", ".marketplace-search input", ".marketplace-filter-row .select-menu-trigger"];
+          const selectors = [".marketplace-category-select", ".marketplace-category-button", ".marketplace-search input", ".marketplace-toolbar button[aria-expanded]"];
+          if (value.sidebar) selectors.push("#sidebar-explore");
           if (value.state === "results") selectors.push(".marketplace-result");
           if (value.state === "model-detail") selectors.push(".marketplace-model-actions button");
-          if (["template-detail","recipe-detail"].includes(value.state)) selectors.push(".marketplace-public-actions button");
+          if (["template-detail","recipe-detail"].includes(value.state)) selectors.push(".marketplace-public-hero button");
           if (["prompt-shell","component-shell","skill-shell"].includes(value.state)) selectors.push(".marketplace-unavailable-review button");
           if (["model-review","target-chooser"].includes(value.state)) selectors.push(".marketplace-workflow-header button", ".marketplace-target-list button", ".marketplace-workflow-footer button");
           const documentNode = await win.webContents.debugger.sendCommand("DOM.getDocument");
@@ -197,7 +209,7 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
           results.push(await win.webContents.executeJavaScript(\`(()=>{
             const state=\${JSON.stringify(value.state)},layout=\${JSON.stringify(value.name)},focusSelectors=\${JSON.stringify(selectors)};
             const required=[".workbench",".main-shell",".main-content-stage",".app-mode-surface",".marketplace-screen",".marketplace-header",".marketplace-scroll"];
-            const optional=[".marketplace-results-list",".marketplace-detail-route",".marketplace-downloads",".marketplace-workflow-window",".marketplace-workflow-header",".marketplace-workflow-body",".marketplace-workflow-footer"];
+            const optional=[".marketplace-results-list",".marketplace-gallery-grid",".marketplace-detail-route",".marketplace-downloads",".marketplace-workflow-window",".marketplace-workflow-header",".marketplace-workflow-body",".marketplace-workflow-footer"];
             const overflows=required.filter(s=>!document.querySelector(s)).map(s=>"missing:"+s);
             for(const selector of [...required,...optional]) for(const element of document.querySelectorAll(selector)) if(element.scrollWidth>element.clientWidth+1) overflows.push(selector+":"+element.scrollWidth+">"+element.clientWidth);
             const sidebar=document.querySelector(".context-sidebar"),screen=document.querySelector(".marketplace-screen"),chat=document.querySelector(".utility-right-panel"),workflow=document.querySelector(".marketplace-workflow-window");
@@ -208,14 +220,14 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
             const workflowParts=workflow?[workflow,workflow.querySelector(".marketplace-workflow-header"),workflow.querySelector(".marketplace-workflow-body"),workflow.querySelector(".marketplace-workflow-footer")].filter(Boolean):[];
             const workflowOwners=workflowParts.filter(e=>["auto","scroll"].includes(getComputedStyle(e).overflowY)).map(e=>e.className.split(" ")[0]);
             const boundary=(workflow||document.querySelector(".marketplace-scroll")).getBoundingClientRect();
-            const actions=[...document.querySelectorAll(".marketplace-model-actions button,.marketplace-public-actions button,.marketplace-unavailable-review button,.marketplace-workflow-footer button")];
+            const actions=[...document.querySelectorAll(".marketplace-model-actions button,.marketplace-public-hero button,.marketplace-unavailable-review button,.marketplace-workflow-footer button")];
             const actionFits=actions.every(e=>{const r=e.getBoundingClientRect();return r.left>=boundary.left-1&&r.right<=boundary.right+1&&r.top>=boundary.top-1&&r.bottom<=boundary.bottom+1;});
             const focus=focusSelectors.map(selector=>{const element=document.querySelector(selector),style=element?getComputedStyle(element):null;return{selector,width:style?parseFloat(style.outlineWidth):0,style:style?.outlineStyle??"missing"};});
-            const motion=[".marketplace-category-card",".marketplace-result",".marketplace-loading i"].flatMap(selector=>{const element=document.querySelector(selector);if(!element)return[];const style=getComputedStyle(element);return[{selector,transition:style.transitionDuration,animation:style.animationName}];});
-            const categoryMenu=document.querySelector(".marketplace-header-category-menu"),detailLayout=document.querySelector(".marketplace-model-detail-layout,.marketplace-public-detail-layout");
+            const motion=[".marketplace-creative-card",".marketplace-result",".marketplace-loading i"].flatMap(selector=>{const element=document.querySelector(selector);if(!element)return[];const style=getComputedStyle(element);return[{selector,transition:style.transitionDuration,animation:style.animationName}];});
+            const categoryMenu=document.querySelector('nav[aria-label="Library category"]'),detailLayout=document.querySelector(".marketplace-model-detail-layout");
             const containerStyle=screen?getComputedStyle(screen):null,detailGrid=detailLayout?getComputedStyle(detailLayout).gridTemplateColumns:null;
             const active=document.activeElement,workflowSurface=document.querySelector('[data-instrument-overlay="target-chooser"]'),activeStyle=workflow&&(workflow.contains(active)||workflowSurface===active)?getComputedStyle(active):null;
-            return{state,layout,width:innerWidth,height:innerHeight,overflows,sidebarCount:document.querySelectorAll(".context-sidebar").length,sidebarWidth:sidebar?.getBoundingClientRect().width??null,sidebarDisplay:sidebar?getComputedStyle(sidebar).display:null,sidebarVisible:screen?.dataset.sidebarVisible??null,categoryMenu:!!categoryMenu,categoryMenuDisplay:categoryMenu?getComputedStyle(categoryMenu).display:null,categoryMenuValue:categoryMenu?.querySelector(".select-menu-value")?.textContent.trim()??null,chatWidth:chat?.getBoundingClientRect().width??null,containerWidth:screen?.getBoundingClientRect().width??null,containerType:containerStyle?.containerType??null,containerName:containerStyle?.containerName??null,detailGrid,detailColumns:detailGrid?detailGrid.trim().split(" ").filter(Boolean).length:null,bodyOverflows:document.documentElement.scrollWidth>innerWidth+1||document.body.scrollWidth>innerWidth+1,pageScrollOwners:scrollOwners,workflowScrollOwners:workflowOwners,primaryActionsFit:actionFits,autoplayCount:document.querySelectorAll(".workbench audio[autoplay],.workbench video[autoplay],.marketplace-workflow-window audio[autoplay],.marketplace-workflow-window video[autoplay]").length,untrustedCount:document.querySelectorAll(".workbench script,.workbench iframe,.workbench object,.workbench embed,.marketplace-workflow-window script,.marketplace-workflow-window iframe,.marketplace-workflow-window object,.marketplace-workflow-window embed").length,lists:document.querySelectorAll(".marketplace-screen [role=list]").length,progress:document.querySelectorAll(".marketplace-screen progress").length,dialogs:document.querySelectorAll('[data-instrument-overlay="target-chooser"][role=dialog]').length,categoryLabels:[...document.querySelectorAll(".marketplace-result-category")].filter(e=>e.textContent.trim()).length,statusLabels:[...document.querySelectorAll(".marketplace-screen [role=status],.marketplace-screen [role=alert]")].filter(e=>e.textContent.trim()).length,trustLabels:[...document.querySelectorAll(".marketplace-detail-route h3,.marketplace-detail-route dt")].filter(e=>/Compatibility|License|Publisher identity|Content audit|provenance/i.test(e.textContent)).length,workflowBackground:workflow?getComputedStyle(workflowSurface||workflow).backgroundColor:null,workflowInitialFocusLabel:activeStyle?(active.getAttribute("aria-label")||active.getAttribute("data-instrument-overlay")):null,workflowInitialFocusVisible:activeStyle?(active===workflowSurface||active.matches(":focus-visible")):null,workflowInitialFocusOutlineWidth:activeStyle?parseFloat(activeStyle.outlineWidth):null,workflowInitialFocusOutlineStyle:activeStyle?activeStyle.outlineStyle:null,focus,motion};
+            return{state,layout,width:innerWidth,height:innerHeight,overflows,sidebarCount:document.querySelectorAll(".context-sidebar").length,sidebarWidth:sidebar?.getBoundingClientRect().width??null,sidebarDisplay:sidebar?getComputedStyle(sidebar).display:null,sidebarVisible:screen?.dataset.sidebarVisible??null,categoryMenu:!!categoryMenu,categoryMenuDisplay:categoryMenu?getComputedStyle(categoryMenu).display:null,categoryMenuValue:categoryMenu?.querySelector("[aria-current=page]")?.getAttribute("aria-label")??categoryMenu?.querySelector(".select-menu-value")?.textContent.trim()??null,chatWidth:chat?.getBoundingClientRect().width??null,containerWidth:screen?.getBoundingClientRect().width??null,containerType:containerStyle?.containerType??null,containerName:containerStyle?.containerName??null,detailGrid,detailColumns:detailGrid?detailGrid.trim().split(" ").filter(Boolean).length:null,bodyOverflows:document.documentElement.scrollWidth>innerWidth+1||document.body.scrollWidth>innerWidth+1,pageScrollOwners:scrollOwners,workflowScrollOwners:workflowOwners,primaryActionsFit:actionFits,autoplayCount:document.querySelectorAll(".workbench audio[autoplay],.workbench video[autoplay],.marketplace-workflow-window audio[autoplay],.marketplace-workflow-window video[autoplay]").length,untrustedCount:document.querySelectorAll(".workbench script,.workbench iframe,.workbench object,.workbench embed,.marketplace-workflow-window script,.marketplace-workflow-window iframe,.marketplace-workflow-window object,.marketplace-workflow-window embed").length,lists:document.querySelectorAll(".marketplace-screen [role=list]").length,progress:document.querySelectorAll(".marketplace-screen progress").length,dialogs:document.querySelectorAll('[data-instrument-overlay="target-chooser"][role=dialog]').length,categoryLabels:[...document.querySelectorAll(".marketplace-result-category,.marketplace-creative-card .sr-only")].filter(e=>e.textContent.trim()).length,statusLabels:[...document.querySelectorAll(".marketplace-screen [role=status],.marketplace-screen [role=alert]")].filter(e=>e.textContent.trim()).length,trustLabels:[...document.querySelectorAll(".marketplace-detail-route h3,.marketplace-detail-route dt")].filter(e=>/Compatibility|License|Publisher identity|Content audit|provenance/i.test(e.textContent)).length,workflowBackground:workflow?getComputedStyle(workflowSurface||workflow).backgroundColor:null,workflowInitialFocusLabel:activeStyle?(active.getAttribute("aria-label")||active.getAttribute("data-instrument-overlay")):null,workflowInitialFocusVisible:activeStyle?(active===workflowSurface||active.matches(":focus-visible")):null,workflowInitialFocusOutlineWidth:activeStyle?parseFloat(activeStyle.outlineWidth):null,workflowInitialFocusOutlineStyle:activeStyle?activeStyle.outlineStyle:null,focus,motion};
           })()\`));
         }
         const myWorkWidths=[];
@@ -224,7 +236,18 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
           await new Promise(resolve=>setTimeout(resolve,30));
           myWorkWidths.push(await win.webContents.executeJavaScript("Math.round(document.querySelector('.context-sidebar').getBoundingClientRect().width)"));
         }
-        require("node:fs").writeFileSync(RESULT_PATH, JSON.stringify({results,myWorkWidths}));
+        const headers=[];
+        for(const width of [1126, 1280]) for(const category of ["templates", "components"]){
+          win.setContentSize(width, 800);
+          await waitForSize(width, 800);
+          await win.webContents.executeJavaScript(\`(async()=>{window.renderHeaderGeometry(\${JSON.stringify(category)});await new Promise(r=>setTimeout(r,20));await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));})()\`);
+          headers.push(await win.webContents.executeJavaScript(\`(()=>{
+            const search=document.querySelector(".marketplace-search"), input=search.querySelector("input"), label=document.querySelector('.marketplace-category-button[aria-current="page"]');
+            const overflows=[".instrument-top-row", ".page-header-host", ".page-header", ".marketplace-toolbar"].filter(selector=>{const e=document.querySelector(selector);return e.scrollWidth>e.clientWidth+1;});
+            return {width:innerWidth,category:\${JSON.stringify(category)},searchWidth:search.getBoundingClientRect().width,inputWidth:input.getBoundingClientRect().width,categoryClipped:label.scrollWidth>label.clientWidth+1,overflows,height:document.querySelector(".instrument-top-row").getBoundingClientRect().height};
+          })()\`));
+        }
+        require("node:fs").writeFileSync(RESULT_PATH, JSON.stringify({results,myWorkWidths,headers}));
         app.quit();
       }).catch(error=>{console.error(error);app.exit(1)});
     `);
@@ -251,6 +274,19 @@ let geometryRun: Promise<GeometrySmoke> | null = null;
 const measuredMarketplaceGeometry = () => geometryRun ??= marketplaceGeometry();
 
 describe("Marketplace production geometry", () => {
+  test("keeps portaled search and category usable beside the window controls", async () => {
+    const { headers } = await measuredMarketplaceGeometry();
+    expect(headers).toHaveLength(4);
+    for (const header of headers) {
+      const label = `${header.width}px ${header.category}: ${JSON.stringify(header)}`;
+      expect(header.searchWidth, label).toBeGreaterThanOrEqual(160);
+      expect(header.inputWidth, label).toBeGreaterThanOrEqual(80);
+      expect(header.categoryClipped, label).toBe(false);
+      expect(header.overflows, label).toEqual([]);
+      expect(header.height, label).toBe(32);
+    }
+  }, 60_000);
+
   test("fits all operational frames across sidebar, chat, narrow, and manual-hidden layouts", async () => {
     const { results, myWorkWidths } = await measuredMarketplaceGeometry();
     expect(results).toHaveLength(states.length * layouts.length + 1 + 3 * detailLayouts.length);
@@ -278,13 +314,13 @@ describe("Marketplace production geometry", () => {
         expect(motion.transition, `${result.state}/${result.layout} ${motion.selector}`).toBe("0s");
         expect(motion.animation, `${result.state}/${result.layout} ${motion.selector}`).toBe("none");
       }
-      const sidebarExpected = result.layout === "wide" || result.layout === "wide-chat";
+      const sidebarExpected = result.layout !== "wide-manual-hidden";
       expect(result.sidebarCount, `${result.state}/${result.layout}`).toBe(sidebarExpected ? 1 : 0);
       expect(result.sidebarWidth, `${result.state}/${result.layout}`).toBe(sidebarExpected ? 248 : null);
       expect(result.sidebarDisplay, `${result.state}/${result.layout}`).toBe(sidebarExpected ? "flex" : null);
-      expect(result.sidebarVisible, `${result.state}/${result.layout}`).toBe(sidebarExpected ? "true" : "false");
-      expect(result.categoryMenu, `${result.state}/${result.layout}`).toBe(!sidebarExpected);
-      expect(result.categoryMenuDisplay, `${result.state}/${result.layout}`).toBe(sidebarExpected ? null : "flex");
+      expect(result.sidebarVisible, `${result.state}/${result.layout}`).toBe("false");
+      expect(result.categoryMenu, `${result.state}/${result.layout}`).toBe(true);
+      expect(result.categoryMenuDisplay, `${result.state}/${result.layout}`).toBe("flex");
       expect(result.chatWidth, `${result.state}/${result.layout}`).toBe(result.layout.endsWith("chat") ? 336 : null);
     }
     expect(myWorkWidths).toEqual([288, 420]);
@@ -301,15 +337,19 @@ describe("Marketplace production geometry", () => {
       expect(result.workflowInitialFocusOutlineWidth, `${result.state}/${result.layout}`).toBeGreaterThanOrEqual(2);
       expect(result.workflowInitialFocusOutlineStyle, `${result.state}/${result.layout}`).not.toBe("none");
     }
-    expect(results.find(({ state, layout }) => state === "discover" && layout === "wide")!.lists).toBeGreaterThan(0);
+    // These fixtures have no renderable creative previews: the archive hint replaces blank cards.
+    expect(results.find(({ state, layout }) => state === "discover" && layout === "wide")!.lists).toBe(0);
+    expect(results.find(({ state, layout }) => state === "discover" && layout === "wide")!.statusLabels).toBeGreaterThan(0);
     expect(results.find(({ state, layout }) => state === "downloads" && layout === "wide")!.progress).toBeGreaterThan(0);
     expect(results.find(({ state, layout }) => state === "results" && layout === "wide")!.categoryLabels).toBeGreaterThan(0);
     expect(results.find(({ state, layout }) => state === "model-detail" && layout === "wide")!.trustLabels).toBeGreaterThanOrEqual(2);
     expect(results.find(({ state, layout }) => state === "template-detail" && layout === "wide")!.trustLabels).toBeGreaterThanOrEqual(2);
     expect(results.find(({ state, layout }) => state === "offline" && layout === "wide")!.statusLabels).toBeGreaterThan(0);
-    expect(results.find(({ state, layout }) => state === "collection" && layout === "narrow")!.categoryMenuValue).toBe("All categories");
-    for (const [state, value] of [["model-detail", "Models"], ["template-detail", "Templates"], ["recipe-detail", "Recipes"]]) {
+    expect(results.find(({ state, layout }) => state === "collection" && layout === "narrow")!.categoryMenuValue).toBe("More");
+    for (const [state, value] of [["model-detail", "Models"], ["template-detail", "Templates"], ["recipe-detail", "Effects"]]) {
       expect(results.find((result) => result.state === state && result.layout === "narrow")!.categoryMenuValue).toBe(value);
+    }
+    for (const state of ["model-detail"]) {
       const wideDetail = results.find((result) => result.state === state && result.layout === "detail-container-wide")!;
       expect(wideDetail.detailColumns, `${state} at ${wideDetail.containerWidth}px ${wideDetail.containerName}/${wideDetail.containerType}: ${wideDetail.detailGrid}`).toBe(2);
       expect(results.find((result) => result.state === state && result.layout === "detail-container-narrow-chat")!.detailColumns).toBe(1);

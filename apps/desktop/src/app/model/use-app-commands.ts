@@ -9,9 +9,9 @@
 import { useEffect } from "react";
 
 import { readCommandBindings, resolveCommand } from "@/pages/settings";
-import type { WorkspaceSummary } from "@/shared/api/ipc";
+import { bridge, type WorkspaceSummary } from "@/shared/api/ipc";
 import type { AppMode } from "@/shared/model/routes";
-import { mostRecentWorkspaceId, type WorkbenchRoute, type WorkspacePage } from "@/shared/model/workbench";
+import type { WorkbenchRoute, WorkspacePage } from "@/shared/model/workbench";
 
 export interface AppCommandTargets {
   settingsVisible: boolean;
@@ -25,9 +25,9 @@ export interface AppCommandTargets {
   clearOverviewNavigation(): void;
   setWorkspacePage(page: WorkspacePage): void;
   setSidebarSearchRequest(update: (request: number) => number): void;
-  toggleMarketplaceSidebar(): void;
   setSidebarVisible(update: (visible: boolean) => boolean): void;
   setLens(lens: "desk" | "chat"): void;
+  toggleAgent(): void;
   onNewChat(): void;
   switchAppMode(mode: AppMode): void;
 }
@@ -44,15 +44,15 @@ export function useAppCommands({
   clearOverviewNavigation,
   setWorkspacePage,
   setSidebarSearchRequest,
-  toggleMarketplaceSidebar,
   setSidebarVisible,
   setLens,
+  toggleAgent,
   onNewChat,
   switchAppMode,
 }: AppCommandTargets) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat) return;
+      if (event.repeat || event.defaultPrevented) return;
       if (settingsVisible && event.key === "Escape") {
         event.preventDefault();
         setSettingsVisible(false);
@@ -65,18 +65,15 @@ export function useAppCommands({
       if (command.id === "nav.back") navigateBack();
       else if (command.id === "nav.forward") navigateForward();
       else if (command.id === "nav.findProjects") {
-        const workspaceId = route.kind === "library"
-          ? mostRecentWorkspaceId(workspaces)
-          : route.workspaceId;
-        if (workspaceId && route.kind !== "workspace") {
-          openWorkspace(workspaceId);
-        } else clearOverviewNavigation();
+        switchAppMode("work");
+        clearOverviewNavigation();
         setWorkspacePage("projects");
         setSidebarSearchRequest((request) => request + 1);
       } else if (command.id === "app.sidebar") {
-        if (mode === "marketplace") toggleMarketplaceSidebar();
-        else setSidebarVisible((visible) => !visible);
-      } else if (command.id === "chat.new") { setLens("chat"); onNewChat(); }
+        setSidebarVisible((visible) => !visible);
+      } else if (command.id === "app.agent") {
+        toggleAgent();
+      } else if (command.id === "chat.new") { switchAppMode("work"); setLens("chat"); onNewChat(); }
       else if (command.id === "view.desk") setLens("desk");
       else if (command.id === "view.chat") setLens("chat");
       else if (command.id === "app.marketplace") switchAppMode("marketplace");
@@ -88,9 +85,12 @@ export function useAppCommands({
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("mouseup", onMouseUp);
+    // Electron reserves Cmd+R to prevent a reload; route it through the same rebindable registry.
+    const unsubscribe = bridge.onToggleRightPanel(() => (document.activeElement ?? document).dispatchEvent(new KeyboardEvent("keydown", { key: "r", code: "KeyR", metaKey: true, bubbles: true, cancelable: true })));
     return () => {
+      unsubscribe();
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [clearOverviewNavigation, mode, navigateBack, navigateForward, onNewChat, openWorkspace, settingsVisible, route, switchAppMode, workspaces]);
+  }, [clearOverviewNavigation, mode, navigateBack, navigateForward, onNewChat, openWorkspace, settingsVisible, route, switchAppMode, workspaces, toggleAgent]);
 }

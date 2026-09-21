@@ -2,7 +2,7 @@ import { stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import type { AgentProvider } from "../media/types";
+import type { AgentPermissionMode, AgentProvider } from "../media/types";
 
 /**
  * What a chat carries before it reads the operator's message.
@@ -86,9 +86,11 @@ export function ralphyPreamble(input: {
   projectPath?: string | null;
   cwd: string;
   instructions: readonly string[];
+  permissionMode?: AgentPermissionMode;
   cli?: string | null;
   memory?: AgentMemoryDigest | null;
 }): string {
+  const readOnly = (input.permissionMode ?? "plan") === "plan";
   const lines = (input.memory?.entries ?? [])
     .slice(0, MAX_MEMORY_LINES)
     .map(({ name, description }) => `- ${`${name}: ${description}`.slice(0, MAX_MEMORY_LINE)}`);
@@ -98,6 +100,10 @@ export function ralphyPreamble(input: {
     `Active workspace ID: ${input.workspaceId ?? "none selected"}`,
     `Active project: ${input.projectId ?? input.projectPath ?? "none selected"}`,
     `Working directory: ${input.cwd}`,
+    'Chat presentation: use <PromptCard title="Image prompt" text="Exact reusable prompt" /> for a prompt the user should copy, and <CaptionCard title="Instagram caption" text="Exact audience-facing caption" /> for ready-to-copy social text. These cards display text; they do not generate, save, schedule or publish anything. Use them only when that action is useful, not for ordinary prose. Put each card where it belongs in the explanation, outside code fences on its own line; do not collect cards at the end. Attributes must be quoted strings: escape & as &amp;, double quotes as &quot;, and < as &lt;. No JavaScript, expressions, handlers or imports. Keep titles under 200 characters and text under 8000 characters.',
+    readOnly
+      ? 'Agent permissions: Read-only files. Inspect existing content and propose a plan. Do not generate, import, create, revise, or save content, including paid generation whose output cannot be saved. When the request needs writes, explain the restriction and ask the user to change "Read-only files" to "Workspace access" using the visible "Agent permissions" selector beside the chat composer, then continue. Never change permissions yourself or bypass the sandbox.'
+      : `Agent permissions: ${input.permissionMode === "full" ? "Full access" : "Workspace access"}. Work within the selected permissions and the user's request.`,
     ...(input.instructions.length > 0
       ? [`Instructions already in your context: ${input.instructions.join(", ")}`]
       : []),
@@ -108,14 +114,19 @@ export function ralphyPreamble(input: {
     ...(input.cli
       ? [
         `Ralphy CLI: ${input.cli}`,
-        `Drive every Ralphy step through that exact path; \`'${input.cli.replaceAll("'", "'\\''")}' --help\` lists it. The library is its store -- read and change it through the CLI rather than by reading files under it.`,
+        `Drive every Ralphy step through that exact path; \`'${input.cli.replaceAll("'", "'\\''")}' --help\` lists it. The library is its store -- ${readOnly ? "read it" : "read and change it"} through the CLI rather than by reading files under it.`,
         `Always pass --root ${JSON.stringify(input.rootPath)} explicitly. Scoped CRUD commands use --workspace ${JSON.stringify(input.workspaceId ?? "<choose-workspace>")}. For generation and reference imports, --project and --workspace are mutually exclusive destinations: use only --project with a verified project ID from the active workspace. Never change a different workspace.`,
         "Generation connections are managed by Settings > Providers and are shared by Create, Canvas and this chat. The exact Ralphy CLI above uses the app's credential snapshot, ignoring older project/workspace generation keys and ordinary shell overrides. Check `provider list` for configuration, not authentication. Never source .env files, search for alternate keys, print credential values, or change provider credentials in chat. If a provider is missing or rejected, direct setup to Settings > Providers. MCP connections and the agent's own subscription are separate and managed in its app.",
+        "A sandbox or Keychain access denial is not a provider authentication rejection. E_SECRET_STORE alone does not prove a key is invalid or missing: report the access restriction, not a need to reconnect or replace provider keys. Only suggest provider setup when the provider is explicitly missing or authentication is rejected.",
+        ...(readOnly ? [
+          "Creative experiments: inspect existing source creatives and reported metrics. Keep findings and proposed changes in the chat; missing measurements stay unknown, and proposed improvements are hypotheses. Do not claim that a proposal is generated or saved content.",
+        ] : [
         "Creative experiments: read source creatives and metrics through the connected MCP. Keep source IDs, URLs, date range and reported metrics in a project document; missing measurements stay unknown. Treat proposed audience or metric improvements as hypotheses, never measured lifts.",
         "Use the active project, or create one in the active workspace if none is selected. Keep one Unit per source creative with `unit create`; reuse it for later experiments. Keep the original as a baseline; use `unit revise` for each alternative, passing the expected latest revision ID and original parent revision ID. Preserve previous versions. Record the changed variable and hypothesis in --note, with complete items and platform presentations for that version.",
         "Persist real previews before claiming a variant is ready. Text-only variants can use Document items and platform captions; visual variants need distinct generated/imported Artifact revisions. A prompt or proposed actor change is a concept, not a rendered visual. Compare social platforms, copy, CTA, visual presence or actors when requested. Read CLI --help for exact document, artifact and unit commands. Do not publish or change ad campaigns during an experiment.",
         "Unit presentation items are the public creative: put only audience-facing copy or media in them. Keep experiment hypotheses in the revision note and provenance in a separate project document. Exclude source-evidence and internal notes from presentation item lists.",
         'Return Markdown with standalone MDX cards for saved project Units: <UnitCard workspaceId="ws_id" projectId="proj_id" unitId="unit_id" title="Creative 1" />. Replace IDs with actual CLI results. Put each card outside code fences, on its own line with blank lines around it. Only quoted string attributes are supported; no JavaScript, imports or expressions. The app reads the actual version count. Create the number of variants requested by the user, never a fixed demo count. When variants derive from an imported creative, retain that original as an unchanged sealed Unit revision and link it using `ralphy unit source <variant-unit-id> --revision <original-revision-id> --label "Source name"` using the actual source name. Do not call the first generated variant the original. The linked original is separate from the requested variant count. Include concise findings and test hypotheses alongside the cards.',
+        ]),
       ]
       : ["No Ralphy CLI is available to this chat; do not invent one."]),
     ...(lines.length > 0
@@ -136,6 +147,7 @@ export function ralphyPreamble(input: {
  */
 export async function agentPreamble(input: {
   provider: AgentProvider;
+  permissionMode?: AgentPermissionMode;
   rootPath: string;
   workspaceId?: string | null;
   projectId?: string | null;

@@ -1,13 +1,9 @@
 /**
- * The sidebar, wired to the app's two modes.
- *
- * Four of its controls mean "put the app in My Work and then go": a workspace, a page, a chat and
- * a new chat all imply a mode, and a chat also implies the lens it lives under. Those pairings are
- * what this component holds -- the sidebar itself only reports what was pressed.
+ * Workspace destinations return from Explore without changing the chat panel's state.
  */
 import { InstrumentSidebar, type SidebarChat } from "@/widgets/sidebar";
 import type { AgentChatController } from "@/features/agent-chat";
-import type { CatalogResult, WorkspaceSummary } from "@/shared/api/ipc";
+import type { CatalogResult, ProjectSummary, WorkspaceSummary } from "@/shared/api/ipc";
 import type { AppMode, MarketplaceBrowseRoute, MarketplaceRoute } from "@/shared/model/routes";
 import type { SettingsPageId } from "@/pages/settings";
 import type { WorkbenchRoute, WorkspacePage } from "@/shared/model/workbench";
@@ -34,6 +30,8 @@ export function AppSidebar({
   onOpenMarketplaceRoute,
   onOpenWorkspace,
   onOpenPage,
+  onOpenProject,
+  onRestoreProject = onOpenProject,
   onLens,
 }: {
   mode: AppMode;
@@ -57,11 +55,13 @@ export function AppSidebar({
   onOpenMarketplaceRoute(route: MarketplaceBrowseRoute): void;
   onOpenWorkspace(workspaceId: string): void;
   onOpenPage(page: WorkspacePage): void;
+  onOpenProject(project: ProjectSummary): void;
+  onRestoreProject?(project: ProjectSummary): void;
   onLens(lens: "desk" | "chat"): void;
 }) {
   return <InstrumentSidebar
     mode={mode}
-    lens={mode === "work" ? lens : "desk"}
+    lens={lens}
     route={route}
     page={page}
     pageActive={mode === "work" && route.kind !== "project"}
@@ -86,11 +86,24 @@ export function AppSidebar({
       onSwitchMode("work");
       onOpenPage(next);
     }}
+    projects={catalog?.projects ?? []}
+    onOpenProject={(project) => { onSwitchMode("work"); onOpenProject(project); }}
     chats={chats}
     activeChatId={agentChat.activeChat?.id ?? null}
-    onSelectChat={(chatId) => { onLens("chat"); agentChat.selectChat(chatId); }}
+    onSelectChat={(chatId) => {
+      const scope = chats.find((chat) => chat.id === chatId)?.project;
+      const project = scope && catalog?.projects.find((item) => item.workspaceId === scope.workspaceId && item.projectId === scope.projectId);
+      onSwitchMode("work");
+      if (project) onRestoreProject(project);
+      else if (scope && scope.workspaceId !== workspaceId) onOpenWorkspace(scope.workspaceId);
+      onLens("chat");
+      agentChat.selectChat(chatId);
+    }}
     onRenameChat={agentChat.renameChat}
     onArchiveChat={agentChat.archiveChat}
-    onNewChat={() => { onLens("chat"); agentChat.newChat(); }}
+    onNewProjectChat={(project) => {
+      onSwitchMode("work"); onRestoreProject(project); onLens("chat");
+      agentChat.newChat({ workspaceId: project.workspaceId, projectId: project.projectId });
+    }}
   />;
 }

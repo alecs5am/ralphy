@@ -19,6 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { libraryCacheDir } from "../paths.js";
+import { filterLibraryBlocks, type LibraryBlockFilter } from "./tags.js";
 import type {
   Block,
   BlockKind,
@@ -158,15 +159,14 @@ export async function getUnit(id: string): Promise<Unit | null> {
 }
 
 /** Blocks, optionally narrowed to one kind. */
-export async function getBlocks(kind?: BlockKind): Promise<Block[]> {
+export async function getBlocks(kind?: BlockKind, filter?: LibraryBlockFilter): Promise<Block[]> {
   const { blocks } = await loadDoc();
-  return kind ? blocks.filter((b) => b.kind === kind) : blocks;
+  return filterLibraryBlocks(kind ? blocks.filter((b) => b.kind === kind) : blocks, filter);
 }
 
 /** A single block by (kind, id), or null if not found. */
 export async function getBlock(kind: BlockKind, id: string): Promise<Block | null> {
-  const { blocks } = await loadDoc();
-  return blocks.find((b) => b.kind === kind && b.id === id) ?? null;
+  return (await getBlocks(kind)).find((b) => b.id === id) ?? null;
 }
 
 /** A single blueprint by its unitId, or null if not found. */

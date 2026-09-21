@@ -67,10 +67,8 @@ const DOCUMENT_RHYTHM = [
   "[&_.markdown-align-center]:text-center [&_.markdown-align-right]:text-right",
 ].join(" ");
 
-/* On a light widget: the documents route's reading pane and the marketplace's detail cards. */
-const DOCUMENT_TONE = [
-  "text-ink leading-document",
-  "[&_h1]:type-xl [&_h2]:type-heading [&_h3]:type-lg",
+const MARKDOWN_SURFACES = [
+  "text-ink",
   "[&_code]:bg-document-plate [&_code]:text-muted",
   "[&_pre]:bg-document-plate [&_th]:bg-document-plate [&_th]:text-ink",
   "[&_details]:bg-document-plate [&_kbd]:bg-document-plate",
@@ -83,12 +81,19 @@ const DOCUMENT_TONE = [
   "[&_input[type=checkbox]]:accent-ink",
 ].join(" ");
 
+/* The documents route's reading pane and the marketplace's detail cards. */
+const DOCUMENT_TONE = [
+  MARKDOWN_SURFACES,
+  "leading-document [&_h1]:type-xl [&_h2]:type-heading [&_h3]:type-lg",
+].join(" ");
+
 /* One turn of a transcript. The same ink and the same plates as a document -- the chat card is a
    card -- and one thing a document does not do: a turn owns its outer air, so its first and last
    block give theirs up. The selector names the root's own class so it reads (0,3,0) and outranks
    the `[&_h1]:mt-0` and `[&_p]:my-*` variants at (0,1,1) rather than racing them in the sheet. */
 const CHAT_TONE = [
-  DOCUMENT_TONE,
+  MARKDOWN_SURFACES,
+  "markdown-chat type-sm leading-row [&_:is(h1,h2,h3,h4,h5,h6)]:type-sm [&_:is(h1,h2,h3,h4,h5,h6)]:font-semibold",
   "[&.markdown-view>:first-child]:mt-0 [&.markdown-view>:last-child]:mb-0",
 ].join(" ");
 
@@ -230,7 +235,7 @@ function inline(tokens: Token[] | undefined, keyPrefix: string, baseUrl?: string
 function blocks(tokens: Token[], keyPrefix = "md", baseUrl?: string, allowUrl?: MarkdownViewProps["allowUrl"]): ReactNode {
   return tokens.map((token, index) => {
     const key = `${keyPrefix}-${index}`;
-    if (token.type === "space") return null;
+    if (token.type === "space" || token.type === "def") return null;
     if (token.type === "heading") return createElement(`h${token.depth}`, { key }, inline(token.tokens, key, baseUrl, allowUrl));
     if (token.type === "paragraph") return <p key={key}>{inline(token.tokens, key, baseUrl, allowUrl)}</p>;
     if (token.type === "text") return token.tokens ? <p key={key}>{inline(token.tokens, key, baseUrl, allowUrl)}</p> : <Fragment key={key}>{token.text}</Fragment>;

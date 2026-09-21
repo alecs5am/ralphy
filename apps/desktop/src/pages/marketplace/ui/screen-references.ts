@@ -23,8 +23,8 @@ export function modelReference(itemId: string) {
 }
 
 export function publicItemReference(itemId: string) {
-  const match = /^(template|recipe):([A-Za-z0-9][A-Za-z0-9._-]{0,127})$/.exec(itemId);
-  return match ? { category: match[1] as "template" | "recipe", id: match[2]! } : null;
+  const match = /^(template|recipe|asset):([A-Za-z0-9][A-Za-z0-9._-]{0,127})$/.exec(itemId);
+  return match ? { category: match[1] as "template" | "recipe" | "asset", id: match[2]! } : null;
 }
 
 /* Item keys are the detail route's id, so a bundled row is addressed by the

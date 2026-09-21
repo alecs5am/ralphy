@@ -63,8 +63,8 @@
   --spacing-shared-workflow-archive-height: 620px;
 
   /* Tile proportions: the card frame and the skeleton that stands in for it. */
-  --aspect-shared-tile: 16 / 10;
-  --aspect-shared-skeleton: 4 / 5;
+  --aspect-shared-tile: var(--content-aspect);
+  --aspect-shared-skeleton: var(--content-aspect);
 
   /* The font specimen: these two sizes are the content being previewed, not UI type. */
   --type-specimen: 40px;

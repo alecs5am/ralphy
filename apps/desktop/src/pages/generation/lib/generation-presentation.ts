@@ -72,19 +72,3 @@ export function generationCost(run?: CanvasRun): number | null {
   const costs = run.nodes.flatMap((node) => typeof node.estimatedCostUsd === "number" && Number.isFinite(node.estimatedCostUsd) && node.estimatedCostUsd >= 0 ? [node.estimatedCostUsd] : []);
   return costs.length ? costs.reduce((total, cost) => total + cost, 0) : null;
 }
-
-export const STARTERS: Record<GenerationKind, { title: string; caption: string; prompt: string }[]> = {
-  image: [
-    { title: "Light studies", caption: "Editorial · soft light", prompt: "An architectural still life of folded ivory paper and a translucent amber glass sphere. Warm side light, sculptural shadows, tactile paper grain, pale grey backdrop. Quiet editorial photography, no text." },
-    { title: "Other worlds", caption: "Landscape · atmosphere", prompt: "An impossible terraced landscape carved from indigo paper, a tiny copper sun above the horizon. Layers of mist, elegant negative space, fine material texture. Wide cinematic composition, no text." },
-    { title: "Object stories", caption: "Product · material", prompt: "A single cobalt ceramic vessel on brushed aluminium, a ribbon of water suspended above it. Crisp studio lighting, expressive reflections, restrained product photography, no logos or text." },
-  ],
-  video: [
-    { title: "Slow reveal", caption: "Camera · movement", prompt: "A slow cinematic dolly toward a sculptural ivory building at sunrise. Soft shadows move across the facade, fine dust catches the light, smooth continuous camera motion. No cuts, no text." },
-    { title: "Material motion", caption: "Macro · texture", prompt: "Macro shot of liquid chrome folding slowly into a smooth sphere on a dark surface. Precise reflections, shallow depth of field, subtle camera orbit. Continuous seamless movement." },
-    { title: "A living scene", caption: "Nature · atmosphere", prompt: "A quiet mountain lake at blue hour. Wisps of fog drift across still water while the camera gently pushes forward. Natural subtle motion, cinematic light, no text." },
-  ],
-  voiceover: [{ title: "A story begins", caption: "Voice · narration", prompt: "Some ideas arrive quietly. A shape, a colour, a moment you can't quite forget. Give them a little room, and see where they take you." }],
-  music: [{ title: "After hours", caption: "Music · atmosphere", prompt: "Warm minimal electronic instrumental, soft analogue pads, a gentle broken beat and intimate piano textures. Calm, curious, quietly optimistic. A slow build with a clean ending." }],
-  sfx: [{ title: "Small details", caption: "Sound · texture", prompt: "A smooth futuristic interface opening: a soft tactile click, a short airy rising shimmer, then a gentle glass-like resolve. Clean isolated sound, no voices or background music." }],
-};

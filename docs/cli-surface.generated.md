@@ -1147,6 +1147,7 @@ Examples:
   ralphy library units show animated-fb-ad
   ralphy library templates list
   ralphy library recipes show noir-grade
+  ralphy library recipes list --tag ffmpeg --query dither
   ralphy library blueprints list
   ralphy library blueprints show choose-magicschool
   ralphy library formats list

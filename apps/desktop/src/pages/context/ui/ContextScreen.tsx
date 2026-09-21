@@ -14,7 +14,7 @@ import type {
 } from "../../../../electron/agent/context-page";
 import type { ContextFileDto } from "../../../../electron/agent/context-document";
 import type { AgentChatUsage } from "@/features/agent-chat";
-import { bridge, type AgentProvider, type ProjectSummary } from "@/shared/api/ipc";
+import { bridge, type AgentPermissionMode, type AgentProvider, type ProjectSummary } from "@/shared/api/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
 import { EMPTY_SECTION, PROJECT_LOCAL_ERROR, PROJECT_SKELETON } from "@/shared/ui/route-chrome";
 import { ContextUsage } from "./ContextUsage";
@@ -207,8 +207,9 @@ function Reader({ file, onRead, onClose }: {
   </Dialog.Root>;
 }
 
-export function ContextScreen({ provider, project, workspaceId, usage, onOpenMemory }: {
+export function ContextScreen({ provider, permissionMode = "plan", project, workspaceId, usage, onOpenMemory }: {
   provider: AgentProvider;
+  permissionMode?: AgentPermissionMode;
   project: ProjectSummary | null;
   workspaceId: string | null;
   usage: AgentChatUsage | null;
@@ -238,6 +239,7 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
        stale inventory is worse on this page than anywhere else in the app. */
     void bridge.loadAgentContext({
       provider,
+      permissionMode,
       workspaceId,
       project: project ? { workspaceId: project.workspaceId, projectId: project.projectId } : null,
     })
@@ -247,7 +249,7 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
       });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a project is its two ids
-  }, [provider, workspaceId, projectId, refresh]);
+  }, [provider, permissionMode, workspaceId, projectId, refresh]);
 
   /* One loader for both surfaces: a row's action and a name inside the prompt open the same
      reader, so a place that cannot be read says so in one voice. */

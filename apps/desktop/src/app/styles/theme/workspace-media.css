@@ -2,6 +2,12 @@
    asset modal, the asset context menu and the three shared media players.
    Imported from tailwind.css and nowhere else. */
 
+/* Media keeps its whole tile. Names stay available for focus and touch, without a caption row. */
+@media (hover: hover) and (pointer: fine) {
+  .media-caption-surface .media-hover-caption { opacity: 0; }
+  .media-caption-surface:is(:hover, :focus-within) .media-hover-caption { opacity: 1; }
+}
+
 @theme inline {
   /* A black widget keeps the on-dark family in both themes: the light-theme hover surface turns
      white, and --control-focus resolves to black-on-black there. */
@@ -51,6 +57,7 @@
 /* `grid-template-columns` is not a Tailwind namespace, so a template is a plain custom property
    read back with `grid-cols-(--name)`. */
 :root {
+  --workspace-unit-filter-columns: minmax(0, min(40%, 200px)) minmax(0, 1fr);
   --workspace-unit-gallery-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
   /* The asset modal: the stage, then an inspector that never collapses below a readable measure. */
   --asset-modal-columns: minmax(0, 1fr) clamp(300px, 22vw, 360px);

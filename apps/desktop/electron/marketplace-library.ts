@@ -3,6 +3,7 @@ import { lstat, open } from "node:fs/promises";
 import { parseDocument } from "htmlparser2";
 import { assertTrustedSender, toIpcResult } from "./ipc-security";
 import { guardedAtomicWrite } from "./media/atomic-write";
+import { marketplaceTags } from "../shared/marketplace-tags";
 import {
   MEDIA_CHANNELS,
   type MarketplaceJsonValue,
@@ -190,7 +191,8 @@ export function projectMarketplacePublicDocument(value: unknown): MarketplacePub
   for (const rawBlock of source.blocks) {
     const block = boundedRecord(rawBlock);
     if (!block) throw new Error("Invalid Marketplace catalog block");
-    if (block.kind !== "template" && block.kind !== "recipe") continue;
+    if (block.kind !== "template" && block.kind !== "recipe"
+      && !(block.kind === "asset" && (block.sub === "music" || block.sub === "audio" || block.sub === "sfx"))) continue;
     const id = typeof block.id === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(block.id)
       ? block.id
       : null;
@@ -209,6 +211,7 @@ export function projectMarketplacePublicDocument(value: unknown): MarketplacePub
       summary,
       referenceUrls,
       recipe: block.kind === "recipe" ? projectRecipe(block) : null,
+      tags: marketplaceTags([...(Array.isArray(block.tags) ? block.tags : []), block.format, block.sub, block.recipeKind]),
     });
     if (items.length > MAX_ITEMS) throw new Error("Marketplace catalog has too many items");
   }
@@ -325,22 +328,23 @@ function strictCachedSnapshot(value: unknown): MarketplacePublicSnapshotDto {
   const ids = new Set<string>();
   const items = snapshot.items.map((value): MarketplacePublicItemDto => {
     const item = boundedRecord(value);
-    if (!item || !exactKeys(item, ["id", "category", "name", "summary", "referenceUrls", "recipe"])) {
+    if (!item || !exactKeys(item, ["id", "category", "name", "summary", "referenceUrls", "recipe", ...("tags" in item ? ["tags"] : [])])) {
       throw new Error("Invalid Marketplace cache item");
     }
     if (
       typeof item.id !== "string"
       || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(item.id)
       || ids.has(item.id)
-      || (item.category !== "template" && item.category !== "recipe")
+      || (item.category !== "template" && item.category !== "recipe" && item.category !== "asset")
       || sanitizeMarketplaceProse(item.name, 160) !== item.name
       || sanitizeMarketplaceProse(item.summary, 2_048) !== item.summary
       || !Array.isArray(item.referenceUrls)
       || item.referenceUrls.length > 8
       || item.referenceUrls.some((url) => validateMarketplaceAssetUrl(url) !== url)
+      || ("tags" in item && (!Array.isArray(item.tags) || JSON.stringify(marketplaceTags(item.tags)) !== JSON.stringify(item.tags)))
     ) throw new Error("Invalid Marketplace cache item");
     const recipe = strictRecipe(item.recipe);
-    if (recipe === undefined || (item.category === "template" ? recipe !== null : recipe === null)) {
+    if (recipe === undefined || (item.category === "recipe" ? recipe === null : recipe !== null)) {
       throw new Error("Invalid Marketplace cache recipe");
     }
     ids.add(item.id);
@@ -351,6 +355,7 @@ function strictCachedSnapshot(value: unknown): MarketplacePublicSnapshotDto {
       summary: item.summary as string,
       referenceUrls: item.referenceUrls as string[],
       recipe,
+      ...(Array.isArray(item.tags) ? { tags: item.tags as string[] } : {}),
     };
   });
   return {

@@ -238,9 +238,12 @@ describe("Calendar screen", () => {
       await act(async () => click(button(host.container, "Agenda")));
       expect(host.container.textContent).toContain("Needs attention");
       await act(async () => click(button(host.container, "Filters")));
+      expect(button(host.container, "Autumn drop").getAttribute("aria-pressed")).toBe("false");
       await act(async () => click(button(host.container, "Autumn drop")));
+      expect(button(host.container, "Autumn drop").getAttribute("aria-pressed")).toBe("true");
       expect(button(host.container, "Clear all")).toBeTruthy();
       await act(async () => click(button(host.container, "Clear all")));
+      expect(button(host.container, "Autumn drop").getAttribute("aria-pressed")).toBe("false");
       expect([...host.container.querySelectorAll("button")].some((item) => item.textContent?.includes("Clear all"))).toBe(false);
       await act(async () => { click(button(host.container, "Schedule content")); await Promise.resolve(); });
       expect(document.body.querySelector(".calendar-modal-poster")).toBeTruthy();

@@ -41,6 +41,8 @@ test("canvas library previews represent stored graphs and all five starters", ()
   const item: SavedCanvas = { revision: "abc", path: "/canvas/a.json", canvas: { version: 2, id: "a", name: "Brand direction", nodes: [{ id: "a", kind: "prompt", title: "Brief", value: "", x: -200, y: 40 }, { id: "b", kind: "output", title: "Result", value: "", x: 700, y: 80 }], edges: [{ from: "a", to: "b" }] } };
   const markup = renderToStaticMarkup(<CanvasLibrary workspaceName="Studio" items={[item]} onCreate={() => {}} onSelect={() => {}} onReload={() => {}} />);
   for (const name of ["Blank canvas", "Idea to image", "Image concept", "Video pipeline", "Compare directions"]) expect(markup).toContain(name);
+  expect(markup).toContain("canvas-starters-row");
+  expect(markup).toContain("overflow-x-auto");
   expect(markup).toContain("Brand direction: 2 nodes and 1 connection");
   expect(markup).toContain('x="-200"');
   expect(markup).toContain('x="700"');

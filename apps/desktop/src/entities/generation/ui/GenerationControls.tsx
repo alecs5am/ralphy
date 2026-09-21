@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Minus, Plus } from "@/shared/ui/icons";
 import type { GenerationField } from "../../../../shared/generation-studio";
 import { SelectMenu } from "@/shared/ui/SelectMenu";
+import { RulerSlider } from "@/shared/ui/RulerSlider";
 import { STUDIO_FIELD, STUDIO_LABEL } from "./generation-chrome";
 
 export function GenerationStepper({ label, value, min, max, step = 1, unit, onChange }: {
@@ -57,24 +58,19 @@ function GenerationRuler({ field, value, onChange }: { field: GenerationField; v
   const min = options ? 0 : field.min!, max = options ? options.length - 1 : field.max!, step = options ? 1 : field.step ?? 0.01;
   const raw = value ?? field.default;
   const current = options ? Math.max(0, options.findIndex((item) => item.value === String(raw))) : Number(raw ?? min);
-  const progress = Math.min(1, Math.max(0, (current - min) / (max - min || 1)));
   const percentage = !options && min === 0 && max === 1;
   const duration = field.id === "duration";
   const displayed = raw === undefined ? "—" : percentage ? Math.round(Number(raw) * 100) : String(raw);
   const count = Math.round((max - min) / step);
-  const tickCount = Math.min(24, count);
-  const ticks = !percentage && field.id !== "speed" ? Array.from({ length: tickCount + 1 }, (_, index) => index / tickCount) : [];
+  const tickCount = !percentage && field.id !== "speed" ? Math.min(24, count) : 0;
   const labels = duration ? Array.from({ length: 5 }, (_, index) => {
     const position = Math.round(count * index / 4);
     return options ? options[position]?.label : Number((min + position * step).toFixed(2));
   }) : poles[field.id] ?? (percentage ? ["Less", "More"] : [String(min), String(max)]);
   return <div className="generation-parameter">
     <label className={STUDIO_LABEL} htmlFor={`generation-${field.id}`}>{duration ? "Duration" : field.label}<span className="generation-ruler-value"><strong>{displayed}</strong><small>{percentage ? "%" : duration ? "s" : field.id === "speed" ? "×" : ""}</small></span></label>
-    <div className="generation-ruler" style={{ "--ruler-progress": progress } as CSSProperties}>
-      <span className="generation-ruler-fill" aria-hidden="true" />
-      <span className="generation-ruler-ticks" aria-hidden="true">{ticks.map((position, index) => <i key={index} data-major={index === 0 || index === tickCount || index % Math.max(1, Math.round(tickCount / 4)) === 0} data-filled={position < progress} style={{ left: `${position * 100}%` }} />)}</span>
-      <input id={`generation-${field.id}`} aria-label={field.label} aria-valuetext={`${displayed}${percentage ? " percent" : duration ? " seconds" : field.id === "speed" ? " times" : ""}`} type="range" min={min} max={max} step={step} value={current} onChange={(event) => onChange(options ? options[Number(event.currentTarget.value)]!.value : Number(event.currentTarget.value))} />
-    </div>
+    <RulerSlider id={`generation-${field.id}`} ariaLabel={field.label} ariaValueText={`${displayed}${percentage ? " percent" : duration ? " seconds" : field.id === "speed" ? " times" : ""}`}
+      min={min} max={max} step={step} value={current} tickCount={tickCount} onValueChange={(next) => onChange(options ? options[next]!.value : next)} />
     <span className="generation-ruler-labels" aria-hidden="true">{labels.map((label, index) => <span key={index}>{label}</span>)}</span>
   </div>;
 }

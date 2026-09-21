@@ -34,7 +34,9 @@ function visualAssets(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) return visualAssets(path);
-    return /\.(?:apng|avif|bmp|gif|ico|jpe?g|png|svg|tiff?|webp)$/i.test(entry.name) ? [path] : [];
+    if (path.includes(join("public", "explore", "remocn")) || path.includes(join("public", "explore", "kenney"))) return [];
+    const pinnedVideo = path === join(process.cwd(), "public/explore/studio/baseball-broadcast-example.mp4");
+    return pinnedVideo || /\.(?:apng|avif|bmp|gif|ico|jpe?g|png|svg|tiff?|webp)$/i.test(entry.name) ? [path] : [];
   });
 }
 

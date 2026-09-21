@@ -18,7 +18,7 @@ import { categoryLabels } from "./browse-discover";
 
 
 const marketplaceBaseInstrumentStates = [
-  ["discover", "Marketplace", ["loading", "error", "partial", "ready"]],
+  ["discover", "Creative library", ["loading", "error", "partial", "ready"]],
   ["results", "Search results", ["loading", "error", "partial", "empty", "ready"]],
   ["collection", "Collection", ["loading", "error", "unavailable"]],
 ] as const;
@@ -32,7 +32,7 @@ export const marketplaceInstrumentStates = [
     routeKey: `marketplace.${route}`,
     states,
     rootMarker: `marketplace-${route}`,
-    landmarks: [title, "Marketplace"],
+    landmarks: [title, "Creative library"],
   } as const)),
   marketplaceDetailInstrumentStates,
   ...MARKETPLACE_CATEGORY_ROUTE_VALUES.map((category) => defineInstrumentScreenStates({
@@ -43,7 +43,7 @@ export const marketplaceInstrumentStates = [
       ? ["loading", "error", "partial", "empty", "unavailable", "ready"]
       : ["loading", "error", "partial", "empty", "ready"],
     rootMarker: `marketplace-category-${category}`,
-    landmarks: [categoryLabels[category], "Marketplace"],
+    landmarks: [categoryLabels[category], "Creative library"],
   } as const)),
   marketplaceInstalledInstrumentStates,
   ...MARKETPLACE_LIBRARY_ROUTE_VALUES.filter((section) => section !== "installed").map((section) => defineInstrumentScreenStates({
@@ -56,7 +56,7 @@ export const marketplaceInstrumentStates = [
     routeKey: `marketplace.unavailable-detail.${category}`,
     states: ["unavailable"],
     rootMarker: `marketplace-unavailable-detail-${category}`,
-    landmarks: [categoryLabels[category], "Marketplace"],
+    landmarks: [categoryLabels[category], "Creative library"],
   } as const)),
 ];
 

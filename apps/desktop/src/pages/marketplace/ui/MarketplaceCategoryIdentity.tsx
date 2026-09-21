@@ -1,13 +1,14 @@
-import { Blocks, Bot, Code2, Cpu, LayoutTemplate, MessageSquareText } from "@/shared/ui/icons";
+import { Blocks, Bot, Code2, Cpu, LayoutTemplate, MessageSquareText, Music2 } from "@/shared/ui/icons";
 import type { MarketplaceCategory } from "../model/navigation";
 
 export const categoryIdentity = {
   models: { icon: Cpu, label: "Models", title: "Find your creative engine.", description: "Explore models by medium, runtime and what fits this Mac.", note: "Weights · Runtimes · Local inference", mark: "01", tone: "bg-instrument text-on-instrument" },
   templates: { icon: LayoutTemplate, label: "Templates", title: "Start with a direction.", description: "A considered starting point for your next production.", note: "Structure · References · Starting points", mark: "02", tone: "bg-surface-sunken text-ink" },
-  recipes: { icon: Code2, label: "Recipes", title: "Make the process repeatable.", description: "Practical treatments and reproducible steps for your media.", note: "Inputs · Steps · Artifacts", mark: "03", tone: "bg-instrument text-on-instrument" },
+  recipes: { icon: Code2, label: "Effects", title: "Find a different feel.", description: "Image, video and sound treatments you can use in your work.", note: "Image · Video · Sound", mark: "03", tone: "bg-instrument text-on-instrument" },
   prompts: { icon: MessageSquareText, label: "Prompts", title: "Put the right words to work.", description: "Reusable instructions to give a conversation clear direction.", note: "Instructions · Variables · Examples", mark: "04", tone: "bg-surface-sunken text-ink" },
-  components: { icon: Blocks, label: "Components & Effects", title: "Build a visual language.", description: "Compose with reusable pieces, motion and finishing touches.", note: "Elements · Motion · Effects", mark: "05", tone: "bg-surface-sunken text-ink" },
-  skills: { icon: Bot, label: "Skills", title: "Give your agent a new ability.", description: "Focused knowledge and workflows for the way you create.", note: "Knowledge · Tools · Workflows", mark: "06", tone: "bg-instrument text-on-instrument" },
+  components: { icon: Blocks, label: "Visuals", title: "Build a visual language.", description: "Backgrounds, typography and reusable motion components.", note: "Backgrounds · Type · Motion", mark: "05", tone: "bg-surface-sunken text-ink" },
+  sounds: { icon: Music2, label: "Sounds", title: "Set the tone.", description: "Music and sound for your next production.", note: "Music · Sound · Rhythm", mark: "07", tone: "bg-surface-sunken text-ink" },
+  skills: { icon: Bot, label: "Skills", title: "Find a workflow for your agent.", description: "Browse bundled guides for creative tasks and agent workflows.", note: "Knowledge · Tools · Workflows", mark: "06", tone: "bg-instrument text-on-instrument" },
 } as const;
 
 /* Six editorial marks, not fabricated media previews. They remain recognizable at row size. */
@@ -36,15 +37,7 @@ export function MarketplaceCategoryArtwork({ category, className = "" }: { categ
 
 export function MarketplaceCategoryBanner({ category }: { category: MarketplaceCategory }) {
   const identity = categoryIdentity[category];
-  const Icon = identity.icon;
-  return <header className="marketplace-category-banner mt-3 flex min-w-0 items-center justify-between gap-4 rounded-window bg-panel p-3 text-ink">
-    <div className="flex min-w-0 flex-col gap-1">
-      <span className="flex items-center gap-2 font-mono type-meta uppercase tracking-caps text-muted"><Icon className="size-4" aria-hidden="true" />{identity.label}</span>
-      <h2 className="m-0 text-lg font-normal leading-tight">{identity.title}</h2>
-      <p className="m-0 max-w-xl text-xs leading-copy text-muted">{identity.description}</p>
-    </div>
-    <span className={`w-24 shrink-0 overflow-hidden rounded-frame ${identity.tone} @max-marketplace-column/main-region:hidden`}><MarketplaceCategoryArtwork category={category} className="h-16 w-full" /></span>
-  </header>;
+  return <p className="marketplace-category-banner m-0 px-1 pt-3 text-xs leading-copy text-muted">{identity.description}</p>;
 }
 
 export function MarketplaceCategorySignature({ category }: { category: MarketplaceCategory }) {

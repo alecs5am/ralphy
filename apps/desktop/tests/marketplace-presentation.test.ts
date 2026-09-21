@@ -208,6 +208,7 @@ describe("Marketplace presentation", () => {
       ["recipes", "ready", 0, "ready"],
       ["prompts", "unavailable", null, "unavailable"],
       ["components", "unavailable", null, "unavailable"],
+      ["sounds", "ready", 0, "ready"],
       ["skills", "unavailable", null, "unavailable"],
     ]);
 
@@ -285,7 +286,7 @@ describe("Marketplace presentation", () => {
       model({ id: "Acme/beta", name: "Beta", tags: ["needle"], lastModified: "2026-08-19T00:00:00Z", downloads: 999 }),
     ]);
     const names = (next: MarketplaceQueryState) => presentMarketplaceSources(null, models, next, [], { publicLibrary: "unavailable", models: "ready" }).items.map(({ name }) => name);
-    expect(names(query({ text: "needle" }))).toEqual(["Alpha needle", "Zulu", "Beta"]);
+    expect(names(query({ text: "needle" }))).toEqual(["Alpha needle", "Beta", "Zulu"]);
     expect(names(query({ sort: "name" }))).toEqual(["Alpha needle", "Beta", "Zulu"]);
     expect(names(query({ sort: "updated" }))).toEqual(["Alpha needle", "Beta", "Zulu"]);
     expect(names(query())).toEqual(["Alpha needle", "Beta", "Zulu"]);

@@ -9,14 +9,11 @@ import { Notch, type DynamicIslandFeed, type IslandContext } from "@/widgets/dyn
 import type { AppMode, MarketplaceLocation } from "@/shared/model/routes";
 import type { WorkbenchAction } from "@/shared/model/workbench";
 
-import { InstrumentRightRailShortcut } from "./app-frames";
-
 export function AppIsland({
   feed,
   context,
   projectName,
   mock,
-  onToggleViewPanel,
   onSwitchMode,
   onOpenWorkspace,
   onNavigateMarketplace,
@@ -26,13 +23,12 @@ export function AppIsland({
   context: IslandContext;
   projectName: string | null;
   mock: boolean;
-  onToggleViewPanel(): void;
   onSwitchMode(mode: AppMode): void;
   onOpenWorkspace(workspaceId: string): void;
   onNavigateMarketplace(location: MarketplaceLocation): void;
   dispatch(action: WorkbenchAction): void;
 }) {
-  return <InstrumentRightRailShortcut onToggle={onToggleViewPanel}><Notch
+  return <Notch
     feed={feed}
     context={context}
     projectName={projectName}
@@ -48,5 +44,5 @@ export function AppIsland({
         onNavigateMarketplace(destination);
       }
     }}
-  /></InstrumentRightRailShortcut>;
+  />;
 }

@@ -467,6 +467,7 @@ describe("Desktop bridge domain contract", () => {
       types: ["run-object"],
       mediaKind: "image",
       provenance: "generation",
+      search: "generation", sort: "name",
       limit: 20,
     }, ownerBridge) as { items: Array<Record<string, unknown>> };
     expect(ownerPage.items.map((card) => (card.ref as { id: string }).id))
@@ -544,6 +545,8 @@ describe("Desktop bridge domain contract", () => {
     for (const params of [
       { context: { sessionId: ownerSession.id }, mediaKind: "archive", limit: 20 },
       { context: { sessionId: ownerSession.id }, provenance: "maybe", limit: 20 },
+      { context: { sessionId: ownerSession.id }, search: "x".repeat(257), limit: 20 },
+      { context: { sessionId: ownerSession.id }, sort: "random", limit: 20 },
       { context: { sessionId: ownerSession.id }, limit: 20, extra: true },
     ]) {
       await expect(call("media.list", params, ownerBridge)).rejects.toThrow();
@@ -683,18 +686,18 @@ describe("Desktop bridge domain contract", () => {
         projectId: project.id,
         slug: "hero",
         kind: "image",
-        selectedRevisionId: null,
-        selectedState: null,
-        mime: null,
-        bytes: null,
-        selectedAt: null,
+        selectedRevisionId: revision.id,
+        selectedState: "candidate",
+        mime: "application/octet-stream",
+        bytes: 19,
+        selectedAt: revision.createdAt,
         revisionCount: 1,
-        selectedObjectId: null,
-        storageClass: null,
+        selectedObjectId: object.id,
+        storageClass: "durable",
         usageRoles: [],
-        target: null,
+        target: { type: "object", id: object.id },
         mediaKind: "other",
-        provenance: "unknown",
+        provenance: "generation",
       }],
       nextCursor: null,
     }));
@@ -1516,7 +1519,7 @@ describe("Desktop bridge domain contract", () => {
     addArtifactUsage({ artifactRevisionId: selectedRevision.id, projectId: project.id, role: "cover" });
     addArtifactUsage({ artifactRevisionId: selectedRevision.id, projectId: project.id, role: "reference" });
     const unselected = createArtifact({ projectId: project.id, slug: "unselected", kind: "data" });
-    addArtifactRevision({ artifactId: unselected.id, objectId: rawObject.id, state: "candidate" });
+    const unselectedRevision = addArtifactRevision({ artifactId: unselected.id, objectId: rawObject.id, state: "candidate" });
 
     const run = startRun({ projectId: project.id, kind: "generation" });
     const runPath = path.join(root.dir, ".ralphy", "tmp", "promoted.bin");
@@ -1546,10 +1549,11 @@ describe("Desktop bridge domain contract", () => {
       target: { type: "object", id: selectedObject.id },
     });
     expect(byRef.get(`artifact:${unselected.id}`)).toMatchObject({
-      selectedObjectId: null,
-      storageClass: null,
+      selectedRevisionId: unselectedRevision.id,
+      selectedObjectId: rawObject.id,
+      storageClass: "working",
       usageRoles: [],
-      target: null,
+      target: { type: "object", id: rawObject.id },
     });
     expect(byRef.get(`run-object:${promoted.id}`)).toMatchObject({
       target: { type: "object", id: promoted.objectId },

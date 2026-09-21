@@ -6,6 +6,18 @@ Run the commands below from `apps/desktop`; `bun run check:desktop` at the
 repository root runs the same validation. Keep runtime source imports out of
 the application package.
 
+## Launching the application
+
+Launch from the repository root: `bun run dev` for Electron + Vite hot reload,
+or `bun run start` for a production-style local build. These root commands use
+the pinned Bun runtime, build the current Core binary, and preserve the packaged
+app's `ralphy-media` profile so saved provider keys and Codex/Claude Code state
+are reused. `bun run dev:renderer` is browser fixtures only. Do not run
+`electron .`, Vite, or this package's scripts directly for normal development,
+and do not use the historical sibling checkout `../../ralphy-desktop`. Keep only
+the Electron instance whose app path points to this package; the dev renderer
+must be `http://127.0.0.1:4180`.
+
 ## Validation
 
 Run these before claiming a change is complete. The narrower ones are for

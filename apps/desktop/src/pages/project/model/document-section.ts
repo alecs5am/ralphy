@@ -7,7 +7,7 @@
  * why `loadDocument` takes one.
  */
 import type { JsonValue } from "../../../../electron/ralphy/types";
-import { errorMessage, idleDocument, isConflict, type DocumentDraft, type ProjectScreenController } from "./screen-state";
+import { errorMessage, idleDocument, isConflict, type DocumentDraft, type ProjectScreenController, type ProjectScreenSnapshot } from "./screen-state";
 import type { ProjectScreenSection, ProjectScreenStore } from "./screen-store";
 
 export type DocumentActions = Pick<ProjectScreenController,
@@ -27,11 +27,21 @@ const sameDraft = (left: DocumentDraft, right: DocumentDraft): boolean => (
 );
 
 
-export function createDocumentSection(store: ProjectScreenStore): ProjectScreenSection<DocumentActions> {
+type RetainedDocument = Pick<ProjectScreenSnapshot, "selectedDocument" | "documentPreview" | "documentDraft" | "documentConflict" | "documentConflictReview"> & { base: DocumentDraft | null };
+// Only dirty edits survive route unmounts. Root epoch + workspace + project prevents cross-store reuse.
+const retainedDocuments = new Map<string, RetainedDocument>();
+
+export function createDocumentSection(store: ProjectScreenStore, draftKey?: string): ProjectScreenSection<DocumentActions> {
   let documentRequest = 0;
   let searchRequest = 0;
   let saveRequest = 0;
-  let documentDraftBase: DocumentDraft | null = null;
+  const retained = draftKey ? retainedDocuments.get(draftKey) : undefined;
+  let documentDraftBase: DocumentDraft | null = retained?.base ?? null;
+  if (retained) {
+    const { base: _, ...document } = retained;
+    store.patch({ ...document, activeTab: "documents", documentDirty: true, documentMode: "edit" });
+    retainedDocuments.delete(draftKey!);
+  }
 
   const loadDocument = async (documentId: string, retainedDraft: DocumentDraft | null = null, conflict: string | null = null, conflictReview = false) => {
     const requestId = ++documentRequest;
@@ -224,6 +234,7 @@ export function createDocumentSection(store: ProjectScreenStore): ProjectScreenS
           ...(draft.title === null ? {} : { title: draft.title }),
           body: revisionBody(draft.format, draft.body),
         });
+        if (draftKey && retainedDocuments.get(draftKey)?.documentDraft === draft) retainedDocuments.delete(draftKey);
         if (saveRequest !== requestId || store.snapshot.selectedDocument?.id !== document.id) return;
         const selectedDocument = { ...document, title: revision.title ?? document.title, currentRevisionId: revision.id, currentRevision: revision };
         const domain = store.snapshot.domain;
@@ -244,6 +255,8 @@ export function createDocumentSection(store: ProjectScreenStore): ProjectScreenS
   return {
     actions,
     dispose() {
+      const { documentDirty, selectedDocument, documentPreview, documentDraft, documentConflict, documentConflictReview } = store.snapshot;
+      if (draftKey && documentDirty && documentDraft) retainedDocuments.set(draftKey, { selectedDocument, documentPreview, documentDraft, documentConflict, documentConflictReview, base: documentDraftBase });
       documentRequest += 1;
       searchRequest += 1;
       saveRequest += 1;
