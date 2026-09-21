@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, test } from "vitest";
-import { isVerifiedMediaSource } from "../scripts/instrument-media-sources.mjs";
+import { isExportedComposition, isVerifiedMediaSource } from "../scripts/instrument-media-sources.mjs";
 import {
   INSTRUMENT_COLOR_ALLOWLIST,
   INSTRUMENT_PALETTE,
@@ -28,6 +28,10 @@ function authoredColorIssues(): string[] {
     const source = readFileSync(path, "utf8");
     if (projectPath.includes("studio-catalog-remocn-")) return [];
     if (isVerifiedMediaSource(projectPath, source)) return [];
+    /* A ported Remocn scene carries its component's own upstream colours; that is the port. The
+       same path exemption the marketplace paint audit takes, so the two cannot disagree about
+       which files are compositions and which are app surfaces. */
+    if (isExportedComposition(projectPath)) return [];
     if (projectPath === "src/shared/instrument/palette.ts") return auditPaletteSource(source, INSTRUMENT_COLOR_ALLOWLIST, INSTRUMENT_PALETTE, projectPath);
     if (projectPath === "src/app/styles/tokens.css") return auditTokenCss(source, INSTRUMENT_COLOR_ALLOWLIST, INSTRUMENT_PALETTE, projectPath);
     return projectPath.endsWith(".css") ? auditCss(source, projectPath) : auditTypeScript(source, projectPath);
