@@ -87,7 +87,14 @@ export function SettingsScreen({
   onBack(): void;
   onOpenWorkspaceSettings?(page: "memory" | "context"): void;
 }) {
-  const [page, setPage] = useState(() => entryPage ?? readLastPage());
+  /* The entry page is checked against the same list the stored one is, rather than trusted for
+     being non-nullish. Every page read below indexes `SETTINGS_PAGES` and reads a field off the
+     result, so an id that is not one throws during render and takes the whole app's tree with it
+     -- which is what a caller handing `onClick` the handler by reference, and so handing this the
+     click event, actually did. An unknown entry page is the same state as no entry page. */
+  const [page, setPage] = useState(() => (
+    SETTINGS_PAGE_IDS.includes(entryPage as SettingsPageId) ? entryPage as SettingsPageId : readLastPage()
+  ));
   const [detail, setDetail] = useState<SettingsDetail | null>(null);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);

@@ -10,6 +10,7 @@ import { describe, expect, test } from "vitest";
 
 import { SettingsScreen } from "@/pages/settings";
 import { Segmented } from "@/pages/settings";
+import { ContextSidebar } from "@/widgets/sidebar";
 import type { ThemePreference } from "@/shared/instrument/types";
 import { createReactHost, type HostNode } from "./react-host";
 import { builtStylesheetLink } from "./style-sources";
@@ -141,6 +142,83 @@ describe("instrument settings theme", () => {
       await act(async () => render("dark"));
       expect(button(host.container, "Dark").getAttribute("aria-pressed")).toBe("true");
       expect(button(host.container, "Light").getAttribute("aria-pressed")).toBe("false");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+});
+
+/* Opening settings is one decision taken from two places, and the two used to disagree. The
+   expanded sidebar wrote `onClick={() => onOpenSettings()}` and the folded rail wrote
+   `onClick={onOpenSettings}`; React hands the second one the click event, and the app's
+   `openSettings` reads its first argument as the page to land on. Both halves are pinned here:
+   the caller passes nothing, and the screen refuses anything that is not a page. */
+describe("settings entry", () => {
+  test("opens settings with no page from the folded rail, exactly as the expanded sidebar does", async () => {
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const calls: unknown[][] = [];
+    const sidebar = (collapsed: boolean) => (
+      <ContextSidebar
+        collapsed={collapsed}
+        mode="work"
+        lens="desk"
+        route={{ kind: "library" }}
+        page="overview"
+        pageActive={false}
+        rootPath={null}
+        workspaces={[]}
+        workspaceId={null}
+        pinnedWorkspaceIds={[]}
+        canGoBack={false}
+        canGoForward={false}
+        onBack={() => undefined}
+        onForward={() => undefined}
+        onToggleSidebar={() => undefined}
+        onOpenSettings={(...args: unknown[]) => { calls.push(args); }}
+        onSwitchMode={() => undefined}
+        onOpenMarketplaceRoute={() => undefined}
+        onOpenWorkspace={() => undefined}
+        onOpenPage={() => undefined}
+      />
+    );
+
+    try {
+      for (const collapsed of [true, false]) {
+        await act(async () => root.render(sidebar(collapsed)));
+        // An icon button carries its name in `aria-label`, not in its text.
+        const control = host.container.querySelectorAll("button")
+          .find((candidate) => candidate.getAttribute("aria-label") === "Open settings");
+        expect(control, `settings control while ${collapsed ? "folded" : "expanded"}`).toBeDefined();
+        await act(async () => control!.dispatchEvent(new Event("click", { bubbles: true })));
+      }
+      expect(calls).toEqual([[], []]);
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("falls back to the stored page when the entry page is not a settings page", async () => {
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      // A click event is what a bare `onClick={onOpenSettings}` actually delivers. Every page read
+      // indexes SETTINGS_PAGES and takes a field off the result, so an unknown id threw during
+      // render and took the whole tree with it: the operator saw a black window, not a settings
+      // screen that had lost its place.
+      await act(async () => root.render(
+        <SettingsScreen
+          rootPath="/tmp/ux-testing-lab"
+          theme="dark"
+          entryPage={{ type: "click", bubbles: true } as never}
+          onThemeChange={() => undefined}
+          onBack={() => undefined}
+        />,
+      ));
+      expect(button(host.container, "Back to app")).toBeDefined();
+      expect(host.container.textContent).toContain("General");
     } finally {
       await act(async () => root.unmount());
       host.restore();

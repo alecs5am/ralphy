@@ -37,7 +37,13 @@ export interface SidebarRailProps {
   onSwitchMode(mode: AppMode): void;
   onOpenPage(page: WorkspacePage): void;
   onOpenWorkspace(workspaceId: string): void;
-  onOpenSettings(): void;
+  /* `page?: undefined` rather than no parameter at all, and it is not a typo. The app's own
+     handler is `(page?: SettingsPageId) => void` and still fits this slot, but a parameter typed
+     `undefined` refuses a React event, so `onClick={onOpenSettings}` stops compiling: TypeScript
+     accepts a zero-argument function wherever an event handler belongs, which is exactly how the
+     folded rail came to hand the click event to the app as the settings page to land on. The
+     widget cannot name `SettingsPageId` -- that type lives in a layer above it. */
+  onOpenSettings(page?: undefined): void;
 }
 
 export function SidebarRail({
@@ -111,7 +117,9 @@ export function SidebarRail({
           type="button"
           title="Settings"
           aria-label="Open settings"
-          onClick={onOpenSettings}
+          /* Called with no argument, never by reference: the app's `openSettings` takes an
+             optional settings page, and React would hand it the click event instead. */
+          onClick={() => onOpenSettings()}
         ><Settings size={16} strokeWidth={1.8} aria-hidden="true" /></button>
         {workspaceId && <WorkspacePicker variant="avatar" value={workspaceId} workspaces={[...workspaces]} onValueChange={onOpenWorkspace} onOpenOverview={() => onOpenPage("overview")} />}
       </footer>
