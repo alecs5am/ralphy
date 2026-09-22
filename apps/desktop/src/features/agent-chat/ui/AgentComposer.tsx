@@ -10,14 +10,13 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { X } from "@/shared/ui/icons";
 import {
-  ATTACHMENT_KINDS,
   RALPHY_ENTITY_DRAG,
   readEntityDrop,
   readFileDrop,
   type Attachment,
 } from "../lib/attachments";
+import { AgentAttachments } from "./AgentAttachments";
 import { bridge } from "@/shared/api/ipc";
 import type { ProjectSummary, WorkspaceSummary } from "@/shared/api/ipc";
 
@@ -273,27 +272,7 @@ export function AgentComposer({
     onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropping(false); }}
     onDrop={onDrop}
   >
-    {attachments.length > 0 && <div className="agent-attachments flex flex-wrap gap-1.5" aria-label="Attachments">
-      {attachments.map((attachment, index) => {
-        const Icon = ATTACHMENT_KINDS[attachment.kind].icon;
-        return <span
-          className="agent-attachment inline-flex h-7 max-w-full items-center gap-1.75 rounded-full bg-chat-control pr-1 pl-2.5 type-sm text-ink"
-          key={`${attachment.kind}:${attachment.ref}`}
-        >
-          <Icon size={12} strokeWidth={1.9} className="flex-none text-secondary" aria-hidden="true" />
-          <span className="min-w-0 truncate">{attachment.label}</span>
-          <span className="flex-none font-code type-mono-xs tracking-mono text-secondary">{ATTACHMENT_KINDS[attachment.kind].label}</span>
-          <button
-            className="grid size-5 flex-none place-items-center rounded-full text-secondary hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-            type="button"
-            aria-label={`Remove ${attachment.label}`}
-            onClick={() => onDetach(index)}
-          >
-            <X size={11} strokeWidth={2} aria-hidden="true" />
-          </button>
-        </span>;
-      })}
-    </div>}
+    <AgentAttachments attachments={attachments} onDetach={onDetach} />
     <div className="relative min-h-11">
       <div
         ref={field}

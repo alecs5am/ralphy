@@ -23,6 +23,14 @@ export interface Attachment {
   label: string;
   /** Trusted app-generated context; never accepted from drag payloads. */
   instructions?: string;
+  /**
+   * A local URL the chip can draw the file with. Same rule as `instructions`: this side of the
+   * app makes it, a drag payload never supplies it -- a dropped payload naming a remote URL would
+   * turn the composer into a beacon for whoever wrote the payload.
+   *
+   * It is an object URL, so whoever owns the list revokes it when the chip goes.
+   */
+  preview?: string;
 }
 
 /* The glyph and the word each kind is printed with. There is no colour here on purpose: colour is
@@ -93,12 +101,31 @@ export function readEntityDrop(transfer: DropLike): Attachment[] {
   }
 }
 
-/** A drop from Finder: one attachment per file, named by its path when the host can resolve one. */
-export function readFileDrop(files: readonly { name: string }[], pathFor: (file: unknown) => string | null): Attachment[] {
+/**
+ * A drop from Finder: one attachment per file, named by its path when the host can resolve one.
+ *
+ * A picture or a clip also gets a thumbnail. Dropping four stills into the chat and reading four
+ * filenames back is not an answer to "is this the right one" -- and the file is already in the
+ * renderer's hands, so the preview costs one object URL and no round trip.
+ */
+export function readFileDrop(files: readonly { name: string; type?: string }[], pathFor: (file: unknown) => string | null): Attachment[] {
   return files.map((file) => {
     const path = pathFor(file);
-    return { kind: "file" as const, ref: path ?? file.name, label: file.name };
+    return { kind: "file" as const, ref: path ?? file.name, label: file.name, preview: previewUrl(file) };
   });
+}
+
+/** Only what a chip can actually draw, and only where the host has the API to draw it with. */
+function previewUrl(file: { type?: string }): string | undefined {
+  if (!file.type?.startsWith("image/") && !file.type?.startsWith("video/")) return undefined;
+  if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") return undefined;
+  try { return URL.createObjectURL(file as unknown as Blob); } catch { return undefined; }
+}
+
+/** The other half of `previewUrl`: a chip that leaves the strip takes its object URL with it. */
+export function releaseAttachments(attachments: readonly Attachment[]): void {
+  if (typeof URL === "undefined" || typeof URL.revokeObjectURL !== "function") return;
+  for (const { preview } of attachments) if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
 }
 
 /** An attachment already on the strip is not added twice: the strip is a set of places. */

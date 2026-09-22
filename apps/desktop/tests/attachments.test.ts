@@ -6,6 +6,7 @@ import {
   RALPHY_ENTITY_DRAG,
   readEntityDrop,
   readFileDrop,
+  releaseAttachments,
   withAttachments,
   type Attachment,
 } from "@/features/agent-chat";
@@ -45,6 +46,23 @@ describe("chat attachments", () => {
       { kind: "file", ref: "/Users/ada/cut.mp4", label: "cut.mp4" },
     ]);
     expect(readFileDrop(files, () => null)[0]).toEqual({ kind: "file", ref: "poster.png", label: "poster.png" });
+  });
+
+  test("a dropped picture carries its own thumbnail, and a payload never supplies one", () => {
+    const urls: string[] = [];
+    const objectUrl = vi.spyOn(URL, "createObjectURL").mockImplementation(() => { urls.push(`blob:preview-${urls.length}`); return urls.at(-1)!; });
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+    try {
+      const dropped = readFileDrop([{ name: "poster.png", type: "image/png" }, { name: "cut.mp4", type: "video/mp4" }, { name: "brief.md", type: "text/markdown" }], () => null);
+      expect(dropped.map((item) => item.preview)).toEqual(["blob:preview-0", "blob:preview-1", undefined]);
+      releaseAttachments(dropped);
+      expect(revoke.mock.calls.flat()).toEqual(["blob:preview-0", "blob:preview-1"]);
+
+      /* The field is trusted context, like `instructions`: a payload that could name a URL would
+         make the composer fetch whatever whoever wrote the payload chose. */
+      const payload = JSON.stringify({ kind: "media", ref: "hero", label: "hero", preview: "https://tracker.example/pixel.gif" });
+      expect(readEntityDrop(transfer({ [RALPHY_ENTITY_DRAG]: payload }))[0]?.preview).toBeUndefined();
+    } finally { objectUrl.mockRestore(); revoke.mockRestore(); }
   });
 
   test("the strip is a set of places", () => {

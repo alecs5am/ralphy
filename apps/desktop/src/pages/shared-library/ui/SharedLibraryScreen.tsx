@@ -11,6 +11,7 @@ import {
   type SharedLibrarySnapshot,
 } from "../model/controller";
 import { SharedArtifactPreview } from "./SharedArtifactPreview";
+import { entityDragProps } from "@/features/agent-chat";
 import { SharedArtifactInspector } from "./SharedArtifactInspector";
 import { SharedArtifactViewer } from "./SharedArtifactViewer";
 import { SharedLibraryToolbar } from "./SharedLibraryToolbar";
@@ -137,7 +138,11 @@ function SharedArtifactCard({ artifact, selected, workspaceId, rootEpoch, resolv
   onSelect(origin: HTMLButtonElement): void;
   onViewer(origin: HTMLElement): void;
 }) {
+  /* A shared artifact is media the operator can see, so it is media the operator can drag into
+     the chat -- the project grid has carried this since the strip existed, and a library card
+     that refuses the same gesture reads as a bug rather than as a boundary. */
   return <article
+    {...entityDragProps({ kind: "media", ref: artifact.slug, label: artifact.slug })}
     className={`shared-artifact-card min-w-0 text-ink ${WINDOW}${selected ? " is-selected bg-chip" : ""}`}
   >
     <div className={`shared-artifact-frame relative grid aspect-content min-h-0 w-full place-items-center ${WINDOW_PLATE} transition-shadow duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0 ${CARD_MEDIA} ${selected ? "inset-ring-2 inset-ring-on-instrument" : ""}`}>
