@@ -10,8 +10,6 @@
 .explore-sound-pack { grid-template-columns: 72px minmax(0, 1fr); min-height: 72px; }
 .explore-sound-pack-cover { min-width: 0; }
 .explore-sound-pack-cover img { width: 100%; height: 100%; object-fit: cover; }
-.explore-sound-player { position: sticky; top: 0; z-index: var(--z-sticky); display: flex; min-width: 0; align-items: center; gap: 10px; margin-bottom: 4px; padding: 8px 10px; border-radius: var(--radius-md); background: var(--instrument-widget-light); color: var(--instrument-text-primary); }
-.explore-sound-player-volume { width: 88px; padding-inline: 7px; }
 .explore-sound-row {
   display: grid;
   grid-template-columns: var(--explore-sound-row-columns);

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, AudioLines, MessageCircle, Music2, Package, Pause, Play, Repeat, Volume2, VolumeX, Waves } from "@/shared/ui/icons";
+import { ArrowLeft, AudioLines, MessageCircle, Music2, Package, Pause, Play, Repeat, Waves } from "@/shared/ui/icons";
 import { IconButton } from "@/shared/ui/IconButton";
 import { SegmentedControl } from "@/shared/ui/SegmentedControl";
-import { SnappySlider } from "@/shared/ui/SnappySlider";
+import { PlayerBar } from "@/shared/ui/PlayerBar";
 import { WINDOW_PLATE } from "@/shared/ui/Window";
 import type { MarketplaceItemPresentation } from "../lib/presentation";
 import { marketplaceItemDomId } from "./MarketplaceBrowse";
@@ -136,17 +136,9 @@ export function MarketplaceSounds({ items, archivedKeys = [], showFilters = true
       onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}
       onError={() => { if (src && selected) { setPlaying(false); setError(true); onUnavailable?.(selected); } }}
     />
-    {selected && <aside className="explore-sound-player" aria-label="Now playing">
-      <IconButton className="size-7 rounded-control hover:bg-surface-hover" label={`${playing ? "Pause" : "Play"} current sound ${selected.name}`} disabled={error} onClick={toggle}>
-        {playing ? <Pause className="size-4" aria-hidden="true" /> : <Play className="size-4" aria-hidden="true" />}
-      </IconButton>
-      <span className="min-w-0 flex-1 truncate type-sm font-medium">{selected.name}</span>
-      <span className="type-xs tabular-nums text-muted">{audioTime(position)} / {duration ? audioTime(duration) : "—"}</span>
-      <IconButton className="size-7 rounded-control hover:bg-surface-hover" label={`${volume ? "Mute" : "Unmute"} ${selected.name}`} onClick={() => changeVolume(volume ? 0 : 1)}>
-        {volume ? <Volume2 className="size-4" aria-hidden="true" /> : <VolumeX className="size-4" aria-hidden="true" />}
-      </IconButton>
-      <div className="explore-sound-player-volume"><SnappySlider min={0} max={1} step={0.05} value={volume} ariaLabel={`Volume for ${selected.name}`} onValueChange={changeVolume} /></div>
-    </aside>}
+    {selected && src && <PlayerBar src={src} name={selected.name} meta={itemPack(selected)?.name ?? selected.tags.join(" · ")} error={error}
+      playing={playing} position={position} duration={duration} volume={volume}
+      onToggle={toggle} onSeek={seek} onVolumeChange={changeVolume} onClose={() => setSelectedKey(null)} />}
     {listed.length > 0 && <ol className="explore-sound-list m-0 flex list-none flex-col gap-1 p-0" aria-label={packMode && !activePack ? "Popular sounds" : "Sounds"}>
       {listed.map((item) => {
         const preview = marketplacePreview(item);

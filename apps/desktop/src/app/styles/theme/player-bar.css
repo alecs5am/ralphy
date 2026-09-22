@@ -1,0 +1,31 @@
+/* The docked transport. It is absolute inside the desk column, which is the box that already
+   spans the content and nothing else, so the bar never reaches under the sidebar or the chat and
+   never moves while the list scrolls behind it.
+
+   The inset and the radius are the point of the shape: a bar welded to the window's edges reads
+   as part of the frame, and this one is a thing sitting on the page. */
+.player-bar {
+  position: absolute;
+  inset-inline: 12px;
+  bottom: 12px;
+  z-index: var(--z-sticky);
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius-lg);
+  background: var(--instrument-widget-light);
+  color: var(--instrument-text-primary);
+  /* The system separates with surface or air, not with lines. A bar that floats over a
+     scrolling list is the one case where air alone is not enough to say which is on top, so it
+     takes the same lift the project sheet's floating dock takes. */
+  box-shadow: 0 4px 24px color-mix(in srgb, var(--instrument-text-primary) 12%, transparent);
+}
+.player-bar-identity { flex: 0 1 200px; }
+.player-bar > .waveform-track { flex: 1 1 auto; }
+.player-bar-clock { flex: none; white-space: nowrap; }
+.player-bar-toggle { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--radius-control); background: var(--instrument-widget-light-sunken); }
+.player-bar-control { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--radius-control); }
+.player-bar-control:hover, .player-bar-toggle:not(:disabled):hover { background: var(--instrument-widget-light-hover); }
+.player-bar-volume { flex: none; width: 88px; padding-inline: 7px; }

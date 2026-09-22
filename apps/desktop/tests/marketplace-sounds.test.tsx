@@ -371,3 +371,21 @@ test("metadata preflight archives broken idle sounds without rejecting playable 
     expect(probes).toHaveLength(2);
   } finally { await act(async () => root.unmount()); vi.unstubAllGlobals(); vi.restoreAllMocks(); host.restore(); }
 });
+
+test("the transport is the docked bar, and closing it stops the sound", async () => {
+  const host = createReactHost();
+  const root = createRoot(host.container as unknown as Element);
+  const button = (label: string) => host.container.querySelectorAll("button").find((node) => node.getAttribute("aria-label") === label);
+  const click = async (label: string) => act(async () => button(label)!.dispatchEvent(new Event("click", { bubbles: true })));
+  try {
+    await act(async () => root.render(<MarketplaceSounds items={[sound("Rain")]} showFilters={false} onOpenItem={vi.fn()} />));
+    /* Nothing selected, no transport: the bar is the now-playing state, not a permanent fixture
+       that sits empty above the list the way the old sticky block did. */
+    expect(host.container.querySelector(".player-bar")).toBeNull();
+    await click("Play Rain");
+    expect(host.container.querySelector(".player-bar")).not.toBeNull();
+    expect(button("Stop playing Rain")).toBeDefined();
+    await click("Stop playing Rain");
+    expect(host.container.querySelector(".player-bar")).toBeNull();
+  } finally { await act(async () => root.unmount()); host.restore(); }
+});
