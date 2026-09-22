@@ -1,6 +1,7 @@
 import { Expand, FastForward, Pause, Play, Rewind, Volume2, VolumeX } from "@/shared/ui/icons";
 import { useEffect, useRef, useState } from "react";
 import { SnappySlider } from "@/shared/ui/SnappySlider";
+import { useSpacePlayback } from "@/shared/lib/media-keys";
 import { PLAYER_CHROME, PLAYER_CONTROL, playerTone, type PlayerTone } from "../lib/tone";
 
 interface VideoPlayerProps { src: string; name: string; compact?: boolean; tone?: PlayerTone; autoPlay?: boolean; loop?: boolean; onError?(): void }
@@ -8,7 +9,9 @@ interface VideoPlayerProps { src: string; name: string; compact?: boolean; tone?
 /* The frame is the media's own mat and stays the black media frame under either tone: a
    letterboxed video on a light plate reads as a broken image, not as a surface step. `tone`
    therefore chooses the transport pair, which is the half a caller used to reach in and repaint. */
-const FRAME = "custom-video-player relative grid size-full min-h-0 min-w-0 place-items-center overflow-hidden bg-frame";
+/* The frame is focusable so Space can reach it. The ring is the on-dark one in both themes:
+   the frame stays the black media mat under either tone. */
+const FRAME = "custom-video-player relative grid size-full min-h-0 min-w-0 place-items-center overflow-hidden bg-frame focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument";
 const VIDEO = "viewer-video block size-full min-h-0 min-w-0 cursor-pointer bg-frame object-contain";
 /* The transport is a pill of controls floating over the picture. The sliders take their width
    from here rather than from their own class: SnappySlider's base states `w-full flex-none`, and a
@@ -69,10 +72,11 @@ export function VideoPlayer({ src, name, compact = false, tone = "instrument", a
     if (video.paused) void video.play().catch(fail);
     else video.pause();
   };
+  useSpacePlayback(rootRef, togglePlayback);
   const enterFullscreen = () => { void rootRef.current?.requestFullscreen().catch(() => setError("Fullscreen is unavailable.")); };
   const skip = (seconds: number) => { if (videoRef.current) videoRef.current.currentTime = Math.min(duration, Math.max(0, videoRef.current.currentTime + seconds)); };
 
-  return <div className={`${FRAME}${compact ? " is-compact" : ""}`} ref={rootRef}>
+  return <div className={`${FRAME}${compact ? " is-compact" : ""}`} ref={rootRef} tabIndex={0} aria-label={`${name} player`}>
     <video key={src} ref={videoRef} className={VIDEO} src={src} aria-label={name} preload="auto" playsInline autoPlay={autoPlay} loop={loop} muted={muted} onClick={togglePlayback} onDoubleClick={enterFullscreen}
       onCanPlay={() => setError(null)} onError={fail}
       onLoadedMetadata={(event) => { const startTime = autoPlay ? 0 : compactVideoStartTime(event.currentTarget.duration, compact); event.currentTarget.currentTime = startTime; setDuration(event.currentTarget.duration); setCurrentTime(startTime); setVolume(event.currentTarget.volume); setMuted(event.currentTarget.muted); }}

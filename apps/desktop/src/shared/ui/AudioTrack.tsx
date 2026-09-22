@@ -1,6 +1,7 @@
 import { Pause, Play } from "./icons";
 import { useEffect, useRef, useState } from "react";
 import { audioTime } from "../lib/audio-peaks";
+import { useSpacePlayback } from "../lib/media-keys";
 import { WaveformTrack } from "./WaveformTrack";
 
 /**
@@ -16,6 +17,7 @@ import { WaveformTrack } from "./WaveformTrack";
  * `entities`. `AudioWaveform` is the full-dress version: a title, a transport, volume.
  */
 export function AudioTrack({ src, name, className = "" }: { src: string; name: string; className?: string }) {
+  const root = useRef<HTMLDivElement>(null);
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -29,8 +31,10 @@ export function AudioTrack({ src, name, className = "" }: { src: string; name: s
     return () => window.cancelAnimationFrame(frame);
   }, [playing]);
   const seek = (next: number) => { if (!audio.current) return; audio.current.currentTime = Math.min(duration, Math.max(0, next)); setPosition(audio.current.currentTime); };
+  const toggle = () => { if (!audio.current) return; if (audio.current.paused) void audio.current.play().catch(() => setFailed(true)); else audio.current.pause(); };
+  useSpacePlayback(root, toggle);
   if (failed) return <span className="type-xs text-on-instrument-muted">Preview unavailable</span>;
-  return <div className={`audio-track flex min-w-0 items-center gap-2.5 ${className}`}>
+  return <div ref={root} tabIndex={0} aria-label={name} className={`audio-track flex min-w-0 items-center gap-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-on-instrument ${className}`}>
     <audio ref={audio} className="hidden" src={src} aria-label={name} preload="metadata"
       onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
       onTimeUpdate={(event) => setPosition(event.currentTarget.currentTime)}
@@ -38,7 +42,7 @@ export function AudioTrack({ src, name, className = "" }: { src: string; name: s
       onError={() => setFailed(true)} />
     <button className="inline-grid size-7 flex-none place-items-center rounded-control bg-instrument-raised text-on-instrument not-disabled:hover:bg-instrument-hover" type="button"
       aria-label={`${playing ? "Pause" : "Play"} ${name}`}
-      onClick={() => { if (!audio.current) return; if (audio.current.paused) void audio.current.play().catch(() => setFailed(true)); else audio.current.pause(); }}
+      onClick={toggle}
     >{playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}</button>
     <WaveformTrack className="is-on-instrument" src={src} name={name} position={position} duration={duration} onSeek={seek} onDuration={setDuration} />
     <span className="flex-none font-code type-xs text-on-instrument-muted">{audioTime(duration - position)}</span>

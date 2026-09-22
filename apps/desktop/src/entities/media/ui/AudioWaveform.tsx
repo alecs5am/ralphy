@@ -1,6 +1,7 @@
 import { Pause, Play, RotateCcw, RotateCw, Volume2, VolumeX } from "@/shared/ui/icons";
 import { useEffect, useRef, useState } from "react";
 import { audioTime } from "@/shared/lib/audio-peaks";
+import { useSpacePlayback } from "@/shared/lib/media-keys";
 import { SnappySlider } from "@/shared/ui/SnappySlider";
 import { WaveformTrack } from "@/shared/ui/WaveformTrack";
 import { PLAYER_CHROME, PLAYER_CONTROL, PLAYER_INK, playerTone, type PlayerTone } from "../lib/tone";
@@ -40,6 +41,7 @@ export function AudioWaveform({ src, name, compact = false, tone, onReady, onErr
   const ink = PLAYER_INK[skin];
   const chrome = PLAYER_CHROME[skin];
   const control = `${PLAYER_CONTROL} size-7.5 ${chrome.control}`;
+  const rootRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -58,9 +60,10 @@ export function AudioWaveform({ src, name, compact = false, tone, onReady, onErr
   const seek = (next: number) => { if (!audioRef.current) return; audioRef.current.currentTime = Math.min(duration, Math.max(0, next)); setCurrentTime(audioRef.current.currentTime); };
   const fail = () => { setError(`“${name}” cannot be played.`); onError?.(); };
   const toggle = () => { if (!audioRef.current) return; if (audioRef.current.paused) void audioRef.current.play().catch(fail); else audioRef.current.pause(); };
+  useSpacePlayback(rootRef, toggle);
   const content = <><div className={`${HEADING} ${compact ? "justify-center gap-2.25 [&>span]:max-w-[calc(100%_-_42px)]" : "gap-4"}`}><button className={`${skin === "surface" ? PLAY_SURFACE : PLAY} ${compact ? "size-8" : "size-13.5"}`} type="button" aria-label={`${playing ? "Pause" : "Play"} ${name}`} disabled={!ready} onClick={toggle}>{playing ? <Pause size={compact ? 16 : 21} fill="currentColor" /> : <Play size={compact ? 16 : 21} fill="currentColor" />}</button><span className="flex min-w-0 flex-col gap-0.75"><strong className={compact ? "hidden" : `${CLIP} type-xl ${ink.strong}`}>{name}</strong><small className={`${CLIP} ${compact ? "type-xs" : "type-sm"} ${ink.muted}`}>{error ? "Preview unavailable" : ready ? `${audioTime(duration)} audio` : "Loading audio…"}</small></span></div>
     <WaveformTrack className={`${compact ? "is-compact" : "is-tall"} ${skin === "instrument" ? "is-on-instrument" : ""} ${chrome.slider}`} src={src} name={name} position={currentTime} duration={duration} disabled={!ready} onSeek={seek} /></>;
-  return <div className={`${PLAYER} ${compact ? PLAYER_COMPACT : PLAYER_WIDE}`} aria-label={name}>
+  return <div className={`${PLAYER} ${compact ? PLAYER_COMPACT : PLAYER_WIDE} ${chrome.ring}`} ref={rootRef} tabIndex={0} aria-label={name}>
     <audio ref={audioRef} className="audio-stream-element hidden" src={src} aria-label={name} preload="metadata"
       onLoadedMetadata={(event) => { const next = event.currentTarget.duration; setDuration(next); setVolume(event.currentTarget.volume); setMuted(event.currentTarget.muted); setReady(true); onReady?.(); }}
       onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}

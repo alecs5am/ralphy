@@ -7,6 +7,7 @@ import { assetGridGeometry, mediaCardFacts, mediaCardKind, mediaCardName, MediaC
 import { entityDragProps, type Attachment } from "@/features/agent-chat";
 import { AutoCursorTail } from "./AutoCursorTail";
 import { useRememberedScroll } from "../lib/scroll-memory";
+import { gridMoveIndex } from "../lib/grid-navigation";
 
 /**
  * The media library as a virtualized row grid, and the tile it repeats.
@@ -104,6 +105,10 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
     rememberedScroll.ref(node);
   }, [rememberedScroll.ref]);
   const [width, setWidth] = useState(800);
+  /* The index whose tile should take focus once the row it is on has been rendered. Arrow keys
+     can land on a row the virtualizer has not built yet, so the move asks for the scroll and
+     leaves the focus for the render that follows it. */
+  const [focusIndex, setFocusIndex] = useState<number | null>(null);
   const geometry = assetGridGeometry(width, density, gap, maxColumns);
   const cardRatio = useCallback((card: MediaCardDto) => mediaFallbackAspectRatio(previewKind(card), previewKey(project, rootEpoch, card.ref)), [project, rootEpoch]);
   const rowCount = Math.ceil(items.length / geometry.columns);
@@ -130,13 +135,34 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
     return () => observer.disconnect();
   }, [gridElement]);
   useEffect(() => virtualizer.measure(), [geometry.columns, geometry.tileHeight, virtualizer]);
+  useEffect(() => {
+    if (focusIndex === null || !gridElement) return;
+    const frame = window.requestAnimationFrame(() => {
+      gridElement.querySelector<HTMLElement>(`[data-tile-index="${focusIndex}"] .media-card-button`)?.focus({ preventScroll: true });
+      setFocusIndex(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusIndex, gridElement]);
+  /* Arrows move the selection, Enter opens it. A grid that opened on arrow would make browsing
+     it a series of modals, and the selection is what the page's context menu and viewer read. */
+  const onGridKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || event.repeat || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+    const current = items.findIndex((card) => selectedRef?.type === card.ref.type && selectedRef.id === card.ref.id);
+    const next = gridMoveIndex(current, event.key, geometry.columns, items.length);
+    if (next === null) return;
+    event.preventDefault();
+    onSelect(items[next]!);
+    virtualizer.scrollToIndex(Math.floor(next / geometry.columns));
+    setFocusIndex(next);
+  };
   if (items.length === 0) return <div className="asset-grid-empty flex min-h-0 flex-1 flex-col items-center justify-center gap-1 type-xs text-muted"><strong className="type-sm font-normal">No media matches this filter.</strong><span>Change the media filter to see other records.</span></div>;
-  return <div className="asset-grid-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain" ref={attachScroll} onScroll={(event) => { event.currentTarget.querySelectorAll("video").forEach((video) => video.pause()); rememberedScroll.onScroll(event); }}>
+  return <div className="asset-grid-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain" ref={attachScroll} onKeyDown={onGridKeyDown} onScroll={(event) => { event.currentTarget.querySelectorAll("video").forEach((video) => video.pause()); rememberedScroll.onScroll(event); }}>
     <div className="virtual-grid-space relative w-full" style={{ height: virtualizer.getTotalSize() }}>
       {virtualizer.getVirtualItems().map((virtual) => {
-        const row = items.slice(virtual.index * geometry.columns, (virtual.index + 1) * geometry.columns);
+        const first = virtual.index * geometry.columns;
+        const row = items.slice(first, first + geometry.columns);
         return <div className="virtual-grid-row absolute top-0 grid w-full [contain:layout_style]" key={virtual.key} style={{ gap: geometry.gap, gridTemplateColumns: `repeat(${geometry.columns}, minmax(0, 1fr))`, transform: `translateY(${virtual.start}px)` }}>
-          {row.map((card) => <div className="virtual-grid-item min-w-0" key={previewKey(project, rootEpoch, card.ref)}>
+          {row.map((card, column) => <div className="virtual-grid-item min-w-0" data-tile-index={first + column} key={previewKey(project, rootEpoch, card.ref)}>
             <MediaCardTile card={card} project={project} rootEpoch={rootEpoch} selected={selectedRef?.type === card.ref.type && selectedRef.id === card.ref.id} resolvePreview={resolvePreview} aspectRatio={cardRatio(card)} onSelect={() => onSelect(card)} onOpen={() => onOpen(card)} onContextMenu={(point) => onContextMenu(card, point)} />
           </div>)}
         </div>;

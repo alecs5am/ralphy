@@ -4,17 +4,21 @@ import type { CanvasRunResult } from "../../../../shared/canvas-runtime";
 import type { CanvasNodeData } from "./canvas-node-types";
 import { nodeIdentity } from "./canvas-node-chrome";
 import { AudioTrack } from "@/shared/ui/AudioTrack";
+import { useSpacePlayback } from "@/shared/lib/media-keys";
 import { ModelBrand } from "./CanvasModelNode";
 
 export function CanvasFrameMedia({ result }: { result: Pick<CanvasRunResult, "kind" | "previewUrl" | "label" | "text"> }) {
   const [failed, setFailed] = useState<string>();
   const [playing, setPlaying] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
+  const frame = useRef<HTMLDivElement>(null);
+  const toggle = () => { if (playing) video.current?.pause(); else void video.current?.play().catch(() => setFailed(result.previewUrl)); };
+  useSpacePlayback(frame, toggle);
   if (result.kind === "text") return <div className="canvas-frame-text nodrag nopan nowheel">{result.text || result.label}</div>;
   if (!result.previewUrl || failed === result.previewUrl) return <div className="canvas-frame-empty"><FileText size={24} /><span>Preview unavailable</span></div>;
   if (result.kind === "image") return <img className="canvas-frame-image" src={result.previewUrl} alt={result.label} draggable={false} onError={() => setFailed(result.previewUrl)} />;
   if (result.kind === "audio") return <div className="canvas-frame-audio nodrag nopan"><AudioLines size={32} strokeWidth={1} /><AudioTrack src={result.previewUrl} name={result.label} /></div>;
-  return <div className="canvas-frame-video nodrag nopan"><video ref={video} src={result.previewUrl} preload="metadata" controls={false} aria-label={result.label} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onError={() => setFailed(result.previewUrl)} /><button className="canvas-frame-play" type="button" aria-label={`${playing ? "Pause" : "Play"} ${result.label}`} onClick={() => { if (playing) video.current?.pause(); else void video.current?.play().catch(() => setFailed(result.previewUrl)); }}>{playing ? <Pause size={16} /> : <Play size={16} />}</button></div>;
+  return <div ref={frame} tabIndex={0} aria-label={`${result.label} player`} className="canvas-frame-video nodrag nopan"><video ref={video} src={result.previewUrl} preload="metadata" controls={false} aria-label={result.label} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onError={() => setFailed(result.previewUrl)} /><button className="canvas-frame-play" type="button" aria-label={`${playing ? "Pause" : "Play"} ${result.label}`} onClick={toggle}>{playing ? <Pause size={16} /> : <Play size={16} />}</button></div>;
 }
 
 export function CanvasNodeFrame({ data, result, state, ready }: { data: CanvasNodeData; result?: CanvasRunResult; state: string; ready: boolean }) {

@@ -2,7 +2,7 @@ import { act, createElement, type ReactElement } from "react";
 import { flushSync } from "react-dom";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { MediaCardDto } from "../electron/ralphy/types";
-import { MediaCardTile, VirtualAssetGrid } from "@/pages/project";
+import { MediaCardTile, VirtualAssetGrid, gridMoveIndex } from "@/pages/project";
 import { AudioWaveform } from "@/entities/media";
 import { MAX_WAVEFORM_DECODE_BYTES } from "@/entities/media";
 import type { ProjectPreview, ProjectReference } from "@/shared/api/ipc";
@@ -128,6 +128,26 @@ describe("media grid geometry and scheduling", () => {
       await act(async () => { element.dispatchEvent(new Event("error", { bubbles: true })); await Promise.resolve(); });
       expect(onError).toHaveBeenCalledOnce();
     } finally { await view.unmount(); }
+  });
+
+  test("walks the grid in reading order and stops at both ends", () => {
+    /* Left and right cross a row boundary: the grid is one list that wraps, and the eye does not
+       see the boundary the columns make. Up and down move a whole row, or nowhere. */
+    expect(gridMoveIndex(3, "ArrowRight", 4, 10)).toBe(4);
+    expect(gridMoveIndex(4, "ArrowLeft", 4, 10)).toBe(3);
+    expect(gridMoveIndex(1, "ArrowDown", 4, 10)).toBe(5);
+    expect(gridMoveIndex(5, "ArrowUp", 4, 10)).toBe(1);
+    expect(gridMoveIndex(9, "ArrowRight", 4, 10)).toBeNull();
+    expect(gridMoveIndex(0, "ArrowLeft", 4, 10)).toBeNull();
+    expect(gridMoveIndex(1, "ArrowUp", 4, 10)).toBeNull();
+    expect(gridMoveIndex(8, "ArrowDown", 4, 10)).toBeNull();
+    expect(gridMoveIndex(7, "Home", 4, 10)).toBe(0);
+    expect(gridMoveIndex(7, "End", 4, 10)).toBe(9);
+    expect(gridMoveIndex(7, "PageDown", 4, 10)).toBeNull();
+    // Nothing selected: an arrow means "start here", and an empty grid answers nothing at all.
+    expect(gridMoveIndex(-1, "ArrowDown", 4, 10)).toBe(0);
+    expect(gridMoveIndex(-1, "Enter", 4, 10)).toBeNull();
+    expect(gridMoveIndex(0, "ArrowRight", 4, 0)).toBeNull();
   });
 
   test("uses the product 9:16 frame for every content-card fallback", () => {

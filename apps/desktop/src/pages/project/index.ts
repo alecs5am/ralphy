@@ -15,5 +15,6 @@ export * from "./ui/UnitView";
 export * from "./ui/VirtualAssetGrid";
 export * from "./model/screen-controller";
 export * from "./lib/activity-presentation";
+export * from "./lib/grid-navigation";
 export * from "./lib/scroll-memory";
 export * from "./lib/unit-instrument-state";
