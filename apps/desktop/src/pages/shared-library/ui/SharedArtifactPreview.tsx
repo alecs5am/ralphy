@@ -48,6 +48,6 @@ export function SharedArtifactPreview({ artifact, workspaceId, rootEpoch, resolv
      list cell -- so all three players take the instrument pair. */
   if (artifact.mediaKind === "image") return <ImageViewport src={preview.value.url} name={identityName} compact tone="instrument" onError={mediaError} />;
   if (artifact.mediaKind === "video") return <VideoPlayer src={preview.value.url} name={identityName} compact tone="instrument" onError={mediaError} />;
-  if (artifact.mediaKind === "audio") return <AudioWaveform src={preview.value.url} name={identityName} sizeBytes={preview.value.sizeBytes} compact tone="instrument" onError={mediaError} />;
+  if (artifact.mediaKind === "audio") return <AudioWaveform src={preview.value.url} name={identityName} compact tone="instrument" onError={mediaError} />;
   return <span className="shared-artifact-preview-state"><FileText aria-hidden="true" /><span>{artifact.mime ?? artifact.kind}</span></span>;
 }

@@ -3,6 +3,7 @@ import { generationOutputs } from "../../../../shared/generation-studio";
 import { useState } from "react";
 import { ArrowDownToLine, ArrowUpRight, Check, ChevronDown, ChevronRight, Clock3, Expand, FileText, Image, LoaderCircle, Minimize2, Play, Square, X } from "@/shared/ui/icons";
 import type { CanvasRun, CanvasRunResult } from "../../../../shared/canvas-runtime";
+import { AudioTrack } from "@/shared/ui/AudioTrack";
 import { CANVAS_BUTTON } from "./canvas-chrome";
 
 const money = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 3 }).format(value);
@@ -13,7 +14,7 @@ function ResultMedia({ result }: { result: CanvasRunResult }) {
   if (result.unavailableReason) return <p className="m-0 p-4 type-sm text-muted" role="status">{result.unavailableReason}</p>;
   if (result.previewUrl && result.kind === "image") return <img className="size-full object-contain" src={result.previewUrl} alt={result.label} />;
   if (result.previewUrl && result.kind === "video") return <video className="size-full object-contain" src={result.previewUrl} controls preload="metadata" />;
-  if (result.previewUrl && result.kind === "audio") return <audio className="w-full" src={result.previewUrl} controls preload="metadata" />;
+  if (result.previewUrl && result.kind === "audio") return <AudioTrack className="w-full p-4" src={result.previewUrl} name={result.label} />;
   if (result.text) return <p className="m-0 max-h-72 w-full overflow-auto whitespace-pre-wrap p-4 text-left type-sm leading-relaxed">{result.text}</p>;
   return <div className="flex flex-col items-center gap-2 p-6 text-muted"><Image size={24} strokeWidth={1.3} /><span className="type-xs">Preview unavailable</span></div>;
 }

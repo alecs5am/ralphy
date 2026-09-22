@@ -57,8 +57,7 @@
     "marked": "16.4.2",
     "motion": "12.43.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "wavesurfer.js": "7.12.6"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.17",

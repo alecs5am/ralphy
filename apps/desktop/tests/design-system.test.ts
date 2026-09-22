@@ -948,7 +948,11 @@ describe("design system contract", () => {
     expect(sources("media-src")).toEqual(expect.arrayContaining(["https://ralphy.b-cdn.net/blocks/", "https://ralphy.b-cdn.net/units/"]));
     expect(sources("img-src")).not.toContain("https://ralphy.b-cdn.net");
     expect(sources("media-src")).not.toContain("https://ralphy.b-cdn.net");
-    expect(sources("connect-src")).toEqual(["'self'", "ws:", "https://ralphy.b-cdn.net/blocks/", "https://ralphy.b-cdn.net/units/"]);
+    /* `ralphy-media:` is a fetch source as well as a media source now: a waveform reads the file
+       and decodes it, which is `fetch`, not an `<audio src>`. The scheme is registered with
+       `supportFetchAPI` (electron/main.ts), so without this entry the request was refused by the
+       policy rather than by the protocol, and every waveform over project media failed silently. */
+    expect(sources("connect-src")).toEqual(["'self'", "ws:", "ralphy-media:", "https://ralphy.b-cdn.net/blocks/", "https://ralphy.b-cdn.net/units/"]);
     expect(html).not.toMatch(/(?:default-src|script-src)[^;]*ralphy\.b-cdn\.net/);
   });
 

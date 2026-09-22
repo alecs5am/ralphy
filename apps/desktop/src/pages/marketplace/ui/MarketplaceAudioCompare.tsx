@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { AudioLines, Pause, Play, Volume2, VolumeX } from "@/shared/ui/icons";
 import { IconButton } from "@/shared/ui/IconButton";
-import { audioTime } from "../lib/audio-waveform";
+import { audioTime } from "@/shared/lib/audio-peaks";
 import type { PreviewMedia } from "./MarketplaceItemPreview";
-import { MarketplaceWaveform } from "./MarketplaceWaveform";
+import { WaveformTrack } from "@/shared/ui/WaveformTrack";
 
 export function MarketplaceAudioCompare({ media, name, compact = false, onUnavailable }: {
   media: PreviewMedia & { before?: PreviewMedia; label?: string }; name: string; compact?: boolean; onUnavailable?(): void;
@@ -90,7 +90,7 @@ export function MarketplaceAudioCompare({ media, name, compact = false, onUnavai
         const duration = durations[version.media.url] ?? 0;
         return <div className={`explore-audio-version ${active ? "is-selected" : ""}`} key={version.id}>
           <span className="explore-audio-version-label type-xs font-medium">{version.label}</span>
-          <MarketplaceWaveform src={version.media.url} name={`${name} ${version.label.toLowerCase()}`} position={position}
+          <WaveformTrack src={version.media.url} name={`${name} ${version.label.toLowerCase()}`} position={position}
             duration={duration} disabled={unavailable} onUnavailable={() => {
               setFailed((current) => current.includes(version.media.url) ? current : [...current, version.media.url]);
               if (version.id === "after") onUnavailable?.();

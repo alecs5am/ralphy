@@ -72,19 +72,6 @@ export function viewerKind(mime: string | null): ViewerKind {
   return "unsupported";
 }
 
-export function editableTarget(event: KeyboardEvent): boolean {
-  let target = event.target instanceof HTMLElement
-    ? event.target
-    : document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-  for (; target; target = target.parentElement) {
-    const tag = target.tagName.toLocaleLowerCase();
-    if (tag === "input" || tag === "textarea" || target.getAttribute("role") === "slider" || target.isContentEditable) return true;
-  }
-  return false;
-}
-
 export function FontSpecimen({ src, slug, onError }: { src: string; slug: string; onError(): void }) {
   const [face, setFace] = useState<FontFace | null>(null);
   useEffect(() => {
@@ -158,6 +145,6 @@ export function ViewerStage({ artifact, preview, kind, onPreviewError }: {
      black media frame, so their chrome stays on-dark; the waveform paints no plate at all, and
      with the on-dark default its title read #F2F2F0 on #E4E4E2 -- 1.06:1. */
   if (kind === "video") return <VideoPlayer src={preview.url} name={name} tone="instrument" onError={onPreviewError} />;
-  if (kind === "audio") return <AudioWaveform src={preview.url} name={name} sizeBytes={preview.sizeBytes} tone="surface" onError={onPreviewError} />;
+  if (kind === "audio") return <AudioWaveform src={preview.url} name={name} tone="surface" onError={onPreviewError} />;
   return <FontSpecimen src={preview.url} slug={artifact.slug} onError={onPreviewError} />;
 }

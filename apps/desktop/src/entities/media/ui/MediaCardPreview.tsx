@@ -177,7 +177,7 @@ export function MediaCardPreview({
     ? <ImageViewport src={source.url} name={mediaCardName(card)} compact onLoad={loadedWithSize} onError={failed} />
     : <img className="size-full object-cover" src={source.url} alt="" loading="lazy" onLoad={(event) => loadedWithSize(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)} onError={failed} />;
   else if (source && kind === "video") content = <video key={source.url} ref={videoRef} className={`size-full ${mediaFit}`} src={source.url} muted loop playsInline preload="metadata" onLoadedMetadata={(event) => loadedWithSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight)} onError={failed} />;
-  else if (source && kind === "audio") content = <AudioWaveform src={source.url} name={mediaCardName(card)} sizeBytes={source.sizeBytes} compact tone="instrument" onReady={loaded} onError={failed} />;
+  else if (source && kind === "audio") content = <AudioWaveform src={source.url} name={mediaCardName(card)} compact tone="instrument" onReady={loaded} onError={failed} />;
   return <div className={`asset-preview relative grid w-full flex-none place-items-center overflow-hidden rounded-cell [corner-shape:squircle] bg-frame text-on-instrument-muted${className ? ` ${className}` : ""}`} style={fill ? undefined : { aspectRatio: aspectRatio ?? DEFAULT_CONTENT_ASPECT, height: "auto" }} aria-hidden={kind === "audio" ? undefined : true}>
     {content}
     {/* The frame stays chrome-free once a preview lands; the badge is only the label for an

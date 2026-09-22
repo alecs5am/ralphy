@@ -4,7 +4,7 @@ import { expect, test, vi } from "vitest";
 import { projectMarketplacePublicItem } from "../src/pages/marketplace/lib/presentation";
 import { MarketplaceSounds } from "../src/pages/marketplace/ui/MarketplaceSounds";
 import { MarketplaceCreativeResults } from "../src/pages/marketplace/ui/MarketplaceCreativeResults";
-import * as waveform from "../src/pages/marketplace/lib/audio-waveform";
+import * as waveform from "../src/shared/lib/audio-peaks";
 import { SnappySlider } from "../src/shared/ui/SnappySlider";
 import { createReactHost, type HostNode } from "./react-host";
 
@@ -67,7 +67,7 @@ test("a sound row decodes its waveform as soon as it becomes visible", async () 
     const button = (label: string) => host.container.querySelectorAll("button").find((node) => node.getAttribute("aria-label") === label)!;
     await act(async () => button("Open Interface Sounds pack").dispatchEvent(new Event("click", { bubbles: true })));
     expect(load).not.toHaveBeenCalled();
-    const waveformRoot = host.container.querySelector(".explore-waveform")!;
+    const waveformRoot = host.container.querySelector(".waveform-track")!;
     await act(async () => host.intersectionObservers.find((observer) => observer.targets.has(waveformRoot))!.deliver(waveformRoot, true));
     expect(load).toHaveBeenCalledTimes(1);
   } finally { await act(async () => root.unmount()); vi.restoreAllMocks(); host.restore(); }

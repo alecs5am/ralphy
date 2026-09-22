@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, Columns2, Film, History, LoaderCircle, Maximize2, PanelLeftOpen, PanelRightClose, PanelRightOpen, Play, RotateCcw, Save, SlidersHorizontal, Sparkles, Type, X } from "@/shared/ui/icons";
 import { PageHeader, PageHeaderHost, usePageHeaderHost, PAGE_HEADER_BUTTON, PAGE_HEADER_PRIMARY } from "@/shared/ui/PageHeader";
+import { editableTarget } from "@/shared/lib/media-keys";
 import { ResizeHandle } from "@/shared/ui/ResizeHandle";
 import type { VideoAgentRequest, VideoWorkspaceRef } from "../../../../shared/video-workspace";
 import { useVideoWorkspace } from "../model/useVideoWorkspace";
@@ -36,7 +37,9 @@ export function VideoWorkspace({ reference, title, onClose, onRequestAgent }: { 
     const key = (event: KeyboardEvent) => {
       if (event.isComposing || event.repeat || !editor.comp) return;
       const target = event.target as HTMLElement;
-      if (target.closest("input,textarea,select,[contenteditable=true],[role=dialog],[role=listbox],[role=separator]")) return;
+      /* Two separate reasons to stand down: the operator is typing, or an overlay is open in
+         front of the editor and owns the keyboard until it closes. */
+      if (editableTarget(event) || target.closest("[role=dialog],[role=listbox],[role=separator]")) return;
       if (event.metaKey || event.ctrlKey) {
         if (event.key.toLowerCase() === "a") { event.preventDefault(); editor.comp.setSelection(editor.elements.map((item) => item.scopedId)); }
         if (event.key.toLowerCase() === "z") { event.preventDefault(); if (event.shiftKey) editor.redo(); else editor.undo(); }

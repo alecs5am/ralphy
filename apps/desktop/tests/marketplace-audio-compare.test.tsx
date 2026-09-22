@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, test, vi } from "vitest";
-import { loadAudioPeaks, waveformPeaks } from "../src/pages/marketplace/lib/audio-waveform";
+import { loadAudioPeaks, waveformPeaks } from "../src/shared/lib/audio-peaks";
 import { MarketplaceAudioCompare } from "../src/pages/marketplace/ui/MarketplaceAudioCompare";
 import { createReactHost, type HostNode } from "./react-host";
 

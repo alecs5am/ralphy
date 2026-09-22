@@ -3,6 +3,7 @@ import { bridge, type ProjectReference } from "@/shared/api/ipc";
 import { resolveUnitRevisionPreview, type UnitMedia } from "../lib/unit-previews";
 
 /** The original is explicit, never inferred from revision order. */
+import { AudioTrack } from "@/shared/ui/AudioTrack";
 export function UnitSourcePreview({ project, revisionId, label }: { project: ProjectReference; revisionId: string; label: string }) {
   const [media, setMedia] = useState<UnitMedia | null>(null);
   const [loading, setLoading] = useState(false);
@@ -26,7 +27,7 @@ export function UnitSourcePreview({ project, revisionId, label }: { project: Pro
       {loading ? <span role="status" className="p-3 type-sm text-muted">Loading original…</span>
         : preview && "url" in preview && media?.kind === "video" ? <video ref={videoRef} className="size-full min-h-0 object-contain" src={preview.url} controls playsInline autoPlay loop muted preload="metadata" aria-label="Original video" />
           : preview && "url" in preview && media?.kind === "image" ? <img className="size-full min-h-0 object-contain" src={preview.url} alt={`Original · ${label}`} />
-            : preview && "url" in preview && media?.kind === "audio" ? <audio src={preview.url} controls aria-label="Original audio" />
+            : preview && "url" in preview && media?.kind === "audio" ? <AudioTrack className="w-full max-w-lg p-4" src={preview.url} name="Original audio" />
               : preview && "text" in preview ? <p className="whitespace-pre-wrap type-sm">{preview.text}</p>
                 : <button type="button" className="px-3 py-2 type-sm" onClick={() => setAttempt((value) => value + 1)}>Original unavailable · Retry</button>}
     </div>

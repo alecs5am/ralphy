@@ -1,0 +1,34 @@
+/* One audio file drawn as its own loudness. Lifted out of the Explore sheet when the component
+   moved to `shared/ui`: a 9:16 media tile, a chat attachment and the player bar all draw it now,
+   and none of them are Explore.
+
+   Height is the one thing every surface disagrees about, so it is the one thing that is a
+   variable rather than a number. A caller sets `--waveform-height` on the element or on any
+   ancestor; nobody has to restate the rest of the rule to make a shorter wave. */
+.waveform-track { position: relative; height: var(--waveform-height, 48px); min-width: 0; width: 100%; }
+.waveform-track-bars { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.waveform-track-played { stop-color: var(--instrument-brand); }
+.waveform-track-unplayed { stop-color: var(--instrument-text-secondary-readable); }
+.waveform-track-reflection { opacity: .45; }
+.waveform-track > .waveform-track-seek { position: absolute; inset: 0; height: 100%; }
+
+/* Once the peaks are drawn, the slider is only a seek surface: its own track would be a second
+   line under the wave, and its thumb is a playhead that appears on approach. */
+.waveform-track.has-peaks .snappy-slider-track { opacity: 0; }
+.waveform-track.has-peaks .snappy-slider-thumb { width: 1px; height: 100%; border-radius: 0; opacity: 0; }
+.waveform-track.has-peaks:hover .snappy-slider-thumb,
+.waveform-track.has-peaks:focus-within .snappy-slider-thumb { opacity: 1; }
+
+/* The three sizes a wave is asked for. A 9:16 tile has room for a line, a row for a band, the
+   asset modal for the whole clip -- one component, three heights, no second component. */
+.waveform-track.is-compact { --waveform-height: 34px; }
+.waveform-track.is-tall { --waveform-height: 164px; }
+
+/* The theme's own secondary ink is near-black in the light theme, which is invisible on a host
+   that paints its own black plate. A host that does says so, and the rest of the wave takes the
+   on-dark ink -- the same pair `tone="instrument"` picks for the player around it. */
+.waveform-track.is-on-instrument .waveform-track-unplayed { stop-color: var(--instrument-text-on-dark-secondary-readable); }
+
+/* The small player the non-media surfaces mount: a canvas node, a unit source, a chat card. It
+   is a row rather than a stack, so the wave is whatever is left after the button and the clock. */
+.audio-track { --waveform-height: 30px; }

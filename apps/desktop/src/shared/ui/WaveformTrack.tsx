@@ -1,10 +1,20 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { SnappySlider } from "@/shared/ui/SnappySlider";
-import { loadAudioPeaks, waveformPeaks, type AudioPeaks } from "../lib/audio-waveform";
+import { SnappySlider } from "./SnappySlider";
+import { loadAudioPeaks, waveformPeaks, type AudioPeaks } from "../lib/audio-peaks";
 
-export function MarketplaceWaveform({ src, name, position, duration, onSeek, onDuration, onUnavailable, disabled = false, eager = true }: {
+/**
+ * One audio file drawn as its own loudness, with a seek surface laid over it.
+ *
+ * It began in Explore and now serves every surface that shows audio, which is why it is here
+ * rather than in `entities/media`: `shared/ui/MediaPreview` stands below entities and could not
+ * reach it there, and the player bar is a widget and could not reach it inside a page.
+ *
+ * Height is `--waveform-height` rather than a number, so a 9:16 tile and a full row can ask for
+ * the same component at the size each has room for.
+ */
+export function WaveformTrack({ src, name, position, duration, onSeek, onDuration, onUnavailable, className = "", disabled = false, eager = true }: {
   src: string; name: string; position: number; duration: number; onSeek(value: number): void;
-  onDuration?(value: number): void; onUnavailable?(): void; disabled?: boolean; eager?: boolean;
+  onDuration?(value: number): void; onUnavailable?(): void; className?: string; disabled?: boolean; eager?: boolean;
 }) {
   const [armed, setArmed] = useState(eager);
   const [wave, setWave] = useState<AudioPeaks | null>(null);
@@ -74,18 +84,18 @@ export function MarketplaceWaveform({ src, name, position, duration, onSeek, onD
   }, [wave, width]);
   const length = duration || wave?.duration || 0;
   const progress = length ? Math.min(1, Math.max(0, position / length)) : 0;
-  return <div ref={root} className={`explore-waveform ${wave ? "has-peaks" : "is-loading"}`} onPointerEnter={() => setArmed(true)} onFocusCapture={() => setArmed(true)}>
-    {path && <svg className="explore-waveform-bars" viewBox={`0 0 ${width} 100`} preserveAspectRatio="none" aria-hidden="true">
+  return <div ref={root} className={`waveform-track ${wave ? "has-peaks" : "is-loading"} ${className}`} onPointerEnter={() => setArmed(true)} onFocusCapture={() => setArmed(true)}>
+    {path && <svg className="waveform-track-bars" viewBox={`0 0 ${width} 100`} preserveAspectRatio="none" aria-hidden="true">
       <defs><linearGradient id={gradient} gradientUnits="userSpaceOnUse" x1="0" x2={width}>
-        <stop className="explore-waveform-played" offset={progress} />
-        <stop className="explore-waveform-unplayed" offset={progress} />
+        <stop className="waveform-track-played" offset={progress} />
+        <stop className="waveform-track-unplayed" offset={progress} />
       </linearGradient></defs>
       <g fill="none" stroke={`url(#${gradient})`} strokeWidth="2" strokeLinecap="butt" shapeRendering="crispEdges">
         <path d={path} vectorEffect="non-scaling-stroke" />
-        <path className="explore-waveform-reflection" d={path} transform="translate(0 94) scale(1 -.28)" vectorEffect="non-scaling-stroke" />
+        <path className="waveform-track-reflection" d={path} transform="translate(0 94) scale(1 -.28)" vectorEffect="non-scaling-stroke" />
       </g>
     </svg>}
-    <SnappySlider className="explore-waveform-seek absolute inset-0 h-full [&_.snappy-slider-thumb]:w-px [&_.snappy-slider-thumb]:h-full [&_.snappy-slider-thumb]:rounded-none" min={0} max={length || 1} step={0.1} value={Math.min(position, length)}
+    <SnappySlider className="waveform-track-seek absolute inset-0 h-full [&_.snappy-slider-thumb]:w-px [&_.snappy-slider-thumb]:h-full [&_.snappy-slider-thumb]:rounded-none" min={0} max={length || 1} step={0.1} value={Math.min(position, length)}
       disabled={disabled || !length} ariaLabel={`Position in ${name}`} onValueChange={onSeek} />
   </div>;
 }

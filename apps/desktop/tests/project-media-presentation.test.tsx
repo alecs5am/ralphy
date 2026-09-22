@@ -136,7 +136,7 @@ describe("Project media presentation", () => {
 
   test("keeps named video and audio custom controls", () => {
     const video = renderToStaticMarkup(<VideoPlayer src="ralphy-media://asset/video" name="Final cut" />);
-    const audio = renderToStaticMarkup(<AudioWaveform src="ralphy-media://asset/audio" name="Voiceover" sizeBytes={2048} />);
+    const audio = renderToStaticMarkup(<AudioWaveform src="ralphy-media://asset/audio" name="Voiceover" />);
     expect(video).toContain('aria-label="Final cut"');
     expect(video).toContain('aria-label="Play Final cut"');
     expect(video).not.toContain(" controls=\"\"");

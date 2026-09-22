@@ -186,7 +186,7 @@ describe("Shared Artifact viewer", () => {
       expect(byAria(mounted.body, "div", "Position in Asset: sonic-hook")).not.toBeNull();
       expect(byAria(mounted.body, "button", "Mute Asset: sonic-hook")).not.toBeNull();
       expect(byAria(mounted.body, "div", "Volume for Asset: sonic-hook")).not.toBeNull();
-      expect(mounted.body.textContent).toContain("0:03 · streaming preview");
+      expect(mounted.body.textContent).toContain("0:03 audio");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();

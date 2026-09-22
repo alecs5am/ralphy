@@ -7,6 +7,7 @@ import { Modal } from "@/shared/ui/Modal";
 import { AudioWaveform } from "@/entities/media";
 import { ImageViewport } from "@/entities/media";
 import { VideoPlayer } from "@/entities/media";
+import { editableTarget } from "@/shared/lib/media-keys";
 import { bridge } from "@/shared/api/ipc";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../model/screen-controller";
 import { COMMAND_BUTTON, COMMAND_BUTTON_ON_INSTRUMENT, PROJECT_LOCAL_ERROR, PROJECT_LOCAL_ERROR_ON_INSTRUMENT } from "@/shared/ui/route-chrome";
@@ -138,20 +139,8 @@ function ViewerPreview({ card, snapshot, controller }: { card: MediaCardDto; sna
   /* The stage is a black widget, so every player takes the instrument pair. */
   if (card.mime?.startsWith("image/")) return <ImageViewport src={preview.value.url} name={name} tone="instrument" />;
   if (card.mime?.startsWith("video/")) return <VideoPlayer src={preview.value.url} name={name} tone="instrument" autoPlay loop />;
-  if (card.mime?.startsWith("audio/")) return <AudioWaveform src={preview.value.url} name={name} sizeBytes={preview.value.sizeBytes} tone="instrument" />;
+  if (card.mime?.startsWith("audio/")) return <AudioWaveform src={preview.value.url} name={name} tone="instrument" />;
   return <a className={`${STAGE_NOTE} underline underline-offset-2`} href={preview.value.url} aria-label={`Open ${name}`}>Open preview</a>;
-}
-
-function editableTarget(event: KeyboardEvent): boolean {
-  let target = event.target instanceof HTMLElement ? event.target : document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  for (; target; target = target.parentElement) {
-    const tag = target.tagName.toLowerCase();
-    const contentEditable = target.getAttribute("contenteditable");
-    if (tag === "input" || tag === "textarea"
-      || (contentEditable !== null && contentEditable.toLowerCase() !== "false")
-      || target.getAttribute("role") === "slider") return true;
-  }
-  return false;
 }
 
 export function MediaViewer({ controller, snapshot }: { controller: ProjectScreenController; snapshot: ProjectScreenSnapshot }) {

@@ -7,8 +7,8 @@ import { WINDOW_PLATE } from "@/shared/ui/Window";
 import type { MarketplaceItemPresentation } from "../lib/presentation";
 import { marketplaceItemDomId } from "./MarketplaceBrowse";
 import { marketplacePreview } from "./MarketplaceItemPreview";
-import { MarketplaceWaveform } from "./MarketplaceWaveform";
-import { audioTime } from "../lib/audio-waveform";
+import { WaveformTrack } from "@/shared/ui/WaveformTrack";
+import { audioTime } from "@/shared/lib/audio-peaks";
 
 export interface MarketplaceSoundsProps {
   items: MarketplaceItemPresentation[];
@@ -174,7 +174,7 @@ export function MarketplaceSounds({ items, archivedKeys = [], showFilters = true
             </span>
           </button>
           <div className="explore-sound-timeline">
-            {playable && preview && <MarketplaceWaveform src={preview.url} name={item.name} position={active ? position : 0} eager={!packMode || active}
+            {playable && preview && <WaveformTrack src={preview.url} name={item.name} position={active ? position : 0} eager={!packMode || active}
               duration={durations[item.key] ?? 0} disabled={active && error} onUnavailable={() => onUnavailable?.(item)} onSeek={(next) => {
                 if (active) seek(next);
                 else { startAt.current = next; setSelectedKey(item.key); }

@@ -49,7 +49,7 @@ export function UnitMediaView({ item, tone = "instrument" }: { item: UnitMedia; 
   if ("text" in item.preview) return <div className="h-full overflow-auto bg-surface p-4 text-ink"><DocumentContent format={item.preview.format} text={item.preview.text} /></div>;
   if (item.kind === "image") return <img src={item.preview.url} alt={item.role} />;
   if (item.kind === "video") return <VideoPlayer src={item.preview.url} name={item.role} compact tone={tone} autoPlay loop />;
-  if (item.kind === "audio") return <AudioWaveform src={item.preview.url} name={item.role} sizeBytes={item.preview.sizeBytes} compact tone={tone} />;
+  if (item.kind === "audio") return <AudioWaveform src={item.preview.url} name={item.role} compact tone={tone} />;
   return <a href={item.preview.url}>Open {item.role}</a>;
 }
 

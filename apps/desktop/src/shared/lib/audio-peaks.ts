@@ -1,4 +1,7 @@
-import { MAX_WAVEFORM_DECODE_BYTES } from "@/entities/media";
+/* The decode ceiling is the main process's own number, taken from the IPC contract rather than
+   from `entities/media`, which only re-exports it: `shared` is the bottom layer and cannot reach
+   up. AGENTS.md allows exactly this one import out of `src/` for an `electron/<area>/types`. */
+import { MAX_WAVEFORM_DECODE_BYTES } from "../../../electron/media/types";
 
 export type AudioPeaks = { peaks: number[]; duration: number };
 const cache = new Map<string, Promise<AudioPeaks | null>>();
