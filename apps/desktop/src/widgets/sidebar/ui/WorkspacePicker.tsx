@@ -17,6 +17,10 @@ import { workspaceDitherVars } from "@/shared/lib/project-glyph";
 import { InstrumentOverlay } from "@/shared/instrument/overlay-registry";
 
 const TRIGGER = "workspace-picker-trigger group flex h-7.5 w-full items-center gap-2 rounded-row px-2 text-left text-ink hover:bg-field focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
+/* On the folded rail the picker is the workspace itself: a round plate in the workspace's own
+   colour, with no name and no chevron beside it. It is the last thing in the rail because it is
+   the one control that changes what every icon above it points at. */
+const TRIGGER_AVATAR = "workspace-picker-trigger grid size-7 flex-none place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
 /* One option in the list. Geometry and behaviour only: the ink pair is stated per row below,
    because the active workspace is the one inverted pill and that pair is declared elsewhere. */
 const OPTION = "relative grid min-h-9 w-full grid-cols-(--workspace-option-columns) items-center gap-2.5 overflow-hidden rounded-control pr-3 pl-2 text-left [corner-shape:round] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument";
@@ -33,6 +37,8 @@ const OPTION_REST = "text-on-instrument-muted hover:bg-instrument-hover hover:te
 interface WorkspacePickerProps {
   value: string;
   workspaces: WorkspaceSummary[];
+  /** "avatar" is the folded rail's trigger. The list it opens is the same list. */
+  variant?: "row" | "avatar";
   onValueChange(workspaceId: string): void;
   onOpenOverview?(): void;
 }
@@ -57,6 +63,7 @@ function initials(value: string): string {
 export function WorkspacePicker({
   value,
   workspaces,
+  variant = "row",
   onValueChange,
   onOpenOverview,
 }: WorkspacePickerProps) {
@@ -102,11 +109,15 @@ export function WorkspacePicker({
       if (!trigger) return;
       const bounds = trigger.getBoundingClientRect();
       const width = Math.min(360, window.innerWidth - 20);
+      /* The row trigger is as wide as the sidebar, so the list lines up with its left edge. The
+         rail's avatar is 30px wide: lining up with it would put the list on top of the rail, so
+         it opens beside the rail instead. */
+      const anchorLeft = variant === "avatar" ? bounds.right + 6 : bounds.left - 2;
       setPopoverPosition({
         bottom: window.innerHeight - bounds.top + 6,
         maxHeight: Math.max(0, bounds.top - 16),
         left: Math.min(
-          Math.max(10, bounds.left - 2),
+          Math.max(10, anchorLeft),
           window.innerWidth - width - 10,
         ),
         width,
@@ -119,7 +130,7 @@ export function WorkspacePicker({
       window.removeEventListener("resize", position);
       window.removeEventListener("scroll", position, true);
     };
-  }, [open]);
+  }, [open, variant]);
 
   useEffect(() => {
     if (!open) return;
@@ -169,21 +180,27 @@ export function WorkspacePicker({
   };
 
   return (
-    <div className="workspace-picker relative h-full min-w-0 flex-1" ref={rootRef}>
+    <div className={`workspace-picker relative ${variant === "avatar" ? "flex-none" : "h-full min-w-0 flex-1"}`} ref={rootRef}>
       <button
         ref={triggerRef}
-        className={TRIGGER}
+        className={variant === "avatar" ? TRIGGER_AVATAR : TRIGGER}
         type="button"
         aria-label="Select workspace"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
         data-workspace-name={selected?.name}
+        title={variant === "avatar" ? selected?.name ?? "Workspaces" : undefined}
+        style={variant === "avatar" ? workspaceDitherVars(selected?.name ?? value) : undefined}
         onClick={() => setOpen((visible) => !visible)}
       >
-        <span className="grid size-6 flex-none place-items-center rounded-control bg-instrument font-code type-mono-sm text-on-instrument" aria-hidden="true">{initials(selected?.name ?? value)}</span>
-        <strong className="min-w-0 flex-1 truncate type-ui font-medium">{selected?.name ?? "Workspaces"}</strong>
-        <ChevronDown className="flex-none text-muted transition-transform duration-normal ease-instrument group-aria-expanded:rotate-180 motion-reduce:transition-none motion-reduce:duration-0" size={13} strokeWidth={1.8} aria-hidden="true" />
+        {variant === "avatar"
+          ? <span className="grid size-7 place-items-center rounded-full [background:var(--workspace-color)] font-code type-mono-sm tracking-label text-on-instrument" aria-hidden="true">{initials(selected?.name ?? value)}</span>
+          : <>
+            <span className="grid size-6 flex-none place-items-center rounded-control bg-instrument font-code type-mono-sm text-on-instrument" aria-hidden="true">{initials(selected?.name ?? value)}</span>
+            <strong className="min-w-0 flex-1 truncate type-ui font-medium">{selected?.name ?? "Workspaces"}</strong>
+            <ChevronDown className="flex-none text-muted transition-transform duration-normal ease-instrument group-aria-expanded:rotate-180 motion-reduce:transition-none motion-reduce:duration-0" size={13} strokeWidth={1.8} aria-hidden="true" />
+          </>}
       </button>
       {typeof document !== "undefined" && createPortal(
         <AnimatePresence>

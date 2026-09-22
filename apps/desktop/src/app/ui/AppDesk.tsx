@@ -18,7 +18,6 @@ import { InstrumentFloatHost } from "../layout/InstrumentShell";
 
 export function AppDesk({
   mode,
-  viewFrameActive,
   fillHeight = false,
   pageHeaderHost,
   catalog,
@@ -32,7 +31,6 @@ export function AppDesk({
   children,
 }: {
   mode: AppMode;
-  viewFrameActive: boolean;
   fillHeight?: boolean;
   pageHeaderHost?: HTMLElement | null;
   catalog: CatalogResult | null;
@@ -46,10 +44,9 @@ export function AppDesk({
   children: ReactNode;
 }) {
   return <div className={`main-content-stage flex min-w-0 flex-1 ${fillHeight ? "h-full min-h-0 overflow-hidden" : ""}`}>
-    {/* The work surface paints the desk, except inside the view panel: there the page card
-        is the surface the route stands on, and a desk wash over it turned a white card
-        grey -- visible in the light theme, and the same error in the dark one. */}
-    <div className={`app-mode-surface app-mode-work min-h-0 min-w-0 flex-1 text-ink ${viewFrameActive ? "bg-transparent" : "bg-desk"} ${mode === "work" ? "flex" : "hidden"}`} hidden={mode !== "work"} inert={mode !== "work"}>
+    {/* Neither mode paints: the content column is the card both of them stand on. A wash here
+        would repaint that card with the backdrop it is supposed to float over. */}
+    <div className={`app-mode-surface app-mode-work min-h-0 min-w-0 flex-1 text-ink ${mode === "work" ? "flex" : "hidden"}`} hidden={mode !== "work"} inert={mode !== "work"}>
       <PageHeaderHost.Provider value={mode === "work" ? pageHeaderHost ?? null : null}><InstrumentFloatHost escape={mode === "work"}>{children}</InstrumentFloatHost></PageHeaderHost.Provider>
     </div>
     <div

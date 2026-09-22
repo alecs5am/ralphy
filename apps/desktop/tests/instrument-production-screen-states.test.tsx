@@ -406,10 +406,10 @@ describe("production instrument screen states", () => {
   });
 
   test("derives global overlay applicability from the App visibility predicates", () => {
-    expect(isWorkspacePickerVisible({ mode: "work", sidebarVisible: true, workspaceId: "ws_ux" })).toBe(true);
-    expect(isWorkspacePickerVisible({ mode: "marketplace", sidebarVisible: true, workspaceId: "ws_ux" })).toBe(true);
-    expect(isWorkspacePickerVisible({ mode: "work", sidebarVisible: false, workspaceId: "ws_ux" })).toBe(false);
-    expect(isWorkspacePickerVisible({ mode: "work", sidebarVisible: true, workspaceId: null })).toBe(false);
+    expect(isWorkspacePickerVisible({ mode: "work", workspaceId: "ws_ux" })).toBe(true);
+    expect(isWorkspacePickerVisible({ mode: "marketplace", workspaceId: "ws_ux" })).toBe(true);
+    /* The rail carries the picker too, so folding the sidebar no longer withdraws it. */
+    expect(isWorkspacePickerVisible({ mode: "work", workspaceId: null })).toBe(false);
 
     expect(isChatRailVisible({ workbenchVisible: true, rightPanelVisible: true })).toBe(true);
     expect(isChatRailVisible({ workbenchVisible: false, rightPanelVisible: true })).toBe(false);

@@ -68,7 +68,6 @@ export interface InstrumentShellProps {
     onBack(): void;
     onForward(): void;
   };
-  onToggleLeft(): void;
   onToggleRightPreference(): void;
   onRightOverlayOpenChange(open: boolean): void;
 }
@@ -248,22 +247,29 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   return <InstrumentScrollProvider value={scrollContext}>
     <InstrumentRightRailProvider value={railContext}>
       <div
-        /* Four-pixel gutters keep the full-height sidebar and content columns close without
-           taking space from the page. The top row remains the window's only page chrome. */
-        className="instrument-shell col-span-3 row-start-1 row-end-2 flex h-full min-h-0 w-full min-w-0 gap-1 overflow-hidden bg-desk p-1 data-[rail-resizing]:cursor-col-resize data-[rail-resizing]:select-none"
+        /* The window's backdrop, black in both themes. The sidebar, the top row and the agent
+           rail are drawn straight onto it and carry `instrument-chrome` for its ink; only the
+           content column takes a surface of its own and floats over it. Four-pixel gutters keep
+           the columns close without taking space from the page. */
+        className="instrument-shell col-span-3 row-start-1 row-end-2 flex h-full min-h-0 w-full min-w-0 gap-1 overflow-hidden bg-chrome p-1 data-[rail-resizing]:cursor-col-resize data-[rail-resizing]:select-none"
         ref={frameRef}
         data-right-rail-mode={mode}
-        data-instrument-native-inset="76"
         data-rail-resizing={columnResizing || undefined}
         style={{
           "--instrument-left-width": `${leftColumn}px`,
           "--instrument-right-rail-width": `${railWidth}px`,
         } as CSSProperties}
       >
-        {props.leftVisible && <div className="instrument-left-stack relative flex h-full min-h-0 flex-none" style={{ width: leftColumn }}>
+        {/* The sidebar never leaves: folded it is the icon rail, which is why nothing else in the
+            shell carries a reveal control any more. Only the expanded column is resizable. */}
+        <div
+          className={`instrument-left-stack instrument-chrome relative flex h-full min-h-0 flex-none ${props.leftVisible ? "" : "w-sidebar-rail"}`}
+          data-sidebar={props.leftVisible ? "expanded" : "rail"}
+          style={props.leftVisible ? { width: leftColumn } : undefined}
+        >
           {props.sidebar}
           {/* Keep an eight-pixel drag target centered on the narrower gutter. */}
-          <ResizeHandle
+          {props.leftVisible && <ResizeHandle
             ariaLabel="Resize sidebar"
             orientation="vertical"
             value={leftWidth}
@@ -274,16 +280,14 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
             className="resize-instrument-sidebar absolute top-0 -right-1.5 bottom-0 w-2 cursor-col-resize"
             onChange={props.onLeftWidthChange}
             onActiveChange={setColumnResizing}
-          />
-        </div>}
+          />}
+        </div>
         <div className="instrument-content-column flex min-h-0 min-w-0 flex-1 flex-col gap-1">
           <ShellTopRow
             pageHeaderRef={props.pageHeaderRef}
-            leftVisible={props.leftVisible}
             agentVisible={agentVisible}
             topChrome={props.topChrome}
             island={props.island}
-            onToggleLeft={props.onToggleLeft}
             onAgentToggle={props.onLensChange ? (opener) => {
               openerRef.current = opener;
               setAgentPriority(!agentVisible);
@@ -305,7 +309,10 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
               onActiveChange={setColumnResizing}
             />}
             <section
-              className={`instrument-desk-column relative min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-desk ${contentVisible ? "flex" : "hidden"}`}
+              /* The one surface in the frame. It is a card standing on the backdrop rather than
+                 another run of desk, which is what separates the page from the chrome around it
+                 -- surface and air, never a border or a shadow. */
+              className={`instrument-desk-column relative min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-window bg-card ${contentVisible ? "flex" : "hidden"}`}
               data-instrument-view-panel={chatLens || undefined}
               hidden={!contentVisible}
               ref={setDeskColumn}
@@ -323,7 +330,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
                 {props.desk}
               </div>, false, dimensions.deskWidth)}
             </section>
-            <aside className={`instrument-right-rail relative min-h-0 min-w-0 overflow-hidden bg-desk ${mode === "docked" ? "flex" : "hidden"} ${contentVisible ? "flex-none" : "flex-1"}`} style={contentVisible ? { width: railWidth } : undefined} aria-label={activeRail.label} hidden={mode !== "docked"} inert={mode !== "docked" || undefined}>
+            <aside className={`instrument-right-rail relative min-h-0 min-w-0 overflow-hidden ${mode === "docked" ? "flex" : "hidden"} ${contentVisible ? "flex-none" : "flex-1"}`} style={contentVisible ? { width: railWidth } : undefined} aria-label={activeRail.label} hidden={mode !== "docked"} inert={mode !== "docked" || undefined}>
               <div className="min-h-0 min-w-0 flex-1" ref={setDockedRailTarget} />
             </aside>
           </div>
@@ -347,7 +354,10 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
         onOpenChange={(open) => { if (!open && chatLens) closeRail(); else props.onRightOverlayOpenChange(open); }}
         localScroll
         scrimClassName="z-sheet-backdrop bg-instrument/52"
-        surfaceClassName="fixed z-sheet inset-y-2 right-2 w-max max-w-overlay-fit max-h-overlay-fit-block rounded-panel bg-instrument text-on-instrument"
+        /* The sheet is the docked zone in another position, so it is the same surface: the chrome
+           ground with the chrome's ink. Painting it as a black widget while the docked zone was
+           a card is what made the mode a colour decision instead of a layout one. */
+        surfaceClassName="instrument-chrome fixed z-sheet inset-y-2 right-2 w-max max-w-overlay-fit max-h-overlay-fit-block rounded-window bg-chrome text-ink"
       >
         <div className="flex min-h-full" style={{ width: railWidth }} ref={setOverlayRailTarget} />
       </InstrumentOverlay>
@@ -355,7 +365,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
         <div
           /* A `hidden` attribute is a user-agent rule, so the `display: flex` this row needs when
              it is showing would beat it; the two states are one utility instead. */
-          className={`instrument-chat-rail-content size-full min-h-0 flex-col [&>.utility-right-panel]:size-full ${railContentHidden ? "hidden" : "flex"}`}
+          className={`instrument-chat-rail-content instrument-chrome size-full min-h-0 flex-col [&>.utility-right-panel]:size-full ${railContentHidden ? "hidden" : "flex"}`}
           hidden={railContentHidden}
           inert={railContentHidden || undefined}
           onFocusCapture={(event) => { focusedRailElement.current = event.target as HTMLElement; }}

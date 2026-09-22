@@ -87,9 +87,10 @@ const selectMenuSource = readFileSync(join(process.cwd(), "src/shared/ui/SelectM
 const agentRailSource = layerSource("src/widgets/utility-panels");
 const agentRailTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/agent-rail.css"), "utf8");
 const pickerSource = readFileSync(join(process.cwd(), "src/widgets/sidebar/ui/WorkspacePicker.tsx"), "utf8");
-// The sidebar card is three files now -- the card, its chrome vocabulary and its lists -- and
-// every claim below is about the card, not about which of them holds a given row.
-const contextSidebarSource = ["ContextSidebar.tsx", "sidebar-chrome.ts", "sidebar-sections.tsx", "sidebar-projects.tsx"]
+// The sidebar is five files now -- the expanded column, the folded rail, their shared chrome
+// vocabulary and the two list bodies -- and every claim below is about the sidebar, not about
+// which of them holds a given row.
+const contextSidebarSource = ["ContextSidebar.tsx", "SidebarRail.tsx", "sidebar-chrome.ts", "sidebar-sections.tsx", "sidebar-projects.tsx"]
   .map((file) => readFileSync(join(process.cwd(), "src/widgets/sidebar/ui", file), "utf8")).join("\n");
 const librarySource = readFileSync(join(process.cwd(), "src/pages/library/ui/LibraryScreen.tsx"), "utf8");
 const workspaceOverviewTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/workspace-overview.css"), "utf8");
@@ -1404,7 +1405,10 @@ describe("design system contract", () => {
     // Opening must never narrow a fully populated Notch.
     expect(shellTheme.match(/--spacing-island-open:\s*([^;]+);/)?.[1]).toBe(shellTheme.match(/--spacing-island-max:\s*([^;]+);/)?.[1]);
     expect(shellSource).toContain("grid-rows-(--island-rows-open)");
-    expect(shellSource).toMatch(/surfaceClassName="fixed z-sheet inset-y-2 right-2 w-max max-w-overlay-fit/);
+    /* The sheet is the agent zone away from the rail, so it carries the chrome scope the docked
+       rail carries: the same zone cannot be a black widget in one mode and a theme panel in the
+       other, and the scope is what keeps that decision in one place. */
+    expect(shellSource).toMatch(/surfaceClassName="instrument-chrome fixed z-sheet inset-y-2 right-2 w-max max-w-overlay-fit/);
     expect(instrument).not.toContain("right-rail-sheet");
   });
 
@@ -1772,7 +1776,12 @@ describe("design system contract", () => {
     expect(styles).toContain("--dither-op: 1");
     // Workspace identity occupies one row so projects and content remain within reach.
     expect(sidebar).not.toContain("h-workspace-card");
-    expect(picker).toMatch(/className="workspace-picker[^"]*\bh-full\b/);
+    /* Expanded, the picker fills the footer row it shares with the settings control. Folded, it
+       is the avatar the rail ends in and takes no more room than the circles above it. Both
+       triggers open the one list, which is why this is a variant rather than a second picker. */
+    expect(picker).toContain("workspace-picker relative");
+    expect(picker).toContain('"h-full min-w-0 flex-1"');
+    expect(/const TRIGGER_AVATAR = "([^"]*)"/.exec(picker)?.[1] ?? "").toContain("rounded-full");
     expect(/const TRIGGER = "([^"]*)"/.exec(picker)?.[1] ?? "").toContain("focus-visible:outline-ink");
     // Overview uses the shared project artwork, matching the project identity elsewhere.
     expect(workbenchStyles).not.toMatch(/\.project-glyph\s*\{/);
@@ -1871,15 +1880,27 @@ describe("design system contract", () => {
     expect(WINDOW.split(" ")).toContain("p-0.5");
     expect(WINDOW.split(" ")).toContain("rounded-window");
     expect(WINDOW).not.toMatch(/\b(?:border-\d|shadow-)/);
-    const railPlate = /`utility-right-panel panel-blur \$\{WINDOW\} ([^`]*)`/.exec(agentRailSource)?.[1] ?? "";
+    // The chat stands on the shell's own backdrop rather than inside another surface, so it names
+    // the kit's unpainted pair. The geometry is the framed window's, and only the paint is gone:
+    // both halves keep the concentric radii, so moving a zone between the two never relays it out.
+    const BARE = /export const WINDOW_BARE = "([^"]*)"/.exec(chrome)?.[1] ?? "";
+    const BARE_BODY = /export const WINDOW_BODY_BARE = "([^"]*)"/.exec(chrome)?.[1] ?? "";
+    expect(BARE.split(" ")).toContain("rounded-window");
+    expect(BARE.split(" ")).toContain("p-0.5");
+    expect(BARE.split(" ")).not.toContain("bg-panel");
+    expect(BARE_BODY.split(" ")).toContain("rounded-frame");
+    expect(BARE_BODY.split(" ")).not.toContain("bg-card");
+    /* No blur plate either. `.panel-blur` fills with `var(--panel)`, which is the light theme's
+       own panel: over the chrome the chat became a light sheet carrying the chrome's light ink,
+       and the theme sheet then had to repaint it back. The scope owns the zone's surfaces now. */
+    const railPlate = /`utility-right-panel \$\{WINDOW_BARE\} ([^`]*)`/.exec(agentRailSource)?.[1] ?? "";
     expect(railPlate.split(" ")).toContain("text-ink");
+    expect(agentRailSource).not.toMatch(/className=[{"`][^"`]*\bpanel-blur\b/);
     expect(agentRailSource).toContain('from "@/shared/ui/Window"');
-    expect(agentRailSource).toContain("utility-right-panel-card ${WINDOW_BODY}");
-    const railCard = WINDOW_BODY;
-    expect(railCard.split(" ")).toContain("bg-card");
-    // `rounded-frame`, not `rounded-inner`: handoff 16 makes the card's corner concentric with the
-    // shell's, 16 less the 2 of frame, so the frame reads as a hairline rather than as a margin.
-    expect(railCard.split(" ")).toContain("rounded-frame");
+    expect(agentRailSource).toContain("utility-right-panel-card ${WINDOW_BODY_BARE}");
+    // ...and the kit still carries both surfaces for every window that does stand inside one.
+    expect(WINDOW_BODY.split(" ")).toContain("bg-card");
+    expect(WINDOW_BODY.split(" ")).toContain("rounded-frame");
     // And the chrome is the zone's row in that frame, above the card rather than inside it.
     expect(agentRailSource.indexOf("utility-panel-header")).toBeLessThan(agentRailSource.indexOf("utility-right-panel-card"));
     // The composer's own skin is in markup: a field one step off the card, at the card's own
@@ -2026,7 +2047,7 @@ describe("design system contract", () => {
     );
     expect(shell).not.toContain('aria-label="Toggle bottom panel"');
     const main = readFileSync(join(process.cwd(), "electron/main.ts"), "utf8");
-    expect(main).toContain("trafficLightPosition");
+    expect(main).toContain("setWindowButtonVisibility(false)");
     expect(main).toContain("setWindowOpenHandler");
     expect(main).toContain('target.protocol === "http:"');
     expect(main).toContain('target.protocol === "https:"');

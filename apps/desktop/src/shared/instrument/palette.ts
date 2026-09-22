@@ -16,6 +16,13 @@ export const INSTRUMENT_COLOR_ALLOWLIST = [
 ] as const;
 
 const shared = {
+  /* The window's chrome - the backdrop, the sidebar, the top row and the agent zone - is a black
+     widget in both themes, the same decision the island and the place switch already take. It
+     needs a ground of its own: `widgetDark` is a surface standing ON something, and using it here
+     would put the chrome one step ABOVE the dark theme's own desk. Both values are the dark
+     theme's desk and its hover step, named for the role rather than for the theme they came from. */
+  chrome: "#050505",
+  chromeHover: "#242422",
   widgetDark: "#141414",
   widgetDarkRaised: "#1E1E1E",
   widgetDarkHover: "#1C1C1C",

@@ -183,7 +183,7 @@ export function App() {
     || (!!selectedWorkspace && (viewFrameActive ? viewTab.type === "generation" : state.route.kind === "workspace" && workspacePage === "generation"))
   );
   const activeSidebarVisible = sidebarVisible;
-  const workspacePickerVisible = isWorkspacePickerVisible({ mode: marketplace.mode, sidebarVisible: activeSidebarVisible, workspaceId: selectedWorkspace?.id ?? null });
+  const workspacePickerVisible = isWorkspacePickerVisible({ mode: marketplace.mode, workspaceId: selectedWorkspace?.id ?? null });
   const requestAgentDraft = agentChat.historyReady ? (request: { prompt: string; attachment: Attachment }) => {
     revealCanvasChat();
     setCanvasRequest({ ...request, id: crypto.randomUUID(), chatId: viewChatId });
@@ -286,7 +286,8 @@ export function App() {
               chats={sidebarChats}
               onBack={navigateBack}
               onForward={navigateForward}
-              onCollapse={() => setSidebarVisible(false)}
+              collapsed={!activeSidebarVisible}
+              onToggleSidebar={() => setSidebarVisible((visible) => !visible)}
               onOpenSettings={openSettings}
               onSwitchMode={switchAppMode}
               onOpenMarketplaceRoute={openMarketplaceRoute}
@@ -298,7 +299,7 @@ export function App() {
             />}
             desk={<AppDesk
               mode={marketplace.mode}
-              viewFrameActive={viewFrameActive} fillHeight={fillDesk} pageHeaderHost={pageHeaderHost}
+              fillHeight={fillDesk} pageHeaderHost={pageHeaderHost}
               catalog={catalog}
               workRoute={state.route}
               location={marketplace.location}
@@ -365,7 +366,6 @@ export function App() {
               onBack: navigateBack,
               onForward: navigateForward,
             }}
-            onToggleLeft={() => setSidebarVisible((visible) => !visible)}
             onToggleRightPreference={() => setRightPanelVisible((visible) => !visible)}
             onRightOverlayOpenChange={setRightOverlayOpen}
           />

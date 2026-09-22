@@ -96,7 +96,7 @@ export function LibraryScreen({
     const state = restoring ? "restoring" : error ? "error" : "unavailable";
     return (
       <InstrumentScreenRoot descriptor={libraryInstrumentStates} state={state}>
-      <main className="main-region empty-library @container/main-region grid min-w-0 flex-1 place-items-center overflow-x-hidden overflow-y-auto bg-desk p-2 min-h-full w-full">
+      <main className="main-region empty-library @container/main-region grid min-w-0 flex-1 place-items-center overflow-x-hidden overflow-y-auto bg-transparent p-2 min-h-full w-full">
         <PageHeader title="Production library" icon={Layers3} /><div className="empty-library-content">
           <div className="ralphy-wordmark mb-4.5 font-code type-sm text-ink">RALPHY</div>
           <h2>{restoring ? "Opening your library" : "Home library unavailable"}</h2>
@@ -124,7 +124,7 @@ export function LibraryScreen({
 
   return (
     <InstrumentScreenRoot descriptor={libraryInstrumentStates} state={catalog.workspaces.length === 0 ? "empty" : "ready"}>
-    <main className="main-region @container/main-region min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-desk p-2">
+    <main className="main-region @container/main-region min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-transparent p-2">
       <PageHeader title="Workspace overview" icon={Layers3} meta="Production library" description="Your workspaces and projects"><CreateLibraryEntry onCreated={onOpenWorkspace} /><WorkspaceArchiveAction onImported={onOpenWorkspace} /><button type="button" className={PAGE_HEADER_BUTTON} aria-label="Refresh library" title="Refresh library" onClick={onRetry}><RefreshCw size={14} /><span className="page-header-action-label">Refresh</span></button></PageHeader>
 
       <section className="metrics-band mb-5 grid grid-cols-(--metrics-band-columns)" aria-label="Library summary">

@@ -41,7 +41,9 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
     pinnedWorkspaceIds: [],
     pinnedProjectIds: [],
     workspacePage: "projects",
-    sidebarVisible: true,
+    /* Folded by default: the rail keeps every destination one click away, and the window opens
+       on the content rather than on the navigation. A width the operator chose is still theirs. */
+    sidebarVisible: false,
     lens: "desk",
     rightPanelVisible: true,
     bottomPanelVisible: false,

@@ -11,7 +11,8 @@
   --video-line: color-mix(in srgb, var(--video-console-ink) 9%, transparent);
   --video-accent: var(--instrument-generation-brand);
   position: relative; display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; height: 100%;
-  gap: var(--video-gap); padding: var(--video-gap); overflow: hidden; background: var(--instrument-desk); color: var(--instrument-text-primary);
+  /* Transparent: the content column is the card every route stands on, so a route painting the desk over it puts the backdrop back. */
+  gap: var(--video-gap); padding: var(--video-gap); overflow: hidden; background: transparent; color: var(--instrument-text-primary);
   font-family: var(--font-sans); font-size: var(--text-mono-md); outline: none; container: video-workspace / inline-size;
 }
 .video-workspace:fullscreen { width: 100vw; height: 100vh; }

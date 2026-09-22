@@ -7,7 +7,7 @@ import { AgentComposer, type AgentComposerHandle } from "@/features/agent-chat";
 import { addAttachments, attachmentInstructions, withAttachments, type Attachment } from "@/features/agent-chat";
 import { AgentThread, AgentFailure } from "@/features/agent-chat";
 import { AgentMark } from "@/shared/ui/AgentMark";
-import { WINDOW, WINDOW_BODY } from "@/shared/ui/Window";
+import { WINDOW_BARE, WINDOW_BODY_BARE } from "@/shared/ui/Window";
 
 import { AgentConnection } from "./agent-connection";
 import {
@@ -109,10 +109,12 @@ export function AgentChatPanel({
 
   return (
     <motion.aside
-      /* Chrome around a card, the same two layers the view panel and the sidebar stand on: a 2px
-         run of panel around a widget one radius step in. tokens.css keys the squircle on this
-         class, and `--blur` is `none`, so `.panel-blur` adds nothing. */
-      className={`utility-right-panel panel-blur ${WINDOW} text-ink`}
+      /* No frame and no card: the chat is drawn onto the window's backdrop beside the content
+         card, so the only surfaces in it are the ones its own controls take. `panel-blur` is gone
+         rather than kept as documentation -- it paints `var(--panel)`, and it was inert only while
+         `WINDOW`'s `bg-panel` overrode it, so the moment the frame went it painted the whole
+         transcript. `utility-right-panel` stays: it carries the squircle and the menu fits. */
+      className={`utility-right-panel ${WINDOW_BARE} text-ink`}
       initial={{ x: 24, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 24, opacity: 0 }}
@@ -148,7 +150,7 @@ export function AgentChatPanel({
         </span>
       </header>
 
-      <div className={`utility-right-panel-card ${WINDOW_BODY}`}>
+      <div className={`utility-right-panel-card ${WINDOW_BODY_BARE}`}>
       {chat.historyError && <AgentFailure title="Chat history needs attention" text={chat.historyError} onRetry={chat.retryHistory} />}
       {chat.historyReady === false ? (
         <p className="p-4 type-ui text-secondary" role="status">{chat.historyError ? "Retry to reopen your saved conversations." : "Opening chat history..."}</p>

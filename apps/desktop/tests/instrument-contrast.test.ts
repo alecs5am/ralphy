@@ -74,6 +74,23 @@ describe("instrument color contract", () => {
     }
   });
 
+  /* The window's chrome is black in both themes, so `.instrument-chrome` repoints the theme's own
+     ink tokens at the on-dark family for that subtree. Everything drawn on the chrome -- the rail,
+     the top row, the agent zone -- reads through those three pairs, and a theme that changed one
+     half without the other would be invisible in exactly one theme. They are theme-invariant by
+     construction, which is why the loop asserts the same numbers twice rather than two sets. */
+  test("keeps the window chrome readable in both themes", () => {
+    for (const theme of ["light", "dark"] as const) {
+      const palette = INSTRUMENT_PALETTE[theme];
+      for (const ground of ["chrome", "chromeHover", "widgetDark", "widgetDarkRaised"] as const) {
+        expect(contrastRatio(palette.textOnDarkPrimary, palette[ground]), `${theme} primary on ${ground}`).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(palette.textOnDarkSecondaryReadable, palette[ground]), `${theme} secondary on ${ground}`).toBeGreaterThanOrEqual(4.5);
+      }
+      // The rail's selected destination is the one inverted plate on that black column.
+      expect(contrastRatio(palette.selectedInk, palette.selectedSurface), `${theme} rail selection`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   test("keeps alert labels readable in both themes", () => {
     expect(INSTRUMENT_PALETTE.light.alertText).toBe("#050505");
     expect(INSTRUMENT_PALETTE.dark.alertText).toBe("#050505");

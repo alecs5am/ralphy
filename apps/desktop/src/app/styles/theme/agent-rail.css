@@ -38,6 +38,11 @@
   --agent-model-menu-fit: calc(var(--instrument-right-rail-width) - 40px);
 }
 
+/* The chat's own three surfaces are not repointed here. The chat stands on the window's chrome,
+   which is black in both themes, so `.instrument-chrome` in theme/shell.css steps them off that
+   ground once for both themes. A light-theme rule here would beat that scope on specificity and
+   put a white composer on a black panel. */
+
 /* A chat turn keeps document rendering without document-sized headings or paragraph air. */
 .markdown-chat {
   --document-heading-space: var(--space-2);

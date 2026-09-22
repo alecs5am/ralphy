@@ -24,7 +24,8 @@ export function AppSidebar({
   chats,
   onBack,
   onForward,
-  onCollapse,
+  collapsed,
+  onToggleSidebar,
   onOpenSettings,
   onSwitchMode,
   onOpenMarketplaceRoute,
@@ -49,7 +50,8 @@ export function AppSidebar({
   chats: SidebarChat[];
   onBack(): void;
   onForward(): void;
-  onCollapse(): void;
+  collapsed: boolean;
+  onToggleSidebar(): void;
   onOpenSettings(page?: SettingsPageId): void;
   onSwitchMode(mode: AppMode): void;
   onOpenMarketplaceRoute(route: MarketplaceBrowseRoute): void;
@@ -60,6 +62,7 @@ export function AppSidebar({
   onLens(lens: "desk" | "chat"): void;
 }) {
   return <InstrumentSidebar
+    collapsed={collapsed}
     mode={mode}
     lens={lens}
     route={route}
@@ -74,7 +77,7 @@ export function AppSidebar({
     canGoForward={canGoForward}
     onBack={onBack}
     onForward={onForward}
-    onToggleSidebar={onCollapse}
+    onToggleSidebar={onToggleSidebar}
     onOpenSettings={onOpenSettings}
     onSwitchMode={onSwitchMode}
     onOpenMarketplaceRoute={onOpenMarketplaceRoute}

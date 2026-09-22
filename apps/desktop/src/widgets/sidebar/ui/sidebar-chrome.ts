@@ -66,6 +66,22 @@ export const CHAT_UNSELECTED = "bg-transparent text-muted hover:bg-row-hover hov
 /* A ghost circle on the card: no surface until the cursor is on it, and the field is what it takes. */
 export const GHOST = "grid place-items-center rounded-full text-muted hover:bg-field hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
 
+/* The folded sidebar stands on the desk rather than on the card, so its controls take the desk's
+   own hover step: a card recess is invisible against the light desk and reads as a hole against
+   the dark one. Selection and hover share that surface, exactly as the expanded rows share the
+   field. */
+export const RAIL_GHOST = "grid size-7 flex-none place-items-center rounded-full text-muted hover:bg-desk-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+/* A rail control is a circle, not a small card: the rail has no rows to align a radius with, and
+   the plate a selected destination takes is the same shape as the avatar the rail ends in. */
+const RAIL_ROW = "sidebar-rail-row grid size-7 flex-none place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+
+/* The rail's selected destination is the one light plate on the black column, the same inverted
+   pair the workspace picker's active row and every select menu's checked row already take. The
+   theme's own selected pair is white-on-white against the dark theme's desk; this one is not. */
+export function railRow(active: boolean) {
+  return `${RAIL_ROW} ${active ? "bg-selected text-selected-ink hover:bg-selected" : "bg-transparent text-muted hover:bg-desk-hover hover:text-ink"}`;
+}
+
 export function sidebarRow(active: boolean) {
   return `${SIDEBAR_ROW} ${active ? SELECTED : UNSELECTED}`;
 }

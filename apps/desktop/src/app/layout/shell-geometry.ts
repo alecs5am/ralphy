@@ -19,6 +19,10 @@ const RIGHT_RAIL_MAX = 1_000;
 const LEFT_MIN = 216;
 const LEFT_MAX = 420;
 const LEFT_DEFAULT = 260;
+/* Folding the sidebar narrows it to the rail; it never removes it. The arithmetic has to agree
+   with `--spacing-sidebar-rail`, because the desk's room is measured from what the left column
+   actually takes and a zero here would hand the desk 48px it never gets. */
+export const SIDEBAR_RAIL = 44;
 
 export function clampWidth(requested: number, min: number, max: number, fallback: number): number {
   const value = Number.isFinite(requested) ? Math.round(requested) : fallback;
@@ -47,7 +51,7 @@ export function shellColumns({ dimensions, leftVisible, leftWidth, rightWidth, r
   chatLens?: boolean;
 }) {
   const left = clampWidth(leftWidth, LEFT_MIN, LEFT_MAX, LEFT_DEFAULT);
-  const leftColumn = leftVisible ? left : 0;
+  const leftColumn = leftVisible ? left : SIDEBAR_RAIL;
   // The rail may not eat the desk: its ceiling is whatever is left after the sidebar and the
   // desk minimum, so dragging wide on a narrow window cannot silently flip it to overlay.
   const contentRoom = dimensions.frameWidth - leftColumn - VIEW_CHROME;

@@ -101,7 +101,9 @@ async function mountApp({
     getItem: (key: string) => storage.get(key) ?? null,
     setItem: (key: string, value: string) => storage.set(key, value),
   } });
-  writeWorkbenchPreferences(localStorage, { ...readWorkbenchPreferences(localStorage), workspacePage: "overview" });
+  /* These cases drive the expanded sidebar -- its page rows and its workspace picker -- so the
+     state is seeded rather than taken from the default, which folds the sidebar to the rail. */
+  writeWorkbenchPreferences(localStorage, { ...readWorkbenchPreferences(localStorage), workspacePage: "overview", sidebarVisible: true });
   const restoreLibrary = vi.spyOn(bridge, "restoreLibrary").mockResolvedValue({
     identity: { storeId: "store-1", label: "Ralphy", rootEpoch: 1, activitySequence: 0 },
     catalog: {

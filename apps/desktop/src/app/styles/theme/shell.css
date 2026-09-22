@@ -3,10 +3,10 @@
    value the design fixes for that role; a component then reaches for the name, never a
    literal.
 
-   The frame straddles both ink families: the desk, its columns and the sidebar card are theme
-   surfaces, while the island, the rail sheet and the sidebar's place switch and workspace hero
-   are black widgets in both themes and take the on-dark family throughout. Nothing here may
-   resolve to a theme-dependent surface for a widget that stays black. */
+   The frame no longer straddles both ink families. The window's chrome -- the backdrop, the
+   sidebar in either state, the top row and the agent zone -- is one black widget in both themes,
+   which is the rule the island and the place switch already followed; the content column is the
+   only surface left that follows the theme. `.instrument-chrome` below is how that is stated. */
 
 /* Multi-part values. Plain custom properties rather than `@theme` keys, because
    `grid-template-rows` is not a Tailwind namespace: `@theme inline` never emits the variable,
@@ -40,6 +40,49 @@
    `--instrument-right-rail-width`, and a custom property's `var()` is substituted where the
    property is *declared*, so a derived value must be declared inside the scope that holds its
    input. See the note in theme/agent-rail.css. */
+/**
+ * The chrome's ink, declared once instead of in forty class strings.
+ *
+ * `@theme inline` compiles every utility straight to the custom property it names -- `text-ink`
+ * is `color: var(--instrument-text-primary)`, `bg-field` is `background-color: var(--instrument-field)`
+ * -- so redefining those properties on an ancestor re-points every utility in its subtree. This
+ * is the technique work-surfaces.css already states as a rule: "any element that paints a dark
+ * surface re-declares the on-dark ink set for its subtree."
+ *
+ * It is carried by the four chrome subtrees rather than by `.instrument-shell`, because the
+ * content column is a descendant of the shell and CSS has no way to restore an inherited
+ * custom-property set on a descendant without re-declaring every name.
+ *
+ * What this means at a call site: inside these subtrees `text-ink` is the on-dark ink and
+ * `bg-field` is a dark raised plate. A sidebar row written in theme names is already correct;
+ * rewriting one to an on-dark utility would paint it twice.
+ */
+.instrument-chrome {
+  --instrument-desk: var(--instrument-chrome);
+  --instrument-desk-hover: var(--instrument-chrome-hover);
+  --instrument-panel: var(--instrument-chrome);
+  --instrument-card: var(--instrument-widget-dark);
+  --instrument-field: var(--instrument-widget-dark-raised);
+  --instrument-row-hover: var(--instrument-widget-dark-hover);
+  --instrument-chip-on-panel: var(--instrument-widget-dark);
+  --instrument-widget-light: var(--instrument-widget-dark);
+  --instrument-widget-light-hover: var(--instrument-widget-dark-hover);
+  --instrument-widget-light-sunken: var(--instrument-widget-dark-raised);
+  --instrument-text-primary: var(--instrument-text-on-dark-primary);
+  --instrument-text-secondary-readable: var(--instrument-text-on-dark-secondary-readable);
+  --instrument-text-secondary-decorative: var(--instrument-text-on-dark-secondary-readable);
+  --instrument-text-muted-decorative: var(--instrument-text-on-dark-muted-decorative);
+  /* The chat is written in the theme family throughout, so its three own surfaces move with it. */
+  --instrument-chat-field: var(--instrument-widget-dark);
+  --instrument-chat-control: var(--instrument-widget-dark-raised);
+  --instrument-chat-control-hover: var(--instrument-widget-dark-hover);
+  --instrument-divider: var(--instrument-track-on-dark);
+  /* The grip inverts in the light family -- bright at rest, darker when held. On the chrome it
+     runs the one direction it has anywhere else: a step off the ground, brighter when held. */
+  --instrument-resize-grip: var(--instrument-chrome-hover);
+  --instrument-resize-grip-active: var(--instrument-text-on-dark-muted-decorative);
+}
+
 .instrument-shell {
   --instrument-right-rail-width: 292px;
   --instrument-left-width: 260px;
@@ -60,9 +103,19 @@
      pair: #D3D6DD under #141414 ink in the light theme, #242422 under #F2F2F0 in the dark one. */
   --color-desk-hover: var(--instrument-desk-hover);
 
+  /* The window's ground. `desk` flips with the theme and `instrument` is a widget standing on
+     something; the chrome is neither -- it is what everything else stands on, and it is black in
+     both themes. */
+  --color-chrome: var(--instrument-chrome);
+  --color-chrome-hover: var(--instrument-chrome-hover);
+
   /* Control geometry, so a square control and a control height stay one decision. */
   --spacing-control-sm: var(--control-sm);
   --spacing-control-md: var(--control-md);
+
+  /* The sidebar folded: one 28px icon control with a 10px gutter either side. The rail is a
+     column of the shell, not a card, so this is the whole of its geometry. */
+  --spacing-sidebar-rail: 44px;
 
   /* The frame's own minimums: below these the three columns stop being readable at all. */
   --spacing-workbench-min: 900px;

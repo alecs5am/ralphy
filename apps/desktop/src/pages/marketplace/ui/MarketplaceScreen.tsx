@@ -86,7 +86,7 @@ function isUnfilteredQuery(query: MarketplaceQueryState): boolean {
    harness mounts a supplied-presentation Downloads route of its own and has to measure the
    real screen, not a hand-written copy of it. The `main-region` class stays as a hook:
    instrument.css names it, and this screen's own layout is stated here. */
-export const MARKETPLACE_SCREEN = "marketplace-screen main-region @container/main-region flex h-full max-h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-desk p-1 text-ink";
+export const MARKETPLACE_SCREEN = "marketplace-screen main-region @container/main-region flex h-full max-h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent p-1 text-ink";
 export const MARKETPLACE_SCROLL = "marketplace-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain";
 const ROUTE_PLACEHOLDER = "marketplace-route-placeholder mt-4 grid min-h-64 place-items-center rounded-panel bg-surface p-6 text-center";
 

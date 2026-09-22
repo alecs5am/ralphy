@@ -9,12 +9,16 @@
 import type { ActivityRefreshEvent, RootIdentity } from "@/shared/api/ipc";
 import type { AppMode } from "@/shared/model/routes";
 
-export function isWorkspacePickerVisible({ sidebarVisible, workspaceId }: {
+/**
+ * The folded sidebar is a rail, not an absence, and the rail ends in the workspace avatar. A
+ * picker that disappeared with the expanded sidebar would take workspace switching with it, so
+ * the only question left is whether there is a workspace to switch away from.
+ */
+export function isWorkspacePickerVisible({ workspaceId }: {
   mode: AppMode;
-  sidebarVisible: boolean;
   workspaceId: string | null;
 }): boolean {
-  return sidebarVisible && workspaceId !== null;
+  return workspaceId !== null;
 }
 
 export function isChatRailVisible({ workbenchVisible, rightPanelVisible }: {

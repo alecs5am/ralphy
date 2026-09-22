@@ -1,7 +1,8 @@
 .generation-screen {
   container: generation / inline-size;
   --generation-accent: var(--instrument-text-secondary-readable);
-  background: var(--instrument-desk);
+  /* No surface: the content column is the card every route stands on, so a route painting the desk over it puts the backdrop back. */
+  background: transparent;
 }
 .generation-layout { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
 .generation-results { display: flex; flex-direction: column; height: 100%; min-height: 0; }

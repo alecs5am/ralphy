@@ -4,39 +4,29 @@
  * The row is a drag region, and every control in it opts back out -- a button that moves the
  * window instead of firing is the defect this pairing prevents.
  */
-import { ArrowLeft, ArrowRight, MessageSquare, PanelLeft } from "@/shared/ui/icons";
+import { ArrowLeft, ArrowRight, MessageSquare } from "@/shared/ui/icons";
 import type { ReactNode } from "react";
 
 import { ICON_BUTTON, IconButton } from "@/shared/ui/IconButton";
 
 export function ShellTopRow({
-  leftVisible,
   agentVisible,
   topChrome,
   island,
-  onToggleLeft,
   onAgentToggle,
   pageHeaderRef,
 }: {
-  leftVisible: boolean;
   agentVisible: boolean;
   topChrome?: { canGoBack: boolean; canGoForward: boolean; onBack(): void; onForward(): void };
   island?: ReactNode;
-  onToggleLeft(): void;
   onAgentToggle?(opener: HTMLButtonElement): void;
   pageHeaderRef?(element: HTMLDivElement | null): void;
 }) {
-  return <header data-page-controls={!!pageHeaderRef || undefined} className="instrument-top-row relative flex h-8 min-w-0 flex-none items-center gap-1 [-webkit-app-region:drag]">
-        {/* The sidebar owns its own collapse control now; the topbar carries it only while the
-            sidebar is gone, which is the one state where the sidebar's own button is not on
-            screen. History stays here in both states -- it is about the content column. */}
+  return <header data-page-controls={!!pageHeaderRef || undefined} className="instrument-top-row instrument-chrome relative flex h-8 min-w-0 flex-none items-center gap-1 [-webkit-app-region:drag]">
+        {/* The sidebar carries its own fold control in both states -- expanded in its header, and
+            folded at the top of the rail -- so the top row holds history only. History belongs
+            here in either state: it is about the content column, not about the sidebar. */}
         {topChrome && <div className="flex flex-none items-center gap-1 [-webkit-app-region:no-drag]">
-          {!leftVisible && <>
-            <div className="w-traffic-main h-px flex-none" aria-hidden="true" />
-            <button className={`size-7 rounded-full text-ink hover:bg-desk-hover ${ICON_BUTTON}`} type="button" title="Show sidebar" aria-label="Toggle sidebar" aria-pressed="false" onClick={onToggleLeft}>
-              <PanelLeft size={15} strokeWidth={1.6} aria-hidden="true" />
-            </button>
-          </>}
           <IconButton className="size-7 rounded-full hover:bg-desk-hover" title="Back" label="Back" disabled={!topChrome.canGoBack} onClick={topChrome.onBack}>
             <ArrowLeft size={15} strokeWidth={1.6} aria-hidden="true" />
           </IconButton>

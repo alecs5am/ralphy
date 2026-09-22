@@ -335,20 +335,11 @@ class MediaWorkerClient {
 let win: BrowserWindow | null = null;
 
 /* The window's base fill is what shows through wherever the renderer has not painted yet -- the
-   rounded corners, and the outer edge while the window is being composited over another one. A
-   fixed dark fill therefore drew a black hairline around a light-themed window, so the fill follows
-   the resolved theme. `shouldUseDarkColors` is the resolution: it already accounts for a
-   `themeSource` of "system", which is why the renderer sends its preference rather than its
-   resolved theme. */
-function applyWindowBackground(): void {
-  const desk = nativeTheme.shouldUseDarkColors
-    ? INSTRUMENT_PALETTE.dark.desk
-    : INSTRUMENT_PALETTE.light.desk;
-  for (const target of BrowserWindow.getAllWindows()) target.setBackgroundColor(desk);
-}
-
-/* The OS can change the answer under a "system" preference without the renderer saying anything. */
-nativeTheme.on("updated", applyWindowBackground);
+   rounded corners, and the outer edge while the window is being composited over another one.
+   Whatever the theme, what the renderer paints there is the chrome, so the fill is the chrome's
+   own colour and the seam cannot appear in either theme. It used to follow `shouldUseDarkColors`,
+   which was correct while the backdrop was the theme's desk; that is no longer what is drawn. */
+const WINDOW_FILL = INSTRUMENT_PALETTE.dark.chrome;
 let worker: MediaWorkerClient | null = null;
 const mediaState = new MediaSessionState();
 let watcher: ActiveRootResource<LibraryWatcher>;
@@ -1192,7 +1183,6 @@ function registerMediaIpc(): void {
     /* An unknown value falls back to "system" rather than throwing: a bad appearance is a cosmetic
        fault and the renderer should not lose a frame over it. */
     nativeTheme.themeSource = rawTheme === "dark" || rawTheme === "light" ? rawTheme : "system";
-    applyWindowBackground();
   });
   securedHandle(MEDIA_CHANNELS.restoreLibrary, () => {
     return restoreLibrary(async () => {
@@ -1837,16 +1827,24 @@ function createWindow(): void {
     ...initialBounds,
     minWidth: MINIMUM_WINDOW_SIZE.width,
     minHeight: MINIMUM_WINDOW_SIZE.height,
-    titleBarStyle: "hiddenInset",
-    /* Native light frames measure 16px tall. Match their center to the 32px chrome row inside
-       the 4px shell inset: y = 4 + 16 - 8. The first light aligns with the sidebar header's
-       content: x = 4px shell + 2px sidebar frame + 12px header padding. These window-relative
-       coordinates stay fixed when resizing or toggling the sidebar. */
-    trafficLightPosition: { x: 18, y: 12 },
-    backgroundColor: nativeTheme.shouldUseDarkColors ? INSTRUMENT_PALETTE.dark.desk : INSTRUMENT_PALETTE.light.desk,
+    /* No native chrome at all. The lights are hidden below rather than moved: the shell reserved
+       a run for them in two different rows and the reservation was the only thing in either row,
+       which is the chrome this design removes. Quit, close and minimise keep their menu items and
+       their chords, so nothing becomes unreachable -- only undrawn. */
+    titleBarStyle: "hidden",
+    backgroundColor: WINDOW_FILL,
     show: !SMOKE_TEST && !INSTRUMENT_SHELL_AUDIT,
     webPreferences: secureWebPreferences(join(__dirname, "preload.cjs")),
   });
+  /* macOS draws the traffic lights whenever the title bar is hidden rather than absent, so the
+     one call that removes them has to run on the window itself. It is a no-op elsewhere.
+     Leaving full screen restores them, because full screen puts the real title bar back and
+     macOS hands it to the window on the way out -- so the decision is restated there. */
+  const hideWindowButtons = (): void => {
+    if (process.platform === "darwin") createdWindow.setWindowButtonVisibility(false);
+  };
+  hideWindowButtons();
+  createdWindow.on("leave-full-screen", hideWindowButtons);
   const persistBounds = (): void => {
     void writeWindowBounds(createdWindow.getNormalBounds()).catch(() => undefined);
   };

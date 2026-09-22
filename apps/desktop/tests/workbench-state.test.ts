@@ -244,7 +244,7 @@ describe("workbench ordering and preferences", () => {
     expect(mostRecentWorkspaceId([])).toBeNull();
   });
 
-  test("defaults to an open sidebar and preferred right rail while the terminal stays closed", () => {
+  test("defaults to a folded sidebar and preferred right rail while the terminal stays closed", () => {
     const preferences = readWorkbenchPreferences({
       getItem: () => null,
       setItem: () => undefined,
@@ -252,7 +252,8 @@ describe("workbench ordering and preferences", () => {
 
     expect(preferences).toMatchObject({
       theme: "system",
-      sidebarVisible: true,
+      // Folded is the opening state: the rail keeps every destination, so nothing is out of reach.
+      sidebarVisible: false,
       rightPanelVisible: true,
       bottomPanelVisible: false,
       workspaceView: "grid",
@@ -284,7 +285,7 @@ describe("workbench ordering and preferences", () => {
       rootPath: null,
       workspaceId: null,
       projectId: null,
-      sidebarVisible: true,
+      sidebarVisible: false,
       rightPanelVisible: true,
     });
   });

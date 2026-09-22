@@ -20,6 +20,12 @@ import { ICON_BUTTON } from "./IconButton";
 export const WINDOW = "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-window bg-panel p-0.5";
 export const WINDOW_FLUSH = "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-window bg-panel";
 /**
+ * The same window with neither of its two surfaces, for a zone that stands on the shell's own
+ * backdrop rather than inside another surface. The geometry is identical, so a window can move
+ * between the two without its contents relaying out; only the paint goes.
+ */
+export const WINDOW_BARE = "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-window p-0.5";
+/**
  * The titlebar is one line: what this is, what state it is in, and its actions.
  *
  * Order in markup decides which edge it stands on. A modal puts it above the card; a card that is
@@ -39,6 +45,8 @@ export const WINDOW_TITLEBAR = "flex h-11 min-w-0 flex-none items-center gap-2.5
 export const WINDOW_PLATE = "overflow-hidden rounded-frame bg-card";
 export const WINDOW_CARD = `min-h-0 min-w-0 flex-1 ${WINDOW_PLATE}`;
 export const WINDOW_BODY = `flex flex-col ${WINDOW_CARD}`;
+/** ...and that body unpainted, the partner of `WINDOW_BARE`. */
+export const WINDOW_BODY_BARE = "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-frame";
 /**
  * The close control every window shares: a round plate on the titlebar that goes to the alarm
  * under the cursor. Closing is the one titlebar action that throws work away, so it is the one

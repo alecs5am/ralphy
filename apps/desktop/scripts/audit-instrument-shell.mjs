@@ -21,6 +21,8 @@ export function assertShellGeometry(value) {
   if (value.bodyScrollWidth > innerWidth) throw new Error("horizontal overflow");
   if (value.scrollOwners !== 1) throw new Error("expected one vertical scroll owner");
   if (value.left && Math.abs(value.sidebarWidth - 240) > 1) throw new Error("sidebar must be 240px");
+  // Folded, the sidebar is a rail rather than nothing: the column is always on screen.
+  if (!value.left && Math.abs(value.sidebarWidth - 44) > 1) throw new Error("folded sidebar must be a 44px rail");
   if (value.right === "docked" && Math.abs(value.railWidth - 292) > 1) throw new Error("right rail must be 292px");
   if (value.trafficLightCopies !== 0) throw new Error("HTML traffic-light duplicate");
 }
@@ -70,7 +72,7 @@ async function runCase(entry, index, outputRoot) {
     }
     await evaluate(cdp, `(() => {
       const shell=document.querySelector('.instrument-shell');
-      const left=Boolean(document.querySelector('.instrument-left-stack'));
+      const left=document.querySelector('.instrument-left-stack')?.dataset.sidebar==='expanded';
       if (left!==${entry.left}) document.querySelector('button[aria-label="Toggle sidebar"]')?.click();
       const bottom=Boolean(document.querySelector('.instrument-bottom-panel'));
       if (bottom!==${entry.bottom}) document.querySelector('button[aria-label="Toggle bottom panel"]')?.click();
@@ -83,7 +85,7 @@ async function runCase(entry, index, outputRoot) {
     await delay(250);
     const metrics = await evaluate(cdp, `(() => {
       const shell=document.querySelector('.instrument-shell'); const sidebar=document.querySelector('.instrument-left-stack'); const rail=document.querySelector('.instrument-right-rail:not([hidden])');
-      return { innerWidth, innerHeight, bodyScrollWidth:document.body.scrollWidth, scrollOwners:document.querySelectorAll('[data-instrument-scroll-owner]').length, left:Boolean(sidebar), right:shell?.dataset.rightRailMode, bottom:Boolean(document.querySelector('.instrument-bottom-panel')), sidebarWidth:sidebar?.getBoundingClientRect().width??0, railWidth:rail?.getBoundingClientRect().width??0, trafficLightCopies:document.querySelectorAll('.traffic-light,.window-traffic-light').length, deviceScale:devicePixelRatio };
+      return { innerWidth, innerHeight, bodyScrollWidth:document.body.scrollWidth, scrollOwners:document.querySelectorAll('[data-instrument-scroll-owner]').length, left:sidebar?.dataset.sidebar==='expanded', right:shell?.dataset.rightRailMode, bottom:Boolean(document.querySelector('.instrument-bottom-panel')), sidebarWidth:sidebar?.getBoundingClientRect().width??0, railWidth:rail?.getBoundingClientRect().width??0, trafficLightCopies:document.querySelectorAll('.traffic-light,.window-traffic-light').length, deviceScale:devicePixelRatio };
     })()`);
     assertShellGeometry(metrics);
     if (metrics.left !== entry.left || metrics.right !== entry.right || metrics.bottom !== entry.bottom) throw new Error(`${entry.id} panel state mismatch: ${JSON.stringify(metrics)}`);

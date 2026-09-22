@@ -312,9 +312,11 @@ describe("instrument shell", () => {
       await mounted.render({ leftWidth: 10 });
       expect(leftColumn()).toBe("216px");
 
-      // A hidden sidebar contributes no track, but its remembered width is still the handle's.
+      // Folded, the sidebar is the rail rather than nothing, so the column keeps the rail's width
+      // and the desk is measured from what is actually on screen. The remembered width survives
+      // for the handle, which is why folding and unfolding returns to 320 rather than to 240.
       await mounted.render({ leftWidth: 320, leftVisible: false });
-      expect(leftColumn()).toBe("0px");
+      expect(leftColumn()).toBe("44px");
       expect(mounted.host.container.querySelector(".resize-instrument-sidebar")).toBeNull();
     } finally { await act(async () => mounted.root.unmount()); mounted.host.restore(); }
   });

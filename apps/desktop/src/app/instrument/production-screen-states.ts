@@ -63,7 +63,6 @@ const hasWorkbench = (routeKey: InstrumentRouteKey) => (
 export const WORKSPACE_PICKER_ROUTE_KEYS: readonly InstrumentRouteKey[] = PRODUCTION_SCREEN_STATES
   .filter(({ routeKey }) => isWorkspacePickerVisible({
     mode: routeKey.startsWith("marketplace.") ? "marketplace" : "work",
-    sidebarVisible: true,
     workspaceId: hasWorkspace(routeKey) ? "registered-workspace" : null,
   }))
   .map(({ routeKey }) => routeKey);
