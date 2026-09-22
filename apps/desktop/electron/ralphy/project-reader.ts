@@ -771,6 +771,7 @@ export function registerProjectMediaIpc<Root>({
   openPath,
   showItemInFolder,
   writeBuffer,
+  importAsset,
 }: {
   handle(
     channel: string,
@@ -790,6 +791,9 @@ export function registerProjectMediaIpc<Root>({
   openPath(path: string): unknown;
   showItemInFolder(path: string): unknown;
   writeBuffer(format: "public.file-url", data: Buffer): unknown;
+  /* Copying a file into the workspace's canvas assets is the canvas runtime's business; this
+     module knows which file, and nothing else about it. */
+  importAsset(root: Root, workspaceId: string, absolutePath: string): Promise<unknown>;
 }): void {
   type Reader = ReturnType<typeof createProjectReader>;
   const secured = (
@@ -896,6 +900,25 @@ export function registerProjectMediaIpc<Root>({
       writeBuffer("public.file-url", Buffer.from(pathToFileURL(path).href));
     }
     return undefined;
+  }));
+  /* The same locator the "copy file" action resolves, taken with the same authorization, and then
+     handed to the canvas import. A reference the operator picked out of their own library goes
+     through exactly the checks a file they dragged in from Finder does. */
+  handle(MEDIA_CHANNELS.importProjectMediaAsset, secured(async (
+    reader,
+    root,
+    assertCurrent,
+    rawProject,
+    rawRef,
+  ) => {
+    const project = parseProjectMediaIpcProject(rawProject);
+    const locator = await reader.resolveMediaActionLocator(project, mediaRef(rawRef), "copy");
+    assertCurrent();
+    const path = await authorizeTrustedLocator(root, locator.absolutePath, locator.mime, locator.bytes, assertCurrent);
+    assertCurrent();
+    const asset = await importAsset(root, project.workspaceId, path);
+    assertCurrent();
+    return asset;
   }));
   handle(MEDIA_CHANNELS.createProjectDocument, secured((reader, _root, _assertCurrent, rawProject, rawInput) => (
     reader.createDocument(parseProjectMediaIpcProject(rawProject), rawInput as { title: string })

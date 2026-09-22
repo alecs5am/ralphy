@@ -229,6 +229,9 @@ export function WorkRoute({
         fallback={<ProjectScreenLoadingFallback />}
       >
         <ProjectScreen
+          /* Create is a workspace page, so carrying a media record there is a route change the
+             project screen cannot make on its own. */
+          onOpenCreate={() => onOpenWorkspacePage("generation")}
           onOpenUnit={viewTab ? (unitId) => onOpenProject(selectedProject, unitId) : undefined}
           onRequestAgent={onRequestVideoAgent}
           key={`project:${rootEpoch}:${selectedProject.workspaceId}:${selectedProject.projectId}`}

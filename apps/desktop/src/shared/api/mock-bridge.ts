@@ -56,6 +56,9 @@ export function createMockBridge(injectedBridge?: RalphyBridge): RalphyBridge {
     async getDesktopSystemInfo() { return { libraryPath: null, libraryWritable: false, libraryError: "No native host", availableBytes: null, cacheBytes: 0, shell: "Not available", versions: { desktop: "test", electron: "test", node: "test", chrome: "test", core: null } }; },
     async clearDesktopCache() { return { beforeBytes: 0, afterBytes: 0 }; },
     async revealDesktopFolder() {},
+    /* Browser fixtures have no library to copy from, and the Create page treats a missing asset
+       as "nothing was handed over" rather than as a failure. */
+    async importProjectMediaAsset() { return null; },
     ...mockCanvasSurfaces(),
     ...mockVideoWorkspace(),
     ...mockGenerationBridge(),

@@ -623,10 +623,12 @@ describe("Electron IPC security", () => {
       openPath: vi.fn(),
       showItemInFolder: vi.fn(),
       writeBuffer: vi.fn(),
+      importAsset: vi.fn(),
     });
 
     expect([...handlers.keys()]).toEqual([
       "project:media:generation", "project:media:show", "project:media:revisions", "project:media:select", "project:media:review", "project:media:action",
+      "project:media:import-asset",
       "project:document:create", "project:documents:search",
       "project:composition:show", "project:composition:revision:show", "project:composition:build:show", "project:composition:page",
       "project:unit:show", "project:unit:revision:show", "project:unit:page", "project:unit:preview", "project:unit:select",
@@ -635,6 +637,7 @@ describe("Electron IPC security", () => {
     const show = handlers.get("project:media:show")!;
     const revisions = handlers.get("project:media:revisions")!;
     const select = handlers.get("project:media:select")!;
+    const importAsset = handlers.get("project:media:import-asset")!;
     const trusted = { sender: webContents, senderFrame: mainFrame };
 
     await expect(generation(
@@ -650,6 +653,11 @@ describe("Electron IPC security", () => {
       () => show(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "", extra: true }),
       () => revisions(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, "", undefined),
       () => select(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", undefined),
+      /* The Create handoff copies a file out of the library, so it is fenced like every other
+         media verb: an untrusted frame and a malformed project or ref are all refusals. */
+      () => importAsset({ sender: webContents, senderFrame: {} }, { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "artifact-1" }),
+      () => importAsset(trusted, { workspaceId: "", projectId: "project-1" }, { type: "artifact", id: "artifact-1" }),
+      () => importAsset(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "", extra: true }),
     ]) await expect(call()).resolves.toMatchObject({ ok: false });
     expect(request).not.toHaveBeenCalled();
 
@@ -691,6 +699,7 @@ describe("Electron IPC security", () => {
       openPath: vi.fn(),
       showItemInFolder: vi.fn(),
       writeBuffer: vi.fn(),
+      importAsset: vi.fn(),
     });
 
     await expect(handlers.get("project:media:generation")!(

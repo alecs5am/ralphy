@@ -27,6 +27,7 @@ import { Worker } from "node:worker_threads";
 import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { registerCanvasRuntimeIpc } from "./canvas/runtime-ipc";
+import { importCanvasFile } from "./canvas/runtime-files";
 import { canvasCli } from "./canvas/runtime-cli";
 import { registerVideoWorkspaceIpc, videoPreviewResponse } from "./video-workspace/ipc";
 import { createGenerationCredentials, registerGenerationCredentialIpc, validateGenerationProviderKey } from "./canvas/generation-credentials";
@@ -1666,6 +1667,9 @@ function registerProjectDomainIpc(): void {
     openPath: (path) => shell.openPath(path),
     showItemInFolder: (path) => shell.showItemInFolder(path),
     writeBuffer: (format, data) => clipboard.writeBuffer(format, data),
+    importAsset: (operation, workspaceId, absolutePath) => (
+      importCanvasFile(operation.rootPath, workspaceId, absolutePath)
+    ),
   });
   securedHandle(MEDIA_CHANNELS.loadMemory, (_event, rawWorkspaceId: unknown, rawInput: unknown) => (
     memoryReaderForCurrentRoot().list(

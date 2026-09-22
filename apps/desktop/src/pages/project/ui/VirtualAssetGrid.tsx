@@ -4,7 +4,9 @@ import { useCallback, useEffect, useId, useLayoutEffect, useState, type CSSPrope
 import type { MediaCardDto, MediaRef } from "../../../../electron/ralphy/types";
 import type { ProjectReference } from "@/shared/api/ipc";
 import { assetGridGeometry, mediaCardFacts, mediaCardKind, mediaCardName, MediaCardPreview, mediaFallbackAspectRatio, previewKey, previewKind, type MediaCardIdentity, type ResolvePreview } from "@/entities/media";
+import { Clapperboard, Sparkles } from "@/shared/ui/icons";
 import { entityDragProps, type Attachment } from "@/features/agent-chat";
+import type { GenerationHandoff } from "@/shared/model/generation-handoff";
 import { AutoCursorTail } from "./AutoCursorTail";
 import { useRememberedScroll } from "../lib/scroll-memory";
 import { gridMoveIndex } from "../lib/grid-navigation";
@@ -26,6 +28,7 @@ export interface VirtualAssetGridProps {
   onSelect(card: MediaCardDto): void;
   onOpen(card: MediaCardDto): void;
   onContextMenu(card: MediaCardDto, point: { x: number; y: number }): void;
+  onSendToCreate?(card: MediaCardDto, intent: GenerationHandoff["intent"]): void;
   density: number;
   /** The card shape every tile is drawn in. One shape for the grid: the rows are virtualized,
       so a per-card ratio would make every row a different height and the scroll unmeasurable. */
@@ -50,6 +53,8 @@ interface MediaCardTileProps extends MediaCardIdentity {
   aspectRatio?: number;
   onAspectRatio?(key: string, ratio: number): void;
   actionLabel?: string;
+  /** Carry this record into the Create page. Absent on surfaces that are not a project's media. */
+  onSendToCreate?(intent: GenerationHandoff["intent"]): void;
 }
 
 
@@ -64,7 +69,7 @@ export function mediaAttachment(card: MediaCardDto): Attachment {
   };
 }
 
-export function MediaCardTile({ card, project, rootEpoch, selected, resolvePreview, onSelect, onOpen, onContextMenu, aspectRatio, onAspectRatio, actionLabel }: MediaCardTileProps) {
+export function MediaCardTile({ card, project, rootEpoch, selected, resolvePreview, onSelect, onOpen, onContextMenu, aspectRatio, onAspectRatio, actionLabel, onSendToCreate }: MediaCardTileProps) {
   const name = mediaCardName(card);
   const factsId = useId();
   const key = previewKey(project, rootEpoch, card.ref);
@@ -86,6 +91,15 @@ export function MediaCardTile({ card, project, rootEpoch, selected, resolvePrevi
     onSelect();
     onContextMenu({ x: event.clientX, y: event.clientY });
   };
+  /* What Create can do with this record. A still is something to set in motion; a clip is
+     something to imitate. Naming the verb rather than the slot is what makes the button worth
+     having -- "Use in Create" would leave the operator to work out which field it lands in. */
+  const kind = previewKind(card);
+  const sendActions = onSendToCreate && (kind === "image" || kind === "video")
+    ? kind === "image"
+      ? [{ intent: "animate" as const, icon: Clapperboard, label: `Animate ${name} in Create` }]
+      : [{ intent: "reference" as const, icon: Sparkles, label: `Use ${name} as a reference in Create` }]
+    : [];
   const stopPreview = (element: HTMLElement) => {
     const video = element.querySelector("video");
     if (video) { video.pause(); video.currentTime = 0; }
@@ -94,13 +108,23 @@ export function MediaCardTile({ card, project, rootEpoch, selected, resolvePrevi
      reads as a click target at rest and only says "grabbing" while a drag is live. */
   return <article {...entityDragProps(mediaAttachment(card))} className={`asset-tile media-card-tile media-caption-surface group relative flex w-full min-h-0 flex-col overflow-hidden rounded-cell bg-frame text-left text-ink cursor-pointer active:cursor-grabbing [contain:layout_style] ${selected ? "is-selected" : ""}`} data-selected={selected || undefined} style={{ "--asset-aspect": ratio, aspectRatio: ratio } as CSSProperties} onMouseEnter={(event) => { const video = event.currentTarget.querySelector("video"); if (video) void video.play().catch(() => undefined); }} onMouseLeave={(event) => stopPreview(event.currentTarget)} onClick={(event) => { stopPreview(event.currentTarget); focusTile(event); onOpen(); }} onContextMenu={openContext}>
     <MediaCardPreview card={card} project={project} rootEpoch={rootEpoch} resolvePreview={resolvePreview} fill className="absolute inset-0 size-full" aspectRatio={ratio} onAspectRatio={rememberRatio} />
+    {sendActions.length > 0 && <div className="media-card-send media-hover-caption absolute right-1 top-1 flex gap-1 transition-opacity duration-fast motion-reduce:transition-none">
+      {sendActions.map(({ intent, icon: Icon, label }) => <button
+        className="grid size-7 place-items-center rounded-cell bg-media-plate text-on-instrument hover:bg-frame focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument"
+        type="button"
+        key={intent}
+        title={label}
+        aria-label={label}
+        onClick={(event) => { event.stopPropagation(); stopPreview(event.currentTarget.closest("article")!); onSendToCreate?.(intent); }}
+      ><Icon size={15} strokeWidth={1.8} aria-hidden="true" /></button>)}
+    </div>}
     <button className="media-card-button media-hover-caption absolute inset-x-1 bottom-1 flex min-w-0 items-start gap-1.5 rounded-cell bg-media-plate p-2 text-left text-on-instrument transition-opacity duration-fast motion-reduce:transition-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument" type="button" aria-label={`${actionLabel ?? name}${selected ? ", selected" : ""}`} aria-pressed={selected} aria-describedby={factsId} onKeyDown={onKeyDown} onKeyUp={(event) => { if (event.key === " ") event.preventDefault(); }}>
       <span className="asset-copy grid w-full min-w-0 gap-0.5"><strong className="block truncate type-label leading-4 font-normal">{name}</strong><small id={factsId} className="block truncate font-code type-mono-xs leading-4 tracking-label text-on-instrument">{mediaCardKind(card)} · {mediaCardFacts(card)}</small></span>
     </button>
   </article>;
 }
 
-export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resolvePreview, onSelect, onOpen, onContextMenu, density, aspect, maxColumns = 7, gap = 16, hasMore, loadingMore, appendError, onLoadMore, onRetryAppend, scrollMemory, scrollKey, scrollResetToken }: VirtualAssetGridProps) {
+export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resolvePreview, onSelect, onOpen, onContextMenu, onSendToCreate, density, aspect, maxColumns = 7, gap = 16, hasMore, loadingMore, appendError, onLoadMore, onRetryAppend, scrollMemory, scrollKey, scrollResetToken }: VirtualAssetGridProps) {
   const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null);
   const rememberedScroll = useRememberedScroll(scrollMemory, scrollKey, scrollResetToken);
   const attachScroll = useCallback((node: HTMLDivElement | null) => {
@@ -165,7 +189,7 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
         const row = items.slice(first, first + geometry.columns);
         return <div className="virtual-grid-row absolute top-0 grid w-full [contain:layout_style]" key={virtual.key} style={{ gap: geometry.gap, gridTemplateColumns: `repeat(${geometry.columns}, minmax(0, 1fr))`, transform: `translateY(${virtual.start}px)` }}>
           {row.map((card, column) => <div className="virtual-grid-item min-w-0" data-tile-index={first + column} key={previewKey(project, rootEpoch, card.ref)}>
-            <MediaCardTile card={card} project={project} rootEpoch={rootEpoch} selected={selectedRef?.type === card.ref.type && selectedRef.id === card.ref.id} resolvePreview={resolvePreview} aspectRatio={geometry.tileWidth / geometry.tileHeight} onSelect={() => onSelect(card)} onOpen={() => onOpen(card)} onContextMenu={(point) => onContextMenu(card, point)} />
+            <MediaCardTile card={card} project={project} rootEpoch={rootEpoch} selected={selectedRef?.type === card.ref.type && selectedRef.id === card.ref.id} resolvePreview={resolvePreview} aspectRatio={geometry.tileWidth / geometry.tileHeight} onSelect={() => onSelect(card)} onOpen={() => onOpen(card)} onContextMenu={(point) => onContextMenu(card, point)} onSendToCreate={onSendToCreate && ((intent) => onSendToCreate(card, intent))} />
           </div>)}
         </div>;
       })}

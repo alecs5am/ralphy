@@ -1,5 +1,5 @@
 import { PageHeader } from "@/shared/ui/PageHeader";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { LoaderCircle, Plug, RefreshCw, Sparkles, X } from "@/shared/ui/icons";
 import { InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
 import { GENERATION_SCREEN_STATES } from "../model/instrument-states";
@@ -7,6 +7,10 @@ import { useGenerationStudio } from "../model/use-generation-studio";
 import { GENERATION_TABS, generationTab } from "../lib/generation-presentation";
 import { GenerationForm } from "./GenerationForm";
 import { GenerationResults } from "./GenerationResults";
+import { handoffRole } from "../lib/adopt-handoff";
+import { takeGeneration, type GenerationHandoff } from "@/shared/model/generation-handoff";
+import type { CanvasAsset } from "../../../../shared/workflow-canvas";
+import { bridge } from "@/shared/api/ipc";
 import { type OpenGeneratedUnit, studioSelection, STUDIO_ICON } from "@/entities/generation"
 
 export interface GenerationScreenProps { workspaceId: string; workspaceName: string; rootEpoch: number; onOpenProviders?(): void; onOpenUnit?: OpenGeneratedUnit }
@@ -31,6 +35,34 @@ function GenerationWorkspace({ workspaceId, workspaceName, onOpenProviders, onOp
   }, []);
   const tab = generationTab(studio.draft.kind);
   const model = studio.catalog.models.find((item) => item.id === studio.draft.modelId && item.provider === studio.draft.provider && item.kind === studio.draft.kind);
+  /* A record handed over from a project's media tab, collected in two steps.
+     First once the catalog is in: the file is copied into this workspace's assets, and an
+     "animate" request switches the studio to video. Then once that switch has settled, because
+     the slot a reference lands in is a property of the model now chosen, not of the one that was
+     chosen when the operator pressed the button on the tile. */
+  const [handoff, setHandoff] = useState<{ request: GenerationHandoff; asset: CanvasAsset } | null>(null);
+  const adopted = useRef(false);
+  useEffect(() => {
+    if (adopted.current || !studio.ready) return;
+    const request = takeGeneration();
+    if (!request) return;
+    adopted.current = true;
+    if (request.intent === "animate") studio.chooseKind("video");
+    void bridge.importProjectMediaAsset(request.project, request.ref).catch(() => null).then((asset) => {
+      if (asset) setHandoff({ request, asset });
+      else studio.setError(`“${request.label}” could not be brought into Create.`);
+    });
+  }, [studio]);
+  useEffect(() => {
+    if (!handoff) return;
+    const { request, asset } = handoff;
+    if (request.intent === "animate" && studio.draft.kind !== "video") return;
+    setHandoff(null);
+    const kind = asset.kind === "text" ? "image" : asset.kind;
+    const role = handoffRole(model, kind, request.intent);
+    if (!role) { studio.setError(`${model?.name ?? "This model"} takes no ${kind} reference.`); return; }
+    studio.addReference(role, { id: "handoff", nodeId: "input", kind: asset.kind, label: asset.name, asset });
+  }, [handoff, model, studio]);
   const state = studio.error ? "error" : studio.loading || !studio.ready ? "loading" : studio.runs.length ? "history" : studio.draft.prompt ? "editing" : studio.catalog.models.length ? "ready" : "empty";
   return <InstrumentScreenRoot descriptor={GENERATION_SCREEN_STATES} state={state}><section className="generation-screen flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden text-ink" data-medium={tab} aria-label="Create studio">
     <PageHeader title="Create" icon={Sparkles} description={`Create media in ${workspaceName}`}>

@@ -591,6 +591,13 @@ performProjectMediaAction(
   ref: import("../ralphy/types").MediaCardDto["ref"],
   action: ProjectMediaAction,
 ): Promise<void>;
+/* A project media record, copied into the workspace's canvas assets so the Create page can hold
+   it as a reference. The renderer never learns the source path: it hands over a ref and receives
+   the same asset shape a file import returns. */
+importProjectMediaAsset(
+  project: ProjectReference,
+  ref: import("../ralphy/types").MediaCardDto["ref"],
+): Promise<import("../../shared/workflow-canvas").CanvasAsset | null>;
 loadDocumentPreview(project: ProjectReference, revisionId: string): Promise<{
   revisionId: string;
   format: string;
@@ -735,6 +742,7 @@ export const MEDIA_CHANNELS = {
   selectProjectMediaRevision: "project:media:select",
   reviewProjectMedia: "project:media:review",
   performProjectMediaAction: "project:media:action",
+  importProjectMediaAsset: "project:media:import-asset",
   loadDocumentPreview: "project:document-preview",
   searchProjectDocuments: "project:documents:search",
   showProjectDocument: "project:document:show",

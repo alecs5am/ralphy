@@ -181,6 +181,9 @@ const mediaBridge: MediaWorkbenchBridge = {
   performProjectMediaAction: (project, ref, action) => (
     invoke(MEDIA_CHANNELS.performProjectMediaAction, project, ref, action)
   ),
+  importProjectMediaAsset: (project, ref) => (
+    invoke(MEDIA_CHANNELS.importProjectMediaAsset, project, ref)
+  ),
   loadDocumentPreview: (project, revisionId) => (
     invoke(MEDIA_CHANNELS.loadDocumentPreview, project, revisionId)
   ),

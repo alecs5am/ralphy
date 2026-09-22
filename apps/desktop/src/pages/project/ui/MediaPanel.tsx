@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ProjectMediaFilter, ProjectMediaKind, ProjectMediaQuery } from "../../../../electron/media/types";
 import type { MediaCardDto, MediaProvenance } from "../../../../electron/ralphy/types";
 import type { ProjectSummary } from "@/shared/api/ipc";
+import { mediaCardName } from "@/entities/media";
+import { requestGeneration, type GenerationHandoff } from "@/shared/model/generation-handoff";
 import { MediaGallery } from "./MediaGallery";
 import { VirtualAssetGrid } from "./VirtualAssetGrid";
 import { SelectMenu, type SelectMenuOption } from "@/shared/ui/SelectMenu";
@@ -76,7 +78,7 @@ export function mediaInstrumentState(page: DomainPage, snapshot: ProjectScreenSn
   return page.status === "loading" || page.status === "error" ? "partial" : "ready";
 }
 
-export function MediaPanel({ page, controller, snapshot, project, workspaceName, rootEpoch, scrollMemory, scrollResetToken }: {
+export function MediaPanel({ page, controller, snapshot, project, workspaceName, rootEpoch, scrollMemory, scrollResetToken, onOpenCreate }: {
   page: DomainPage;
   controller: ProjectScreenController;
   snapshot: ProjectScreenSnapshot;
@@ -85,6 +87,8 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
   rootEpoch: number;
   scrollMemory: Map<string, number>;
   scrollResetToken: string;
+  /** Absent where Create is unreachable -- a fixture, a project rendered outside the workbench. */
+  onOpenCreate?(): void;
 }) {
   const [density, setDensity] = useState(190);
   const [view, setView] = useState<"grid" | "gallery">("grid");
@@ -141,6 +145,12 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
       opener,
     });
   };
+  /* The request outlives this screen on purpose: Create is a workspace page, so reaching it
+     unmounts the project. The panel leaves the record behind and navigates. */
+  const sendToCreate = onOpenCreate && ((card: MediaCardDto, intent: GenerationHandoff["intent"]) => {
+    requestGeneration({ project: snapshot.domain.project, ref: card.ref, label: mediaCardName(card), intent });
+    onOpenCreate();
+  });
   const action = async (kind: "preview" | "open" | "finder" | "copy") => {
     if (!context) return;
     const { card, opener } = context;
@@ -176,7 +186,7 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
       {page.status === "loading" && page.items.length === 0 ? null : page.status === "ready" && page.items.length === 0
         ? <div className={EMPTY_SECTION}>No media matches these filters.</div>
         : view === "grid"
-          ? <VirtualAssetGrid key={scrollResetToken} items={page.items as MediaCardDto[]} project={snapshot.domain.project} rootEpoch={rootEpoch} selectedRef={snapshot.selectedMedia?.ref ?? null} resolvePreview={bridge.resolveProjectPreview} onSelect={(card) => controller.selectMedia(card)} onOpen={(card) => { void controller.openMediaViewer(card); }} onContextMenu={openContext} density={density} aspect={contentAspect(format)} gap={4} hasMore={page.nextCursor !== null} loadingMore={page.status === "loading" && page.items.length > 0 && page.nextCursor !== null} appendError={page.status === "error" && page.items.length > 0 && page.nextCursor !== null ? page.error : null} onLoadMore={() => { void controller.loadMore("media"); }} onRetryAppend={() => { void controller.retryPage("media"); }} scrollMemory={scrollMemory} scrollKey="media" scrollResetToken={scrollResetToken} />
+          ? <VirtualAssetGrid key={scrollResetToken} items={page.items as MediaCardDto[]} project={snapshot.domain.project} rootEpoch={rootEpoch} selectedRef={snapshot.selectedMedia?.ref ?? null} resolvePreview={bridge.resolveProjectPreview} onSelect={(card) => controller.selectMedia(card)} onOpen={(card) => { void controller.openMediaViewer(card); }} onContextMenu={openContext} onSendToCreate={sendToCreate} density={density} aspect={contentAspect(format)} gap={4} hasMore={page.nextCursor !== null} loadingMore={page.status === "loading" && page.items.length > 0 && page.nextCursor !== null} appendError={page.status === "error" && page.items.length > 0 && page.nextCursor !== null ? page.error : null} onLoadMore={() => { void controller.loadMore("media"); }} onRetryAppend={() => { void controller.retryPage("media"); }} scrollMemory={scrollMemory} scrollKey="media" scrollResetToken={scrollResetToken} />
           : <MediaGallery items={page.items as MediaCardDto[]} project={snapshot.domain.project} rootEpoch={rootEpoch} selectedRef={snapshot.selectedMedia?.ref ?? null} resolvePreview={bridge.resolveProjectPreview} onSelect={(card) => controller.selectMedia(card)} onOpen={(card) => { void controller.openMediaViewer(card); }} onContextMenu={openContext} aspect={contentAspect(format)} hasMore={page.nextCursor !== null} loadingMore={page.status === "loading" && page.items.length > 0 && page.nextCursor !== null} appendError={page.status === "error" && page.items.length > 0 && page.nextCursor !== null ? page.error : null} onLoadMore={() => { void controller.loadMore("media"); }} onRetryAppend={() => { void controller.retryPage("media"); }} />}
     </div>
     {context && <div ref={menuRef} className={MENU} data-instrument-overlay="media-context-menu" aria-label="Media actions" style={{ left: context.x, top: context.y }}>
