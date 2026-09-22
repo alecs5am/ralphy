@@ -1203,14 +1203,18 @@ describe("ProjectScreen behavior", () => {
     await controller.selectTab("media");
 
     const markup = renderController(controller);
-    expect(markup.match(/role="combobox"/g)).toHaveLength(3);
+    /* Four comboboxes, not three: the card format joined sort, lifecycle and provenance. The
+       search field left the toolbar in the same change -- it is summoned with Cmd+F now, so a
+       toolbar that renders it at rest is the regression this line guards against. */
+    expect(markup.match(/role="combobox"/g)).toHaveLength(4);
     expect(markup.match(/type="radio"/g)).toHaveLength(8);
     expect(markup).toContain('role="radiogroup" aria-label="Media type"');
     expect(markup).toContain('role="radiogroup" aria-label="Media view"');
     expect(markup).toContain('aria-label="Lifecycle or source"');
     expect(markup).toContain('aria-label="Media type"');
     expect(markup).toContain('aria-label="Generation provenance"');
-    expect(markup).toContain('aria-label="Search project media"');
+    expect(markup).toContain('aria-label="Card format"');
+    expect(markup).not.toContain('aria-label="Search project media"');
     expect(markup).toContain('aria-label="Sort media"');
     expect(markup).toContain("min-w-media-filter");
     expect(markup).not.toContain("filter-chip");

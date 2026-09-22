@@ -27,6 +27,9 @@ export interface VirtualAssetGridProps {
   onOpen(card: MediaCardDto): void;
   onContextMenu(card: MediaCardDto, point: { x: number; y: number }): void;
   density: number;
+  /** The card shape every tile is drawn in. One shape for the grid: the rows are virtualized,
+      so a per-card ratio would make every row a different height and the scroll unmeasurable. */
+  aspect?: number;
   maxColumns?: number;
   gap?: number;
   hasMore: boolean;
@@ -97,7 +100,7 @@ export function MediaCardTile({ card, project, rootEpoch, selected, resolvePrevi
   </article>;
 }
 
-export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resolvePreview, onSelect, onOpen, onContextMenu, density, maxColumns = 7, gap = 16, hasMore, loadingMore, appendError, onLoadMore, onRetryAppend, scrollMemory, scrollKey, scrollResetToken }: VirtualAssetGridProps) {
+export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resolvePreview, onSelect, onOpen, onContextMenu, density, aspect, maxColumns = 7, gap = 16, hasMore, loadingMore, appendError, onLoadMore, onRetryAppend, scrollMemory, scrollKey, scrollResetToken }: VirtualAssetGridProps) {
   const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null);
   const rememberedScroll = useRememberedScroll(scrollMemory, scrollKey, scrollResetToken);
   const attachScroll = useCallback((node: HTMLDivElement | null) => {
@@ -109,8 +112,7 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
      can land on a row the virtualizer has not built yet, so the move asks for the scroll and
      leaves the focus for the render that follows it. */
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
-  const geometry = assetGridGeometry(width, density, gap, maxColumns);
-  const cardRatio = useCallback((card: MediaCardDto) => mediaFallbackAspectRatio(previewKind(card), previewKey(project, rootEpoch, card.ref)), [project, rootEpoch]);
+  const geometry = assetGridGeometry(width, density, gap, maxColumns, aspect);
   const rowCount = Math.ceil(items.length / geometry.columns);
   const virtualizer = useVirtualizer({
     count: rowCount,
@@ -163,7 +165,7 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
         const row = items.slice(first, first + geometry.columns);
         return <div className="virtual-grid-row absolute top-0 grid w-full [contain:layout_style]" key={virtual.key} style={{ gap: geometry.gap, gridTemplateColumns: `repeat(${geometry.columns}, minmax(0, 1fr))`, transform: `translateY(${virtual.start}px)` }}>
           {row.map((card, column) => <div className="virtual-grid-item min-w-0" data-tile-index={first + column} key={previewKey(project, rootEpoch, card.ref)}>
-            <MediaCardTile card={card} project={project} rootEpoch={rootEpoch} selected={selectedRef?.type === card.ref.type && selectedRef.id === card.ref.id} resolvePreview={resolvePreview} aspectRatio={cardRatio(card)} onSelect={() => onSelect(card)} onOpen={() => onOpen(card)} onContextMenu={(point) => onContextMenu(card, point)} />
+            <MediaCardTile card={card} project={project} rootEpoch={rootEpoch} selected={selectedRef?.type === card.ref.type && selectedRef.id === card.ref.id} resolvePreview={resolvePreview} aspectRatio={geometry.tileWidth / geometry.tileHeight} onSelect={() => onSelect(card)} onOpen={() => onOpen(card)} onContextMenu={(point) => onContextMenu(card, point)} />
           </div>)}
         </div>;
       })}

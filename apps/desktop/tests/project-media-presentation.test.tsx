@@ -202,6 +202,9 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      /* The field is summoned with Cmd+F now rather than standing in the toolbar; everything
+         below it -- the debounce, the trim, the query that survives paging -- is unchanged. */
+      await act(async () => { keydown(globalThis.window, "f", { metaKey: true }); });
       const input = host.container.findAll((node) => node.getAttribute("aria-label") === "Search project media")[0] as HostNode & { value: string };
       input.value = "  Campaign  ";
       await act(async () => { input.dispatchEvent(new Event("input", { bubbles: true })); });
@@ -619,7 +622,7 @@ describe("Project media presentation", () => {
     }
   });
 
-  test("restores focus to the stable media search field after filtering removes the opener", async () => {
+  test("restores focus to the stable media toolbar after filtering removes the opener", async () => {
     const api = {
       ...projectApi(),
       loadProjectPage: vi.fn(async ({ mediaQuery }: { mediaQuery?: { filter: string } }) => ({ items: mediaQuery?.filter === "references" ? [] : [runObject], nextCursor: null })),
@@ -651,7 +654,7 @@ describe("Project media presentation", () => {
     }
   });
 
-  test("restores focus to the replacement media search field when an open viewer controller is disposed", async () => {
+  test("restores focus to the replacement media toolbar when an open viewer controller is disposed", async () => {
     const first = createProjectScreenController(projectApi(), project);
     await first.selectTab("media");
     const replacement = createProjectScreenController(projectApi(), project);

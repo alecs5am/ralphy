@@ -8,14 +8,16 @@ export interface AssetGridGeometry {
   gap: number;
 }
 
-export function assetGridGeometry(width: number, targetTileWidth: number, gap: number, maxColumns = Number.POSITIVE_INFINITY): AssetGridGeometry {
+/* `aspect` is the card shape the grid is currently drawn in. It defaults to the product's own
+   9:16 so every existing caller keeps the geometry it had. */
+export function assetGridGeometry(width: number, targetTileWidth: number, gap: number, maxColumns = Number.POSITIVE_INFINITY, aspect = DEFAULT_CONTENT_ASPECT): AssetGridGeometry {
   const safeWidth = Math.max(1, Number.isFinite(width) ? width : 1);
   const safeGap = Math.max(0, Number.isFinite(gap) ? gap : 0);
   const naturalColumns = Math.max(1, Math.floor((safeWidth + safeGap) / (Math.max(1, Number.isFinite(targetTileWidth) ? targetTileWidth : 1) + safeGap)));
   const columnLimit = Number.isFinite(maxColumns) ? Math.max(1, Math.floor(maxColumns)) : Number.POSITIVE_INFINITY;
   const columns = Math.min(naturalColumns, columnLimit);
   const tileWidth = Math.max(1, (safeWidth - safeGap * (columns - 1)) / columns);
-  const tileHeight = Math.max(1, tileWidth / DEFAULT_CONTENT_ASPECT);
+  const tileHeight = Math.max(1, tileWidth / (Number.isFinite(aspect) && aspect > 0 ? aspect : DEFAULT_CONTENT_ASPECT));
   return { columns, tileWidth, tileHeight, rowHeight: tileHeight + safeGap, gap: safeGap };
 }
 
