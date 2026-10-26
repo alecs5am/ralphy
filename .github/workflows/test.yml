@@ -8,8 +8,10 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # The complete migration suite requires APFS forced clones and exercises
+    # macOS SQLite closed-WAL behavior. Keep fresh Linux installs covered below.
+    runs-on: macos-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -27,11 +29,14 @@ jobs:
       - name: Cache Playwright Chromium
         uses: actions/cache@v4
         with:
-          path: ~/.cache/ms-playwright
+          path: ~/Library/Caches/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
 
       - name: Install Playwright Chromium
         run: bunx playwright install chromium --with-deps
+
+      - name: Install media test prerequisites
+        run: brew list ffmpeg >/dev/null 2>&1 || brew install ffmpeg
 
       # --timeout 45000 matches package.json test scripts + the pre-commit hook.
       # bunfig.toml's [test] timeout is NOT honored by `bun test` (verified on
@@ -40,7 +45,7 @@ jobs:
       # in isolation (~1s) but get CPU/IO-starved past 15s under full-suite load,
       # intermittently failing the hooks. A real hang still surfaces at 45s.
       - name: Run unit + integration tests
-        run: bun test --timeout 45000 tests/unit/ tests/integration/
+        run: bun test --timeout 45000 ./tests/unit/ ./tests/integration/
         env:
           # Tests use a fixture catalog and never hit the network.
           # Set placeholder env vars so any code path that reads them
@@ -97,3 +102,26 @@ jobs:
 
       - name: Lint docs internal links (07.09.01)
         run: bun run lint:docs-links:fast
+
+  linux-plugin-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Verify standalone plugin and credential contracts
+        run: >-
+          bun test --timeout 45000
+          ./tests/integration/setup-standalone.test.ts
+          ./tests/integration/setup-noninteractive.test.ts
+          ./tests/integration/cli-user-journey-post-install.test.ts
+          ./tests/integration/credential-startup-env.test.ts
+          ./tests/unit/provider-credentials.test.ts
+      - run: bun run build:bin:current
+      - name: Verify the compiled Linux binary without a checkout
+        run: bun test --timeout 45000 ./tests/integration/setup-standalone.test.ts
+        env:
+          RALPHY_TEST_BIN: ${{ github.workspace }}/dist/binaries/ralphy-linux-x64

@@ -15,7 +15,10 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(directory, { recursive: true, force: true }));
 
 function run(args: string[], cwd = directory) {
-  const result = spawnSync(process.execPath, ["--no-env-file", CLI, ...args], {
+  const binary = process.env.RALPHY_TEST_BIN;
+  const executable = binary ? path.resolve(binary) : process.execPath;
+  const argv = binary ? args : ["--no-env-file", CLI, ...args];
+  const result = spawnSync(executable, argv, {
     cwd,
     encoding: "utf8",
     env: {
