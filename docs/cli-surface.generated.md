@@ -146,11 +146,12 @@ ____        __      __
 
 Usage: ralphy setup [options]
 
-Setup wizard — API keys, dev services
+Initialize a local Workspace and show provider credential instructions
 
 Options:
   --status                Print capability status as JSON and exit (no TUI)
-  --link <path>           Link ralphy to a project directory (global config)
+  --link <path>           Link ralphy to a source checkout (compatibility
+                          option)
   --unlink                Remove the global project link
   --non-interactive       Agent / CI mode: never prompt, never open a TUI, emit
                           a JSON summary (default: false)
@@ -161,11 +162,11 @@ Options:
                           elevenlabs --stdin
   --keys-from-env         Deprecated and refused; project/inherited env is not a
                           credential source (default: false)
-  --project-dir <path>    Link ralphy to this project directory before
-                          configuring keys. Implies --non-interactive
-  --no-verify             Skip API ping verification when saving keys
-  --allow-unverified      When --verify is on (default) and a key fails to
-                          verify, save it anyway and exit 0 (default: false)
+  --project-dir <path>    Link ralphy to a source checkout and initialize its
+                          Workspace. Implies --non-interactive
+  --no-verify             Compatibility flag; setup does not verify credentials
+  --allow-unverified      Compatibility flag; setup does not accept or verify
+                          credentials (default: false)
   -h, --help              display help for command
 ```
 

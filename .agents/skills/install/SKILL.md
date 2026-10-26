@@ -3,7 +3,7 @@ name: install
 namespace: user
 description: >-
   Fresh-machine bootstrap of the ralphy CLI binary. Read .agents/skills/install/references/ralphy-install.md FIRST via the Read tool — every time, no exceptions.
-  USE WHEN the ralphy binary is NOT yet on PATH and the user needs to get it onto their machine — install the standalone binary from GitHub Releases, ensure bun + ffmpeg are present, run the interactive setup wizard, link to the user's checkout of ugc-cli. Once `ralphy --version` works and the project is linked, hand off to ralph-core for in-tree dev tasks.
+  USE WHEN the ralphy binary is NOT yet on PATH or needs upgrading for the plugin — install the standalone binary, initialize a local Workspace without a checkout, and configure scoped provider credentials privately. Use doctor for external rendering prerequisites.
   TRIGGER (EN): "install ralphy", "set up from scratch", "fresh machine", "first run", "bootstrap the CLI", "I just cloned the repo", "I don't have ralphy yet", "ralphy not found", "/install".
   ALSO FIRE if `which ralphy` returns nothing in a session about to use ralphy commands, OR `ralphy status` errors with "Could not locate the ugc-cli project".
   DO NOT FIRE if ralphy is already installed and the user just wants `ralphy doctor` / env check (that is ralph-core), or wants to install template assets from the companion repo (that is `ralphy assets`).

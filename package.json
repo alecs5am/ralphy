@@ -1,6 +1,6 @@
 {
   "name": "ugc-cli",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Ralphy \u2014 open-source desktop app for content creation, with an integrated agent runtime and standalone CLI.",
   "repository": {
     "type": "git",
@@ -43,10 +43,10 @@
     "setup": "bun cli/index.ts setup",
     "doctor": "bun cli/index.ts doctor",
     "render": "bun cli/index.ts render",
-    "test": "bun test --timeout 45000 tests/",
-    "test:unit": "bun test --timeout 45000 tests/unit/",
-    "test:integration": "bun test --timeout 45000 tests/integration/",
-    "test:live": "RUN_LIVE_TESTS=1 bun test --timeout 30000 tests/live/",
+    "test": "bun test --timeout 45000 ./tests/",
+    "test:unit": "bun test --timeout 45000 ./tests/unit/",
+    "test:integration": "bun test --timeout 45000 ./tests/integration/",
+    "test:live": "RUN_LIVE_TESTS=1 bun test --timeout 30000 ./tests/live/",
     "lint:errors": "bun run scripts/lint-error-codes.ts",
     "cli:surface:build": "bun run scripts/build-cli-surface.ts",
     "cli:surface:check": "bun run scripts/build-cli-surface.ts --check",

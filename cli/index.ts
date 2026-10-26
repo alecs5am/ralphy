@@ -1,5 +1,6 @@
 #!/usr/bin/env -S bun --no-env-file
 import { Command } from "commander";
+import path from "node:path";
 import { setPretty } from "./lib/output.js";
 import { setDataRoot, setRoot, layoutMode } from "./lib/paths.js";
 import { findProjectRootSafe, loadProjectEnv } from "./lib/project-root.js";
@@ -294,6 +295,12 @@ program
       await loadProjectEnv(detected);
       scrubCredentialEnvironment(process.env);
     }
+    // Setup owns first-run initialization, including a data root whose database
+    // does not exist yet. Resolving a domain context here would refuse it.
+    if (sub === "setup") {
+      if (opts.root) setDataRoot(path.resolve(opts.root));
+      return;
+    }
     // Migration commands own their exact source and may need to recover while
     // the live .ralphy name is absent. Never open an ambient domain store first.
     if (sub === "migrate" || sub === "bridge") return;
@@ -307,8 +314,6 @@ program
       await configureDomainContext(false);
       return;
     }
-    // Skip project auto-detection for setup — it has its own logic for first-run.
-    if (sub === "setup") return;
     guardLegacyLayout();
     await configureDomainContext(false);
   });
