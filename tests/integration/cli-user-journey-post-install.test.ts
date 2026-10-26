@@ -217,12 +217,20 @@ describe("user journey · ralphy new → ralphy skill install --agent claude", (
     const doctor = ralphy(["--json", "doctor"]);
     expect(doctor.json).toBeTruthy();
 
-    // `template suggest` scans <root>/templates/ and <root>/workspace/templates/.
-    // Auto-detect resolves `root` from cwd → for a brew/npm user with no repo,
-    // 0 results is the correct answer. To exercise the "happy path" with
-    // templates discovered, point --cwd at the repo (matches `cd ugc-cli &&
-    // ralphy template suggest ...`).
-    const suggest = ralphy(["--cwd", REPO, "--json", "template", "suggest", "ugc product reveal"]);
+    // A post-install user has a local library, not the maintainer's data root.
+    // Seed the workspace tier and keep public lookup and LLM scoring offline.
+    const template = path.join(ralphyHome, "workspaces", "default", "templates", "product-reveal");
+    fs.mkdirSync(template, { recursive: true });
+    fs.writeFileSync(path.join(template, "template.json"), JSON.stringify({
+      version: 1, id: "product-reveal", name: "Product Reveal",
+      description: "A UGC product reveal", tags: ["ugc", "product", "reveal"],
+      kind: "vibe-style", category: "dtc-commerce", format: "video",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    }));
+    fs.writeFileSync(path.join(template, "TEMPLATE.md"), "# Product Reveal\n");
+    const suggest = ralphy(["--cwd", tmpHome, "--json", "template", "suggest", "ugc product reveal", "--no-llm"], {
+      env: { RALPHY_LIBRARY_URL: "http://127.0.0.1:1/library.json" },
+    });
     expect(suggest.exitCode).toBe(0);
     const suggestPayload = suggest.json as { results?: unknown[]; utterance?: string } | null;
     expect(suggestPayload).toBeTruthy();

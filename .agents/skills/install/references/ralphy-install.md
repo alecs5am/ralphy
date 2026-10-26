@@ -1,95 +1,67 @@
 # Ralphy install playbook
 
-**Read this when:** "install ralphy", "set this up from scratch", "fresh machine", "/install", or when `which ralphy` returns nothing in a session that's about to use ralphy commands.
+Install the standalone CLI and initialize a local Workspace. No source checkout is required.
 
-The very first playbook a new user hits. It gets the `ralphy` binary onto their machine, makes sure `bun` and `ffmpeg` are present (the few dependencies that the bundled binary doesn't ship), runs the interactive setup wizard for keys, and points ralphy at their checkout of `ugc-cli`.
+## Check the environment
 
-After this playbook runs, the user can do `ralphy <anything>` from any directory. Then hand off to the [core playbook](../../troubleshooting/SKILL.md) for in-tree dev tasks.
+Check `command -v ralphy` and `command -v ffmpeg`. The standalone binary embeds its Bun runtime. Use `ralphy doctor` to identify external rendering prerequisites.
 
-## When to invoke me
+## Install or upgrade the CLI
 
-- User says: "install ralphy", "set this up", "fresh machine", "nothing works", "/install".
-- `which ralphy` returns nothing.
-- `ralphy status` errors with "Could not locate the ugc-cli project".
-
-## Sub-tasks
-
-### 1. `check-environment`
-
-Run these once and report:
+Use one installation channel:
 
 ```bash
-which bun || echo "MISSING: bun"
-which ffmpeg || echo "MISSING: ffmpeg"
-which ralphy || echo "MISSING: ralphy"
+brew install alecs5am/tap/ralphy
+# Cross-platform Node wrapper:
+npm install -g @alecs5am/ralphy
+# macOS / Linux standalone binary:
+curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh
 ```
 
-Decide the next step from the result:
-- `bun` missing → run `curl -fsSL https://bun.sh/install | bash` (in current shell so the user keeps running). Source the shell rc afterward.
-- `ffmpeg` missing → on macOS, `brew install ffmpeg`. On Linux, suggest the distro's package manager.
-- `ralphy` missing → `install-ralphy`.
+Confirm with `ralphy --version`. If it is older than the plugin's required CLI version, upgrade through the same channel before using the plugin's commands. Do not clone the repository as part of ordinary installation.
 
-### 2. `install-ralphy`
+## Initialize a Workspace
 
-Run the install script from the repo:
+In the user's chosen working directory, run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/aleksei-oleinik/ugc-cli/main/install.sh | sh
+ralphy setup --non-interactive
 ```
 
-This:
-- Detects OS / arch (darwin-arm64, darwin-x64, linux-x64, linux-arm64, windows-x64).
-- Resolves the latest GitHub Release tag.
-- Downloads the matching binary into `$HOME/.local/bin/ralphy`.
-- Prints a PATH hint if `~/.local/bin` is not in `PATH`.
-
-If the script reports "no published release" (the repo is fresh / private), fall back to:
+This creates `.ralphy/ralphy.db` and a default Workspace when none exists. For a fixed library location, use `ralphy --root /absolute/path/to/library setup --non-interactive`. Retain the returned `data_root` and `workspace_id` and pass them explicitly on subsequent commands:
 
 ```bash
-git clone https://github.com/aleksei-oleinik/ugc-cli.git ~/code/ugc-cli
-cd ~/code/ugc-cli
-bun install
-bun run build:bin -- --current
-cp dist/binaries/ralphy-* ~/.local/bin/ralphy
-chmod +x ~/.local/bin/ralphy
+ralphy --root <data_root> --workspace <workspace_id> new "A coffee shop poster"
 ```
 
-Confirm with `ralphy --version` and `which ralphy`.
+Re-running setup preserves existing Workspaces and discovers an existing library above the working directory. With several Workspaces it returns a null `workspace_id`; run `ralphy --root <data_root> workspace list` and select one explicitly.
 
-### 3. `run-setup-wizard`
+Existing legacy data requires migration. Never delete it or substitute an empty store to bypass that error. `setup --status` is read-only. `setup --link` remains a compatibility option for source developers.
 
-Once `ralphy` is in PATH:
+## Configure provider credentials privately
+
+Never ask the user to paste keys into chat. Keys exported before the CLI starts are accepted for that process; a project's `.env` file is not a credential source.
+
+For persistence, pipe a key from a hidden terminal prompt or an existing shell variable into the scoped encrypted store:
 
 ```bash
-ralphy setup
+ralphy --root <data_root> --workspace <workspace_id> provider auth set openrouter --stdin
 ```
 
-This is an interactive `@clack/prompts` wizard that:
-- Auto-detects the project directory (walks up from cwd, then `~/.config/ralphy/config.json`, then `RALPHY_PROJECT_DIR`).
-- Asks for the project path if it can't find one, and saves the link to the global config.
-- Shows a status table of currently-set keys.
-- Lets the user multi-select providers and prompts for each missing key, with a live API ping to verify.
-- Optionally launches a HyperFrames preview server in the foreground.
+Use the user's own terminal. Never put a literal key in the command, shell history, source files, or tool logs. Repeat with `elevenlabs` for voice and music, and `fal` if required. Encrypted persistence uses macOS Keychain; where that store is unavailable, use keys exported in the parent shell. `setup --keys-from-env` and credential values in setup arguments are deprecated and refused.
 
-The user drives the wizard interactively — don't try to run it non-interactively. If you need to script it (e.g. for CI), use the underlying flags: `ralphy setup --link <path>`, `ralphy setup --status`.
+Workspace credentials are not inherited by Projects. After `new`, retain its immutable `id` (`prj_...`). For Project generation and auth, use `ralphy --root <data_root> --project <project_id> <command>` with the scope flags before the verb, and do not also pass `--workspace`. Check or store credentials in that same Project scope. Inherited shell credentials are available to both scopes.
 
-### 4. `verify`
+Setup never saves or replaces credential values and never launches a preview server.
 
-After the wizard:
+## Verify
 
 ```bash
-ralphy status -p
+ralphy --root <data_root> --workspace <workspace_id> provider auth status openrouter
+ralphy --root <data_root> --workspace <workspace_id> provider list
+ralphy --root <data_root> --workspace <workspace_id> doctor
 ```
 
-This prints which capabilities are enabled grouped by category. Report the result back to the user. If `image-fal`, `voiceover-elevenlabs`, and at least one `llm-*` are green, the core pipeline works.
+Report which providers are configured. Configuration status does not prove API acceptance or successful generation. No paid generation is part of installation. Continue with the requested content workflow using the explicit root and Workspace; explain any missing provider the workflow requires.
 
-Then suggest a concrete next step depending on what's enabled:
-- All green → "Try `ralphy template list` to see what you can build."
-- Missing keys → "Re-run `ralphy setup` to add the rest, or skip — degrades gracefully."
-
-## Notes
-
-- This playbook is non-destructive. The wizard never overwrites a key without asking.
-- For in-tree development on the project itself (running `bun run dev`, editing components, debugging the pipeline), hand off to [core playbook](../../troubleshooting/SKILL.md).
-- The Vercel AI Gateway key (`VERCEL_AI_GATEWAY_KEY`) is the recommended LLM provider — one key unlocks Gemini, Claude, GPT, and embeddings via a unified gateway. OpenRouter and OpenAI are accepted fallbacks, picked automatically by `cli/lib/providers/llm.ts`.
-- Why not a Homebrew tap yet: we ship via GitHub Releases first; brew tap comes later once the release cadence is stable.
+GitHub Releases, Homebrew, and npm distribute the same CLI version.

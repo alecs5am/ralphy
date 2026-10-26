@@ -19,6 +19,7 @@ fi
 
 TAP_REPO="${RALPHY_BREW_TAP:-alecs5am/homebrew-tap}"
 REPO="${RALPHY_REPO:-alecs5am/ralphy}"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TAG="v${NEW_VERSION}"
 
 # --- 1. Pull SHA256SUMS from the published release --------------------------
@@ -58,7 +59,11 @@ echo "  linux-x64:    $LINUX_X64_SHA"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK" "$TMP_SHAS"' EXIT
 echo "→ Cloning ${TAP_REPO} into ${WORK}"
-gh repo clone "$TAP_REPO" "$WORK" -- --quiet
+git -C "$REPO_ROOT" gh repo clone "$TAP_REPO" "$WORK" -- --quiet
+git -C "$WORK" remote set-url origin "git@github-alecs5am:${TAP_REPO}.git"
+git -C "$WORK" config --local user.name "$(git -C "$REPO_ROOT" config --local user.name)"
+git -C "$WORK" config --local user.email "$(git -C "$REPO_ROOT" config --local user.email)"
+git -C "$WORK" config --local user.useConfigOnly true
 
 cat > "$WORK/Formula/ralphy.rb" <<EOF
 class Ralphy < Formula
@@ -119,9 +124,8 @@ if git diff --quiet Formula/ralphy.rb; then
 fi
 
 git add Formula/ralphy.rb
-git commit -m "ralphy: bump to ${TAG}
-
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+gitleaks protect --staged --redact
+git commit -m "ralphy: bump to ${TAG}"
 git push origin main
 
 echo ""

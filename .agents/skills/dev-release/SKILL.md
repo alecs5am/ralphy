@@ -47,7 +47,7 @@ Never amend or replace an existing release. Never publish only one channel.
 
    ```bash
    bun run lint
-   bun test --timeout 45000 tests/unit tests/integration
+   bun test --timeout 45000 ./tests/unit/ ./tests/integration/
    bun run build:bin:current
    gitleaks detect --source .
    ```
@@ -63,7 +63,7 @@ Never amend or replace an existing release. Never publish only one channel.
    commit and tag. Do not create the GitHub Release manually; the release
    workflow owns binaries, checksums, and the release object.
 7. Watch the GitHub Actions release workflow to success.
-8. Run `scripts/release/update-brew-tap.sh vX.Y.Z` and
+8. Run `scripts/release/update-brew-tap.sh X.Y.Z` and
    `scripts/release/publish-npm.sh X.Y.Z`, then verify both registries resolve
    the new version.
 9. Update `scripts/release/last-release-commit` in a separate trailing commit

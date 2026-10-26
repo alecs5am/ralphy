@@ -167,19 +167,21 @@ describe("ralphy setup --non-interactive", () => {
     expect(r.json.project_dir).toBeNull();
   });
 
-  test("exits 1 with a useful error when no project root is resolvable", () => {
+  test("initializes a standalone Workspace when no project root is resolvable", () => {
     // No --project-dir, no global link (HOME is fresh), cwd is not a project.
     const r = ralphy([
       "setup",
       "-y",
       "--no-verify",
     ]);
-    expect(r.exitCode).toBe(1);
-    expect(r.json.errors[0]).toContain("no project root resolvable");
+    expect(r.exitCode).toBe(0);
+    expect(r.json.project_dir).toBeNull();
+    expect(r.json.workspace_id).toMatch(/^ws_/);
+    expect(r.json.errors).toEqual([]);
     expect(r.json.keys).toEqual([]);
   });
 
-  test("--non-interactive alone with no keys is a read-only summary (exit 0)", () => {
+  test("--non-interactive initializes without requiring keys (exit 0)", () => {
     const r = ralphy([
       "setup",
       "--non-interactive",

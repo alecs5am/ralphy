@@ -1576,8 +1576,8 @@ describe("Desktop safeStorage authorization", () => {
         : scenario === "flood"
           ? "#!/bin/sh\nwhile :; do /usr/bin/yes flood; done\n"
           : scenario === "descendant-noop"
-            ? `#!${process.execPath}\nimport fs from "node:fs";\nconst child = Bun.spawn(["/bin/sleep", "5"], { stdout: "ignore", stderr: "ignore" });\nfs.writeFileSync(${JSON.stringify(descendantPidPath)}, String(child.pid));\nprocess.exit(0);\n`
-          : `#!/usr/bin/env bun\nawait Bun.stdin.text();\n${body};\n`;
+            ? `#!${process.execPath}\nimport fs from "node:fs";\nawait Bun.stdin.text();\nconst child = Bun.spawn(["/bin/sleep", "5"], { stdout: "ignore", stderr: "ignore" });\nfs.writeFileSync(${JSON.stringify(descendantPidPath)}, String(child.pid));\nprocess.exit(0);\n`
+          : `#!${process.execPath}\nawait Bun.stdin.text();\n${body};\n`;
       fs.writeFileSync(executable, executableSource, { mode: 0o700 });
       let selected = executable;
       if (scenario === "symlink") {
