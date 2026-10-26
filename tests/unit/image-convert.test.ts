@@ -281,11 +281,13 @@ describe("convertImage ffmpeg fallback (stubbed-absent, #103)", () => {
     }
     __setMagickBinaryForTest(null);
 
-    // Build a small webp source first (also via ffmpeg).
-    const png = path.join(tmpRoot, "seed.png");
-    writePngFixture(png, 64, 64);
+    // A 64x64 red WebP fixture only requires the decoder under test. Some
+    // ffmpeg distributions omit the optional WebP encoder.
     const src = path.join(tmpRoot, "seed.webp");
-    spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-i", png, "-frames:v", "1", src], { stdio: "ignore" });
+    fs.writeFileSync(src, Buffer.from(
+      "UklGRloAAABXRUJQVlA4IE4AAADwAwCdASpAAEAAPpFIoEwlpCMiIggAsBIJaQDTyoAAEDuTwRbaZ3EAAP7u09//gN18W0y//3OB/3OB/3OB/G1DJheOmvIZc3w+KZAAAAA=",
+      "base64",
+    ));
 
     const dst = path.join(tmpRoot, "seed-out.png");
     await convertImage({ src, dst });

@@ -829,35 +829,27 @@ describe("task 2d2 read-only planner", () => {
     }
   });
 
-  test("rejects same-count audited-topology substitutions", () => {
-    const unexpectedlyAccepted: string[] = [];
-    for (const mutation of [
-      "render", "source-ref", "ghost-evidence", "ghost-fk",
-      "ghost-original-ref", "unexpected-supplemental", "ghost-polymorphic", "malformed-generation",
-      "source-entry-bytes", "render-entry-sha", "source-workspace", "ghost-workspace", "production-manifest",
-      "source-canonical-hash", "denti-owner-id", "denti-identity-substitution",
-      "generation-ref-nongeneration", "generation-ref-other-source",
-      "unexpected-original-target", "unexpected-repair-key",
-    ] as const) {
-      const db = new Database(":memory:");
-      try {
-        applyMigrationsThroughV6(db);
-        db.exec("PRAGMA foreign_keys = ON");
-        seedTask2d2PlannerFixture(db, mutation);
-        expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
-        db.exec("PRAGMA query_only = ON");
-        let rejected = false;
-        try {
-          buildLiveRepairPlan(db, "03ff6607e14b9c0c47a1946a2ac978d1006262a0");
-        } catch (error) {
-          rejected = error instanceof Error && error.message.includes("Task 2D2 baseline conflict");
-        }
-        if (!rejected) unexpectedlyAccepted.push(mutation);
-      } finally {
-        db.close();
-      }
+  test.each([
+    "render", "source-ref", "ghost-evidence", "ghost-fk",
+    "ghost-original-ref", "unexpected-supplemental", "ghost-polymorphic", "malformed-generation",
+    "source-entry-bytes", "render-entry-sha", "source-workspace", "ghost-workspace", "production-manifest",
+    "source-canonical-hash", "denti-owner-id", "denti-identity-substitution",
+    "generation-ref-nongeneration", "generation-ref-other-source",
+    "unexpected-original-target", "unexpected-repair-key",
+  ] as const)("rejects same-count audited-topology substitution: %s", (mutation) => {
+    const db = new Database(":memory:");
+    try {
+      applyMigrationsThroughV6(db);
+      db.exec("PRAGMA foreign_keys = ON");
+      seedTask2d2PlannerFixture(db, mutation);
+      expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
+      db.exec("PRAGMA query_only = ON");
+      expect(() => {
+        buildLiveRepairPlan(db, "03ff6607e14b9c0c47a1946a2ac978d1006262a0");
+      }).toThrow("Task 2D2 baseline conflict");
+    } finally {
+      db.close();
     }
-    expect(unexpectedlyAccepted).toEqual([]);
   }, 30_000);
 });
 
