@@ -1413,3 +1413,51 @@ export async function contactSheet(input: ContactSheetInput): Promise<string> {
   });
   return dst;
 }
+
+// --- Recipe: eval upload proxy (#583) -------------------------------------
+//
+// The full-video eval pass sends the mp4 in-band as base64, and the provider
+// rejects request bodies over 20,000,000 bytes (HTTP 413). A render above the
+// raw-byte budget gets a smaller proxy first: scaled down (the model samples
+// frames at low resolution anyway) and bitrate-capped so the file fits. The
+// proxy is eval scratch under `.ralphy/cache/eval-proxy/`, never a project
+// artifact. Audio is kept: the full-video pass judges audio-picture alignment.
+
+export type EvalProxyInput = {
+  src: string;
+  dst: string;
+  /** Output width in px (even). Height follows the source aspect. */
+  width: number;
+  /** Video bitrate cap in kbit/s. */
+  videoKbps: number;
+  /** Audio bitrate in kbit/s; 0 drops the audio stream. */
+  audioKbps: number;
+} & FFmpegOptions;
+
+/** ffmpeg arguments for the eval proxy. Exported so tests pin them without spawning ffmpeg. */
+export function buildEvalProxyArgs(input: Omit<EvalProxyInput, keyof FFmpegOptions>): string[] {
+  const { src, dst, width, videoKbps, audioKbps } = input;
+  const audio = audioKbps > 0 ? ["-c:a", "aac", "-b:a", `${audioKbps}k`] : ["-an"];
+  return [
+    "-i", src,
+    "-vf", `scale=${width}:-2`,
+    "-c:v", "libx264", "-preset", "veryfast",
+    "-b:v", `${videoKbps}k`, "-maxrate", `${videoKbps}k`, "-bufsize", `${videoKbps * 2}k`,
+    "-pix_fmt", "yuv420p",
+    ...audio,
+    "-movflags", "+faststart",
+    dst,
+  ];
+}
+
+export async function transcodeEvalProxy(input: EvalProxyInput): Promise<string> {
+  const { src, dst, width, videoKbps, audioKbps, ...opts } = input;
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await runFfmpeg(buildEvalProxyArgs({ src, dst, width, videoKbps, audioKbps }), {
+    endpoint: "ffmpeg/eval-proxy",
+    input: { src, dst, width, videoKbps, audioKbps },
+    opts,
+    kind: "video",
+  });
+  return dst;
+}

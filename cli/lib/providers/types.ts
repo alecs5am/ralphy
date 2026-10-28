@@ -217,6 +217,21 @@ export type CallLLMResult = {
   provider: string;
   model: string;
   latencyMs: number;
+  /**
+   * Token counts and billed cost when the provider reports them (#583).
+   * Optional: absent on connectors or responses without usage data. The same
+   * numbers land in the call's `generations.jsonl` row (`cost_usd`, `tokens`).
+   */
+  usage?: LLMUsage;
+};
+
+/** Provider-reported usage for one chat-completions call (#583). */
+export type LLMUsage = {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  /** Billed USD, only when the provider returned it (never estimated). */
+  costUsd?: number;
 };
 
 export type CredentialSource =

@@ -24,6 +24,8 @@ import {
   retryTransient,
   TerminalProviderError,
   TransientPayloadError,
+  chatUsageFromResponse,
+  usageLogFields,
 } from "./shared.js";
 import { withConcurrency } from "./concurrency.js";
 import type {
@@ -164,6 +166,9 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
     messages: opts.messages,
     max_tokens: opts.maxTokens ?? 2048,
     temperature: opts.temperature ?? 0.3,
+    // #583: ask OpenRouter to report billed cost + tokens so every LLM call
+    // (eval gates included) records `cost_usd` in generations.jsonl.
+    usage: { include: true },
   };
   if (opts.jsonMode) body.response_format = { type: "json_object" };
 
@@ -202,7 +207,9 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
           message?: { content?: string };
           finish_reason?: string | null;
         }>;
+        usage?: unknown;
       };
+      const usage = chatUsageFromResponse(json, resp.headers);
       const choice = json.choices?.[0];
       const text = choice?.message?.content ?? "";
       const finish = choice?.finish_reason ?? null;
@@ -234,10 +241,11 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
           status: "ok",
           latency_ms: latencyMs,
           attempt,
+          ...usageLogFields(usage),
         });
       }
 
-      return { text, raw: json, provider: ID, model, latencyMs };
+      return { text, raw: json, provider: ID, model, latencyMs, ...(usage ? { usage } : {}) };
     },
     {
       noRetry: opts.noRetry,

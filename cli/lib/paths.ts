@@ -426,6 +426,13 @@ export function digestCacheDir() {
   return path.join(workspace(), "cache", "digests");
 }
 
+// Smaller eval upload proxies (#583): a render above the full-video pass's
+// in-band byte budget is transcoded here before upload. Eval scratch, safe to
+// wipe; a miss just re-encodes.
+export function evalProxyCacheDir() {
+  return path.join(workspace(), "cache", "eval-proxy");
+}
+
 // ─── Per-project artifact layout (#105) ─────────────────────────────────────
 //
 // A project's media lives in ONE tree: `<project>/artifacts/<kind>/`. `refs`

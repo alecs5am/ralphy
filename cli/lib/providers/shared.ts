@@ -20,7 +20,7 @@ import {
   type GenerationDestinationInput,
 } from "../generation-destination.js";
 import { raiseError } from "../errors/index.js";
-import type { CommonInput } from "./types.js";
+import type { CommonInput, LLMUsage } from "./types.js";
 import { credentialConfigured } from "./credentials.js";
 import { ralphDir } from "../paths.js";
 
@@ -491,6 +491,51 @@ export async function resolveImageRefForVideo(
       out_bytes: finalBuf.byteLength,
       out_mime: mime,
     },
+  };
+}
+
+/**
+ * Read token counts and the billed cost from an OpenAI-shaped chat-completions
+ * response (#583). OpenRouter reports `usage.cost` (USD) when the request asks
+ * for `usage: { include: true }`, or an `x-openrouter-cost` header; other
+ * OpenAI-compatible servers report tokens only. Returns undefined when nothing
+ * usable is present. Never estimates a cost.
+ */
+export function chatUsageFromResponse(
+  response: { usage?: unknown } | null | undefined,
+  headers?: { get(name: string): string | null } | null,
+): LLMUsage | undefined {
+  const u = (response?.usage ?? null) as Record<string, unknown> | null;
+  const num = (v: unknown): number | undefined =>
+    typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : undefined;
+  const usage: LLMUsage = {};
+  const prompt = num(u?.prompt_tokens);
+  const completion = num(u?.completion_tokens);
+  const total = num(u?.total_tokens);
+  if (prompt !== undefined) usage.promptTokens = prompt;
+  if (completion !== undefined) usage.completionTokens = completion;
+  if (total !== undefined) usage.totalTokens = total;
+  let cost = num(u?.cost);
+  if (cost === undefined) {
+    const header = headers?.get("x-openrouter-cost")?.trim();
+    cost = header ? num(Number(header)) : undefined;
+  }
+  if (cost !== undefined) usage.costUsd = cost;
+  return Object.keys(usage).length > 0 ? usage : undefined;
+}
+
+/** `generations.jsonl` fields for a call's usage (#583): `cost_usd` + `tokens`. */
+export function usageLogFields(
+  usage: LLMUsage | undefined,
+): { cost_usd?: number; tokens?: { prompt?: number; completion?: number; total?: number } } {
+  if (!usage) return {};
+  const tokens: { prompt?: number; completion?: number; total?: number } = {};
+  if (usage.promptTokens !== undefined) tokens.prompt = usage.promptTokens;
+  if (usage.completionTokens !== undefined) tokens.completion = usage.completionTokens;
+  if (usage.totalTokens !== undefined) tokens.total = usage.totalTokens;
+  return {
+    ...(usage.costUsd !== undefined ? { cost_usd: usage.costUsd } : {}),
+    ...(Object.keys(tokens).length > 0 ? { tokens } : {}),
   };
 }
 

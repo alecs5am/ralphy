@@ -15,6 +15,8 @@ import {
   retryTransient,
   TerminalProviderError,
   TransientPayloadError,
+  chatUsageFromResponse,
+  usageLogFields,
 } from "./shared.js";
 import type { ProviderConfigEntry } from "./config.js";
 import type {
@@ -91,7 +93,9 @@ export function makeOpenAiCompatibleConnector(entry: ProviderConfigEntry): Ralph
 
         const json = (await resp.json()) as {
           choices?: Array<{ message?: { content?: string }; finish_reason?: string | null }>;
+          usage?: unknown;
         };
+        const usage = chatUsageFromResponse(json, resp.headers);
         const choice = json.choices?.[0];
         const text = choice?.message?.content ?? "";
         const finish = choice?.finish_reason ?? null;
@@ -112,9 +116,10 @@ export function makeOpenAiCompatibleConnector(entry: ProviderConfigEntry): Ralph
             status: "ok",
             latency_ms: latencyMs,
             attempt,
+            ...usageLogFields(usage),
           });
         }
-        return { text, raw: json, provider: id, model, latencyMs };
+        return { text, raw: json, provider: id, model, latencyMs, ...(usage ? { usage } : {}) };
       },
       { noRetry: opts.noRetry },
     );

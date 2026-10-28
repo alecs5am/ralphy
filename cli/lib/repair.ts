@@ -254,10 +254,18 @@ export function buildRepairPlan(
   // the artifact records the richer provenance; otherwise keep the #409 source.
   const sourcePreferred: RepairSource = hasCouncil ? "council" : baseSource;
 
+  // #583: info-level findings are advisory facts (sub-1.5 s speech pauses,
+  // `captions.missing` on burned-in captions, the cut-based hook-zone note) and
+  // stay in eval.json only. They padded every stored plan and none was ever
+  // acted on. Deep-vision redos and council actions are explicit fix requests
+  // and keep their low-priority items.
+  const actionable = (evalReport?.findings ?? []).filter((f) => f.severity !== "info");
+  const omittedInfo = hasDeepRedos ? 0 : (evalReport?.findings ?? []).length - actionable.length;
+
   const items: RepairItem[] = [
     ...(hasDeepRedos
       ? itemsFromDeepVision(deepVision!.parsed!.what_to_redo!)
-      : itemsFromFindings(evalReport?.findings ?? [])),
+      : itemsFromFindings(actionable)),
     ...(hasCouncil ? itemsFromCouncilActions(councilActions) : []),
   ];
 
@@ -302,6 +310,7 @@ export function buildRepairPlan(
     items,
     byOwner: byOwnerOut as Record<RepairOwner, string[]>,
     totalCostEstimate,
+    omittedInfo,
     approvalGate:
       "No paid model regeneration runs until the user approves this plan (or previously opted into batch repair). Every item starts approvalState=pending.",
   };
@@ -412,6 +421,9 @@ export function renderRepairPlanMarkdown(plan: RepairPlan): string {
   lines.push(`> Source eval verdict: **${plan.sourceVerdict ?? "unknown"}**`);
   lines.push(`> Built from: **${plan.sourcePreferred}** (${plan.items.length} item${plan.items.length === 1 ? "" : "s"})`);
   lines.push(`> Worst-case repair spend: **$${plan.totalCostEstimate.toFixed(2)}**`);
+  if (plan.omittedInfo > 0) {
+    lines.push(`> Left out: ${plan.omittedInfo} info-level finding${plan.omittedInfo === 1 ? "" : "s"} (advisory, see eval-report.md)`);
+  }
   lines.push("");
   lines.push(`**Approval gate:** ${plan.approvalGate}`);
   lines.push("");

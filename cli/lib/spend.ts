@@ -31,7 +31,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { projectDir } from "./paths.js";
-import { readGenerations } from "./gen-log.js";
+import { readGenerations, type GenerationEntry } from "./gen-log.js";
 import { estimateVideoCostUsd } from "./or-catalog.js";
 import { imageCostUsd } from "./generate-batch.js";
 import { projectRunAttemptSpendUsd } from "./store/runs.js";
@@ -343,4 +343,72 @@ export async function budgetSummary(projectId: string, now: Date = new Date()): 
     expired,
     approvals: ledger?.approvals ?? [],
   };
+}
+
+// ── Eval cost per gate (#583) ─────────────────────────────────────────────────
+//
+// Eval model calls go through `callLLM()`, which since #583 writes the
+// provider-billed `cost_usd` (and token counts) into the project's
+// generations.jsonl like every other paid call. Each gate labels its calls with
+// a stable `endpoint`, so cost per gate is a group-by over those rows. The
+// summary is read-only and never estimates: a call whose provider reported no
+// cost is counted in `uncostedCalls`, not priced.
+
+/** Map a generations.jsonl `endpoint` to the eval gate that made the call, or null. */
+export function evalGateForEndpoint(endpoint: string): string | null {
+  const deep = /^eval\/deep-vision\/(.+)$/.exec(endpoint);
+  if (deep) return deep[1]!; // native-video | deep-style
+  const byEndpoint: Record<string, string> = {
+    "openrouter/eval-vision": "keyframe",
+    "openrouter/eval-hook": "first-frame-hook",
+    "openrouter/eval-captions": "captions",
+    "openrouter/eval-ocr": "ocr",
+    "openrouter/eval-fidelity": "product-fidelity",
+    "openrouter/eval-claims": "claims",
+    "eval/workspace-vision": "workspace-evaluators",
+  };
+  if (endpoint in byEndpoint) return byEndpoint[endpoint]!;
+  if (/^council-(preflight|polish)-/.test(endpoint)) return "council";
+  return null;
+}
+
+export interface EvalGateSpend {
+  /** Rows logged for the gate (successful and failed calls). */
+  calls: number;
+  /** Sum of the provider-reported `cost_usd`. */
+  costUsd: number;
+  /** Successful calls whose provider reported no cost. */
+  uncostedCalls: number;
+  /** Sum of reported total tokens (0 when none were reported). */
+  tokens: number;
+}
+
+export interface EvalSpendSummary {
+  totalUsd: number;
+  byGate: Record<string, EvalGateSpend>;
+}
+
+/** Group eval model calls by gate and sum their recorded cost. Pure. */
+export function summarizeEvalSpend(rows: GenerationEntry[]): EvalSpendSummary {
+  const byGate: Record<string, EvalGateSpend> = {};
+  let total = 0;
+  for (const r of rows) {
+    const gate = evalGateForEndpoint(r.endpoint);
+    if (!gate) continue;
+    const g = (byGate[gate] ??= { calls: 0, costUsd: 0, uncostedCalls: 0, tokens: 0 });
+    g.calls += 1;
+    if (typeof r.cost_usd === "number") {
+      g.costUsd = Number((g.costUsd + r.cost_usd).toFixed(6));
+      total += r.cost_usd;
+    } else if (r.status === "ok") {
+      g.uncostedCalls += 1;
+    }
+    g.tokens += r.tokens?.total ?? 0;
+  }
+  return { totalUsd: Number(total.toFixed(6)), byGate };
+}
+
+/** Cost per eval gate for one project, from its generations.jsonl (#583). */
+export async function evalSpendByGate(projectId: string): Promise<EvalSpendSummary> {
+  return summarizeEvalSpend(await readGenerations(projectId));
 }

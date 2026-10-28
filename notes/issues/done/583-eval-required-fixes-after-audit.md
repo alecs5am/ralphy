@@ -1,6 +1,6 @@
 # Required eval fixes after the gate audit
 
-> **Status:** todo
+> **Status:** done — 2026-10-28 (full-video verdict calibrated: agreement 20/29 to 28/29, kappa 0.00 to 0.92; deep-vision proxy under the 20 MB limit; eval cost logged; info findings out of repair plans)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** high

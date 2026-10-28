@@ -87,6 +87,8 @@ export type GenerationEntry = {
   error?: string;
   latency_ms?: number;
   cost_usd?: number;             // best-effort estimate, optional
+  /** Provider-reported token counts for LLM calls (#583). Optional, additive. */
+  tokens?: GenerationTokens;
   attempt?: number;              // 1-indexed retry attempt counter (default 1)
   request_id?: string;           // fal queue id, elevenlabs id, etc.
   note?: string;                 // free-form human tag, e.g. "clip-03 v2 hand crumples sample"
@@ -102,6 +104,9 @@ export type GenerationEntry = {
   refsCount?: number;            // how many --ref images this call carried
   failureClass?: string;         // "moderation" | "constraint" | "transient" | "provider-semantic"
 };
+
+/** Token counts for one LLM call, as the provider reported them (#583). */
+export type GenerationTokens = { prompt?: number; completion?: number; total?: number };
 
 /**
  * Raw row shape on disk. Same as {@link GenerationEntry} but with the legacy fields
@@ -124,6 +129,7 @@ export type RawGenerationEntry = Partial<GenerationEntry> & {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   costUsd?: number;
   cost_usd?: number;
+  tokens?: GenerationTokens;
   attempt?: number;
   request_id?: string;
   note?: string;
@@ -170,6 +176,7 @@ export function normalizeGenerationEntry(row: RawGenerationEntry): GenerationEnt
     error: row.error,
     latency_ms: row.latency_ms,
     cost_usd: cost,
+    tokens: row.tokens,
     attempt: row.attempt ?? 1,
     request_id: row.request_id,
     note: row.note,
@@ -266,6 +273,7 @@ export async function logGeneration(
     error: entry.error,
     latency_ms: entry.latency_ms,
     cost_usd: entry.cost_usd,
+    tokens: entry.tokens,
     attempt: entry.attempt ?? 1,
     request_id: entry.request_id,
     note: entry.note,

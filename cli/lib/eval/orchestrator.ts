@@ -14,6 +14,14 @@ import { buildFindings, score } from "./findings.js";
 import { writeReport } from "./report.js";
 import { deepVisionEvaluate, type DeepVisionResult } from "./deep-vision.js";
 import { resolveGate, resolveMode, hasModelCredentials } from "./gate.js";
+import { strictRubricEnabled } from "./strict-rubric.js";
+import {
+  calibrateFullVideoFindings,
+  fullVideoVerdict,
+  guardInconclusive,
+  FULL_VIDEO_AGGREGATION,
+  SCORE_AGGREGATION,
+} from "./full-video-verdict.js";
 import type {
   CaptionStats,
   DeclaredMeta,
@@ -69,6 +77,9 @@ export interface EvaluateInput {
   /** Legacy alias: when true, never run the full-mp4 pass even if a style
    *  sheet/brief is present. Caps the effective mode at `keyframe`. */
   noDeepVision?: boolean;
+  /** Restore the pre-audit severities and the `score()` verdict (#569, #583).
+   *  Default: `RALPHY_EVAL_STRICT_RUBRIC` from the environment. */
+  strictRubric?: boolean;
   /** Test seam — injectable pipeline steps. Unset in production. */
   deps?: EvaluateDeps;
 }
@@ -161,6 +172,7 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
     ...probe,
   };
 
+  const strict = input.strictRubric ?? strictRubricEnabled();
   const findings = buildFindings({
     meta,
     declared,
@@ -169,6 +181,7 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
     captions,
     vision,
     hookTranscript,
+    strictRubric: strict,
   });
 
   // Surface a mode-downgrade (e.g. requested native but no credentials) as a
@@ -210,7 +223,22 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
         projectId,
         model: input.deepVisionModel,
       });
-      findings.push(...deepVision.findings);
+      // #583: cap the detail sub-checks the labeled calibration set showed are
+      // unreliable on their own (strict rubric keeps the raw severities).
+      const overall = deepVision.parsed?.overall_verdict ?? null;
+      findings.push(...(strict ? deepVision.findings : calibrateFullVideoFindings(deepVision.findings, overall)));
+      if (!deepVision.parsed) {
+        findings.push({
+          id: "DEEP-UNPARSED",
+          category: "eval.deep-vision-unparsed",
+          severity: "warn",
+          sceneIndex: null,
+          timestampSec: null,
+          message: "The full-video pass returned output that is not the expected JSON, so the ship gate is inconclusive.",
+          fixHint: "Re-run the eval; inspect eval-deep-vision.json `raw` for the model output.",
+          fixCommand: null,
+        });
+      }
     } catch (e) {
       findings.push({
         id: "DEEP-ERR",
@@ -226,6 +254,25 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
   }
 
   const scoring = score(findings);
+  if (runFullMp4) {
+    // #583: the native ship gate uses the calibrated aggregation (fails block,
+    // warns are repair notes); the strict rubric keeps `score()`. Either way a
+    // full-video pass without a usable result can never read as `pass`.
+    const fullVideoParsed = !!deepVision?.parsed;
+    if (strict) {
+      scoring.verdict = guardInconclusive(scoring.verdict, fullVideoParsed);
+      scoring.aggregation = SCORE_AGGREGATION;
+    } else {
+      const decided = fullVideoVerdict({
+        findings,
+        fullVideoParsed,
+        overallVerdict: deepVision?.parsed?.overall_verdict ?? null,
+      });
+      scoring.verdict = decided.verdict;
+      scoring.aggregation = FULL_VIDEO_AGGREGATION;
+      scoring.verdictReason = decided.reason;
+    }
+  }
   const gate = resolveGate({ mode, explicit: resolved.explicit, verdict: scoring.verdict });
 
   const sceneDurations = scenes.map((s) => s.durationSec);
@@ -274,6 +321,10 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
           // #419: the golden benchmark set the mode is measured against, when one
           // is mapped. Additive context for downstream readers (#457/#427).
           benchmarkSet: benchmarkSet?.slug ?? null,
+          // #583: what was uploaded (the render or a smaller proxy) and the
+          // provider-reported call cost. Additive.
+          ...(deepVision.upload ? { upload: deepVision.upload } : {}),
+          ...(typeof deepVision.costUsd === "number" ? { costUsd: deepVision.costUsd } : {}),
           parsed: deepVision.parsed,
           raw: deepVision.raw,
         },

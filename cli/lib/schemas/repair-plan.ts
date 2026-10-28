@@ -111,6 +111,11 @@ export const RepairPlanSchema = z.object({
   /** Sum of every item's costEstimate — the worst-case full-repair spend. */
   totalCostEstimate: z.number().nonnegative().default(0),
   /**
+   * Info-level eval findings left out of `items` (#583). They are advisory
+   * facts, kept in eval.json / eval-report.md, never repair work.
+   */
+  omittedInfo: z.number().int().nonnegative().default(0),
+  /**
    * The single most important line the fixer must honor: NO paid model call
    * runs until the user approves this plan (or previously opted into batch
    * repair). Carried in the artifact so the gate is visible, not just in prose.

@@ -11,6 +11,12 @@
 // behavior is removed. Measurement fixes (counting caption words instead of
 // caption entries, ignoring intermediate artifacts in the platform gate) are not
 // reverted by this switch.
+//
+// Since #583 the switch also restores the previous full-video ship aggregation:
+// the raw full-video sub-check severities (no hook-window or detail caps) and the
+// generic `score()` verdict, where two warns make a warn. See
+// full-video-verdict.ts. The guard that keeps an errored or unparseable
+// full-video pass from reading as `pass` is a bug fix and stays on.
 
 export const STRICT_RUBRIC_ENV = "RALPHY_EVAL_STRICT_RUBRIC";
 

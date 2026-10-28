@@ -97,7 +97,7 @@ Each rule violation also flows into the main `findings[]` array under `style.reg
 
 **When NOT to run the full-mp4 pass at all:**
 - A fast triage pass mid-iteration — use `--mode keyframe` (cheap, free-ish) but remember it can't approve a Unit.
-- The mp4 is over 40 MB — the model rejects on body size. Re-encode at lower bitrate first.
+- The mp4 is over about 13.9 MiB raw (the provider's 20 MB request limit after base64) — the deep-vision pass now transcodes a smaller proxy automatically (#583) and records it under `upload` in `eval-deep-vision.json`; it fails with a clear error only when the video is too long to fit.
 
 ### Standard flags
 

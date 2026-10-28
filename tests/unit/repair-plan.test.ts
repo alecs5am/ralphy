@@ -24,6 +24,7 @@ import {
   buildRepairPlan,
   classifyFindingOwner,
   isUnknownCategory,
+  renderRepairPlanMarkdown,
   type DeepVisionFile,
 } from "../../cli/lib/repair";
 import { parseRepairPlan } from "../../cli/lib/schemas/repair-plan";
@@ -166,7 +167,7 @@ describe("buildRepairPlan — fail-heavy eval", () => {
     _idCounter = 0;
   });
 
-  test("priority orders fail before warn before info", () => {
+  test("priority orders fail before warn; info findings stay out (#583)", () => {
     const report = evalReport(
       [
         finding({ category: "captions.thin", severity: "info", id: "F-info" }),
@@ -177,10 +178,12 @@ describe("buildRepairPlan — fail-heavy eval", () => {
     );
     const plan = buildRepairPlan(report, null, { now: NOW });
 
-    // Sorted by severity rank: fail (priority 1), warn (2), info (3).
-    expect(plan.items.map((i) => i.findingId)).toEqual(["F-fail", "F-warn", "F-info"]);
-    expect(plan.items.map((i) => i.priority)).toEqual([1, 2, 3]);
-    expect(plan.items.map((i) => i.severity)).toEqual(["fail", "warn", "info"]);
+    // Sorted by severity rank: fail (priority 1), warn (2). The info finding is
+    // advisory and is counted, not planned.
+    expect(plan.items.map((i) => i.findingId)).toEqual(["F-fail", "F-warn"]);
+    expect(plan.items.map((i) => i.priority)).toEqual([1, 2]);
+    expect(plan.items.map((i) => i.severity)).toEqual(["fail", "warn"]);
+    expect(plan.omittedInfo).toBe(1);
   });
 
   test("every item is born approvalState=pending (no auto-approve)", () => {
@@ -250,6 +253,59 @@ describe("buildRepairPlan — warn-only eval", () => {
     expect(plan.items).toEqual([]);
     expect(plan.totalCostEstimate).toBe(0);
     expect(() => parseRepairPlan(plan)).not.toThrow();
+  });
+});
+
+// ─── info-level findings stay out of the plan (#583) ─────────────────────────
+
+describe("buildRepairPlan — info findings are not repair items (#583)", () => {
+  beforeEach(() => {
+    _idCounter = 0;
+  });
+
+  test("the audit's info categories never become items; warns and fails do", () => {
+    const report = evalReport(
+      [
+        finding({ category: "audio.dead-air", severity: "info", id: "pause" }),
+        finding({ category: "captions.missing", severity: "info", id: "nocap" }),
+        finding({ category: "structure.hook-zone-static", severity: "info", id: "hz" }),
+        finding({ category: "audio.dead-air", severity: "warn", id: "gap" }),
+        finding({ category: "style.rule-violation", severity: "fail", id: "rule" }),
+      ],
+      "fail",
+    );
+    const plan = buildRepairPlan(report, null, { now: NOW });
+    expect(plan.items.map((i) => i.findingId)).toEqual(["rule", "gap"]);
+    expect(plan.items.some((i) => i.severity === "info")).toBe(false);
+    expect(plan.omittedInfo).toBe(3);
+    expect(Object.values(plan.byOwner).flat()).not.toContain("pause");
+    expect(() => parseRepairPlan(plan)).not.toThrow();
+    expect(renderRepairPlanMarkdown(plan)).toContain("Left out: 3 info-level findings");
+  });
+
+  test("an info-only eval yields an empty plan", () => {
+    const report = evalReport([finding({ category: "captions.missing", severity: "info" })], "pass");
+    const plan = buildRepairPlan(report, null, { now: NOW });
+    expect(plan.items).toEqual([]);
+    expect(plan.omittedInfo).toBe(1);
+    expect(renderRepairPlanMarkdown(plan)).toContain("No findings to repair");
+  });
+
+  test("deep-vision priority-3 redos are explicit requests and stay in the plan", () => {
+    const report = evalReport([finding({ category: "captions.missing", severity: "info" })], "warn");
+    const deep: DeepVisionFile = {
+      parsed: { overall_verdict: "warn", what_to_redo: [{ priority: 3, target: "scene-prompt", action: "tighten scene 2" }] },
+    };
+    const plan = buildRepairPlan(report, deep, { now: NOW });
+    expect(plan.items).toHaveLength(1);
+    expect(plan.items[0]!.severity).toBe("info");
+    expect(plan.omittedInfo).toBe(0);
+  });
+
+  test("a stored plan without the field still parses (default 0)", () => {
+    const report = evalReport([finding({ category: "audio.loudness", severity: "warn" })], "pass");
+    const { omittedInfo: _drop, ...legacy } = buildRepairPlan(report, null, { now: NOW });
+    expect(parseRepairPlan(legacy).omittedInfo).toBe(0);
   });
 });
 

@@ -12,9 +12,13 @@
 // user directive, this is the "validator should give hard base, not generic
 // answers" path. Budget is intentional.
 
-import { readFile, stat } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { callLLM, type LLMContent } from "../providers/llm.js";
+import { transcodeEvalProxy } from "../ffmpeg-recipes.js";
+import { evalProxyCacheDir } from "../paths.js";
+import { probeVideo } from "./probe.js";
 import type { Finding, Severity } from "./types.js";
 
 /**
@@ -47,8 +51,10 @@ export type DeepVisionContext = {
   projectId?: string | null;
   /** Override model. Default google/gemini-3.1-pro-preview (native video). */
   model?: string;
-  /** Hard cap on mp4 bytes sent in-band. Larger videos get rejected (the
-   *  user should re-encode smaller for eval). Default 40 MB. */
+  /** Raw mp4 byte budget for the in-band upload. A larger video is uploaded as
+   *  a smaller proxy (see `prepareVideoForUpload`). Default
+   *  `DEEP_VISION_MAX_MP4_BYTES`, derived from the provider's 20,000,000-byte
+   *  request limit after base64 inflation (#583). */
   maxMp4Bytes?: number;
 };
 
@@ -59,32 +65,199 @@ const MIME_BY_EXT: Record<string, string> = {
   ".webm": "video/webm",
 };
 
-/** Default cap on mp4 bytes sent in-band to the deep-vision model (gemini-3.1-pro
- *  rejects mp4s over ~40 MB — MODELS.md video-analysis failure mode). */
-export const DEEP_VISION_MAX_MP4_BYTES = 40 * 1024 * 1024;
+// ─── In-band upload size budget (#583) ───────────────────────────────────────
+//
+// The video travels inside the JSON request body as a base64 data URL, and the
+// provider behind OpenRouter (Google AI Studio) rejects bodies over 20,000,000
+// bytes with HTTP 413 ("Request body exceeds the provider maximum size: 32829560
+// bytes exceeds the 20000000 byte limit" for a 24.6 MB render). Base64 turns 3
+// raw bytes into 4, so the raw budget is about three quarters of the body limit
+// minus the prompt text. The old 40 MB raw cap let 20-40 MB renders through to
+// a guaranteed 413; three of the 29 stored full-video runs died that way.
+
+/** The provider's request-body limit, in bytes. */
+export const DEEP_VISION_MAX_REQUEST_BYTES = 20_000_000;
+/** Body bytes reserved for everything but the video: system prompt, style sheet
+ *  (up to 24k chars), brief, references, JSON framing. Generous on purpose. */
+export const DEEP_VISION_REQUEST_RESERVE_BYTES = 512 * 1024;
+/** Longest `data:<mime>;base64,` prefix this module writes. */
+const DATA_URL_PREFIX_BYTES = 64;
+
+/** Bytes of the base64 encoding of `rawBytes` bytes (padded). */
+export function base64EncodedBytes(rawBytes: number): number {
+  return 4 * Math.ceil(Math.max(0, rawBytes) / 3);
+}
+
+/** Request-body bytes the video alone contributes (data-URL prefix + base64). */
+export function videoRequestBytes(rawBytes: number): number {
+  return DATA_URL_PREFIX_BYTES + base64EncodedBytes(rawBytes);
+}
+
+/** The largest raw video that keeps the request under `limit` with `reserve` left for the prompt. */
+export function maxRawBytesForRequest(
+  limit: number = DEEP_VISION_MAX_REQUEST_BYTES,
+  reserve: number = DEEP_VISION_REQUEST_RESERVE_BYTES,
+): number {
+  const budget = Math.max(0, limit - reserve - DATA_URL_PREFIX_BYTES);
+  return Math.floor(budget / 4) * 3;
+}
+
+/** Default raw mp4 budget for the in-band upload: about 13.9 MiB. Above it a
+ *  proxy is uploaded instead (`prepareVideoForUpload`). */
+export const DEEP_VISION_MAX_MP4_BYTES = maxRawBytesForRequest();
+
+/** Encode settings for one eval upload proxy. */
+export interface EvalProxyPlan {
+  /** Output width in px (even, never above the source width). */
+  width: number;
+  videoKbps: number;
+  /** 0 when the source has no audio stream. */
+  audioKbps: number;
+}
+
+/** Short-side ladder for the proxy, highest first. The model samples frames at
+ *  low resolution, so 720 px on the short side loses nothing it reads. */
+const PROXY_SHORT_SIDES = [720, 540, 360] as const;
+/** Below this video bitrate the proxy is unwatchable; trim the video instead. */
+const MIN_PROXY_VIDEO_KBPS = 120;
 
 /**
- * Build the `file` LLMContent block for a video, applying the SAME size cap +
+ * Plan the proxy encode that fits `maxBytes` (#583). Pure. The bitrate targets
+ * 85% of the budget (minus 15% more per retry `attempt`) to absorb container
+ * overhead and encoder overshoot; the short side steps down the ladder as the
+ * bitrate drops and on each retry. Throws when even the smallest rung cannot
+ * fit (a very long video): trim it or evaluate a shorter cut.
+ */
+export function planEvalProxy(input: {
+  durationSec: number;
+  width: number;
+  height: number;
+  maxBytes: number;
+  hasAudio: boolean;
+  attempt?: number;
+}): EvalProxyPlan {
+  const attempt = Math.max(0, input.attempt ?? 0);
+  const duration = Math.max(0.1, input.durationSec);
+  const target = input.maxBytes * 0.85 ** (attempt + 1);
+  const totalKbps = Math.floor((target * 8) / duration / 1000);
+  const audioKbps = input.hasAudio ? (totalKbps >= 800 ? 96 : 64) : 0;
+  const videoKbps = totalKbps - audioKbps;
+  if (videoKbps < MIN_PROXY_VIDEO_KBPS) {
+    throw new Error(
+      `video too long for an in-band eval upload: ${duration.toFixed(1)}s needs at least ${MIN_PROXY_VIDEO_KBPS + audioKbps} kbit/s, but ${(input.maxBytes / 1e6).toFixed(1)} MB allows ${totalKbps}. Evaluate a shorter cut.`,
+    );
+  }
+  const rung = videoKbps >= 1200 ? 0 : videoKbps >= 500 ? 1 : 2;
+  const shortSide = PROXY_SHORT_SIDES[Math.min(PROXY_SHORT_SIDES.length - 1, rung + attempt)]!;
+  const srcShort = Math.max(1, Math.min(input.width, input.height));
+  const factor = Math.min(1, shortSide / srcShort);
+  const width = Math.max(2, Math.min(input.width - (input.width % 2), 2 * Math.round((input.width * factor) / 2)));
+  return { width, videoKbps, audioKbps };
+}
+
+/** What `prepareVideoForUpload` decided. */
+export interface PreparedVideo {
+  /** The file to upload: the source, or a proxy under the eval-proxy cache. */
+  path: string;
+  proxied: boolean;
+  originalBytes: number;
+  uploadBytes: number;
+}
+
+/** Injectable steps for `prepareVideoForUpload` (tests run without ffmpeg). */
+export interface PrepareVideoDeps {
+  probe?: (file: string) => { durationSec: number; resolution: { w: number; h: number }; codec: { audio: string } };
+  transcode?: (input: { src: string; dst: string; width: number; videoKbps: number; audioKbps: number; projectId?: string }) => Promise<string>;
+  /** Where proxies are written. Default `.ralphy/cache/eval-proxy/`. */
+  cacheDir?: string;
+}
+
+const PROXY_ATTEMPTS = 3;
+
+/**
+ * Return a file that fits the in-band upload budget (#583). A video at or under
+ * `maxBytes` is used as-is. A larger one is transcoded to a smaller proxy with
+ * local ffmpeg (scaled down, bitrate-capped) and the proxy is uploaded instead
+ * of failing with HTTP 413. Proxies are cached by source path, size, mtime and
+ * budget, and the encode retries smaller up to three times if it overshoots.
+ */
+export async function prepareVideoForUpload(
+  videoPath: string,
+  opts: { maxBytes?: number; projectId?: string | null; deps?: PrepareVideoDeps } = {},
+): Promise<PreparedVideo> {
+  const maxBytes = opts.maxBytes ?? DEEP_VISION_MAX_MP4_BYTES;
+  const stats = await stat(videoPath);
+  if (stats.size <= maxBytes) {
+    return { path: videoPath, proxied: false, originalBytes: stats.size, uploadBytes: stats.size };
+  }
+  const deps = opts.deps ?? {};
+  const probe = deps.probe ?? probeVideo;
+  const transcode =
+    deps.transcode ??
+    ((i: { src: string; dst: string; width: number; videoKbps: number; audioKbps: number; projectId?: string }) =>
+      transcodeEvalProxy(i));
+  const meta = probe(videoPath);
+  const dir = deps.cacheDir ?? evalProxyCacheDir();
+  await mkdir(dir, { recursive: true });
+  const key = createHash("sha256")
+    .update(`${path.resolve(videoPath)}:${stats.size}:${stats.mtimeMs}:${maxBytes}`)
+    .digest("hex")
+    .slice(0, 16);
+  let lastBytes = 0;
+  for (let attempt = 0; attempt < PROXY_ATTEMPTS; attempt++) {
+    const plan = planEvalProxy({
+      durationSec: meta.durationSec,
+      width: meta.resolution.w,
+      height: meta.resolution.h,
+      maxBytes,
+      hasAudio: meta.codec.audio !== "?" && meta.codec.audio !== "",
+      attempt,
+    });
+    const dst = path.join(dir, `${key}-a${attempt}.mp4`);
+    const cached = await stat(dst).catch(() => null);
+    if (!cached || cached.size === 0 || cached.size > maxBytes) {
+      await transcode({ src: videoPath, dst, ...plan, ...(opts.projectId ? { projectId: opts.projectId } : {}) });
+    }
+    lastBytes = (await stat(dst)).size;
+    if (lastBytes > 0 && lastBytes <= maxBytes) {
+      return { path: dst, proxied: true, originalBytes: stats.size, uploadBytes: lastBytes };
+    }
+  }
+  throw new Error(
+    `mp4 is ${(stats.size / 1e6).toFixed(1)} MB, above the ${(maxBytes / 1e6).toFixed(1)} MB in-band budget, and the eval proxy still came out at ${(lastBytes / 1e6).toFixed(1)} MB after ${PROXY_ATTEMPTS} attempts. Evaluate a shorter cut.`,
+  );
+}
+
+/**
+ * Build the `file` LLMContent block for a video, applying the SAME size budget +
  * MIME resolution + base64 data-URL packing `deepVisionEvaluate` uses. Exported
  * so other eval passes (e.g. the per-workspace custom evaluators, #469) reuse the
- * one video-send mechanism instead of re-deriving the cap / MIME / encoding.
- * Throws the same too-large error when the file exceeds `maxBytes`.
+ * one video-send mechanism instead of re-deriving the budget / MIME / encoding.
+ * A video above `maxBytes` is uploaded as a smaller proxy (#583).
  */
 export async function buildVideoContentBlock(
   videoPath: string,
   maxBytes: number = DEEP_VISION_MAX_MP4_BYTES,
+  opts: { projectId?: string | null; deps?: PrepareVideoDeps } = {},
 ): Promise<LLMContent> {
-  const stats = await stat(videoPath);
-  if (stats.size > maxBytes) {
-    throw new Error(
-      `mp4 too large for deep-vision (${(stats.size / 1024 / 1024).toFixed(1)} MB > ${maxBytes / 1024 / 1024} MB cap). Re-encode at lower bitrate before running the deep pass.`,
-    );
-  }
-  const buf = await readFile(videoPath);
-  const ext = path.extname(videoPath).toLowerCase();
+  return (await buildVideoUpload(videoPath, maxBytes, opts)).block;
+}
+
+/** `buildVideoContentBlock` plus what was uploaded (source or proxy, sizes). */
+export async function buildVideoUpload(
+  videoPath: string,
+  maxBytes: number = DEEP_VISION_MAX_MP4_BYTES,
+  opts: { projectId?: string | null; deps?: PrepareVideoDeps } = {},
+): Promise<{ block: LLMContent; prepared: PreparedVideo }> {
+  const prepared = await prepareVideoForUpload(videoPath, { maxBytes, ...opts });
+  const buf = await readFile(prepared.path);
+  const ext = path.extname(prepared.path).toLowerCase();
   const mime = MIME_BY_EXT[ext] ?? "video/mp4";
   const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
-  return { type: "file", file: { filename: path.basename(videoPath), file_data: dataUrl } };
+  return {
+    block: { type: "file", file: { filename: path.basename(videoPath), file_data: dataUrl } },
+    prepared,
+  };
 }
 
 const STYLE_SYSTEM = `You are a senior creative director running a hard-base quality gate on a rendered short-form vertical video. You will be given:
@@ -238,6 +411,10 @@ export type DeepVisionResult = {
   parsed: DeepFindingsShape | null;
   findings: Finding[];
   modelUsed: string;
+  /** What was uploaded (#583): the source or a smaller proxy, with sizes. */
+  upload?: { proxied: boolean; originalBytes: number; uploadBytes: number };
+  /** Provider-reported cost of the call in USD, when the provider returned it (#583). */
+  costUsd?: number;
 };
 
 type DeepFindingsShape = {
@@ -300,7 +477,7 @@ export async function deepVisionEvaluate(
   const mode: DeepVisionMode =
     ctx.mode ?? (ctx.styleSheetPath || ctx.briefPath || (ctx.referenceUrls ?? []).length > 0 ? "deep-style" : "native-video");
 
-  const videoBlock = await buildVideoContentBlock(videoPath, maxBytes);
+  const { block: videoBlock, prepared } = await buildVideoUpload(videoPath, maxBytes, { projectId: ctx.projectId ?? null });
 
   const styleSheet = ctx.styleSheetPath ? await readSafe(ctx.styleSheetPath) : "";
   const brief = ctx.briefPath ? await readSafe(ctx.briefPath) : "";
@@ -335,7 +512,7 @@ export async function deepVisionEvaluate(
   // bug pattern. Same workaround as cli/lib/research.ts → analyzeVideo:
   // ask for JSON-shaped output in the prompt, parse fenced/raw JSON
   // post-hoc.
-  const { text } = await callLLM({
+  const { text, usage } = await callLLM({
     messages: [
       { role: "system", content: system },
       { role: "user", content },
@@ -350,7 +527,14 @@ export async function deepVisionEvaluate(
 
   const parsed = safeParseJson(text);
   const findings = parsed ? translateToFindings(parsed) : [];
-  return { raw: text, parsed, findings, modelUsed: model };
+  return {
+    raw: text,
+    parsed,
+    findings,
+    modelUsed: model,
+    upload: { proxied: prepared.proxied, originalBytes: prepared.originalBytes, uploadBytes: prepared.uploadBytes },
+    ...(typeof usage?.costUsd === "number" ? { costUsd: usage.costUsd } : {}),
+  };
 }
 
 async function readSafe(p: string): Promise<string> {

@@ -20,6 +20,7 @@ export type {
   LLMMessage,
   CallLLMOptions,
   CallLLMResult,
+  LLMUsage,
 } from "./types.js";
 
 /** Provider id union — widened to string now that providers are pluggable. */

@@ -132,6 +132,15 @@ export interface ScoringBreakdown {
   penalties: Record<string, number>;
   score: number;
   verdict: Verdict;
+  /**
+   * Which rule produced `verdict` (#583). Absent on older reports and on gates
+   * that use the generic `score()` verdict. `full-video-calibrated-583` on a
+   * native gate (see full-video-verdict.ts); `score` when the strict rubric
+   * kept the previous aggregation.
+   */
+  aggregation?: string;
+  /** One-line reason for the native-gate verdict (#583). Absent elsewhere. */
+  verdictReason?: string;
 }
 
 export interface EvalReport {

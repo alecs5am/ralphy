@@ -109,7 +109,7 @@ The October 2026 gate audit ([`research/gate-audit-2026-10.md`](research/gate-au
 - **No judge has been calibrated yet.** The starter datasets reference fixture videos (`fixtures/hook/*.mp4`, `fixtures/captions/*.mp4`) that are not in the repository, so the live path cannot run, and no `--predictions` run has been recorded. Every kappa is still unknown. Adding those fixtures, or a dataset of labeled real renders, is the first step.
 - **No outcome labels yet.** The #558 store tables (`evaluations`, `metric_snapshots`) are empty, so human pass / fail labels are the only ground truth available. Once analytics are imported, a gate's verdict can also be checked against the Unit's outcome.
 - **What the audit labeled by hand.** 14 keyframe-vision `fail` findings checked against their frames (all 14 wrong) and 7 openings flagged by `structure.hook-zone-static` (all 7 working openings or deliberate continuous shots). They are the seed for a keyframe-vision dataset; the harness covers only `blocksShip` gates today, so that gate would need a binary adapter first.
-- **The highest-value target is the full-video pass.** It returned a ship-ready verdict on 0 of 29 stored runs while carrying the most useful findings. Calibrate it before changing its prompt or the verdict aggregation.
+- **The full-video pass is now calibrated (#583).** It returned a ship-ready verdict on 0 of 29 stored runs. Those 29 renders are labeled in `cli/lib/eval/calibration-datasets/full-video-pass-569.json` (9 ship-ready), and the calibrated aggregation agrees with the labels on 28 of 29 (Cohen's kappa 0.92, was 0.00). The comparison of candidate rules is in the audit; `tests/unit/full-video-calibration-583.test.ts` re-runs it offline from the dataset.
 
 ### What changed in the gates' defaults
 
@@ -123,6 +123,7 @@ These are relaxations of measurement or format artifacts, documented with their 
 | `captions.thin` / `captions.dense` | counts words, not caption entries | measurement bug |
 | `captions.too-short` (`eval captions`) | skipped on word-level tracks | word timings are not display windows |
 | Platform spec (`eval platform`) | intermediates ignored beside a render; over-size frame is a warn | source stills were failed as uploads |
+| Full-video ship verdict (`eval video`, native-video / deep-style) | fails block, warns are repair notes; `style.timing-hook-first-3s` capped at warn; rule-violation and motion-artifact fails need the model's holistic `fail` (#583) | "two warns make a warn" blocked all 9 ship-ready renders; the capped fails were wrong on inspection |
 | `scoreScenario` (`project score`) | hook word cap hard only in short-ad; format checks advisory for modes that do not declare the gate | course disagreement (#571) and registry scope |
 
 `RALPHY_EVAL_STRICT_RUBRIC=1` restores the previous severities for one release. Run a gate both ways on the same project when you want to compare the readings; record the human label for each disagreement and it becomes calibration data.

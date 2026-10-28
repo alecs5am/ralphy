@@ -29,6 +29,9 @@ function renderMarkdown(r: EvalReport): string {
     `**Gate: \`${r.gate.mode}\`${r.gate.nativeVideo ? " (native full-mp4)" : " (cheap diagnostic — not a ship gate)"} · ship-ready: ${r.gate.shipReady ? "YES" : "NO"}**`,
   );
   lines.push(`> ${r.gate.reason}`);
+  if (r.scoring.aggregation) {
+    lines.push(`> Verdict rule: \`${r.scoring.aggregation}\`${r.scoring.verdictReason ? ` — ${r.scoring.verdictReason}` : ""}`);
+  }
   lines.push("");
   lines.push(`Video: \`${r.meta.video}\``);
   lines.push(`Evaluated: ${r.meta.evaluatedAt}`);
