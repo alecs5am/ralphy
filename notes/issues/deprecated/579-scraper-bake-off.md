@@ -1,6 +1,6 @@
 # Scraper bake-off: open-source candidates versus yt-dlp
 
-> **Status:** todo (sequence after #556)
+> **Status:** dropped (owner, 2026-10-28: not agreed scope; the working yt-dlp path is enough, hook types are covered by #576 and #577 reports)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** medium

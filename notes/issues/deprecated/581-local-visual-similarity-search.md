@@ -1,6 +1,6 @@
 # Local visual similarity search (thumbnails and first frames)
 
-> **Status:** todo (sequence after #556 and #557)
+> **Status:** dropped (owner, 2026-10-28: not agreed scope; the working yt-dlp path is enough, hook types are covered by #576 and #577 reports)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** low
