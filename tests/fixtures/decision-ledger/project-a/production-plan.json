@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "projectId": "coffee-review-001",
+  "brief": "A 25 second review of a pour-over coffee kettle for home baristas.",
+  "contentMode": { "mode": "ugc-review", "confidence": 0.82, "ambiguous": false, "alternatives": [] },
+  "formatTemplate": { "format": "video", "templateSlug": "review-general", "confidence": 0.64, "source": "keyword" },
+  "aspect": "9:16",
+  "platform": "tiktok",
+  "sceneCount": 4,
+  "durationSec": 25,
+  "modelStack": [
+    { "role": "image", "model": "google/gemini-3-pro-image-preview", "unitCostUsd": 0.15 },
+    { "role": "video", "model": "kwaivgi/kling-v3.0-pro", "unitCostUsd": 0.1 }
+  ]
+}

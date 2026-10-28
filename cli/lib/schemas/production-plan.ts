@@ -108,6 +108,40 @@ export const LlmEnrichmentSchema = z.object({
 });
 export type LlmEnrichment = z.infer<typeof LlmEnrichmentSchema>;
 
+/**
+ * Outcome evidence for the plan's chosen options (#558): rows of
+ * `ralphy analytics report` (decision value → measured outcome) that have at
+ * least `minN` observations. Chosen options below that bar are listed under
+ * `insufficient` instead of being cited. Absent when no report was loaded.
+ */
+export const PlanLedgerEvidenceSchema = z.object({
+  /** The verb that reproduces the evidence. */
+  source: z.string(),
+  workspaceId: z.string(),
+  /** Target outcome metric the lift is measured on (e.g. "views"). */
+  metric: z.string(),
+  minN: z.number().int().positive(),
+  /** Observations (unit × platform) behind the report. */
+  observations: z.number().int().nonnegative(),
+  generatedAt: z.string(),
+  cited: z.array(
+    z.object({
+      dimension: z.string(),
+      value: z.string(),
+      n: z.number().int().nonnegative(),
+      medianOutcome: z.number().nullable(),
+      lift: z.number().nullable(),
+      verdict: z.string(),
+      note: z.string(),
+    }),
+  ),
+  insufficient: z.array(
+    z.object({ dimension: z.string(), value: z.string(), n: z.number().int().nonnegative() }),
+  ),
+  note: z.string(),
+});
+export type PlanLedgerEvidence = z.infer<typeof PlanLedgerEvidenceSchema>;
+
 // ─── The full ProductionPlan ──────────────────────────────────────────────────
 
 export const ProductionPlanSchema = z.object({
@@ -179,6 +213,12 @@ export const ProductionPlanSchema = z.object({
    * invariant). Each entry is a `skip:<phase-id>` label + the user's words.
    */
   bypasses: z.array(z.string()).default([]),
+
+  /**
+   * Decision-ledger evidence for the chosen options (#558). Optional/additive:
+   * present only when the planner loaded the workspace's outcome report.
+   */
+  ledgerEvidence: PlanLedgerEvidenceSchema.optional(),
 });
 
 export type ProductionPlan = z.infer<typeof ProductionPlanSchema>;

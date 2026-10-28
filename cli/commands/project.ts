@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { addEntity, getEntity, updateEntity, deleteEntity } from "../lib/registry.js";
 import { slugify, generateId } from "../lib/ids.js";
-import { artifactsDir, projectRefsDir, resolveArtifactKindDirs, projectDir, layoutMode, workspaceDir } from "../lib/paths.js";
+import { artifactsDir, projectRefsDir, resolveArtifactKindDirs, projectDir, projectWorkspace, layoutMode, workspaceDir } from "../lib/paths.js";
 import { existsSync } from "node:fs";
 import { out, ok, err } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
@@ -30,6 +30,10 @@ import { renderPlanMarkdown } from "../lib/plan/build.js";
 import { compileProductionContract } from "../lib/production/compiler.js";
 import { loadTemplateCandidates } from "../lib/plan/catalog.js";
 import { llmEnrich } from "../lib/plan/enrich.js";
+import { loadPlanLedgerEvidence } from "../lib/analytics/report.js";
+import { getCommandContext } from "../lib/context-state.js";
+import { getWorkspaceByReference } from "../lib/store/scopes.js";
+import { domainDbPath } from "../lib/store/db.js";
 import {
   styleLockPath,
   hasStyleLock,
@@ -66,6 +70,22 @@ import {
   transferProject,
 } from "../lib/store/transfers.js";
 import { StoreConflictError } from "../lib/store/types.js";
+
+/**
+ * Store Workspace ID for a Project's plan: the command scope, else the
+ * registry workspace. Never creates a store: without ralphy.db there is no
+ * outcome evidence to cite.
+ */
+function planWorkspaceId(projectId: string): string | null {
+  const context = getCommandContext();
+  if (context) return context.workspaceId;
+  if (!existsSync(domainDbPath())) return null;
+  try {
+    return getWorkspaceByReference(projectWorkspace(projectId))?.id ?? null;
+  } catch {
+    return null;
+  }
+}
 
 async function safeJson(fp: string) {
   try { return JSON.parse(await fs.readFile(fp, "utf-8")); } catch { return null; }
@@ -333,6 +353,9 @@ export function projectCmd() {
 
       const warnings: string[] = [];
       const candidates = await loadTemplateCandidates((m) => warnings.push(m));
+      // Decision-ledger evidence (#558): the workspace's measured outcomes per
+      // choice, cited by the plan when a chosen option has n >= 3. Best effort.
+      const ledgerEvidence = loadPlanLedgerEvidence(planWorkspaceId(id)) ?? undefined;
 
       // Compile the production contract (#418): it builds the plan internally
       // (forwarding candidates + enrich) and folds it + the content-mode registry
@@ -345,6 +368,7 @@ export function projectCmd() {
           candidates,
           // `--no-llm` → opts.llm === false (commander negates). Skip enrichment.
           enrich: opts.llm === false ? undefined : (ctx) => llmEnrich(ctx),
+          ...(ledgerEvidence ? { ledgerEvidence } : {}),
         },
       );
 

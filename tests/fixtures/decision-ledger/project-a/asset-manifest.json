@@ -1,0 +1,7 @@
+{
+  "slots": {
+    "scene-01": { "kind": "image", "model": "google/gemini-3-pro-image-preview", "costUsd": 0.14 },
+    "scene-04-vo": { "kind": "voiceover", "model": "elevenlabs/eleven-v3", "costUsd": 0.05 },
+    "final-render": { "kind": "video", "model": "hyperframes-render" }
+  }
+}

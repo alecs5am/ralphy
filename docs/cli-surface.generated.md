@@ -1067,24 +1067,35 @@ Usage: ralphy unit [options] [command]
 Manage immutable publishable Units and platform presentations
 
 Options:
-  -h, --help              display help for command
+  -h, --help                  display help for command
 
 Commands:
-  create [options]        Create a Unit identity and its first sealed revision
-  source [options] <id>   Link an exact original revision without adding a
-                          variant
-  list [options]          List Units in the explicit scope
-  show [options] <id>     Show a Unit and one exact sealed revision graph
-  revise [options] <id>   Append a sealed Unit revision
-  select [options] <id>   Select one sealed Unit revision independently of
-                          latest
-  add [options] <id>      Append one exact item by creating a new sealed
-                          revision
-  caption [options] <id>  Append immutable platform caption history in a new
-                          Unit revision
-  preview [options] <id>  Resolve one platform preview from an exact Unit
-                          revision
-  help [command]          display help for command
+  create [options]            Create a Unit identity and its first sealed
+                              revision
+  source [options] <id>       Link an exact original revision without adding a
+                              variant
+  list [options]              List Units in the explicit scope
+  show [options] <id>         Show a Unit and one exact sealed revision graph
+  revise [options] <id>       Append a sealed Unit revision
+  select [options] <id>       Select one sealed Unit revision independently of
+                              latest
+  add [options] <id>          Append one exact item by creating a new sealed
+                              revision
+  caption [options] <id>      Append immutable platform caption history in a new
+                              Unit revision
+  preview [options] <id>      Resolve one platform preview from an exact Unit
+                              revision
+  decisions [options] <unit>  Show or record a Unit's decision ledger (the
+                              choices that produced it: format, template, style,
+                              content_mode, hook_type, angle, structure,
+                              scene_count, transitions, motion_elements,
+                              caption_preset, layout, aspect, models,
+                              duration_sec, length_band, variant_axis). Derived
+                              from the plan, scenario, prompts, asset manifest,
+                              gen-log, unit manifest, and composition; --set
+                              adds manual entries. Read-only unless --derive /
+                              --set / --unset.
+  help [command]              display help for command
 ```
 
 ### `ralphy blueprint`
@@ -1847,19 +1858,35 @@ ____        __      __
 
 Usage: ralphy analytics [options] [command]
 
-Query immutable Publication metric snapshots
+Query Publication metric snapshots, import screenshot analytics, and report
+outcomes per decision
 
 Options:
-  -h, --help                       display help for command
+  -h, --help                          display help for command
 
 Commands:
   list [options] <publication-id>
   totals [options]
-  roi [options]                    Return filter-first newest-per-Publication
-                                   performance facts
-  postmortem [options]             Return an evidence digest without scanning
-                                   Unit files
-  help [command]                   display help for command
+  roi [options]                       Return filter-first newest-per-Publication
+                                      performance facts
+  postmortem [options]                Return an evidence digest without scanning
+                                      Unit files
+  import [options] <unit-or-project>  Import platform analytics the agent read
+                                      off a screenshot (TikTok Studio /
+                                      Instagram Insights / YouTube Studio) as a
+                                      Metric Snapshot. Previews the parsed
+                                      numbers and planned writes unless --yes;
+                                      --extract pre-fills the JSON with one
+                                      callLLM() vision pass (off by default).
+  report [options]                    Outcome report for the --workspace tree
+                                      (or one --project): hit rate against the
+                                      workspace's own rolling median,
+                                      per-platform baselines, and the
+                                      decision-vs-outcome table (n, median
+                                      outcome, lift) with a minimum-n rule that
+                                      prints "insufficient data" instead of a
+                                      claim.
+  help [command]                      display help for command
 ```
 
 ### `ralphy migrate`

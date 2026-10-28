@@ -1,0 +1,6 @@
+{"timestamp":"2026-10-01T10:00:00.000Z","provider":"openrouter","model":"google/gemini-3-pro-image-preview","endpoint":"google/gemini-3-pro-image-preview","kind":"image","input":{"slot":"scene-01"},"status":"ok","cost_usd":0.14}
+{"timestamp":"2026-10-01T10:05:00.000Z","provider":"fal","model":"kwaivgi/kling-v3.0-pro","endpoint":"fal-ai/kling-video/v3/pro/image-to-video","kind":"video","input":{"slot":"scene-02-vid"},"status":"ok","cost_usd":0.56}
+{"timestamp":"2026-10-01T10:06:00.000Z","provider":"fal","model":"bytedance/seedance-2.0","endpoint":"fal-ai/seedance","kind":"video","input":{"slot":"scene-03-vid"},"status":"error","error":"moderation"}
+{"timestamp":"2026-10-01T10:07:00.000Z","provider":"other","model":"hyperframes-snapshot","endpoint":"hyperframes-snapshot","kind":"image","input":{},"status":"ok"}
+{"timestamp":"2026-10-01T10:08:00.000Z","provider":"openrouter","model":"anthropic/claude-sonnet-4.6","endpoint":"anthropic/claude-sonnet-4.6","kind":"text","input":{},"status":"ok"}
+not a json line

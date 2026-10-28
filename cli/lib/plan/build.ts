@@ -37,6 +37,8 @@ import {
   type ProductionPlan,
 } from "../schemas/production-plan.js";
 import type { TemplateFormat } from "../schemas/template.js";
+import { citeLedgerEvidence, planChoices } from "../analytics/evidence.js";
+import type { LedgerEvidenceIndex } from "../analytics/report.js";
 
 // ─── Default model stack + price table ───────────────────────────────────────
 //
@@ -273,6 +275,13 @@ export interface BuildPlanOptions {
   disableLlmSuggest?: boolean;
   /** Injectable suggest LLM fn (only used when `disableLlmSuggest` is false). */
   suggestLlmFn?: (prompt: string) => Promise<string>;
+  /**
+   * The workspace's decision-vs-outcome rows (#558, from `ralphy analytics
+   * report`). When given, the plan cites the rows behind its chosen options
+   * that have enough evidence (`plan.ledgerEvidence`). Injected so the
+   * builder stays pure; omitted = no citation.
+   */
+  ledgerEvidence?: LedgerEvidenceIndex;
 }
 
 /** Context handed to the enrichment fn so the LLM reasons over the resolved deterministic state. */
@@ -416,6 +425,11 @@ export async function buildProductionPlan(
     bypasses: [],
   });
 
+  // ── Decision-ledger evidence (#558): cite measured outcomes for the choices ──
+  if (opts.ledgerEvidence) {
+    plan.ledgerEvidence = citeLedgerEvidence(opts.ledgerEvidence, planChoices(plan));
+  }
+
   return { plan, suggest };
 }
 
@@ -434,6 +448,16 @@ export function renderPlanMarkdown(plan: ProductionPlan): string {
     .map((m) => `- **${m.role}:** \`${m.model}\` — $${m.unitCostUsd.toFixed(3)}/unit${m.note ? ` (${m.note})` : ""}`)
     .join("\n");
   const bypasses = plan.bypasses.length ? plan.bypasses.map((b) => `- ${b}`).join("\n") : "- (none)";
+  const evidence = plan.ledgerEvidence;
+  const evidenceSection = !evidence
+    ? ""
+    : `\n## Ledger evidence (#558)\n\n${[
+        ...evidence.cited.map((c) => `- ${c.note}`),
+        ...(evidence.insufficient.length
+          ? [`- Insufficient data (n < ${evidence.minN}): ${evidence.insufficient.map((i) => `${i.dimension}=${i.value} (n=${i.n})`).join(", ")}`]
+          : []),
+        `- ${evidence.note} Source: \`${evidence.source}\`.`,
+      ].join("\n")}\n`;
   const modeLine = plan.contentMode.mode
     ? `${plan.contentMode.mode} (${plan.contentMode.confidence.toFixed(2)}${plan.contentMode.ambiguous ? ", ambiguous — confirm with user" : ""})`
     : "(unclassified — confirm with user)";
@@ -481,5 +505,5 @@ ${plan.firstCheckpoint || "scene-01 anchor → wait for go before batching the r
 ## Bypasses
 
 ${bypasses}
-`;
+${evidenceSection}`;
 }

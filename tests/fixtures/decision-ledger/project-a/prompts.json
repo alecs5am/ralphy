@@ -1,0 +1,6 @@
+{
+  "slots": {
+    "scene-01": { "model": "google/gemini-3-pro-image-preview", "prompt": "Selfie of a home barista holding a matte black kettle." },
+    "scene-02-vid": { "model": "kwaivgi/kling-v3.0-pro", "prompt": "Slow pour from a gooseneck spout." }
+  }
+}

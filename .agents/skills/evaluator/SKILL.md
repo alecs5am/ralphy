@@ -143,6 +143,10 @@ The shape that matters: `report.findings[]` is the actionable list. Each finding
 
 Alongside `ralphy eval video`, run the course-grounded editorial pass in [`../scenarist/references/retention-review.md`](../scenarist/references/retention-review.md): `ralphy eval retention-check <id>` for the scenario facts (facts only, never fails), then judge job fit, hook, one idea, development, payoff, next step and visual presentation from the render. Write it to `<project>/RETENTION_REVIEW.post-render.md` (append-only, `.v2.md` on a re-run). It is advisory: it never changes `verdict` or `gate.shipReady`, and its findings are not eval `findings[]`. When it contradicts a rubric-derived finding (cut interval, duration, captions, CTA), say which one the course treats as context-dependent and let the user decide.
 
+## Post-publish outcomes (#558)
+
+The render eval judges craft; real outcomes judge whether the work was worth doing. When the owner sends platform analytics screenshots, read them yourself (free), fill the JSON payload, run `ralphy analytics import <unit> --platform <p> --data <json> --screenshot <png> --dry-run`, show the parsed numbers, and write only after the owner confirms (`--yes`). Then `ralphy analytics report --workspace <ws>` gives the hit rate and the decision-vs-outcome table. Field locations, unit conversions, and traps per platform: [`references/analytics-screenshots.md`](references/analytics-screenshots.md).
+
 ## When findings are clearly false-positives
 
 The eval pipeline is tuned for the common UGC cases. Some templates legitimately violate "rules" — the brainrot-ai-meme top-half is often a single static image for the whole clip, which fires `structure.hook-zone-static`. Don't suppress in code; instead, in the chat handoff, mark such findings as expected-for-template so the fixer agent skips them.
@@ -160,6 +164,7 @@ Do not try to fix from inside evaluator. The skill ends at the report.
 ## References
 
 - `references/report-schema.md` — full JSON schema of `eval.json`
+- `references/analytics-screenshots.md` — reading TikTok / Instagram / YouTube analytics screenshots for `ralphy analytics import`
 - `../scenarist/references/retention-review.md` — the post-render editorial retention review (Content Autopilot method)
 - `cli/lib/eval/findings.ts` — rule taxonomy + thresholds (the source of truth for `category` and severity ladders)
 - `MODELS.md` — vision model used (`google/gemini-2.5-flash` via OpenRouter)

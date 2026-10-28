@@ -7,16 +7,10 @@ import {
   createUnitWithRevision,
   getPresentationCaptionRevision,
   getUnit,
-  getUnitRevision,
-  listPresentationCaptionRevisions,
-  listPresentationItems,
-  listUnitItems,
-  listUnitPresentations,
   listUnits,
   reviseUnit,
   selectUnitRevision,
   setUnitSource,
-  type ReviseUnitInput,
   type UnitItemInput,
   type UnitPresentationInput,
 } from "../lib/store/units.js";
@@ -24,17 +18,31 @@ import {
   StoreConflictError,
   type JsonValue,
   type PresentationCaptionState,
-  type PresentationItemDto,
-  type UnitPresentationDto,
 } from "../lib/store/types.js";
 import type { QueryContext } from "../lib/store/scope-context.js";
+import {
+  resolveUnitReference,
+  unitContext,
+  unitRevisionInput as revisionInput,
+  unitRevisionView,
+} from "../lib/unit-revision.js";
+import {
+  LEDGER_FIELDS,
+  deriveDecisions,
+  effectiveDecisions,
+  gatherLedgerSources,
+  normalizeLedgerKey,
+  orderLedgerKeys,
+  orderRecord,
+  parseLedgerAssignment,
+  readStoredLedger,
+  writeLedger,
+  type DerivedDecisions,
+  type ManualDecisions,
+} from "../lib/analytics/ledger.js";
+import { MetricParseError } from "../lib/analytics/metric-parse.js";
 
 type ResolvedContext = ReturnType<typeof resolveCommandContext>;
-
-type PresentationView = UnitPresentationDto & {
-  captions: ReturnType<typeof listPresentationCaptionRevisions>["items"];
-  items: PresentationItemDto[];
-};
 
 export function unitCmd(): Command {
   const command = new Command("unit").description(
@@ -352,101 +360,110 @@ export function unitCmd(): Command {
       });
     });
 
+  // ── decisions (#558) ──────────────────────────────────────────────────────
+  // The decision ledger: the choices that produced a Unit, derived from its
+  // artifacts plus manual entries, joined to outcomes by `analytics report`.
+  command
+    .command("decisions <unit>")
+    .description(
+      `Show or record a Unit's decision ledger (the choices that produced it: ${LEDGER_FIELDS.map((field) => field.key).join(", ")}). Derived from the plan, scenario, prompts, asset manifest, gen-log, unit manifest, and composition; --set adds manual entries. Read-only unless --derive / --set / --unset.`,
+    )
+    .option("--set <key=value>", "Record a manual decision (repeatable; comma list for sets; empty or none suppresses)", collect, [])
+    .option("--unset <key>", "Drop a manual decision (repeatable)", collect, [])
+    .option("--derive", "Store a fresh derivation from the project artifacts")
+    .option("--from <dir>", "Project working directory to derive from (default: the conventional project directory)")
+    .action((ref: string, opts, child: Command) => {
+      const resolved = resolve(child);
+      const context = queryContext(resolved);
+      const location = resolveUnitReference(context, ref);
+      const scoped = unitContext(context, location);
+      let sets: Array<{ key: string; value: ReturnType<typeof parseLedgerAssignment>["value"] }>;
+      let unsets: string[];
+      try {
+        sets = (opts.set as string[]).map(parseLedgerAssignment);
+        unsets = (opts.unset as string[]).map(normalizeLedgerKey);
+      } catch (error) {
+        if (error instanceof MetricParseError) {
+          raiseError("E_INPUT_INVALID", { field: "set", detail: error.message });
+        }
+        throw error;
+      }
+      let gathered: ReturnType<typeof gatherLedgerSources>;
+      try {
+        gathered = gatherLedgerSources(scoped, location, opts.from);
+      } catch (error) {
+        if (error instanceof MetricParseError) {
+          raiseError("E_INPUT_INVALID", { field: "from", detail: error.message });
+        }
+        throw error;
+      }
+      const fresh = deriveDecisions(gathered.sources);
+      const stored = readStoredLedger(scoped, location.unitId);
+      const write = Boolean(opts.derive) || sets.length > 0 || unsets.length > 0;
+      // --set / --unset alone keep the stored derivation (what produced the
+      // Unit); --derive, or a first write, takes the fresh one.
+      const keepStored = Boolean(stored?.body) && !opts.derive;
+      const derived: DerivedDecisions = keepStored ? stored!.body!.derived : fresh;
+      const derivedFrom = keepStored ? stored!.body!.derivedFrom : gathered.derivedFrom;
+      const manual: ManualDecisions = { ...(stored?.body?.manual ?? {}) };
+      for (const key of unsets) delete manual[key];
+      for (const { key, value } of sets) manual[key] = value;
+      let storedRef = stored ? { documentId: stored.documentId, revisionId: stored.revisionId } : null;
+      let written = false;
+      if (write) {
+        const result = writeLedger({
+          context: scoped,
+          location,
+          derived,
+          manual,
+          derivedFrom,
+          ...sessionAuthor(resolved),
+        });
+        storedRef = { documentId: result.documentId, revisionId: result.revisionId };
+        written = result.written;
+      }
+      out({
+        unit: {
+          id: location.unitId,
+          slug: location.slug,
+          format: location.format,
+          projectId: location.projectId,
+        },
+        written,
+        stored: storedRef,
+        decisions: orderRecord(effectiveDecisions(derived, manual)),
+        manual: orderRecord(manual),
+        derived: orderLedgerKeys(Object.keys(derived)).map((key) => ({
+          key,
+          value: derived[key]!.value,
+          source: derived[key]!.source,
+        })),
+        derivedFrom,
+        // What --derive would change against the stored ledger.
+        staleKeys: keepStored ? changedKeys(derived, fresh) : [],
+        projectDirectory: gathered.projectDirectory,
+        ...(write
+          ? {}
+          : { next: stored ? "Pass --derive to refresh the derivation, or --set key=value to record a choice." : "Not stored yet: pass --derive to store it, or --set key=value for choices the artifacts do not record." }),
+      });
+    });
+
   return command;
 }
 
-function unitRevisionView(
-  context: QueryContext,
-  unitId: string,
-  revisionId: string,
-) {
-  const unit = getUnit({ context, unitId });
-  const revision = getUnitRevision({ context, revisionId });
-  if (revision.unitId !== unit.id) {
-    raiseError("E_NOT_FOUND", { kind: "Unit Revision", id: revisionId });
-  }
-  const items = allPages((after) =>
-    listUnitItems({ context, revisionId, after, limit: 100 }),
-  );
-  const presentations = allPages((after) =>
-    listUnitPresentations({ context, revisionId, after, limit: 100 }),
-  ).map<PresentationView>((presentation) => ({
-    ...presentation,
-    captions: allPages((after) =>
-      listPresentationCaptionRevisions({
-        context,
-        presentationId: presentation.id,
-        after,
-        limit: 100,
-      }),
-    ),
-    items: allPages((after) =>
-      listPresentationItems({
-        context,
-        presentationId: presentation.id,
-        after,
-        limit: 100,
-      }),
-    ),
-  }));
-  return { unit, revision, items, presentations };
+function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
 }
 
-function revisionInput(
-  context: QueryContext,
-  revisionId: string,
-): { items: ReviseUnitInput["items"]; presentations: UnitPresentationInput[] } {
-  const view = unitRevisionView(
-    context,
-    getUnitRevision({ context, revisionId }).unitId,
-    revisionId,
+/**
+ * Keys the artifacts now derive differently from the stored ledger (what
+ * --derive would change). A key the current sources cannot derive at all is
+ * not reported: a missing source is not evidence of a changed decision.
+ */
+function changedKeys(stored: DerivedDecisions, fresh: DerivedDecisions): string[] {
+  return orderLedgerKeys(Object.keys(fresh)).filter((key) =>
+    JSON.stringify(stored[key]?.value ?? null) !== JSON.stringify(fresh[key]!.value)
   );
-  const itemPositions = new Map(view.items.map((item) => [item.id, item.position]));
-  return {
-    items: view.items.map((item) => ({
-      artifactRevisionId: item.artifactRevisionId,
-      documentRevisionId: item.documentRevisionId,
-      role: item.role,
-      position: item.position,
-      config: item.config,
-    })),
-    presentations: view.presentations.map((presentation) => ({
-      platform: presentation.platform,
-      position: presentation.position,
-      captions: presentation.captions.map((caption) => ({
-        state: caption.state,
-        text: caption.text,
-      })),
-      effectiveCaptionRevisionNo:
-        presentation.effectiveCaptionRevisionId === null
-          ? null
-          : presentation.captions.find(
-              (caption) => caption.id === presentation.effectiveCaptionRevisionId,
-            )?.revisionNo ?? null,
-      coverArtifactRevisionId: presentation.coverArtifactRevisionId,
-      crop: presentation.crop,
-      safeArea: presentation.safeArea,
-      options: presentation.options,
-      items: presentation.items.map((item) => ({
-        unitItemPosition: itemPositions.get(item.unitItemId)!,
-        position: item.position,
-        config: item.config,
-      })),
-    })),
-  };
-}
-
-function allPages<T>(
-  read: (after: string | null) => { items: T[]; nextCursor: string | null },
-): T[] {
-  const items: T[] = [];
-  let after: string | null = null;
-  do {
-    const page = read(after);
-    items.push(...page.items);
-    after = page.nextCursor;
-  } while (after !== null);
-  return items;
 }
 
 function resolve(child: Command, projectId?: string): ResolvedContext {

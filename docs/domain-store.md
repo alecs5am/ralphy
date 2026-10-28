@@ -31,6 +31,15 @@ platform presentations; latest and selected revisions are independent. Caption,
 crop, safe-area, and platform options belong to a Presentation revision rather
 than to an unscoped file.
 
+Outcomes the owner reports from platform screenshots (`analytics import`, #558)
+are ordinary Metric Snapshots on a Publication: shared facts use the snapshot
+columns and the remaining readings (saves, reach, completion, post date,
+screenshot Artifact revisions) travel in a versioned `ralphy.analytics-import`
+raw envelope that only `store/outcomes.ts` projects. A Unit's decision ledger
+is a JSON Document of kind `custom` with slug `decision-ledger-<unit-slug>` in
+the Unit's own scope, so its history is append-only revisions and portable
+export carries it unchanged.
+
 ## Bridge
 
 Start the long-lived JSONL bridge against an explicit data root:

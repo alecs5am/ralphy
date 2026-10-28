@@ -1,0 +1,21 @@
+{
+  "project_id": "coffee-review-001",
+  "target_duration_s": 24,
+  "duration": 23.6,
+  "angle": "comparison",
+  "captionStyle": "Bold Karaoke",
+  "layout": "split-top-bottom",
+  "variant_axis": "hook",
+  "hook": { "scene_id": "scene-01", "vo": "Three ways this kettle beats the one you own", "duration_s": 3.2 },
+  "body": [
+    { "scene_id": "scene-02", "vo": "The spout pours a thin, steady stream.", "duration_s": 6.4 },
+    { "scene_id": "scene-03", "vo": "The handle stays cool after a full boil.", "duration_s": 7.0 }
+  ],
+  "cta": { "scene_id": "scene-04", "vo": "Link in bio if you brew at home.", "duration_s": 7.0 },
+  "scenes": {
+    "scene-01": { "id": "scene-01", "role": "hook", "vo_text": "Three ways this kettle beats the one you own", "target_duration_s": 3.2, "camera": "selfie 35mm, eye-level", "transition": "whip-pan" },
+    "scene-02": { "id": "scene-02", "role": "body", "vo_text": "The spout pours a thin, steady stream.", "target_duration_s": 6.4, "camera": "macro on the spout", "transition": "crossfade" },
+    "scene-03": { "id": "scene-03", "role": "body", "vo_text": "The handle stays cool after a full boil.", "target_duration_s": 7.0, "camera": "hand close-up", "motion_elements": ["kinetic-title"] },
+    "scene-04": { "id": "scene-04", "role": "cta", "vo_text": "Link in bio if you brew at home.", "target_duration_s": 7.0, "camera": "medium shot, counter" }
+  }
+}

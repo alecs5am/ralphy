@@ -1,6 +1,6 @@
 # Performance-linked eval: hit rate and a decision ledger
 
-> **Status:** todo
+> **Status:** done — 2026-10-28 (`analytics import` from screenshot-read JSON, decision ledger via `unit decisions`, `analytics report` with hit rate and min-n, plan `ledgerEvidence`; no schema change)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** high

@@ -68,6 +68,69 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         dryRun: false,
       },
     },
+    {
+      label: "analytics.import",
+      shape: {
+        kind: "analytics-import",
+        unit: { id: "unit_coffee-hero", slug: "coffee-hero", format: "video", projectId: "prj_coffee", projectSlug: "coffee-review-001" },
+        platform: "tiktok",
+        source: "screenshot",
+        metrics: { views: 12300, likes: 1204, comments: 88, shares: 312, saves: 940, avgWatchTimeSec: 9, completionPct: 31.5, capturedAt: "2026-10-27T12:00:00.000Z", postedAt: "2026-10-20T18:00:00.000Z" },
+        rates: { engagementRatePct: 20.6829, saveRatePct: 7.6423, shareRatePct: 2.5366, avgWatchPct: null },
+        approximations: [{ field: "views", reading: "12.3K" }],
+        warnings: [],
+        plan: {
+          presentation: { action: "create", baseRevisionId: "urev_base" },
+          publication: { action: "record-manual", note: "records a manual-rail Publication as submitted (pass url to record it as published); the post date is kept with the snapshot" },
+        },
+        screenshots: [{ file: "/tmp/tiktok-studio.png", bytes: 70 }],
+        importKey: "e4785faee4201a19827d226f",
+        written: true,
+        replayed: false,
+        writes: {
+          screenshotArtifactRevisions: ["arev_shot"],
+          presentationId: "pres_tiktok",
+          createdUnitRevisionId: "urev_new",
+          publicationId: "pub_manual",
+          publicationRecorded: true,
+          metricRunId: "run_metric",
+          snapshotIds: ["metric_1"],
+          ledger: { documentId: "doc_ledger", revisionId: "drev_ledger", written: true },
+        },
+      },
+    },
+    {
+      label: "analytics.report",
+      shape: {
+        kind: "outcome-report",
+        workspaceId: "ws_kettle",
+        projectId: null,
+        scope: "workspace-tree",
+        generatedAt: "2026-10-28T00:00:00.000Z",
+        settings: { metric: "views", minN: 3, window: 20, minPrior: 3, liftThreshold: 0.15, hitThreshold: null, platform: null },
+        coverage: { units: 7, unitsWithOutcomes: 6, pendingPerformance: 1, observations: 6, ledgers: { stored: 5, derived: 1, none: 0 } },
+        hitRate: {
+          metric: "views",
+          basis: "views above the median of the previous 20 posts on the same platform (needs 3 prior)",
+          evaluated: 3,
+          hits: 2,
+          rate: 0.6667,
+          awaitingBaseline: 3,
+          byPlatform: [{ platform: "tiktok", evaluated: 3, hits: 2, rate: 0.6667, awaitingBaseline: 3 }],
+        },
+        baselines: [{ platform: "tiktok", metric: "views", median: 2600, n: 6 }],
+        cohort: { provider: null, status: "not configured", note: "cohort baselines arrive with the trend corpus (#556)", rows: [] },
+        decisions: [
+          { dimension: "hook_type", value: "listicle", n: 3, units: 3, medianOutcome: 5000, lift: 0.9231, hitRate: 1, verdict: "over" },
+          { dimension: "models", value: "kwaivgi/kling-v3.0-pro", n: 1, units: 1, medianOutcome: null, lift: null, hitRate: null, verdict: "insufficient data" },
+        ],
+        observations: [
+          { unit: "coffee-hero", unitId: "unit_coffee-hero", platform: "tiktok", postedAt: "2026-10-20T18:00:00.000Z", dateSource: "postedAt", target: 12300, baseline: 2900, hit: true, views: 12300, avgWatchPct: null, completion: 31.5, engagementRate: 20.6829, saveRate: 7.6423, shareRate: 2.5366, approximate: ["views"], derivations: [], ledger: "stored" },
+        ],
+        observationsTruncated: 0,
+        notes: ["Decision values seen fewer than 3 times show \"insufficient data\" instead of a claim."],
+      },
+    },
   ],
   asset: [
     {
@@ -1051,6 +1114,23 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
     { label: "template.suggest", shape: { brief: "unboxing", content_mode: "unboxing-ugc", ambiguous: false, matches: [{ slug: "ugc-unboxing", score: 0.9 }] } },
   ],
   unit: [
+    {
+      label: "unit.decisions",
+      shape: {
+        unit: { id: "unit_coffee-hero", slug: "coffee-hero", format: "video", projectId: "prj_coffee" },
+        written: true,
+        stored: { documentId: "doc_ledger", revisionId: "drev_ledger" },
+        decisions: { format: "video", hook_type: "question", transitions: ["crossfade", "whip-pan"], duration_sec: 23.6, length_band: "medium" },
+        manual: { hook_type: "question", layout: null },
+        derived: [
+          { key: "format", value: "video", source: "store:unit#format" },
+          { key: "transitions", value: ["crossfade", "whip-pan"], source: "project:scenario.json#scenes[].transition" },
+        ],
+        derivedFrom: ["store:unit", "project:scenario.json"],
+        staleKeys: [],
+        projectDirectory: null,
+      },
+    },
     {
       label: "unit.create",
       shape: {

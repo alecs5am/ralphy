@@ -1,0 +1,8 @@
+{
+  "slug": "coffee-hero",
+  "format": "video",
+  "media": ["final.mp4"],
+  "media_meta": { "final.mp4": { "aspect": "1080 / 1920", "kind": "video" } },
+  "provenance": { "template": "review-general", "style": "warm-kitchen" },
+  "created": "2026-10-02T09:00:00.000Z"
+}
