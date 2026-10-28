@@ -40,3 +40,4 @@ Design source: `docs/research/trend-corpus.md` (sections named below). The corpu
 ## Notes
 
 - Sequence after #555. Content-plan work (intake, producer) reads from this.
+- **Algrow (owner pointer, 2026-10-28).** YouTube-only service with an MCP server and an API: viral/outlier search, channel and thumbnail search, transcripts, daily channel refresh, 18.7M videos claimed. Credit-metered (165-535 credits/month at $25-$80), so it fits agent-side discovery and YouTube seed lists, not bulk ingest of 100k videos. Evaluate during the $1 trial: credits per call, fields returned, whether outlier multipliers match ours. If adopted for ingest, it goes behind a registered connector (`ALGROW_API_KEY`, AGENTS.md invariant 1); the MCP alone is fine for interactive research. TikTok and Instagram stay on the #555 mix. Virlo (TikTok, Shorts, Reels; API and MCP; from $34) is the cross-platform equivalent to evaluate alongside it.
