@@ -839,7 +839,7 @@ export function refCmd() {
 
   cmd
     .command("scrape-trends")
-    .description("Scrape TikTok hashtag pages via Playwright (Apify-compatible JSON shape) and rank with scoreTikTok()")
+    .description("DEPRECATED (#556): TikTok hashtag pages return empty bodies logged out, so this saves 0 videos; use `ralphy trends ingest` / `ralphy trends top`. Scrapes TikTok hashtag pages via Playwright (Apify-compatible JSON shape) and ranks with scoreTikTok()")
     .requiredOption("--hashtags <list>", "Comma-separated hashtags (without #)")
     .option("--limit <n>", "Max videos per hashtag", (v) => parseInt(v, 10), 10)
     .option("--out <path>", "Output JSON path")

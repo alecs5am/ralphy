@@ -181,6 +181,8 @@ describe("writeProposal — append-only, no-overwrite, guarded", () => {
     expect(() => writeProposal(path.join(tmp, "templates", "x"), makeReport(promptPath))).toThrow(/protected/);
     expect(() => writeProposal(path.join(tmp, "guidelines", "y"), makeReport(promptPath))).toThrow(/protected/);
     expect(() => writeProposal(path.join(tmp, "MODELS.md"), makeReport(promptPath))).toThrow(/protected/);
+    expect(() => writeProposal(path.join(tmp, "docs", "models"), makeReport(promptPath))).toThrow(/protected/);
+    expect(() => writeProposal(path.join(tmp, "docs", "models", "video"), makeReport(promptPath))).toThrow(/protected/);
   });
 });
 

@@ -338,6 +338,8 @@ export async function runPromptOptimization(
 /** Path segments that must never be a proposal target — public guidance is review-gated. */
 const PROTECTED_SEGMENTS = ["templates", "guidelines"] as const;
 const PROTECTED_FILES = ["MODELS.md"] as const;
+/** Multi-segment protected paths: per-model detail moved here from MODELS.md (#574). */
+const PROTECTED_PATHS = [path.join("docs", "models")] as const;
 
 /**
  * Refuse a proposal `outDir` that would land ON the source prompt's own
@@ -345,8 +347,8 @@ const PROTECTED_FILES = ["MODELS.md"] as const;
  * path. A dedicated SUBDIRECTORY of the prompt's dir (e.g. the default
  * `prompt-proposals/` next to the dataset) is fine — what we forbid is
  * scribbling over the prompt's directory contents or the prompt file. The
- * writer NEVER touches the source prompt, `templates/`, `guidelines/`, or
- * MODELS.md.
+ * writer NEVER touches the source prompt, `templates/`, `guidelines/`,
+ * MODELS.md, or `docs/models/`.
  */
 function assertSafeOutDir(outDir: string, promptSource: string): void {
   const resolvedOut = path.resolve(outDir);
@@ -363,6 +365,13 @@ function assertSafeOutDir(outDir: string, promptSource: string): void {
     if (segments.includes(protectedSeg)) {
       throw new Error(
         `refusing to write a proposal into a protected path (contains "${protectedSeg}/"); public guidance stays review-gated`,
+      );
+    }
+  }
+  for (const protectedPath of PROTECTED_PATHS) {
+    if (`${resolvedOut}${path.sep}`.includes(`${path.sep}${protectedPath}${path.sep}`)) {
+      throw new Error(
+        `refusing to write a proposal into a protected path ("${protectedPath}/"); public guidance stays review-gated`,
       );
     }
   }
