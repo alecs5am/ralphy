@@ -95,9 +95,12 @@ describe("ralphy models show", () => {
     const r = ralphy(["models", "show", "minimax/hailuo-2.3"]);
     expect(r.exitCode).toBe(0);
     expect(r.json.id).toBe("minimax/hailuo-2.3");
-    expect(r.json.supported_durations).toEqual([6, 10]);
-    expect(r.json.supported_aspect_ratios).toEqual(["16:9"]);
-    expect(r.json.supported_frame_images).toEqual(["first_frame"]);
+    // #574: a model in the curated registry nests the live-catalog fields
+    // under `catalog`; a catalog-only id keeps them at the top level.
+    const catalog = r.json.catalog ?? r.json;
+    expect(catalog.supported_durations).toEqual([6, 10]);
+    expect(catalog.supported_aspect_ratios).toEqual(["16:9"]);
+    expect(catalog.supported_frame_images).toEqual(["first_frame"]);
   });
 
   test("exits non-zero on unknown model id", () => {
