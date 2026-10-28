@@ -42,6 +42,7 @@ import { extractKeyframes } from "./keyframes.js";
 import { callLLM } from "../providers/llm.js";
 import type { Caption } from "../captions/types.js";
 import type { Finding, Severity, Verdict, Scene } from "./types.js";
+import { strictRubricEnabled } from "./strict-rubric.js";
 
 const CAPTIONS_MODEL = "google/gemini-2.5-flash";
 const MEDIA_EXT = new Set([".mp4", ".mov", ".webm", ".m4v"]);
@@ -74,6 +75,33 @@ const OVERCROWDED_FAIL_WORDS = 11;
 const DRIFT_WARN_MS = 250;
 /** More than this is a hard fail — the caption visibly lags the voice. */
 const DRIFT_FAIL_MS = 600;
+
+/**
+ * A track is WORD-LEVEL (#569) when it has at least this many entries and at
+ * least `WORD_LEVEL_SHARE` of them are single words. That is the scribe timing
+ * truth (AGENTS.md #16), not the display windows: each entry lasts as long as the
+ * word is spoken (median ~140 ms on the audited tracks), so the too-short check
+ * failed 13 of 16 real tracks. Word-by-word captions are paced by speech, which
+ * the eval's words-per-second density already covers.
+ */
+const WORD_LEVEL_MIN_ENTRIES = 8;
+const WORD_LEVEL_SHARE = 0.8;
+
+/** True when a caption track is a word-level timing track (see WORD_LEVEL_SHARE). */
+export function isWordLevelTrack(captions: Array<{ text: string }>): boolean {
+  if (captions.length < WORD_LEVEL_MIN_ENTRIES) return false;
+  const single = captions.filter((c) => countWords(c.text) <= 1).length;
+  return single / captions.length >= WORD_LEVEL_SHARE;
+}
+
+/** Normalize a model-returned issue category to a `captions.<slug>` suffix. */
+function categorySlug(raw: string): string {
+  const slug = String(raw ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "placement-issue";
+}
 
 /** Count words in a caption's text (whitespace tokens, newlines folded). */
 function countWords(s: string): number {
@@ -136,6 +164,9 @@ export interface CaptionsGateReport {
   captionCount: number;
   /** Whether a separate word-level timing track was supplied (drives drift checking). */
   wordTimingsProvided: boolean;
+  /** True when the checked track itself is word-level (one word per entry), so the
+   *  too-short window check was skipped (#569). Absent on older reports. */
+  wordLevelTrack?: boolean;
   /** The video whose frames were sampled for placement (project-relative), or null. */
   video: string | null;
   /** Per-sampled-frame placement results (empty when no placement pass ran). */
@@ -276,6 +307,8 @@ export async function checkCaptions(input: {
   noPlacement?: boolean;
   analyze?: CaptionPlacementAnalyzer;
   extractFrames?: typeof extractKeyframes;
+  /** Restore the pre-audit (#569) severities. Default: RALPHY_EVAL_STRICT_RUBRIC. */
+  strictRubric?: boolean;
 }): Promise<CaptionsGateReport> {
   const { projectId, mode } = input;
   const analyze = input.analyze ?? defaultAnalyzer;
@@ -317,7 +350,11 @@ export async function checkCaptions(input: {
   };
 
   // ── Deterministic sub-check 1: per-caption display duration (too-short). ──
-  captions.forEach((c, i) => {
+  //    Skipped on a word-level timing track (#569): its entries are spoken-word
+  //    durations, not caption windows. RALPHY_EVAL_STRICT_RUBRIC restores it.
+  const wordLevelTrack = isWordLevelTrack(captions);
+  const checkTooShort = !wordLevelTrack || (input.strictRubric ?? strictRubricEnabled());
+  if (checkTooShort) captions.forEach((c, i) => {
     const durMs = c.endMs - c.startMs;
     if (durMs <= 0) return; // a zero/negative window is a generator quirk, not a readability call
     const quote = ` "${c.text.replace(/\s+/g, " ").trim().slice(0, 40)}"`;
@@ -466,7 +503,7 @@ export async function checkCaptions(input: {
       }
       for (const iss of placement.issues ?? []) {
         emit(
-          `captions.${iss.category}`,
+          `captions.${categorySlug(iss.category)}`,
           iss.severity,
           `${frame}: ${iss.message}`,
           "Review the flagged caption placement against the frame.",
@@ -495,6 +532,7 @@ export async function checkCaptions(input: {
     captionSource: resolved.source,
     captionCount: captions.length,
     wordTimingsProvided: !!wordTimings,
+    wordLevelTrack,
     video: video ?? null,
     frames: framePlacements,
     findings,

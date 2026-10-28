@@ -149,7 +149,14 @@ The render eval judges craft; real outcomes judge whether the work was worth doi
 
 ## When findings are clearly false-positives
 
-The eval pipeline is tuned for the common UGC cases. Some templates legitimately violate "rules" — the brainrot-ai-meme top-half is often a single static image for the whole clip, which fires `structure.hook-zone-static`. Don't suppress in code; instead, in the chat handoff, mark such findings as expected-for-template so the fixer agent skips them.
+The October 2026 gate audit ([`docs/research/gate-audit-2026-10.md`](../../../docs/research/gate-audit-2026-10.md), #569) moved the most common format-choice findings to advisory in code:
+
+- `structure.hook-zone-static` is `info`. The scene detector sees hard cuts only, so an animated opener, a static frame around a moving panel (the brainrot top-half image, an IG-post mock, a letterboxed talking head) or a deliberate continuous shot reads as one long shot. Judge the opening with the full-video pass and the retention review instead.
+- `format.resolution` no longer fires on a 9:16 render at or above 1080x1920 (e.g. 2160x3840); a portrait frame that is not 9:16 is a `format.aspect-ratio` warn.
+- Keyframe `vision.*` findings are capped at `warn` and carry a "confirm on the full video" hint: the audited keyframe fails (clipped-text claims on frames whose text was fully visible, split-screen and platform-chrome layouts) were wrong on every frame inspected.
+- `captions.thin` / `captions.dense` count caption words, not caption entries.
+
+`RALPHY_EVAL_STRICT_RUBRIC=1` restores the pre-audit severities for one release. Other template-specific false positives still go in the chat handoff: mark them expected-for-template so the fixer agent skips them.
 
 ## Handoff to a fixer agent
 

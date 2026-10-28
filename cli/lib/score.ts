@@ -4,7 +4,10 @@
 // All thresholds documented in docs/virality-rubric.md. This file mirrors the
 // numbers there; if the doc changes, update this and vice versa.
 //
-// No external dependencies — pure deterministic checks. Cheap to call.
+// No external packages — pure deterministic checks over the content-mode registry. Cheap to call.
+
+import { getContentMode } from "./content-modes.js";
+import { strictRubricEnabled } from "./eval/strict-rubric.js";
 
 // --- Part 1: TikTok engagement ranking ---------------------------------
 
@@ -127,6 +130,10 @@ export type Scenario = {
   duration?: number;
   /** Canonical field per ScenarioSchema. */
   target_duration_s?: number;
+  /** Alias some scenario writers use for the declared total (read since #569). */
+  durationSec?: number;
+  /** Content mode the scenario was written for (drives gate applicability). */
+  content_mode?: string;
   angle?: string;
   hook?:
     | string
@@ -149,6 +156,18 @@ export type ScenarioCheck = {
   passed: boolean;
   failures: string[];
   warnings: string[];
+  /** The duration tier the checks were calibrated to. */
+  tier?: "short-ad" | "mid-form" | "long-form";
+  /** Set when the content mode does not declare this gate, so format findings
+   *  were downgraded to warnings (#569). Null when the gate applied in full. */
+  advisory?: string | null;
+};
+
+export type ScenarioScoreOptions = {
+  /** Content mode (production-plan.json contentMode). Default: scenario.content_mode. */
+  mode?: string | null;
+  /** Restore the pre-audit (#569) behavior. Default: RALPHY_EVAL_STRICT_RUBRIC. */
+  strictRubric?: boolean;
 };
 
 /**
@@ -188,25 +207,16 @@ function normalizeScenes(input: Scenario["scenes"]): {
   return { scenes: [], shape: "missing" };
 }
 
-export function scoreScenario(scenario: Scenario): ScenarioCheck {
+export function scoreScenario(scenario: Scenario, opts: ScenarioScoreOptions = {}): ScenarioCheck {
+  const strict = opts.strictRubric ?? strictRubricEnabled();
+  // Two kinds of hard fail. FORMAT failures encode rubric defaults tuned on
+  // 15-second commerce clips (hook window, hook length, duration cap, angle,
+  // scene presence); DEFECT failures are real regardless of format (text the
+  // platform UI will cover). Since #569 the format failures become warnings
+  // when the scenario's content mode does not declare scoreScenario as a gate.
+  const formatFailures: string[] = [];
   const failures: string[] = [];
   const warnings: string[] = [];
-
-  // Format tier from declared duration. Calibrates the rest of the gate so
-  // long-form templates (storytime, ai-avatar, podcast-clip) aren't refused
-  // by 15s-ad-shaped rules. See docs/render-test-2026-05-11.md §1.3.
-  //   short-ad:  ≤15s  — first scene must be ≤3s, all scenes ≤3s, +0.5s cap
-  //   mid-form:  15-45s — first scene ≤6s, scenes ≤8s, +1.0s cap
-  //   long-form: >45s   — first scene ≤10s, scenes ≤12s, +2.0s cap
-  // Hook word-count and hook presence apply universally.
-  const declaredDuration = scenario.target_duration_s ?? scenario.duration ?? 15;
-  const tier: "short-ad" | "mid-form" | "long-form" =
-    declaredDuration <= 15 ? "short-ad" : declaredDuration <= 45 ? "mid-form" : "long-form";
-  const limits = tier === "short-ad"
-    ? { firstSceneMax: 3, sceneMax: 3, durationOverhead: 0.5 }
-    : tier === "mid-form"
-    ? { firstSceneMax: 6, sceneMax: 8, durationOverhead: 1.0 }
-    : { firstSceneMax: 10, sceneMax: 12, durationOverhead: 2.0 };
 
   // Normalize scenes upfront so the rest of the gate is shape-agnostic.
   // Canonical schema (cli/lib/schemas/scene.ts) keys scenes by id; legacy
@@ -219,22 +229,53 @@ export function scoreScenario(scenario: Scenario): ScenarioCheck {
     );
   }
   const normalizedScenes = scenesList.map(normalizeScene);
+  const total = normalizedScenes.reduce((acc, s) => acc + (s.durationSec ?? 0), 0);
+
+  // Format tier from declared duration. Calibrates the rest of the gate so
+  // long-form templates (storytime, ai-avatar, podcast-clip) aren't refused
+  // by 15s-ad-shaped rules. See docs/render-test-2026-05-11.md §1.3.
+  //   short-ad:  ≤15s  — first scene must be ≤3s, all scenes ≤3s, +0.5s cap
+  //   mid-form:  15-45s — first scene ≤6s, scenes ≤8s, +1.0s cap
+  //   long-form: >45s   — first scene ≤10s, scenes ≤12s, +2.0s cap
+  // An undeclared duration used to default to 15s, which refused every long
+  // scenario that spelled its length `durationSec` (#569). Now `durationSec` is
+  // read as an alias, and with no declaration at all the tier follows the
+  // planned scene total and there is no target to exceed.
+  const declaredRaw = scenario.target_duration_s ?? scenario.duration ?? scenario.durationSec;
+  const declared = typeof declaredRaw === "number" && declaredRaw > 0 ? declaredRaw : null;
+  const declaredDuration = declared ?? (total > 0 ? total : 15);
+  const tier: "short-ad" | "mid-form" | "long-form" =
+    declaredDuration <= 15 ? "short-ad" : declaredDuration <= 45 ? "mid-form" : "long-form";
+  const limits = tier === "short-ad"
+    ? { firstSceneMax: 3, sceneMax: 3, durationOverhead: 0.5 }
+    : tier === "mid-form"
+    ? { firstSceneMax: 6, sceneMax: 8, durationOverhead: 1.0 }
+    : { firstSceneMax: 10, sceneMax: 12, durationOverhead: 2.0 };
 
   // Hook present and short. Accept three shapes:
   //   • legacy string                — scenario.hook = "watch this"
   //   • legacy object with primary   — scenario.hook.primary
   //   • canonical SceneRef           — scenario.hook = { scene_id, vo, duration_s }
+  // The 10-word cap is a short-ad default; the course the retention review is
+  // grounded in sets no word cap (docs/virality-rubric.md, #571). Since #569 it
+  // is a hard fail for the short-ad tier only and a warning above it.
   const hookObj = typeof scenario.hook === "object" ? scenario.hook : null;
   const hookPrimary =
     typeof scenario.hook === "string"
       ? scenario.hook
       : hookObj?.primary ?? hookObj?.vo;
   if (!hookPrimary || !hookPrimary.trim()) {
-    failures.push("Missing hook.primary — first scene must have a hook line");
+    formatFailures.push("Missing hook.primary — first scene must have a hook line");
   } else {
     const wordCount = hookPrimary.trim().split(/\s+/).length;
     if (wordCount > 10) {
-      failures.push(`Hook is ${wordCount} words; max 10 (one breath)`);
+      if (strict || tier === "short-ad") {
+        formatFailures.push(`Hook is ${wordCount} words; max 10 (one breath)`);
+      } else {
+        warnings.push(
+          `Hook is ${wordCount} words; the 10-word cap is a short-ad default (${tier} format) — check the opening reads at its pace`
+        );
+      }
     }
   }
 
@@ -243,19 +284,19 @@ export function scoreScenario(scenario: Scenario): ScenarioCheck {
   if (firstScene) {
     const start = firstScene.durationSec ?? 0;
     if (start > limits.firstSceneMax) {
-      failures.push(
-        `First scene is ${start}s; hook must land in the first ${limits.firstSceneMax}s window (${tier} format, declared duration ${declaredDuration}s)`
+      formatFailures.push(
+        `First scene is ${start}s; hook must land in the first ${limits.firstSceneMax}s window (${tier} format, ${declared !== null ? `declared duration ${declaredDuration}s` : `planned total ${declaredDuration}s`})`
       );
     }
   } else {
-    failures.push("Scenario has no scenes[]");
+    formatFailures.push("Scenario has no scenes[]");
   }
 
-  // Total duration — hard cap relative to declared target, with tier overhead.
-  const total = normalizedScenes.reduce((acc, s) => acc + (s.durationSec ?? 0), 0);
-  if (total > declaredDuration + limits.durationOverhead) {
-    failures.push(
-      `Total duration ${total}s exceeds target ${declaredDuration}s (${tier} hard cap +${limits.durationOverhead}s)`
+  // Total duration — hard cap relative to the declared target, with tier
+  // overhead. Without a declared target there is nothing to exceed.
+  if (declared !== null && total > declared + limits.durationOverhead) {
+    formatFailures.push(
+      `Total duration ${total}s exceeds target ${declared}s (${tier} hard cap +${limits.durationOverhead}s)`
     );
   }
   // Short-form sweet-spot warning only for templates that DECLARED short-ad
@@ -281,12 +322,12 @@ export function scoreScenario(scenario: Scenario): ScenarioCheck {
       `No angle set; pick one of: ${VALID_ANGLES.join(", ")}`
     );
   } else if (!VALID_ANGLES.includes(scenario.angle as any)) {
-    failures.push(
+    formatFailures.push(
       `Invalid angle "${scenario.angle}"; must be one of: ${VALID_ANGLES.join(", ")}`
     );
   }
 
-  // Green Zone — every text overlay must fit.
+  // Green Zone — every text overlay must fit. A real defect in every format.
   for (const scene of normalizedScenes) {
     for (const overlay of scene.text_overlays ?? []) {
       const x = overlay.x ?? 0;
@@ -309,9 +350,29 @@ export function scoreScenario(scenario: Scenario): ScenarioCheck {
     }
   }
 
+  // Mode applicability (#569). The content-mode registry names the gates each
+  // mode runs; for a mode that does not list scoreScenario (personal-clipper,
+  // podcast-video, motion-design, typography-animation, infographic-animation)
+  // the format failures are reported as warnings instead of refusing the
+  // handoff. An unknown or missing mode keeps the gate hard.
+  const mode = opts.mode ?? scenario.content_mode ?? null;
+  const entry = mode ? getContentMode(mode) : undefined;
+  const gateApplies = !entry || entry.qualityGates.includes("scoreScenario");
+  let advisory: string | null = null;
+  if (!strict && !gateApplies && formatFailures.length > 0) {
+    advisory =
+      `scoreScenario is not a declared quality gate for content mode "${mode}" ` +
+      `(its gates: ${entry!.qualityGates.join(", ") || "none"}); format findings are reported as warnings.`;
+    for (const f of formatFailures) warnings.push(`(advisory for ${mode}) ${f}`);
+    formatFailures.length = 0;
+  }
+
+  const allFailures = [...formatFailures, ...failures];
   return {
-    passed: failures.length === 0,
-    failures,
+    passed: allFailures.length === 0,
+    failures: allFailures,
     warnings,
+    tier,
+    advisory,
   };
 }

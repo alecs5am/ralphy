@@ -908,12 +908,19 @@ export function projectCmd() {
       )) as Scenario | null;
       if (!scenario) err(`No scenario.json found for ${id}`);
 
-      const result = scoreScenario(scenario as Scenario);
+      // The content mode decides whether this gate applies in full (#569): the
+      // production plan wins, else the scenario's own content_mode.
+      const plan = (await safeJson(path.join(projectDir(id), "production-plan.json"))) as
+        | { contentMode?: { mode?: string } }
+        | null;
+      const result = scoreScenario(scenario as Scenario, { mode: plan?.contentMode?.mode ?? null });
       out({
         project: id,
         passed: result.passed,
         failures: result.failures,
         warnings: result.warnings,
+        tier: result.tier ?? null,
+        advisory: result.advisory ?? null,
       });
       if (opts.strict && !result.passed) {
         process.exit(1);

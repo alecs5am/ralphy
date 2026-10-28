@@ -181,3 +181,5 @@ The rubric (and [pacing.md](./pacing.md)) encodes short-ad craft defaults calibr
 | Music ducked to 0.6-0.8 | No mandatory music; mix numbers are not loudness standards | Judge intelligibility and mood by ear |
 
 Where the two agree (the hook must earn attention, every beat should move the piece, text must be readable, a reason to share helps), there is nothing to reconcile.
+
+Since the #569 gate audit ([`gate-audit-2026-10.md`](../../../../docs/research/gate-audit-2026-10.md)) the code follows three of these rows: `ralphy project score` enforces the 10-word hook cap only in the short-ad tier, `ralphy eval video` reports a long first shot (`structure.hook-zone-static`) as `info`, and caption density counts words rather than caption entries. The remaining rows are still judgment calls for this review.

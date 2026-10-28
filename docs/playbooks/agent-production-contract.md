@@ -111,7 +111,7 @@ Each phase below names: **required artifact(s)**, **allowed skips** (and what co
 ### 10 — Scenario quality → `scenario.json`
 
 - **Produces:** `scenario.json` — the locked scene-by-scene scenario.
-- **Gate:** `ralphy project score <id>` / `scoreScenario` — **refuse, not warn** (AGENTS.md invariant #4). Two failures in a row → stop and report concrete options.
+- **Gate:** `ralphy project score <id>` / `scoreScenario` — **refuse, not warn** (AGENTS.md invariant #4). Two failures in a row → stop and report concrete options. The thresholds follow the duration tier, and a content mode whose registry entry does not list `scoreScenario` gets the format checks as warnings while the Green Zone check stays hard (#569, [`quality-gate.md`](../../.agents/skills/scenarist/references/quality-gate.md)).
 - **Allowed skip:** `image-pack` projects (no scenario by shape) — `evaluateContract()` relaxes the requirement for them. Freeform single-asset edits also skip.
 - **Stop condition:** scenario fails the gate twice → do NOT proceed to prompts.
 

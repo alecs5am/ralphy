@@ -34,6 +34,7 @@ import { projectDir, artifactKindDir } from "../paths.js";
 import { score } from "./findings.js";
 import { probeVideo } from "./probe.js";
 import type { Finding, Verdict } from "./types.js";
+import { strictRubricEnabled } from "./strict-rubric.js";
 
 /** Project-relative location the platform-spec report is persisted to. */
 export const PLATFORM_SPEC_ARTIFACT = "platform-spec.json" as const;
@@ -298,15 +299,19 @@ function aspectLabel(aspects: Array<[number, number]>): string {
 
 /**
  * Find the media to validate. Explicit `media` wins. Otherwise: the render
- * (render/final.mp4) plus every still under artifacts/images and video under
- * artifacts/videos. Returns project-relative paths. Never throws.
+ * (render/final.mp4) plus every still under artifacts/images, and every video
+ * under artifacts/videos ONLY when there is no render. When a render exists the
+ * clips under artifacts/videos are its inputs (raw i2v takes, source plates), not
+ * uploads (#569). Returns project-relative paths. Never throws.
  */
 function discoverMedia(projectId: string): string[] {
   const root = projectDir(projectId);
   const out: string[] = [];
   const final = path.join(root, "render", "final.mp4");
-  if (existsSync(final)) out.push(path.relative(root, final));
-  for (const kind of ["videos", "images"] as const) {
+  const hasRender = existsSync(final);
+  if (hasRender) out.push(path.relative(root, final));
+  const kinds = hasRender ? (["images"] as const) : (["videos", "images"] as const);
+  for (const kind of kinds) {
     try {
       const dir = artifactKindDir(projectId, kind);
       if (!existsSync(dir)) continue;
@@ -348,6 +353,8 @@ export function validatePlatformSpec(input: {
   /** Distribution-pack metadata present per platform (drives required-metadata warns). */
   presentMetadata?: Record<string, string[]>;
   probe?: MediaProbe;
+  /** Restore the pre-audit (#569) severities. Default: RALPHY_EVAL_STRICT_RUBRIC. */
+  strictRubric?: boolean;
 }): PlatformSpecReport {
   const { projectId } = input;
   const probe = input.probe ?? defaultProbe;
@@ -398,6 +405,12 @@ export function validatePlatformSpec(input: {
     };
   }
 
+  // Probe every media file once, then check each against each platform. A file
+  // whose kind does not match a platform is skipped for that platform when
+  // another file of the right kind exists (#569): a reel project's source stills
+  // are not failed uploads to Reels. With no file of the right kind, every file
+  // still reports the media-kind mismatch.
+  const probed: Array<{ rel: string; facts: MediaFacts }> = [];
   for (const rel of media) {
     const abs = path.isAbsolute(rel) ? rel : path.join(root, rel);
     let facts: MediaFacts;
@@ -415,10 +428,16 @@ export function validatePlatformSpec(input: {
       });
       continue;
     }
+    probed.push({ rel, facts });
+  }
 
-    for (const platform of platforms) {
+  for (const platform of platforms) {
+    const profile = PLATFORM_PROFILES[platform]!;
+    const anyMatchingKind = probed.some((m) => m.facts.kind === profile.kind);
+    for (const { rel, facts } of probed) {
+      if (anyMatchingKind && facts.kind !== profile.kind) continue;
       const before = findings.length;
-      checkMediaAgainstProfile(rel, facts, platform, PLATFORM_PROFILES[platform]!, input, add);
+      checkMediaAgainstProfile(rel, facts, platform, profile, input, add);
       results.push({ media: rel, platform, findings: findings.slice(before) });
     }
   }
@@ -453,7 +472,7 @@ function checkMediaAgainstProfile(
   facts: MediaFacts,
   platform: string,
   profile: PlatformProfile,
-  input: { declaredSafeArea?: DeclaredSafeArea; presentMetadata?: Record<string, string[]> },
+  input: { declaredSafeArea?: DeclaredSafeArea; presentMetadata?: Record<string, string[]>; strictRubric?: boolean },
   add: (x: Omit<Finding, "id">) => Finding,
 ): void {
   const where = `${rel} for ${profile.label}`;
@@ -504,12 +523,18 @@ function checkMediaAgainstProfile(
   if (profile.maxResolution) {
     const [maxW, maxH] = profile.maxResolution;
     if (facts.width > maxW || facts.height > maxH) {
+      // Since #569 an over-size frame is a warn: the platform downscales it on
+      // upload (the file-size cap above stays a hard fail). Strict mode restores
+      // the old fail.
+      const strict = input.strictRubric ?? strictRubricEnabled();
       add({
         ...base,
         category: "format.resolution",
-        severity: "fail",
-        message: `${where}: ${facts.width}x${facts.height} exceeds the ${maxW}x${maxH} maximum.`,
-        fixHint: `Scale down to ≤ ${maxW}x${maxH} (ffmpeg/imagemagick scale, preserving aspect).`,
+        severity: strict ? "fail" : "warn",
+        message: strict
+          ? `${where}: ${facts.width}x${facts.height} exceeds the ${maxW}x${maxH} maximum.`
+          : `${where}: ${facts.width}x${facts.height} is above the ${maxW}x${maxH} the platform displays; it will be downscaled on upload.`,
+        fixHint: `Scale down to ≤ ${maxW}x${maxH} (ffmpeg/imagemagick scale, preserving aspect) to control the downscale and file size.`,
         fixCommand: null,
       });
     }

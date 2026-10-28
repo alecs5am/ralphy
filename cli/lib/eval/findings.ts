@@ -26,6 +26,7 @@ import type {
   VideoMeta,
   Verdict,
 } from "./types.js";
+import { strictRubricEnabled } from "./strict-rubric.js";
 
 const TARGET_LUFS = -16;
 const LUFS_WARN_DELTA = 1.5;
@@ -43,8 +44,17 @@ const MIN_WPS = 1.5;
 const MAX_WPS = 4.5;
 const DURATION_DRIFT_WARN_PCT = 0.10;
 const DURATION_DRIFT_FAIL_PCT = 0.25;
+/** Relative tolerance for reading a portrait frame as 9:16 (1080x1922 still is). */
+const PORTRAIT_916_TOL = 0.03;
 
 const PENALTY: Record<Severity, number> = { info: 1, warn: 6, fail: 18 };
+
+/** True when a portrait frame is 9:16 within `PORTRAIT_916_TOL`. */
+export function isNineBySixteen(w: number, h: number): boolean {
+  if (w <= 0 || h <= 0) return false;
+  const target = 9 / 16;
+  return Math.abs(w / h - target) / target <= PORTRAIT_916_TOL;
+}
 
 export function buildFindings(input: {
   meta: VideoMeta;
@@ -54,7 +64,13 @@ export function buildFindings(input: {
   captions: CaptionStats;
   vision: SceneVision[];
   hookTranscript: string;
+  /**
+   * Restore the pre-audit (#569) severities. Default: `RALPHY_EVAL_STRICT_RUBRIC`
+   * from the environment (see strict-rubric.ts). Tests pass it explicitly.
+   */
+  strictRubric?: boolean;
 }): Finding[] {
+  const strict = input.strictRubric ?? strictRubricEnabled();
   const f: Finding[] = [];
   let nextId = 1;
   const add = (x: Omit<Finding, "id">) => f.push({ id: `F${nextId++}`, ...x });
@@ -71,17 +87,43 @@ export function buildFindings(input: {
       fixHint: "Re-render in 9:16 (1080x1920). For repurposing 16:9 source, use a smart-crop reframe pass.",
       fixCommand: null,
     });
-  } else if (w !== 1080 || h !== 1920) {
+  } else if (strict) {
+    if (w !== 1080 || h !== 1920) {
+      add({
+        category: "format.resolution",
+        severity: "warn",
+        sceneIndex: null,
+        timestampSec: null,
+        message: `Resolution is ${w}x${h}. Recommended: 1080x1920.`,
+        fixHint: "Re-render at 1080x1920 or scale via ffmpeg.",
+        fixCommand: null,
+      });
+    }
+  } else if (!isNineBySixteen(w, h)) {
+    // Portrait but not 9:16 (e.g. a phone-screen mock at 9:19.5, or 4:5): the
+    // feed crops or letterboxes it. Still a warn, now named for what it is.
+    add({
+      category: "format.aspect-ratio",
+      severity: "warn",
+      sceneIndex: null,
+      timestampSec: null,
+      message: `Portrait ${w}x${h} is not 9:16 (ratio ${(w / h).toFixed(3)} vs 0.5625). Vertical feeds will crop or letterbox it.`,
+      fixHint: "Render at 9:16 (1080x1920) unless another ratio is intended for this placement (e.g. a 4:5 feed post).",
+      fixCommand: null,
+    });
+  } else if (w < 1080) {
     add({
       category: "format.resolution",
       severity: "warn",
       sceneIndex: null,
       timestampSec: null,
-      message: `Resolution is ${w}x${h}. Recommended: 1080x1920.`,
-      fixHint: "Re-render at 1080x1920 or scale via ffmpeg.",
+      message: `Resolution is ${w}x${h}, below the recommended 1080x1920.`,
+      fixHint: "Re-render at 1080x1920; upscaling a smaller render loses detail.",
       fixCommand: null,
     });
   }
+  // 9:16 at or above 1080x1920 (e.g. a 2160x3840 render) is not flagged: the
+  // platforms downscale on upload, and the platform-spec gate owns file size.
 
   if (input.meta.fps < 24 || input.meta.fps > 60) {
     add({
@@ -191,13 +233,22 @@ export function buildFindings(input: {
         fixCommand: null,
       });
     } else if (hookScenes[0].durationSec > 2.5) {
+      // Advisory since #569: the scene detector sees hard cuts only, so animated
+      // layouts, a static frame around a moving panel, cross-dissolves and
+      // deliberate continuous shots all read as one long "scene". The audit found
+      // it on 61 of 68 stored reports and never acted on; the full-video pass
+      // judged the same openings as working in most co-fires. Kept as a fact.
       add({
         category: "structure.hook-zone-static",
-        severity: "warn",
+        severity: strict ? "warn" : "info",
         sceneIndex: 0,
         timestampSec: 0,
-        message: `First scene runs ${hookScenes[0].durationSec.toFixed(2)}s without a cut. Hooks under 1.5s read as more dynamic.`,
-        fixHint: "Insert a sub-cut or pattern-interrupt within the first 2s.",
+        message: strict
+          ? `First scene runs ${hookScenes[0].durationSec.toFixed(2)}s without a cut. Hooks under 1.5s read as more dynamic.`
+          : `No hard cut detected in the first ${HOOK_ZONE_SEC}s (first detected shot runs ${hookScenes[0].durationSec.toFixed(2)}s). Advisory: the detector sees hard cuts only, so motion, animated layouts and deliberate continuous shots read as one shot.`,
+        fixHint: strict
+          ? "Insert a sub-cut or pattern-interrupt within the first 2s."
+          : "Act only if the opening is visually inert for this piece's job (see the retention review); a continuous or animated opener is a valid format choice.",
         fixCommand: null,
       });
     }
@@ -254,16 +305,24 @@ export function buildFindings(input: {
     });
   }
 
-  // — Vision findings (one Finding per issue)
+  // — Keyframe vision findings (one Finding per issue). Since #569 a keyframe
+  //   read is capped at `warn`: one still per detected scene cannot see motion,
+  //   and the audited keyframe `fail`s (clipped-text claims on frames whose text
+  //   was fully visible, split-screen / platform-chrome layouts called defects)
+  //   were wrong on every frame inspected. The full-video pass stays the
+  //   authority that can fail a render.
   for (const sv of input.vision) {
     for (const issue of sv.issues) {
+      const capped = !strict && issue.severity === "fail";
       add({
         category: `vision.${issue.category}`,
-        severity: issue.severity,
+        severity: capped ? "warn" : issue.severity,
         sceneIndex: sv.sceneIndex,
         timestampSec: sv.timestampSec,
         message: issue.message,
-        fixHint: defaultFixHint(issue.category),
+        fixHint: strict
+          ? defaultFixHint(issue.category)
+          : `Keyframe read (advisory): confirm on the full video before acting. ${defaultFixHint(issue.category)}`,
         fixCommand: null,
       });
     }

@@ -1,6 +1,6 @@
 # Gate usefulness audit: keep, relax, replace or retire
 
-> **Status:** todo
+> **Status:** done — 2026-10-28 (6 artifact-driven checks relaxed or made advisory, `RALPHY_EVAL_STRICT_RUBRIC=1` restores them; full-video pass kept and flagged for calibration; audit in docs/research/gate-audit-2026-10.md)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** high

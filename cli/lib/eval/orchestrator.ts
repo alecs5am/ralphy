@@ -339,7 +339,7 @@ async function readDeclared(projectRoot: string): Promise<DeclaredMeta | null> {
   }
 }
 
-interface CaptionEntry {
+export interface CaptionEntry {
   text: string;
   startMs: number;
   endMs: number;
@@ -364,11 +364,17 @@ async function readCaptions(projectRoot: string): Promise<CaptionEntry[] | null>
   }
 }
 
-function buildCaptionStats(captions: CaptionEntry[] | null, durationSec: number): CaptionStats {
+/**
+ * Caption density stats. Counts WORDS, not caption entries (#569): a phrase-level
+ * track (one caption window per line) used to read as 0.6 words/sec and raise a
+ * false `captions.thin` on every phrase-captioned render. Word-level tracks (one
+ * word per entry) count the same either way. Exported for tests.
+ */
+export function buildCaptionStats(captions: CaptionEntry[] | null, durationSec: number): CaptionStats {
   if (!captions) {
     return { available: false, wordCount: null, wordsPerSecond: null, densityWarn: null };
   }
-  const wordCount = captions.length;
+  const wordCount = captions.reduce((acc, c) => acc + countWords(c.text), 0);
   const wps = durationSec > 0 ? wordCount / durationSec : 0;
   return {
     available: true,

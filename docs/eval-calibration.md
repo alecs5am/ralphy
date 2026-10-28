@@ -101,3 +101,28 @@ The report's `recommendation` compares Cohen's kappa to a **default promotion ba
 - **kappa < 0.6** (or undefined) → `keep advisory`. The judge still runs and surfaces findings, but it should not unilaterally block ship until it calibrates better — re-author the prompt / thresholds and re-measure.
 
 `0.6` is the eval research's reasonable **first** bar — substantial agreement. It is a default, not a universal truth: a high-stakes gate (claims/policy) may warrant a stricter bar, and a low-cost advisory signal may tolerate less. Pin the judge model + prompt version in the dataset / report so drift can be re-detected after any model or rubric change.
+
+## Calibration status after the gate audit (#569)
+
+The October 2026 gate audit ([`research/gate-audit-2026-10.md`](research/gate-audit-2026-10.md)) is the first measurement of how the gates behave on real projects. What it means for calibration:
+
+- **No judge has been calibrated yet.** The starter datasets reference fixture videos (`fixtures/hook/*.mp4`, `fixtures/captions/*.mp4`) that are not in the repository, so the live path cannot run, and no `--predictions` run has been recorded. Every kappa is still unknown. Adding those fixtures, or a dataset of labeled real renders, is the first step.
+- **No outcome labels yet.** The #558 store tables (`evaluations`, `metric_snapshots`) are empty, so human pass / fail labels are the only ground truth available. Once analytics are imported, a gate's verdict can also be checked against the Unit's outcome.
+- **What the audit labeled by hand.** 14 keyframe-vision `fail` findings checked against their frames (all 14 wrong) and 7 openings flagged by `structure.hook-zone-static` (all 7 working openings or deliberate continuous shots). They are the seed for a keyframe-vision dataset; the harness covers only `blocksShip` gates today, so that gate would need a binary adapter first.
+- **The highest-value target is the full-video pass.** It returned a ship-ready verdict on 0 of 29 stored runs while carrying the most useful findings. Calibrate it before changing its prompt or the verdict aggregation.
+
+### What changed in the gates' defaults
+
+These are relaxations of measurement or format artifacts, documented with their evidence in the audit:
+
+| Gate / check | Default now | Why |
+|---|---|---|
+| `structure.hook-zone-static` (`eval video`) | `info` | Cut-count proxy; wrong on every opening inspected |
+| `format.resolution` (`eval video`) | no finding for 9:16 at or above 1080x1920; non-9:16 portrait is a `format.aspect-ratio` warn | 2x renders are not a defect |
+| Keyframe `vision.*` (`eval video`) | capped at `warn` | 14 of 14 checked keyframe fails were wrong; the full-video pass stays the ship gate |
+| `captions.thin` / `captions.dense` | counts words, not caption entries | measurement bug |
+| `captions.too-short` (`eval captions`) | skipped on word-level tracks | word timings are not display windows |
+| Platform spec (`eval platform`) | intermediates ignored beside a render; over-size frame is a warn | source stills were failed as uploads |
+| `scoreScenario` (`project score`) | hook word cap hard only in short-ad; format checks advisory for modes that do not declare the gate | course disagreement (#571) and registry scope |
+
+`RALPHY_EVAL_STRICT_RUBRIC=1` restores the previous severities for one release. Run a gate both ways on the same project when you want to compare the readings; record the human label for each disagreement and it becomes calibration data.
