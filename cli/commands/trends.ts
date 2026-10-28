@@ -9,6 +9,9 @@
 //   trends watch   add | list | remove                      discovery seeds
 //   trends status                                           counts, runs, breakers, spend
 //   trends link-digest <video> --ref <bundle|doc>           attach a #557 digest
+//   trends niche init "<topic>" --lang en --seeds-file f   topic -> creators (#576)
+//   trends niche report <niche> [--lang en] [--markdown f] niche report (#576)
+//   trends niche list                                       open niches
 //
 // Every verb takes an explicit global `--workspace <id>` (the corpus
 // Workspace). Free sources run logged out with no cookies; paid Apify sources
@@ -16,6 +19,7 @@
 // never platform data.
 
 import { Command } from "commander";
+import fs from "node:fs";
 import path from "node:path";
 import { resolveCommandContext } from "../lib/context.js";
 import { raiseError } from "../lib/errors/index.js";
@@ -45,6 +49,21 @@ import {
   type WatchlistKind,
 } from "../lib/store/trends.js";
 import { BREAKER_COOLDOWN_MS, openTrip } from "../lib/trends/breaker.js";
+import { getNiche, listNiches, loadNicheMembers, openNicheSlugs, saveNicheReportDocument } from "../lib/store/trend-niches.js";
+import {
+  DEFAULT_NICHE_SETTINGS,
+  defaultNicheSeedFile,
+  llmSeedPrompt,
+  nicheSettings,
+  parseLlmSeeds,
+  parseNicheSeedFile,
+  slugifyNiche,
+  type NicheSeedFile,
+} from "../lib/trends/niche.js";
+import { nicheInit, type NicheInitSummary } from "../lib/trends/niche-onboard.js";
+import { buildNicheReport, renderNicheReportMarkdown } from "../lib/trends/niche-report.js";
+import { DEFAULT_LABEL_PERCENTILES, parseLabelPercentiles, type LabelPolicy } from "../lib/trends/thresholds.js";
+import { LLM_LABEL_MODEL } from "../lib/trends/cohorts.js";
 import { isNiche, NICHES } from "../lib/trends/cohorts.js";
 import {
   LISTING_SOURCE_BY_PLATFORM,
@@ -62,7 +81,7 @@ import {
 } from "../lib/trends/ingest.js";
 import { DAY_MS, HOUR_MS, MATURITY_PRIORS, SIZE_BANDS, TREND_PLATFORMS, isTrendPlatform, multiplierBand, type TrendPlatform } from "../lib/trends/math.js";
 import { PAID_ACTORS } from "../lib/trends/sources/paid.js";
-import { capturePageXhr } from "../lib/trends/sources/tiktok.js";
+import { capturePageXhr, openTiktokProfileSession } from "../lib/trends/sources/tiktok.js";
 import { runYtdlp, ytdlpAvailable } from "../lib/trends/sources/ytdlp.js";
 import { YOUTUBE_API_SOURCE } from "../lib/trends/sources/youtube.js";
 
@@ -160,12 +179,16 @@ export function trendsCmd(): Command {
 
   cmd
     .command("score")
-    .description("Recompute outlier scores, creator baselines, and cohort baselines for the corpus Workspace")
+    .description("Recompute outlier scores, creator baselines, and cohort baselines for the corpus Workspace. Labels are calibrated per platform x niche by percentile (breakout top 2%, outlier top 5% with z >= 2, strong top 15%; the fixed 10x / 5x / 3x stay as floors)")
     .option("--refit", "Refit the maturity curve from longitudinal snapshots first")
+    .option("--label-mode <mode>", "percentile (default) | fixed (the #556 multipliers only)", "percentile")
+    .option("--label-percentiles <list>", "breakout,outlier,strong percentiles (default 0.98,0.95,0.85); niche settings override per niche")
+    .option("--label-min-sample <n>", "Mature videos a platform x niche group needs for its own percentiles", "200")
     .action((opts, child: Command) => {
       const workspaceId = workspaceOf(child, "trends score");
-      const pass = scorePass({ workspaceId, now: Date.now(), refit: opts.refit === true });
-      out({ kind: "trend-score", workspaceId, runId: pass.runId, counts: pass.counts, curves: pass.curves, notes: pass.notes, scoreNote: SCORE_NOTE });
+      const labelPolicy = labelPolicyOf(opts, "trends score");
+      const pass = scorePass({ workspaceId, now: Date.now(), refit: opts.refit === true, labelPolicy });
+      out({ kind: "trend-score", workspaceId, runId: pass.runId, counts: pass.counts, curves: pass.curves, labelThresholds: pass.labelThresholds, notes: pass.notes, scoreNote: SCORE_NOTE });
     });
 
   cmd
@@ -196,7 +219,7 @@ export function trendsCmd(): Command {
     .action((opts, child: Command) => {
       const workspaceId = workspaceOf(child, "trends top");
       const niches = (opts.niche as string[] | undefined)?.flatMap((value) => value.split(",")).map((value) => value.trim()).filter(Boolean);
-      for (const niche of niches ?? []) nicheOf(niche, "trends top");
+      for (const niche of niches ?? []) nicheOf(niche, "trends top", workspaceId);
       if (!["outlier", "views", "momentum"].includes(opts.by)) raiseError("E_FLAG_UNKNOWN", { flag: "by", value: opts.by, allowed: "outlier, views, momentum", verb: "trends top" });
       const platform = opts.platform === undefined ? undefined : platformOf(opts.platform, "trends top");
       if (opts.sizeBand !== undefined && !(SIZE_BANDS as readonly string[]).includes(opts.sizeBand)) {
@@ -363,7 +386,252 @@ export function trendsCmd(): Command {
       out({ kind: "trend-digest-link", ...link, createdAt: iso(link.createdAt) });
     });
 
+  cmd.addCommand(nicheCmd());
+
   return cmd;
+}
+
+// ─── Niche onboarding (#576) ────────────────────────────────────────────────
+
+function nicheCmd(): Command {
+  const niche = new Command("niche").description(
+    "On-demand niche onboarding (#576): a topic becomes an open niche with its own sub-niches; seeds -> snowballed creator discovery on free sources -> relevance gate (60%+ of the last 30 videos on-topic) -> size-band quotas, negative control group, anomaly flags -> niche report ranked by copyability",
+  );
+
+  niche
+    .command("init <topic>")
+    .description("Create or re-run an open niche from a topic. Seeds come from an agent-authored --seeds-file (default and free), one callLLM() call (--llm-seeds), or a deterministic topic fallback. Discovery uses free logged-out sources only; every source stops on its circuit breaker. Idempotent: re-runs re-gate members and add only new creators")
+    .option("--lang <codes>", "Niche languages (ISO 639-1), comma-separated, e.g. en or en,ru", "en")
+    .option("--platform <platforms>", "Platforms, comma-separated: tiktok,youtube", "tiktok,youtube")
+    .option("--target-creators <n>", "Relevant creators wanted per language (dataset spec: 300-500)", String(DEFAULT_NICHE_SETTINGS.targetCreators))
+    .option("--seeds-file <path>", "Seeds JSON: { topic, lexicon: { <lang>: { core, support, negative } }, subNiches: [{ slug, label, terms }], seeds: [{ platform, kind, value, language? }] }")
+    .option("--llm-seeds", "Propose the seeds file with one callLLM() call instead (paid, off by default)")
+    .option("--llm-model <id>", `Model for --llm-seeds / --llm-relevance (default ${LLM_LABEL_MODEL})`)
+    .option("--slug <slug>", "Niche slug (default: from the topic)")
+    .option("--relevance-threshold <share>", "On-topic share of the last 30 videos needed to keep a creator", String(DEFAULT_NICHE_SETTINGS.relevanceThreshold))
+    .option("--profile-floor <share>", "Keep a creator whose bio or name states the topic from this on-topic share (0 = off)", String(DEFAULT_NICHE_SETTINGS.profileRelevanceFloor))
+    .option("--max-rounds <n>", "Snowball rounds after the seed round", String(DEFAULT_NICHE_SETTINGS.maxRounds))
+    .option("--time-budget-min <n>", "Wall-time budget for discovery in minutes", String(DEFAULT_NICHE_SETTINGS.timeBudgetMinutes))
+    .option("--noise-floor <views>", "Copyability noise floor in absolute views", String(DEFAULT_NICHE_SETTINGS.noiseFloorViews))
+    .option("--per-creator <n>", "Videos per creator listing", "60")
+    .option("--concurrency <n>", "Parallel listings", "2")
+    .option("--search-depth <n>", "Results per YouTube keyword search", "100")
+    .option("--hashtag-depth <n>", "Entries per YouTube hashtag page", "60")
+    .option("--budget <n>", "Request budget per source per pass", "1500")
+    .option("--profile-budget <n>", "TikTok profile pages per run (handle -> secUid)", "400")
+    .option("--youtube-date-budget <n>", "YouTube watch-page calls to date Tier-1 candidates (at most 150; 0 = off)", "0")
+    .option("--expansion-hashtags <n>", "On-topic co-hashtags added per snowball round", "8")
+    .option("--expansion-handles <n>", "Cross-platform / mention handles queued per platform per round", "200")
+    .option("--no-guess-handles", "Do not try a YouTube creator's @handle as a TikTok handle")
+    .option("--no-discover", "Skip discovery seeds and expansion (pending candidates are still sample-listed and gated)")
+    .option("--no-list", "List nothing: re-gate, label, score, and regroup the stored members only (after a lexicon edit)")
+    .option("--sample-listing <n>", "Sample-first gate: list candidates with this many videos, backfill only kept creators (0 = full listing)", "12")
+    .option("--sample-cap <n>", "Kept creators per language in the analysis set, stratified by size band (the rest are out-of-sample)", "400")
+    .option("--llm-relevance", "Judge undetermined and near-threshold creators with batched callLLM() calls (paid, off by default)")
+    .option("--label-percentiles <list>", "Per-niche label percentiles breakout,outlier,strong (default 0.98,0.95,0.85)")
+    .option("--quiet-progress", "Suppress progress events on stderr")
+    .action(async (topic: string, opts, child: Command) => {
+      const verb = "trends niche init";
+      const workspaceId = workspaceOf(child, verb);
+      const languages = String(opts.lang).split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
+      if (languages.length === 0 || languages.some((value) => !/^[a-z]{2}$/.test(value))) raiseError("E_INPUT_INVALID", { field: "lang", detail: "expected ISO 639-1 codes such as en or en,ru", verb });
+      const platforms = platformsOf(String(opts.platform).split(","), verb).filter((platform) => platform !== "instagram");
+      if (platforms.length === 0) raiseError("E_INPUT_INVALID", { field: "platform", detail: "niche init discovers on tiktok and youtube (Instagram has no free discovery path)", verb });
+      let seedFile: NicheSeedFile;
+      let seedSource: "file" | "llm" | "topic";
+      const notes: string[] = [];
+      if (opts.seedsFile) {
+        const file = path.resolve(String(opts.seedsFile));
+        if (!fs.existsSync(file)) raiseError("E_INPUT_INVALID", { field: "seeds-file", detail: `no file at ${file}`, verb });
+        try {
+          seedFile = parseNicheSeedFile(JSON.parse(fs.readFileSync(file, "utf8")), { topic, languages, platforms });
+        } catch (error) {
+          raiseError("E_INPUT_INVALID", { field: "seeds-file", detail: (error as Error).message, verb });
+        }
+        seedSource = "file";
+      } else if (opts.llmSeeds) {
+        const model = opts.llmModel ? String(opts.llmModel) : LLM_LABEL_MODEL;
+        const prompt = llmSeedPrompt(topic, languages, platforms);
+        const reply = await callLLM({ model, messages: [{ role: "system", content: prompt.system }, { role: "user", content: prompt.user }], jsonMode: true, endpoint: "trends.niche-seeds" });
+        try {
+          seedFile = parseLlmSeeds(reply.text, { topic, languages, platforms });
+        } catch (error) {
+          raiseError("E_INPUT_INVALID", { field: "llm-seeds", detail: `the model reply is not a valid seeds file: ${(error as Error).message}`, verb });
+        }
+        seedSource = "llm";
+      } else {
+        seedFile = defaultNicheSeedFile(topic, languages, platforms);
+        seedSource = "topic";
+        notes.push("no --seeds-file: used the deterministic topic fallback (the topic as the only lexicon term); author a seeds file with sub-niches and a full lexicon for a useful relevance gate");
+      }
+      // An explicit --lang narrows the seeds file to those languages; each needs a lexicon.
+      const langGiven = child.getOptionValueSource("lang") === "cli";
+      const nicheLanguages = langGiven ? languages : seedFile.languages;
+      const missing = nicheLanguages.filter((lang) => !seedFile.taxonomy.lexicon[lang]);
+      if (missing.length > 0) raiseError("E_INPUT_INVALID", { field: "lang", detail: `the seeds have no lexicon for ${missing.join(", ")}`, verb });
+      seedFile = {
+        ...seedFile,
+        topic,
+        languages: nicheLanguages,
+        seeds: seedFile.seeds.filter((seed) => seed.language === null || nicheLanguages.includes(seed.language)),
+        platforms: seedFile.platforms.filter((platform) => (platforms as TrendPlatform[]).includes(platform)),
+        ...(opts.slug ? { slug: slugifyNiche(String(opts.slug)) } : {}),
+      };
+      const labelPercentiles = opts.labelPercentiles ? parseLabelPercentiles(String(opts.labelPercentiles)) : null;
+      if (opts.labelPercentiles && !labelPercentiles) raiseError("E_INPUT_INVALID", { field: "label-percentiles", detail: "expected breakout,outlier,strong in (0, 1), descending, e.g. 0.98,0.95,0.85", verb });
+      const settings = nicheSettings({
+        ...seedFile.settings,
+        targetCreators: positiveInt(opts.targetCreators, "target-creators", verb),
+        relevanceThreshold: shareOf(opts.relevanceThreshold, "relevance-threshold", verb),
+        profileRelevanceFloor: Number(opts.profileFloor) === 0 ? 0 : shareOf(opts.profileFloor, "profile-floor", verb),
+        maxRounds: nonNegativeInt(opts.maxRounds, "max-rounds", verb),
+        timeBudgetMinutes: positiveInt(opts.timeBudgetMin, "time-budget-min", verb),
+        noiseFloorViews: nonNegativeInt(opts.noiseFloor, "noise-floor", verb),
+        sampleCap: positiveInt(opts.sampleCap, "sample-cap", verb),
+        ...(labelPercentiles ? { labelPercentiles } : {}),
+      });
+      const deps = liveDeps({ llm: opts.llmRelevance === true, quietProgress: opts.quietProgress === true, youtubeApi: true, network: true });
+      const summary = await nicheInit({
+        workspaceId,
+        seedFile,
+        seedSource,
+        settings,
+        perCreator: positiveInt(opts.perCreator, "per-creator", verb),
+        concurrency: positiveInt(opts.concurrency, "concurrency", verb),
+        searchDepth: positiveInt(opts.searchDepth, "search-depth", verb),
+        hashtagDepth: positiveInt(opts.hashtagDepth, "hashtag-depth", verb),
+        budget: positiveInt(opts.budget, "budget", verb),
+        profileBudget: nonNegativeInt(opts.profileBudget, "profile-budget", verb),
+        youtubeDateBudget: Math.min(150, nonNegativeInt(opts.youtubeDateBudget, "youtube-date-budget", verb)),
+        guessHandles: opts.guessHandles !== false,
+        expansionHashtags: nonNegativeInt(opts.expansionHashtags, "expansion-hashtags", verb),
+        expansionHandles: nonNegativeInt(opts.expansionHandles, "expansion-handles", verb),
+        llmRelevance: opts.llmRelevance === true,
+        ...(opts.llmModel ? { llmModel: String(opts.llmModel) } : {}),
+        discover: opts.discover !== false,
+        list: opts.list !== false,
+        sampleListing: nonNegativeInt(opts.sampleListing, "sample-listing", verb),
+      }, deps);
+      out(nicheInitReport(summary, seedSource, seedFile, notes));
+    });
+
+  niche
+    .command("report <niche>")
+    .description("Niche report: coverage by size band, the copyability-ranked \"what to copy\" list with every component, top outliers overall / per sub-niche / per size band, formats and hook types with n and lift, cadence and length of growing creators, sub-niche saturation vs demand, entry formats for a new account, the negative control group, digest links, and YouTube gaps. Groups below the minimum n say \"insufficient data\"")
+    .option("--lang <code>", "Only creators of this language (ISO 639-1)")
+    .option("--platform <platform>", `Only one platform: ${TREND_PLATFORMS.join(" | ")}`)
+    .option("--min-n <n>", "Minimum videos before a group gets a claim", "20")
+    .option("--min-creators <n>", "Minimum creators before a group gets a claim", "5")
+    .option("--top <n>", "Rows in the ranked lists", "20")
+    .option("--noise-floor <views>", "Override the niche's noise floor in views")
+    .option("--since <age>", "Analysis window for dated videos (dataset spec backfill: 90d)", "90d")
+    .option("--max-per-creator <n>", "Rows per creator in the ranked lists", "2")
+    .option("--markdown <path>", "Also write the report as a markdown file")
+    .option("--document", "Also save the report as a research Document in the corpus Workspace")
+    .action((ref: string, opts, child: Command) => {
+      const verb = "trends niche report";
+      const workspaceId = workspaceOf(child, verb);
+      const found = getNiche({ workspaceId, ref: slugifyNiche(ref) }) ?? getNiche({ workspaceId, ref });
+      if (!found) raiseError("E_NOT_FOUND", { kind: "trend niche", id: ref });
+      const language = opts.lang ? String(opts.lang).toLowerCase() : undefined;
+      if (language && !/^[a-z]{2}$/.test(language)) raiseError("E_INPUT_INVALID", { field: "lang", detail: "expected an ISO 639-1 code", verb });
+      const report = buildNicheReport({
+        niche: found,
+        now: Date.now(),
+        options: {
+          ...(language ? { language } : {}),
+          ...(opts.platform ? { platform: platformOf(opts.platform, verb) } : {}),
+          minN: positiveInt(opts.minN, "min-n", verb),
+          minCreators: positiveInt(opts.minCreators, "min-creators", verb),
+          top: positiveInt(opts.top, "top", verb),
+          sinceDays: durationMs(opts.since, "since", verb) / DAY_MS,
+          maxPerCreator: positiveInt(opts.maxPerCreator, "max-per-creator", verb),
+          ...(opts.noiseFloor !== undefined ? { noiseFloorViews: nonNegativeInt(opts.noiseFloor, "noise-floor", verb) } : {}),
+        },
+      });
+      const outputs: Record<string, string> = {};
+      if (opts.markdown || opts.document) {
+        const markdown = renderNicheReportMarkdown(report);
+        if (opts.markdown) {
+          const file = path.resolve(String(opts.markdown));
+          fs.mkdirSync(path.dirname(file), { recursive: true });
+          fs.writeFileSync(file, markdown);
+          outputs.markdown = file;
+        }
+        if (opts.document) {
+          const saved = saveNicheReportDocument({ workspaceId, slug: `${found.slug}${language ? `-${language}` : ""}`, title: `Niche report: ${found.topic}${language ? ` (${language})` : ""}`, markdown });
+          outputs.documentId = saved.documentId;
+          outputs.revisionId = saved.revisionId;
+        }
+      }
+      out({ ...report, outputs, scoreNote: SCORE_NOTE });
+    });
+
+  niche
+    .command("list")
+    .description("Open niches in the corpus Workspace with member counts")
+    .action((_opts, child: Command) => {
+      const workspaceId = workspaceOf(child, "trends niche list");
+      out(listNiches({ workspaceId }).map((row) => {
+        const members = loadNicheMembers({ nicheId: row.id });
+        const count = (status: string) => members.filter((member) => member.status === status).length;
+        return {
+          slug: row.slug,
+          topic: row.topic,
+          languages: row.languages.join(","),
+          platforms: row.platforms.join(","),
+          subNiches: row.taxonomy.subNiches.length,
+          seedSource: row.seedSource,
+          kept: members.filter((member) => member.status === "kept" && !member.flags.includes("out-of-sample")).length,
+          outOfSample: members.filter((member) => member.status === "kept" && member.flags.includes("out-of-sample")).length,
+          dropped: count("dropped"),
+          undetermined: count("undetermined"),
+          candidates: count("candidate"),
+          updatedAt: iso(row.updatedAt),
+        };
+      }));
+    });
+
+  return niche;
+}
+
+function nicheInitReport(summary: NicheInitSummary, seedSource: string, seedFile: NicheSeedFile, notes: string[]) {
+  return {
+    kind: "trend-niche-init",
+    niche: summary.slug,
+    nicheId: summary.nicheId,
+    runId: summary.runId,
+    seedSource,
+    seeds: seedFile.seeds.length,
+    subNiches: seedFile.taxonomy.subNiches.map((sub) => sub.slug),
+    wallMinutes: round(summary.wallMs / 60_000, 1),
+    stopReason: summary.stopReason,
+    rounds: summary.rounds,
+    members: summary.members,
+    quotas: summary.quotas,
+    negative: summary.negative,
+    videos: summary.videos,
+    blocks: summary.blocks,
+    breakers: summary.breakers,
+    passes: summary.passes.map((pass) => ({ kind: pass.kind, source: pass.source, requests: pass.requests, breaker: pass.breaker.state, breakerReason: pass.breaker.reason, counts: pass.counts })),
+    skipped: summary.skipped,
+    notes: [...notes, ...summary.notes],
+    scoreNote: SCORE_NOTE,
+  };
+}
+
+function labelPolicyOf(opts: { labelMode?: string; labelPercentiles?: string; labelMinSample?: string }, verb: string): LabelPolicy {
+  const mode = opts.labelMode ?? "percentile";
+  if (mode !== "percentile" && mode !== "fixed") raiseError("E_FLAG_UNKNOWN", { flag: "label-mode", value: mode, allowed: "percentile, fixed", verb });
+  const percentiles = opts.labelPercentiles ? parseLabelPercentiles(opts.labelPercentiles) : DEFAULT_LABEL_PERCENTILES;
+  if (!percentiles) raiseError("E_INPUT_INVALID", { field: "label-percentiles", detail: "expected breakout,outlier,strong in (0, 1), descending, e.g. 0.98,0.95,0.85", verb });
+  return { mode, percentiles, minSample: positiveInt(opts.labelMinSample ?? "200", "label-min-sample", verb) };
+}
+
+function shareOf(value: unknown, field: string, verb: string): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0 || parsed >= 1) raiseError("E_INPUT_INVALID", { field, detail: "expected a share between 0 and 1", verb });
+  return parsed;
 }
 
 // ─── Rendering ──────────────────────────────────────────────────────────────
@@ -510,10 +778,13 @@ function workspaceOf(command: Command, verb: string): string {
   return resolved.workspaceId;
 }
 
-function nicheOf(value: unknown, verb: string): string | null {
+function nicheOf(value: unknown, verb: string, workspaceId?: string): string | null {
   if (value === undefined || value === null || value === "") return null;
-  if (!isNiche(value)) raiseError("E_FLAG_UNKNOWN", { flag: "niche", value: String(value), allowed: NICHES.join(", "), verb });
-  return value;
+  if (isNiche(value)) return value;
+  // Open niches created by `trends niche init` (#576) are first-class too.
+  const open = workspaceId ? openNicheSlugs(workspaceId) : new Set<string>();
+  if (typeof value === "string" && open.has(value)) return value;
+  raiseError("E_FLAG_UNKNOWN", { flag: "niche", value: String(value), allowed: [...NICHES, ...open].join(", "), verb });
 }
 
 function platformOf(value: unknown, verb: string): TrendPlatform {
@@ -562,6 +833,7 @@ function liveDeps(opts: { llm?: boolean; quietProgress?: boolean; youtubeApi?: b
   return {
     ytdlp: runYtdlp,
     capture: capturePageXhr,
+    tiktokProfiles: openTiktokProfileSession,
     ...(apifyAvailable()
       ? { apify: (input) => apifyRunActorDetailed({ actorId: input.actorId, input: input.input, maxItems: input.maxItems, maxTotalChargeUsd: input.maxTotalChargeUsd }) }
       : {}),

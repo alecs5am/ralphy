@@ -11,6 +11,8 @@ export interface SourceCreator {
   videoCount: number | null;
   totalLikes: number | null;
   region: string | null;
+  /** Public bio / channel description (only a scrubbed excerpt is stored, #576). */
+  bio?: string | null;
 }
 
 export interface SourceMetrics {

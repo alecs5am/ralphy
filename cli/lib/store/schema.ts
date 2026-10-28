@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 export const GLOBAL_MEMORY_WORKSPACE_ID = "ws_00000000-0000-0000-0000-000000000000";
 
 export type Migration = {
@@ -4818,6 +4818,79 @@ export const MIGRATIONS: readonly Migration[] = [
       BEFORE UPDATE ON trend_video_digests
       BEGIN
         SELECT RAISE(ABORT, 'Trend video digest links are append-only');
+      END;
+    `,
+  },
+  {
+    // #576 on-demand niche onboarding. A niche created from a topic is a
+    // first-class open niche with its own sub-niche taxonomy and relevance
+    // lexicon; members are the creators its seeds and snowball found, with
+    // the relevance-gate verdict and the main / negative / anomaly group.
+    // Membership is re-evaluated on every `trends niche init`, so it is a
+    // mutable row (row_version), not history.
+    version: 12,
+    sql: `
+      CREATE TABLE trend_niches (
+        id TEXT PRIMARY KEY CHECK (id GLOB 'tniche_*'),
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+        slug TEXT NOT NULL CHECK (length(slug) BETWEEN 1 AND 64 AND slug NOT GLOB '*[^a-z0-9-]*'),
+        topic TEXT NOT NULL CHECK (length(topic) BETWEEN 1 AND 200),
+        languages_json TEXT NOT NULL CHECK (json_valid(languages_json)),
+        platforms_json TEXT NOT NULL CHECK (json_valid(platforms_json)),
+        parent_niche TEXT,
+        taxonomy_json TEXT NOT NULL CHECK (json_valid(taxonomy_json)),
+        settings_json TEXT NOT NULL CHECK (json_valid(settings_json)),
+        seed_source TEXT NOT NULL CHECK (seed_source IN ('file', 'llm', 'topic')),
+        last_run_id TEXT REFERENCES runs(id) ON DELETE RESTRICT,
+        row_version INTEGER NOT NULL DEFAULT 1 CHECK (row_version > 0),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (workspace_id, slug)
+      );
+
+      CREATE TABLE trend_niche_members (
+        niche_id TEXT NOT NULL REFERENCES trend_niches(id) ON DELETE RESTRICT,
+        creator_id TEXT NOT NULL REFERENCES trend_creators(id) ON DELETE RESTRICT,
+        status TEXT NOT NULL CHECK (status IN ('candidate', 'kept', 'dropped', 'undetermined')),
+        cohort_group TEXT CHECK (cohort_group IS NULL OR cohort_group IN ('main', 'negative', 'anomaly')),
+        language TEXT,
+        relevance REAL CHECK (relevance IS NULL OR (relevance >= 0 AND relevance <= 1)),
+        sampled INTEGER CHECK (sampled IS NULL OR sampled >= 0),
+        on_topic INTEGER CHECK (on_topic IS NULL OR on_topic >= 0),
+        sub_niche TEXT,
+        sub_niche_confidence REAL,
+        gate_method TEXT CHECK (gate_method IS NULL OR gate_method IN ('rule', 'llm', 'manual')),
+        gate_reason TEXT,
+        flags_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(flags_json)),
+        evidence_json TEXT CHECK (evidence_json IS NULL OR json_valid(evidence_json)),
+        round INTEGER NOT NULL DEFAULT 0 CHECK (round >= 0),
+        discovered_via TEXT NOT NULL CHECK (length(discovered_via) BETWEEN 1 AND 600),
+        evaluated_at INTEGER,
+        run_id TEXT REFERENCES runs(id) ON DELETE RESTRICT,
+        row_version INTEGER NOT NULL DEFAULT 1 CHECK (row_version > 0),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (niche_id, creator_id)
+      ) WITHOUT ROWID;
+      CREATE INDEX trend_niche_members_creator ON trend_niche_members (creator_id);
+      CREATE INDEX trend_niche_members_status ON trend_niche_members (niche_id, status, cohort_group);
+
+      CREATE TRIGGER trend_niche_members_scope_insert
+      BEFORE INSERT ON trend_niche_members
+      WHEN NOT EXISTS (
+        SELECT 1 FROM trend_niches niche JOIN trend_creators creator ON creator.workspace_id = niche.workspace_id
+        WHERE niche.id = NEW.niche_id AND creator.id = NEW.creator_id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Trend niche member must share the niche Workspace');
+      END;
+
+      CREATE TRIGGER trend_niches_identity_guard
+      BEFORE UPDATE OF id, workspace_id, slug, created_at ON trend_niches
+      WHEN NEW.id IS NOT OLD.id OR NEW.workspace_id IS NOT OLD.workspace_id
+        OR NEW.slug IS NOT OLD.slug OR NEW.created_at IS NOT OLD.created_at
+      BEGIN
+        SELECT RAISE(ABORT, 'Trend niche identity is immutable');
       END;
     `,
   },

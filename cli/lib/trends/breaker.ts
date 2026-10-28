@@ -35,10 +35,24 @@ const CREATOR_FAILURE_PATTERNS: RegExp[] = [
   /Unable to extract (user|channel)/i,
 ];
 
+/**
+ * An age gate is a property of one video, not bot defense: yt-dlp's message
+ * mentions cookies, so without this check it would read as a login wall and
+ * trip the whole source (#576: one age-restricted Short stopped watch-page
+ * dating after 27 calls). The video is skipped; nothing is bypassed.
+ */
+const AGE_GATE = /confirm your age|age[- ]restricted|inappropriate for some users/i;
+/** A private account (yt-dlp also suggests cookies here) is the creator's state, not a login wall. */
+const PRIVATE_ACCOUNT = /account is (likely )?(either )?private|all of their videos are private|This account is private/i;
+
 /** Classify a yt-dlp (or page capture) result by its diagnostics and entry count. */
 export function classifyProbe(input: { code: number; stderr: string; entries: number; timedOut?: boolean }): ProbeOutcome {
   const lines = input.stderr.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const errorLine = lines.find((line) => /^ERROR\b/.test(line)) ?? lines.at(-1) ?? "";
+  const ageGate = lines.find((line) => AGE_GATE.test(line));
+  if (ageGate && input.entries === 0) return { kind: "failed", reason: "age-restricted", detail: ageGate.slice(0, 240) };
+  const privateAccount = lines.find((line) => PRIVATE_ACCOUNT.test(line));
+  if (privateAccount && input.entries === 0) return { kind: "failed", reason: "creator", detail: privateAccount.slice(0, 240) };
   for (const [pattern, reason] of BLOCK_PATTERNS) {
     const hit = lines.find((line) => pattern.test(line));
     if (hit) return { kind: "blocked", reason, detail: hit.slice(0, 240) };

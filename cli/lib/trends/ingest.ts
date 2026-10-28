@@ -50,7 +50,9 @@ import {
   type TrendMetric,
   type TrendPlatform,
 } from "./math.js";
-import { cohortStats, creatorBaselineRows, scoreCreator } from "./score.js";
+import { cohortStats, creatorBaselineRows, scoreCreator, type VideoScore } from "./score.js";
+import { CALIBRATION_MATURE_HOURS, DEFAULT_LABEL_POLICY, calibrateLabelThresholds, labelWithThresholds, type LabelPolicy, type LabelThresholds } from "./thresholds.js";
+import { nicheLabelOverrides, openNicheSlugs } from "../store/trend-niches.js";
 import {
   EXPLORE_XHR,
   SOUND_XHR,
@@ -86,6 +88,8 @@ import {
   type PaidSource,
 } from "./sources/paid.js";
 import type { YtdlpRunner } from "./sources/ytdlp.js";
+import { bioMetadata } from "./text.js";
+import type { TiktokProfileOpener } from "./sources/tiktok.js";
 import type { DiscoveryResult, ListingResult, SourceCreator, SourceVideo } from "./sources/types.js";
 import type { YouTubeVideoDetails } from "../providers/youtube-analytics.js";
 
@@ -138,6 +142,8 @@ export interface TrendDeps {
   youtubeDetails?: (ids: readonly string[]) => Promise<YouTubeVideoDetails[]>;
   /** Present only when `--llm` is set. */
   llm?: LlmCaller;
+  /** Logged-out TikTok profile pages (handle -> secUid), #576 niche onboarding. */
+  tiktokProfiles?: TiktokProfileOpener;
   now: () => number;
   /** Progress to stderr (never stdout). */
   log?: (event: Record<string, JsonValue>) => void;
@@ -159,6 +165,8 @@ export interface TrendPassSummary {
   counts: Record<string, number>;
   notes: string[];
   costUsd?: number;
+  /** Creators a discovery pass wrote, with the seed that found them (#576). */
+  discovered?: Array<{ creatorId: string; via: string }>;
 }
 
 const json = (value: unknown): JsonValue => JSON.parse(JSON.stringify(value)) as JsonValue;
@@ -421,8 +429,13 @@ function apiVideo(detail: YouTubeVideoDetails): SourceVideo | null {
   };
 }
 
-async function discoveryPass(options: IngestOptions, watchlists: WatchlistDto[], deps: TrendDeps): Promise<TrendPassSummary> {
+export async function discoveryPass(options: IngestOptions, watchlists: WatchlistDto[], deps: TrendDeps): Promise<TrendPassSummary> {
   const facts = SOURCE_FACTS[options.source];
+  // Open niches (#576) are assigned by the relevance gate, never by the seed
+  // that found a creator: a broad hashtag also surfaces off-topic creators.
+  const openNiches = openNicheSlugs(options.workspaceId);
+  const stampable = (niche: string | null) => (niche && !openNiches.has(niche) ? niche : null);
+  const discovered: Array<{ creatorId: string; via: string }> = [];
   const breaker = new CircuitBreaker(facts.discovery, { budget: options.budget, clock: deps.now });
   const counts = emptyCounts();
   const notes: string[] = [];
@@ -481,7 +494,7 @@ async function discoveryPass(options: IngestOptions, watchlists: WatchlistDto[],
         creators: creators.map((creator) => creatorInput(creator, {
           discoveredVia,
           watchlistId: watchlist.id,
-          niche: watchlist.niche ?? options.niche,
+          niche: stampable(watchlist.niche ?? options.niche),
           asOf,
           source: facts.discovery,
           region: result.region ?? null,
@@ -495,6 +508,7 @@ async function discoveryPass(options: IngestOptions, watchlists: WatchlistDto[],
         })),
       });
       addBatch(counts, batch);
+      for (const creatorId of batch.creatorIds) discovered.push({ creatorId, via: discoveredVia });
       markWatchlistRun({ watchlistId: watchlist.id, runId: run.id, at: asOf });
       deps.log?.({ kind: "trend.discover", seed: watchlist.value, outcome: result.outcome.kind, creators: creators.length, videos: videos.length });
       if (breaker.tripped) break;
@@ -515,7 +529,7 @@ async function discoveryPass(options: IngestOptions, watchlists: WatchlistDto[],
   });
   finishRun(run.id, failure ? { state: "failed", error: failure } : { state: "succeeded" });
   if (failure) throw failure;
-  return { runId: run.id, kind: "trend.discover", source: facts.discovery, requests: breakerState.requests, breaker: breakerState, counts, notes, ...(facts.paid ? { costUsd } : {}) };
+  return { runId: run.id, kind: "trend.discover", source: facts.discovery, requests: breakerState.requests, breaker: breakerState, counts, notes, ...(facts.paid ? { costUsd } : {}), discovered };
 }
 
 // ─── Listing ────────────────────────────────────────────────────────────────
@@ -574,6 +588,7 @@ export async function listingPass(input: {
             displayName: result.creator.displayName ?? null,
             followerCount: result.creator.followers ?? null,
             discoveredVia: "listing",
+            metadata: bioMetadata(result.creator.bio, source),
             snapshot: typeof result.creator.followers === "number" ? { asOf, source, followerCount: result.creator.followers } : null,
           }]
         : [];
@@ -797,13 +812,51 @@ export function currentCurves(workspaceId: string): Partial<Record<TrendPlatform
 
 export interface ScorePassResult extends TrendPassSummary {
   curves: Record<string, MaturityCurve>;
+  labelThresholds: LabelThresholds[];
 }
 
-export function scorePass(input: { workspaceId: string; now: number; refit: boolean }): ScorePassResult {
+/**
+ * Relabel scores with per platform x niche percentile thresholds (#576),
+ * calibrated on mature (7 days or older), non-thin, non-provisional videos.
+ * Mutates `label` and `detail.labelThresholds`; returns the lookup summary.
+ */
+export function applyLabelThresholds(scores: Array<VideoScore & { cohortKey: string }>, policy: LabelPolicy): LabelThresholds[] {
+  const groupOf = (cohortKey: string) => {
+    const [platform = "unknown", niche = "unknown"] = cohortKey.split("|");
+    return { platform, niche };
+  };
+  const samples = scores.flatMap((score) => {
+    if (score.multiplier === null || !score.detail) return [];
+    if (score.flags.includes("thin") || score.flags.includes("provisional")) return [];
+    if ((score.detail.ageHours ?? 0) < CALIBRATION_MATURE_HOURS) return [];
+    return [{ ...groupOf(score.cohortKey), multiplier: score.multiplier }];
+  });
+  const lookup = calibrateLabelThresholds(samples, policy);
+  for (const score of scores) {
+    if (score.multiplier === null || score.z === null || !score.detail) continue;
+    const group = groupOf(score.cohortKey);
+    const thresholds = lookup(group.platform, group.niche);
+    score.label = labelWithThresholds({
+      viewsMultiplier: score.multiplier,
+      viewsZ: score.z,
+      thin: score.flags.includes("thin"),
+      provisional: score.flags.includes("provisional"),
+    }, thresholds);
+    score.detail.labelThresholds = { group: thresholds.group, basis: thresholds.basis, breakout: thresholds.breakout, outlier: thresholds.outlier, strong: thresholds.strong };
+  }
+  return lookup.summary();
+}
+
+export function scorePass(input: { workspaceId: string; now: number; refit: boolean; labelPolicy?: LabelPolicy }): ScorePassResult {
   const run = startRun({ workspaceId: input.workspaceId, kind: "trend.score", label: "Trend outlier scores", metadata: json({ source: "score", refit: input.refit }) });
-  const attempt = startRunAttempt({ runId: run.id, provider: "ralphy", model: "outlier-v1", request: json({ refit: input.refit }) });
+  const policy: LabelPolicy = {
+    ...(input.labelPolicy ?? DEFAULT_LABEL_POLICY),
+    overrides: { ...nicheLabelOverrides(input.workspaceId), ...(input.labelPolicy?.overrides ?? {}) },
+  };
+  const attempt = startRunAttempt({ runId: run.id, provider: "ralphy", model: "outlier-v1", request: json({ refit: input.refit, labelMode: policy.mode, labelPercentiles: policy.percentiles }) });
   const counts: Record<string, number> = { creators: 0, videos: 0, scored: 0, labeled: 0, breakout: 0, outlier: 0, strong: 0, normal: 0, under: 0, unscored: 0 };
   const notes: string[] = [];
+  let labelThresholds: LabelThresholds[] = [];
   let curves: Partial<Record<TrendPlatform, MaturityCurve>> = currentCurves(input.workspaceId);
   let failure: unknown = null;
   try {
@@ -819,23 +872,27 @@ export function scorePass(input: { workspaceId: string; now: number; refit: bool
     const creators = loadScoringInput({ workspaceId: input.workspaceId });
     const options = { now: input.now, curves };
     const stats = cohortStats(creators, options);
-    const scores = [];
+    const scores: Array<VideoScore & { cohortKey: string }> = [];
     const creatorBaselines = [];
     for (const creator of creators) {
       counts.creators += 1;
       const byId = new Map(creator.videos.map((video) => [video.id, video]));
-      for (const score of scoreCreator(creator, stats, options)) {
-        counts.videos += 1;
-        if (score.multiplier !== null) counts.scored += 1;
-        else counts.unscored += 1;
-        if (score.label) {
-          counts.labeled += 1;
-          counts[score.label] = (counts[score.label] ?? 0) + 1;
-        }
-        scores.push({ ...score, cohortKey: byId.get(score.videoId)!.cohortKey });
-      }
+      for (const score of scoreCreator(creator, stats, options)) scores.push({ ...score, cohortKey: byId.get(score.videoId)!.cohortKey });
       for (const row of creatorBaselineRows(creator, options)) creatorBaselines.push({ ...row, creatorId: creator.creatorId, windowK: WINDOW_K });
     }
+    labelThresholds = applyLabelThresholds(scores, policy);
+    for (const score of scores) {
+      counts.videos += 1;
+      if (score.multiplier !== null) counts.scored += 1;
+      else counts.unscored += 1;
+      if (score.label) {
+        counts.labeled += 1;
+        counts[score.label] = (counts[score.label] ?? 0) + 1;
+      }
+    }
+    const calibrated = labelThresholds.filter((row) => row.basis !== "fixed");
+    if (policy.mode === "fixed") notes.push("labels use the fixed #556 multipliers (--label-mode fixed)");
+    else if (calibrated.length > 0) notes.push(`labels calibrated by percentile for ${calibrated.map((row) => `${row.group} (n ${row.n}: breakout ${row.breakout}x, outlier ${row.outlier}x, strong ${row.strong}x)`).join("; ")}`);
     const cohortBaselines = [...stats.entries()].map(([key, value]) => {
       const [cohort, metric] = key.split("#");
       return { cohortKey: cohort!, metric: metric as TrendMetric, medianLog: value.median, madLog: value.scale, n: value.n, windowDays: COHORT_WINDOW_DAYS };
@@ -846,11 +903,11 @@ export function scorePass(input: { workspaceId: string; now: number; refit: bool
   }
   const curveRecord: Record<string, MaturityCurve> = {};
   for (const platform of TREND_PLATFORMS) curveRecord[platform] = curves[platform] ?? MATURITY_PRIORS[platform];
-  finishRunAttempt(attempt.id, { state: failure ? "failed" : "succeeded", response: json({ counts, curves: curveRecord, notes }), ...(failure ? { error: failure } : {}) });
+  finishRunAttempt(attempt.id, { state: failure ? "failed" : "succeeded", response: json({ counts, curves: curveRecord, labelThresholds, notes }), ...(failure ? { error: failure } : {}) });
   finishRun(run.id, failure ? { state: "failed", error: failure } : { state: "succeeded" });
   if (failure) throw failure;
   const breaker = new CircuitBreaker("score", { budget: 0 }).snapshot();
-  return { runId: run.id, kind: "trend.score", source: "score", requests: 0, breaker, counts, notes, curves: curveRecord };
+  return { runId: run.id, kind: "trend.score", source: "score", requests: 0, breaker, counts, notes, curves: curveRecord, labelThresholds };
 }
 
 // ─── Ingest ─────────────────────────────────────────────────────────────────

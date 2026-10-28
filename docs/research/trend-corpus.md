@@ -318,6 +318,28 @@ are `outlier`: in the TikTok sample, raw views versus the median of 30 neighbors
 (no age correction) gave 24% of videos at 3x or more and 10% at 10x or more, so these
 distributions are heavy-tailed.
 
+**Percentile labels (#576, the default since the build run).** The fixed cuts
+above labeled 9.5% of mature TikTok videos `breakout`. Labels are now set per
+platform x niche from the multiplier distribution of mature (7 days or older),
+non-thin, non-provisional videos, with the fixed multipliers kept as floors:
+
+```
+breakout  X >= max(10, p98)               top 2%
+outlier   X >= max(5,  p95) and Z >= 2     top 5% (with the z rule)
+strong    X >= max(3,  p85)               top 15%
+under     X < 0.5                          unchanged
+```
+
+A group needs 200 calibration videos; below that it uses the platform-wide
+distribution, then the fixed cuts. The niche is the creator-level niche in the
+cohort key (an open niche from `trends niche init`, or a fixed-taxonomy niche).
+Overrides: `trends score --label-percentiles 0.98,0.95,0.85`,
+`--label-min-sample <n>`, `--label-mode fixed` (the #556 cuts only), and per
+niche through `settings.labelPercentiles` in the niche seeds file
+(`niche init --label-percentiles`). Each score stores the cut that labeled it
+in `outlier_detail_json.labelThresholds`; each `trend.score` run stores the
+full table. Implementation: `cli/lib/trends/thresholds.ts`.
+
 **8. Momentum ("rising now")** between consecutive snapshots at ages `a1 < a2`:
 
 ```
@@ -687,8 +709,9 @@ or discovery-only). Of the 7,987 with a non-thin, non-provisional baseline, 23%
 reached 3x their creator's shrunk baseline and 10% reached 10x, the same
 heavy tail as the uncorrected sample (24% and 10%). Labels on mature videos (7
 days or older): breakout 9.5%, outlier 2.0%, strong 10.7%, normal 52%, under 25%.
-The formula's thresholds therefore over-label `breakout`; the recalibration step
-(about 5% `outlier` per platform) is still open. YouTube videos stay **unscored**:
+The formula's thresholds therefore over-label `breakout`; #576 replaced them with
+percentile labels (see "Percentile labels" under the outlier formula and the
+before / after table under "Niche onboarding runs (#576)"). YouTube videos stay **unscored**:
 channel Shorts tabs carry no post time, so without the YouTube Data API connector
 (`YOUTUBE_API_KEY`, not configured here) every YouTube row is `undated` with
 rounded views. Explore localized to the IP's country again (creator region KR;
@@ -713,6 +736,189 @@ What the run changes: YouTube needs the Data API connector to be scored at all,
 TikTok English coverage still needs non-geo-localized seeds (paid keyword seeds or
 manual watchlists), and outlier thresholds need recalibration on this
 distribution.
+
+## Niche onboarding (#576)
+
+`ralphy trends niche init "<topic>" --lang en[,ru] --platform tiktok,youtube
+--seeds-file <json> [--target-creators 300]` turns a topic into an open niche
+(migration 12: `trend_niches`, `trend_niche_members`) and fills it with
+creators; `ralphy trends niche report <niche> [--lang en] [--markdown <file>]
+[--document]` reads it. Dataset contract: `docs/research/trend-dataset-spec.md`.
+
+**Seeds.** The default seed source is an agent-authored JSON file (free):
+the relevance lexicon per language (`core` terms count 1, `support` 0.5,
+`negative` vetoes weak matches; `stem*` is a prefix match, multi-word terms
+also match their hashtag spelling), the sub-niche taxonomy (`{ slug, label,
+terms }`), and seeds (`{ platform, kind: keyword | hashtag | creator | sound |
+explore-category, value, language? }`). `--llm-seeds` replaces the file with
+one `callLLM()` call; without either, a deterministic fallback uses the topic
+as keyword, hashtag, and the only lexicon term (and says so). Every seed is a
+watchlist row with the niche slug. A second `niche init` for another language
+adds to the niche: languages and lexicons merge, sub-niches with the same slug
+pool their terms.
+
+**Discovery, free sources only.** Round 0 runs the seeds: YouTube keyword
+search (`ytsearchN:`, 100 results), hashtag pages, channel Shorts tabs by id or
+`@handle` (stored under the channel id), TikTok handles through the logged-out
+profile page (`tiktok-profile` source: the rehydration JSON gives secUid,
+followers, video and like counts, and the bio; yt-dlp then lists the secUid),
+TikTok sound pages and Explore categories when seeded. Explore follows the
+client IP's country, so English and Russian TikTok creators come from
+cross-platform handles. Snowball rounds expand from the creators kept in the
+previous round: TikTok handles named in YouTube channel descriptions, the same
+`@handle` tried on TikTok, `@mentions` in captions and bios (stitch / duet
+credits, "main account"), YouTube handles named in bios, and up to 8 on-topic
+co-hashtags per round (used by 2+ kept creators, not generic, containing a
+lexicon term). YouTube removed the featured-channels tab (yt-dlp: "This
+channel does not have a channels tab" on every channel probed) and TikTok's
+suggested accounts need a login, so neither is used. **Stop rule:** target
+reached, a round adds under 5% new relevant creators, no expansion seeds, the
+round cap (4), or the wall-time budget (45 minutes, checked between rounds).
+Every source keeps its #556 circuit breaker; expansion-only watchlists use
+sources that `trends refresh` skips.
+
+**Relevance gate.** The newest 30 listed videos per creator (title, caption,
+hashtags), judged by the lexicon of the creator's detected language (script
+plus function-word guess; another language drops the creator). Kept at 60% or
+more on-topic among captioned videos; fewer than 8 captioned videos leaves it
+`undetermined`; a channel without a Shorts tab is dropped as `no-listing`.
+Sub-niche: the taxonomy entry most on-topic videos match (2+ votes and 25% of
+on-topic videos), else `general`. Kept creators without a niche take the open
+niche slug (so cohort keys and percentile labels run per niche); off-topic
+creators found only through niche seeds leave the refresh rotation (`excluded`
+with a gate reason; a later keep restores them). `--llm-relevance` adds a
+batched `callLLM()` judgment for undetermined and near-threshold creators (off
+by default; not run here). `--no-discover` re-gates stored members after a
+lexicon edit.
+
+**Quotas, groups, flags.** Quota bands follow the spec (`<10k`, `10k-100k`,
+`100k-1M`, `1M+`, target / 4 each, small bands may exceed); listing order puts
+candidates of under-filled bands first when the follower count is known before
+listing. Anomaly accounts (engagement rate per view a robust outlier, `|z| >=
+3.5` on the log scale among the niche's creators, or interactions above views
+on 20% of videos; compilation / clip / repost names; 30%+ of captions also
+posted by another creator) are group `anomaly`, kept out of both analyses. The
+negative control group (default 17.5% of kept creators, size-matched per quota
+band, most persistently below first) needs 6+ posts in 30 days, 75%+ of the
+60-day window below the platform x niche x size cohort median of projected
+views, no video at 3x or a strong-or-better label, and flat follower growth
+(at most 5% per 30 days); with less than 60 days of follower snapshots the
+group is selected from backfill and flagged `provisional`. Negative creators
+whose engagement per view is in the niche's top quarter are flagged
+`packaging-weak`. YouTube creators cannot enter it (no dated videos).
+
+**Copyability ranking (the report's "what to copy").** Per main-group video:
+
+```
+score = sizeWeight x (ln X + 0.5 ln(1 + min(views / followers, 100)))
+        x (replicationFactor + 0.1 per same-creator repeat, max +0.3)
+sizeWeight: seed 1, nano 1, micro 0.85, mid 0.6, macro 0.45, mega 0.3
+replicationFactor = 1 + 0.2 x min(n - 1, 5) when the video's format or hook
+  broke out (X >= 3, views >= floor) for n >= 2 distinct small creators
+excluded: views < noise floor (default 50k), X <= 1, thin, provisional, unscored
+```
+
+Followers are the snapshot nearest the metrics. Every ranked row shows X, ln
+X, views, followers, views per follower, the reach term, size band and
+weight, the replicated format / hook with its small-creator count, same-creator
+repeats, and the factor. Test: a micro creator's 20x video at 500k views ranks
+above a mega creator's 1.5x at 5M, and a 3x jump at 900 views is excluded.
+
+**Corpus discipline (owner checkpoint, 2026-10-28).** The corpus target is
+about 100k videos across all niches, so collection is gated before backfill:
+`--sample-listing 12` lists each candidate with 12 videos, gates on them, and
+gives the full 60-video backfill only to kept creators (dropped candidates are
+never backfilled); `--sample-cap 400` keeps at most 400 kept creators per niche
+and language in the analysis set, stratified by quota band (up to 100 per band,
+then remaining slots round-robin, TikTok and higher relevance first). Creators
+above the cap stay stored with the `out-of-sample` flag; nothing is deleted.
+Reports and the counts below use in-sample kept creators only.
+
+## Niche onboarding runs (#576)
+
+2026-10-28, same scratch corpus Workspace as the #556 build run
+(`.ralphy/cache/trend-corpus-run/`, gitignored), same residential connection,
+free logged-out sources only (no cookies, proxies, provider keys, or paid
+runs; cost $0). Seeds were agent-authored per niche (English seeds for EN,
+Russian-language seeds for RU, stored only in the scratch root): 30-40 YouTube
+keyword queries, 12-16 hashtags, a few known creator handles, 8-9 sub-niches,
+and a lexicon of 90-230 terms per language. Two listing workers, 150 ms pause.
+The visual niche is **fitness**: two 50-result probe queries per candidate
+gave 38 unique channels per query for fitness against 27 for food.
+
+Kept = in-sample kept creators (the corpus number); videos = their listed
+videos.
+
+| Niche | Lang | Discovery wall | Rounds / stop | Kept (in sample) | <10k / 10k-100k / 100k-1M / 1M+ | TikTok / YouTube | Videos (dated) | Gate keep / drop / undetermined (all listed) | Out of sample | Negative group | Blocks |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| psychology | en | 29.6 + 7.3 min | 2 + 1, target reached | 417 | 126 / 129 / 129 / 32 | 47 / 370 | 20,892 (2,737) | 562 / 1,012 / 203 | 145 | 2 (provisional) | 1 (watch page, age gate) |
+| psychology | ru | 30.2 min | 3, growth under 5% | 383 | 235 / 119 / 25 / 4 | 31 / 352 | 18,832 (1,595) | 383 / 820 / 150 | 0 | 0 | 0 |
+| AI tools / tech tips | en | ~14 min discovery + listing (stopped at the checkpoint), 3.6 min sample-first gate | 1, stopped | 400 | 107 / 113 / 112 / 65 | 7 / 393 | 17,836 (420) | 544 / 472 / 202 | 144 | 0 | 0 |
+| personal finance | en | 18.7 min (sample-first) | 2, target reached | 367 | 97 / 131 / 110 / 28 | 6 / 361 | 17,627 (216) | 367 / 535 / 128 | 0 | 0 | 1 (TikTok listing; a private account read as a login wall) |
+| fitness | en | FITNESS_WALL | FITNESS_ROUNDS | FITNESS_KEPT | FITNESS_BANDS | FITNESS_PLATFORMS | FITNESS_VIDEOS | FITNESS_GATE | FITNESS_OOS | FITNESS_NEG | FITNESS_BLOCKS |
+
+Notes on the runs:
+
+- **Psychology EN** passes the issue's acceptance (150+ relevant creators and
+  4,000+ videos): 417 in-sample kept creators with 20,892 videos. Round 0 (40
+  searches, 16 hashtags, 20 handles) found 1,774 candidates; listing them in
+  full took 18.6 minutes, which is what the sample-first gate now avoids.
+  Round 1 resolved 150 TikTok handles (same-name and bio-link guesses from the
+  kept YouTube channels) through profile pages with no block; 45 English
+  TikTok creators passed the gate. The continuation run stopped at its target
+  in round 0, and its watch-page dating tripped on an age-restricted Short
+  after 27 calls (classified as a login wall then; age gates are now a
+  per-video failure, not a source block). 112 watch-page calls were used of
+  the 150 budget (85 + 27), 84 in-sample candidates dated.
+- **Psychology RU** came from Russian-language YouTube searches and hashtags
+  (hashtag pages returned about 28 channels each, twice the English yield)
+  plus cross-platform TikTok handles. RU skews small (235 of 383 under 10k)
+  and short of 100k+ creators; the round-2 growth was 4.96%, so the stop rule
+  ended it.
+- **AI tools / tech tips** reused the #556 corpus as creator seeds (333 listed
+  creators) plus 30 English queries and 15 hashtags. The #556 TikTok creators
+  came from Korea-localized Explore and are dropped by the language gate
+  (`other`), so AI tools is almost YouTube-only (7 TikTok creators) and nearly
+  unscored.
+- **Language.** yt-dlp requests English, so YouTube titles arrive translated
+  when the creator provided title translations; a clear bio language now wins
+  for YouTube creators, which moved Russian creators with English titles from
+  the EN to the RU set.
+- **Relevance precision (psychology EN, hand check).** Rule-only gate: 47 of
+  50 random kept creators and 12 of 20 random dropped ones were correct (94% /
+  60%); the misses were therapists and coaches whose titles carry no lexicon
+  term ("Fawning", "Why couples start feeling like roommates"). With the
+  profile-anchored keep, a second random sample: 49 / 50 kept and 18 / 20
+  dropped correct (98% / 90%), above the 90% / 80% target. The remaining kept
+  error was a spiritual lifestyle channel whose bio mentions healing complex
+  trauma; the dropped errors were a licensed family therapist at 13% on-topic
+  (titles such as "Why couples start feeling like roommates") and a
+  psychologist whose recent titles are webinar announcements. The second
+  check ran before the final language rule, which later moved 4 of the 50
+  kept creators to the RU set.
+
+**Label recalibration, before / after** (mature 7 d+, non-thin, non-provisional
+TikTok videos; "before" = fixed 10x / 5x with z >= 2 / 3x):
+
+| Group | n | Cuts after (breakout / outlier / strong) | breakout | outlier | strong | normal | under |
+|---|---|---|---|---|---|---|---|
+| tiktok, tech-tips (#556 corpus), before | 6,702 | 10x / 5x / 3x | 9.5% | 2.0% | 10.7% | 52.4% | 25.4% |
+| tiktok, tech-tips, after | 6,702 | 73.1x / 22.3x / 5.1x | 2.0% | 2.4% | 10.6% | 59.6% | 25.4% |
+| tiktok, psychology, before | 3,304 | 10x / 5x / 3x | 5.7% | 2.5% | 6.4% | n/a | n/a |
+| tiktok, psychology, after | 3,304 | 27.2x / 11.3x / 3x (floor) | 2.0% | 2.4% | 10.2% | 65.5% | 19.9% |
+
+`breakout` now holds at 2% and `breakout` + `outlier` at 4.4% (the z >= 2
+rule removes part of the p95-p98 band). In psychology the p85 cut fell below
+3x, so the 3x floor sets `strong`.
+
+**What YouTube coverage lacks** (no `YOUTUBE_API_KEY`): post times, so every
+YouTube video is unscored (no multiplier, label, or copyability score); likes,
+comments, and exact views (Shorts tabs round to 2-3 significant figures);
+duration (no length band); posting cadence and activity. Watch-page dating
+(at most 150 calls per niche, Tier-1 candidates only, first block stops it)
+dates the top candidate per channel, but its baseline stays undated, so the
+report lists dated candidates separately with a raw listing ratio, labeled as
+a filter rather than the #556 score.
 
 ## Open risks
 

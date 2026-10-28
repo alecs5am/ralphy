@@ -97,6 +97,8 @@ export interface VideoScore {
     engagement: MetricValues;
     followerMultiplier: number | null;
     curve: { tauHours: number; k: number; basis: string };
+    /** Thresholds that produced the label (#576 percentile calibration). */
+    labelThresholds?: { group: string; basis: string; breakout: number; outlier: number; strong: number };
   } | null;
 }
 

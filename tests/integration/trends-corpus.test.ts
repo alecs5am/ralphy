@@ -99,11 +99,11 @@ const count = (sql: string, ...values: string[]) =>
 describe("migration 11", () => {
   test("installs the trend tables with append-only snapshot history", () => {
     const db = openDomainDb();
-    expect(SCHEMA_VERSION).toBe(11);
+    expect(SCHEMA_VERSION).toBe(12);
     const tables = db.query<{ name: string; sql: string }, []>("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name GLOB 'trend_*'").all();
     expect(tables.map((table) => table.name).sort()).toEqual([
       "trend_baselines", "trend_cohort_baselines", "trend_cohort_labels", "trend_creator_snapshots",
-      "trend_creators", "trend_metric_snapshots", "trend_video_digests", "trend_videos", "trend_watchlists",
+      "trend_creators", "trend_metric_snapshots", "trend_niche_members", "trend_niches", "trend_video_digests", "trend_videos", "trend_watchlists",
     ]);
     expect(tables.find((table) => table.name === "trend_metric_snapshots")!.sql).toMatch(/WITHOUT ROWID/);
     const now = Date.now();

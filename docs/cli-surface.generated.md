@@ -2500,7 +2500,11 @@ Commands:
                                  creators, then label and score. Headless; stops
                                  a source when its breaker trips.
   score [options]                Recompute outlier scores, creator baselines,
-                                 and cohort baselines for the corpus Workspace
+                                 and cohort baselines for the corpus Workspace.
+                                 Labels are calibrated per platform x niche by
+                                 percentile (breakout top 2%, outlier top 5%
+                                 with z >= 2, strong top 15%; the fixed 10x / 5x
+                                 / 3x stay as floors)
   label [options]                Write deterministic cohort labels; with --llm
                                  also classify format / hook through callLLM()
                                  (labels below 0.6 confidence stay unknown)
@@ -2522,6 +2526,13 @@ Commands:
   link-digest [options] <video>  Attach a #557 reference digest to a corpus
                                  video: a bundle directory (relative to the data
                                  root) or a Document id
+  niche                          On-demand niche onboarding (#576): a topic
+                                 becomes an open niche with its own sub-niches;
+                                 seeds -> snowballed creator discovery on free
+                                 sources -> relevance gate (60%+ of the last 30
+                                 videos on-topic) -> size-band quotas, negative
+                                 control group, anomaly flags -> niche report
+                                 ranked by copyability
   help [command]                 display help for command
 ```
 

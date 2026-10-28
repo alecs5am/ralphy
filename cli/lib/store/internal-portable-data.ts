@@ -67,6 +67,10 @@ export const PORTABLE_TABLES: Table[] = [
   { name: "trend_metric_snapshots", type: "trend_metric_snapshot", owner: ["video_id", "trend_videos"] },
   { name: "trend_cohort_labels", type: "trend_cohort_label", owner: ["video_id", "trend_videos"] },
   { name: "trend_video_digests", type: "trend_video_digest", owner: ["video_id", "trend_videos"] },
+  // #576 open niches and their memberships (re-evaluated, but not recomputable
+  // without re-scraping the discovery rounds, so they travel).
+  { name: "trend_niches", type: "trend_niche", prefix: "tniche", workspace: true },
+  { name: "trend_niche_members", type: "trend_niche_member", owner: ["niche_id", "trend_niches"] },
 ];
 export type PortableTables = Record<string, PortableRecord[]>;
 export type PortableMapping = { oldType: string; oldId: string; newType: string; newId: string };

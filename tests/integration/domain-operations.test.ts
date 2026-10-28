@@ -88,7 +88,7 @@ describe("migration 3 structured domain schema", () => {
         .map((row) => row.name),
     );
 
-    expect(SCHEMA_VERSION).toBe(11);
+    expect(SCHEMA_VERSION).toBe(12);
     expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: SCHEMA_VERSION });
     expect([...TASK_7_TABLES].filter((table) => !tables.has(table))).toEqual([]);
   });

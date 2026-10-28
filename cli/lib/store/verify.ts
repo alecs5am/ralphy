@@ -253,6 +253,8 @@ const TEXT_COLUMNS = {
   trend_creator_snapshots: "creator_id,source,run_id",
   trend_creators: "id,workspace_id,platform,platform_creator_id,handle,display_name,size_band,niche,sub_niche,niche_method,region,tier,discovered_via,watchlist_id,last_list_error,metadata_json",
   trend_metric_snapshots: "video_id,checkpoint,source,views_precision,run_id",
+  trend_niche_members: "niche_id,creator_id,status,cohort_group,language,sub_niche,gate_method,gate_reason,flags_json,evidence_json,discovered_via,run_id",
+  trend_niches: "id,workspace_id,slug,topic,languages_json,platforms_json,parent_niche,taxonomy_json,settings_json,seed_source,last_run_id",
   trend_video_digests: "video_id,ref_kind,digest_ref,params_json",
   trend_videos: "id,workspace_id,platform,platform_video_id,creator_id,format_key,url,posted_at_source,title,description,hashtags_json,sound_id,sound_title,language,region,discovered_via,latest_views_precision,latest_source,cohort_key,outlier_label,outlier_mode,outlier_flags_json,outlier_detail_json",
   trend_watchlists: "id,workspace_id,platform,kind,value,source,niche,cursor_json,last_run_id",

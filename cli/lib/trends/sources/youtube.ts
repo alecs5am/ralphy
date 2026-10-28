@@ -68,7 +68,7 @@ export async function listYoutubeChannelShorts(input: {
   const args = flatListingArgs(youtubeShortsTabUrl(input.channelRef), {
     limit: input.limit,
     entryFields: ["id", "title", "view_count", "duration"],
-    playlistFields: ["id", "channel", "channel_id", "uploader_id", "channel_follower_count", "title"],
+    playlistFields: ["id", "channel", "channel_id", "uploader_id", "channel_follower_count", "title", "description"],
   });
   const result = await input.run(args, { timeoutMs: input.timeoutMs ?? 120_000 });
   const { entries, playlist } = parseJsonLines(result.stdout);
@@ -84,6 +84,7 @@ export async function listYoutubeChannelShorts(input: {
           handle: str(playlist.uploader_id),
           displayName: str(playlist.channel),
           followers: num(playlist.channel_follower_count),
+          bio: str(playlist.description),
         }
       : null,
     videos,
@@ -167,4 +168,72 @@ export async function discoverYoutubeSearch(input: { query: string; limit: numbe
   );
   const creators = channelSeedsFromEntries(parseJsonLines(result.stdout).entries);
   return { outcome: outcomeFor(result, creators.length), creators, videos: [], unresolvedVideoIds: [], requests: 1, ms: Date.now() - started };
+}
+
+// ─── Watch-page dating for Tier-1 candidates (#576) ─────────────────────────
+//
+// Without the YouTube Data API, Shorts tabs carry no post time. A single
+// watch-page call dates one video and gives exact views, likes, and comments,
+// but the watch page bot-walls after ~229 calls (#555), so this runs only for
+// Tier-1 candidates under a small budget (150 per niche) and stops on the
+// first bot check. Dated candidates stay unscored: their baseline window is
+// still undated.
+
+export const YOUTUBE_WATCH_SOURCE = "ytdlp-yt-watch";
+
+export async function dateYoutubeVideo(input: { id: string; run: YtdlpRunner; timeoutMs?: number }): Promise<{ outcome: ProbeOutcome; video: SourceVideo | null; ms: number }> {
+  const result = await input.run(
+    [
+      "--skip-download",
+      "--no-playlist",
+      "--no-warnings",
+      "--socket-timeout",
+      "15",
+      "--print",
+      "%(.{id,channel_id,timestamp,upload_date,view_count,like_count,comment_count,duration,language,title,tags})j",
+      youtubeShortUrl(input.id),
+    ],
+    { timeoutMs: input.timeoutMs ?? 60_000 },
+  );
+  const entry = parseJsonLines(result.stdout).entries[0];
+  const outcome = classifyProbe({ code: result.code, stderr: result.stderr, entries: entry ? 1 : 0, timedOut: result.timedOut });
+  if (!entry || outcome.kind !== "ok") return { outcome, video: null, ms: result.ms };
+  const channelId = str(entry.channel_id);
+  const timestamp = num(entry.timestamp);
+  const uploadDate = str(entry.upload_date);
+  const postedAt = timestamp !== null
+    ? timestamp * 1000
+    : uploadDate && /^\d{8}$/.test(uploadDate)
+      ? Date.UTC(Number(uploadDate.slice(0, 4)), Number(uploadDate.slice(4, 6)) - 1, Number(uploadDate.slice(6, 8)), 12)
+      : null;
+  if (!channelId) return { outcome: { kind: "failed", reason: "error", detail: "watch page had no channel id" }, video: null, ms: result.ms };
+  const duration = num(entry.duration);
+  const title = str(entry.title);
+  const tags = Array.isArray(entry.tags) ? (entry.tags as unknown[]).filter((tag): tag is string => typeof tag === "string") : [];
+  return {
+    outcome,
+    ms: result.ms,
+    video: {
+      platform: "youtube",
+      platformVideoId: input.id,
+      creatorPlatformId: channelId,
+      url: youtubeShortUrl(input.id),
+      postedAt,
+      durationMs: duration === null ? null : duration * 1000,
+      width: null,
+      height: null,
+      title,
+      description: null,
+      hashtags: [...new Set([...hashtagsFromText(title), ...tags.map((tag) => tag.toLowerCase().replace(/\s+/g, ""))])].slice(0, 30),
+      soundId: null,
+      soundTitle: null,
+      soundOriginal: null,
+      language: str(entry.language),
+      region: null,
+      isAd: null,
+      aigcLabel: null,
+      metrics: { views: num(entry.view_count), likes: num(entry.like_count), comments: num(entry.comment_count), shares: null, saves: null },
+      viewsPrecision: "exact",
+    },
+  };
 }

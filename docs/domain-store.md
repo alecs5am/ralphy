@@ -60,6 +60,16 @@ to a #557 digest bundle (path relative to the data root) or Document id.
 `trend_baselines` and `trend_cohort_baselines` are recomputable caches: they
 are the only `trend_*` tables that portable export leaves out.
 
+Migration 12 (#576) adds open niches: `trend_niches` (id prefix `tniche`, one
+row per `trends niche init` topic with its sub-niche taxonomy, relevance
+lexicon per language, and settings) and `trend_niche_members` (`WITHOUT
+ROWID`, keyed by niche and creator: relevance-gate verdict, language,
+sub-niche, main / negative / anomaly group, flags). Members are re-evaluated on
+every `niche init`, so they carry `row_version` instead of being append-only;
+a trigger keeps a member in its niche's Workspace. Both tables travel with
+portable export. A kept creator without a niche takes the open niche slug as
+its creator-level niche, so cohort keys and label thresholds run per niche.
+
 ## Bridge
 
 Start the long-lived JSONL bridge against an explicit data root:

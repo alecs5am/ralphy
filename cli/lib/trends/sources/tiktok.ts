@@ -398,3 +398,123 @@ export function parseApifyTiktokItem(item: Record<string, unknown>): { creator: 
     },
   };
 }
+
+// ─── Profile pages (handle -> secUid, followers, bio), #576 ─────────────────
+//
+// Cross-platform discovery yields TikTok handles (a YouTube channel's TikTok
+// link, a same-name handle, a caption @mention). yt-dlp cannot list a plain
+// @handle logged out ("Unable to extract secondary user ID"), so the
+// logged-out profile page resolves the handle: its rehydration JSON carries
+// the secUid, follower / video / like counts, and the bio. The page's own
+// video XHR returns an empty body logged out and is not used; videos still
+// come from the yt-dlp `tiktokuser:<secUid>` listing. A CAPTCHA overlay or a
+// page that never hydrates (WAF interstitial) is a block: the session stops.
+
+export const TIKTOK_PROFILE_SOURCE = "tiktok-profile";
+
+export interface TiktokProfile {
+  secUid: string;
+  uniqueId: string;
+  nickname: string | null;
+  signature: string | null;
+  followers: number | null;
+  videoCount: number | null;
+  hearts: number | null;
+  privateAccount: boolean;
+  region: string | null;
+}
+
+export interface TiktokProfileResult {
+  outcome: ProbeOutcome;
+  profile: TiktokProfile | null;
+  ms: number;
+}
+
+export interface TiktokProfileSession {
+  resolve(handle: string): Promise<TiktokProfileResult>;
+  close(): Promise<void>;
+}
+
+export type TiktokProfileOpener = () => Promise<TiktokProfileSession>;
+
+/** Parse the `__UNIVERSAL_DATA_FOR_REHYDRATION__` JSON of a profile page. */
+export function parseProfileRehydration(json: string): { outcome: ProbeOutcome; profile: TiktokProfile | null } {
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return { outcome: { kind: "failed", reason: "error", detail: "profile rehydration JSON did not parse" }, profile: null };
+  }
+  const scope = (data.__DEFAULT_SCOPE__ ?? {}) as Record<string, Record<string, unknown>>;
+  const detail = scope["webapp.user-detail"];
+  const status = num(detail?.statusCode);
+  const userInfo = (detail?.userInfo ?? {}) as Record<string, unknown>;
+  const user = (userInfo.user ?? {}) as Record<string, unknown>;
+  const stats = (userInfo.statsV2 ?? userInfo.stats ?? {}) as Record<string, unknown>;
+  const secUid = str(user.secUid);
+  const uniqueId = str(user.uniqueId);
+  if (status !== 0 || !secUid || !uniqueId) {
+    if (status === 10222) return { outcome: { kind: "failed", reason: "creator", detail: "This account is private" }, profile: null };
+    return { outcome: { kind: "failed", reason: "creator", detail: `profile not found (statusCode ${status ?? "none"})` }, profile: null };
+  }
+  const region = str((scope["webapp.app-context"] as Record<string, unknown> | undefined)?.region);
+  return {
+    outcome: { kind: "ok" },
+    profile: {
+      secUid,
+      uniqueId,
+      nickname: str(user.nickname),
+      signature: str(user.signature),
+      followers: num(stats.followerCount),
+      videoCount: num(stats.videoCount),
+      hearts: num(stats.heartCount ?? stats.heart),
+      privateAccount: user.privateAccount === true,
+      region: str(user.region) ?? region,
+    },
+  };
+}
+
+/** One headless browser for a batch of profile pages; images, media, and fonts are not loaded. */
+export const openTiktokProfileSession: TiktokProfileOpener = async () => {
+  const { chromium } = await import("playwright");
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 1800 },
+    locale: "en-US",
+    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+  });
+  await context.route("**/*", (route) => {
+    const type = route.request().resourceType();
+    return type === "image" || type === "media" || type === "font" ? route.abort() : route.continue();
+  });
+  const page = await context.newPage();
+  return {
+    async resolve(handle: string): Promise<TiktokProfileResult> {
+      const started = Date.now();
+      const bare = handle.replace(/^@/, "");
+      if (!/^[A-Za-z0-9._]{2,24}$/.test(bare)) return { outcome: { kind: "failed", reason: "creator", detail: "invalid handle" }, profile: null, ms: 0 };
+      try {
+        await page.goto(`https://www.tiktok.com/@${bare}`, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      } catch (error) {
+        return { outcome: { kind: "failed", reason: "timeout", detail: String((error as Error).message).slice(0, 200) }, profile: null, ms: Date.now() - started };
+      }
+      let json: string | null = null;
+      for (let attempt = 0; attempt < 16 && json === null; attempt += 1) {
+        for (const selector of PAGE_BLOCK_SELECTORS) {
+          if (await page.locator(selector).first().isVisible().catch(() => false)) {
+            return { outcome: { kind: "blocked", reason: "captcha", detail: `page shows ${selector}` }, profile: null, ms: Date.now() - started };
+          }
+        }
+        json = await page.evaluate(() => document.getElementById("__UNIVERSAL_DATA_FOR_REHYDRATION__")?.textContent ?? null).catch(() => null);
+        if (json === null) await page.waitForTimeout(500);
+      }
+      if (json === null) {
+        return { outcome: { kind: "blocked", reason: "bot-check", detail: "profile page never hydrated (interstitial)" }, profile: null, ms: Date.now() - started };
+      }
+      return { ...parseProfileRehydration(json), ms: Date.now() - started };
+    },
+    async close() {
+      await browser.close().catch(() => undefined);
+    },
+  };
+};

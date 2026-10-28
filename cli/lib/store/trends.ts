@@ -195,7 +195,8 @@ export type TrendCreatorInput = {
   region?: string | null;
   discoveredVia: string;
   watchlistId?: string | null;
-  metadata?: Record<string, string | number | boolean | null> | null;
+  /** Merged into metadata_json (RFC 7396 merge patch) on update. */
+  metadata?: Record<string, unknown> | null;
   snapshot?: { asOf: number; source: string; followerCount?: number | null; videoCount?: number | null; totalLikes?: number | null } | null;
 };
 
@@ -278,6 +279,17 @@ function normalizeRegion(value: string | null | undefined): string | null {
   return /^[A-Z]{2}$/.test(code) ? code : null;
 }
 
+/** Creator metadata as JSON with every string cleaned (code-point truncation, defused data URLs). */
+function cleanMetadataJson(value: Record<string, unknown>): string {
+  const clean = (item: unknown): unknown => {
+    if (typeof item === "string") return cleanTrendText(item, 600);
+    if (Array.isArray(item)) return item.slice(0, 50).map(clean);
+    if (item && typeof item === "object") return Object.fromEntries(Object.entries(item as Record<string, unknown>).map(([key, entry]) => [key, clean(entry)]));
+    return item ?? null;
+  };
+  return JSON.stringify(clean(value));
+}
+
 /** Next snapshot boundary for a dated video (informational scheduling hint). */
 export function nextSnapshotAt(postedAt: number | null, now: number): number | null {
   if (postedAt === null) return null;
@@ -333,6 +345,7 @@ export function writeIngestBatch(input: {
          niche = CASE WHEN niche IS NULL THEN ? ELSE niche END,
          niche_method = CASE WHEN niche IS NULL THEN ? ELSE niche_method END,
          region = COALESCE(region, ?), watchlist_id = COALESCE(watchlist_id, ?),
+         metadata_json = CASE WHEN ? IS NULL THEN metadata_json ELSE json_patch(COALESCE(metadata_json, '{}'), ?) END,
          row_version = row_version + 1, updated_at = ?
        WHERE id = ?`,
     );
@@ -347,6 +360,7 @@ export function writeIngestBatch(input: {
       const existing = findCreator.get(input.workspaceId, creator.platform, creator.platformCreatorId);
       const niche = creator.niche ?? null;
       const nicheMethod = niche ? creator.nicheMethod ?? "seed" : null;
+      const metadataJson = creator.metadata ? cleanMetadataJson(creator.metadata) : null;
       let id: string;
       if (existing) {
         id = existing.id;
@@ -359,6 +373,8 @@ export function writeIngestBatch(input: {
           nicheMethod,
           normalizeRegion(creator.region),
           creator.watchlistId ?? null,
+          metadataJson,
+          metadataJson,
           input.now,
           id,
         );
@@ -379,7 +395,7 @@ export function writeIngestBatch(input: {
           normalizeRegion(creator.region),
           truncateCodePoints(creator.discoveredVia, 600),
           creator.watchlistId ?? null,
-          creator.metadata ? JSON.stringify(creator.metadata) : null,
+          metadataJson,
           input.now,
           input.now,
         );
