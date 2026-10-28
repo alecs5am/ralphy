@@ -230,6 +230,12 @@ describe("waste detectors", () => {
       "E_INPUT_INVALID (workspace not found)",
     );
     expect(inputInvalidCategory("Invalid input for --style: nope")).toBe("invalid --style");
+    // #573 message shapes keep the old leading phrases and add two categories.
+    expect(inputInvalidCategory('Invalid input for --workspace: Workspace not found: "acme". Workspaces (id or slug): a (ws_1)')).toBe("workspace not found");
+    expect(inputInvalidCategory("Invalid input for --workspace: more than one Workspace exists; pass an explicit Workspace or Agent Session. Workspaces (id or slug): a (ws_1), b (ws_2)")).toBe("workspace scope missing");
+    expect(inputInvalidCategory('Invalid input for --project: Project "promo" is ambiguous: it matches 2 Projects: x')).toBe("ambiguous project");
+    expect(inputInvalidCategory('Invalid input for --workspace: Project "solo" is not in Workspace beta (ws_2); it exists as x')).toBe("project outside workspace");
+    expect(inputInvalidCategory('Invalid input for project: Project "x" conflicts with the immutable command scope (Workspace a (ws_1))')).toBe("project conflicts with session scope");
   });
 
   test("background waits: an idle gap ending at a notification and a blocking wait", () => {

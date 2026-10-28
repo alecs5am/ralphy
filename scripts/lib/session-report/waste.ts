@@ -218,6 +218,9 @@ export function inputInvalidCategory(text: string): string {
   if (/no Workspace exists/i.test(text)) return "no workspace";
   if (/conflicts with the immutable command scope/i.test(text)) return "project conflicts with session scope";
   if (/Project not found/i.test(text)) return "project not found";
+  // #573 shapes: a slug that names several Projects, or a Project outside the explicit Workspace.
+  if (/is ambiguous: it matches/i.test(text)) return "ambiguous project";
+  if (/is not in Workspace/i.test(text)) return "project outside workspace";
   if (/exactly one of --project/i.test(text)) return "destination flag missing";
   const field = /Invalid input for ([-\w]+)/.exec(text)?.[1];
   return field ? `invalid ${field}` : "invalid input";

@@ -224,16 +224,54 @@ describe("`ralphy project log-asset --copy-from` (#038)", () => {
   });
 
   test("missing --source error keeps commander's message and adds copy-paste examples, incl. generate image --import (#572)", () => {
+    // #573: --source is inferred from --copy-from / --dest, so the error only
+    // fires when none of the three is given.
     const r = ralphy(["project", "log-asset", "p1", "--kind", "photo"]);
     expect(r.exitCode).toBe(1);
     expect(r.stderr).toContain("error: required option '--source <source>' not specified");
-    expect(r.stderr).toContain("ralphy project log-asset <id> --kind photo --source");
+    expect(r.stderr).toContain("it defaults to --copy-from, else --dest");
+    expect(r.stderr).toContain("ralphy project log-asset <project> --kind photo --copy-from");
     expect(r.stderr).toContain("ralphy generate image --import <file> --project <id> --slot <name>");
+    expect(r.stderr.match(/Example:/g)).toHaveLength(1);
 
-    // Other usage errors are untouched.
+    // Other usage errors get the one shared example (#573), not the import note.
     const missingKind = ralphy(["project", "log-asset", "p1", "--source", "x.png"]);
     expect(missingKind.exitCode).toBe(1);
     expect(missingKind.stderr).toContain("error: required option '--kind <kind>' not specified");
+    expect(missingKind.stderr).toContain("Example:\n  ralphy project log-asset <project> --kind photo");
     expect(missingKind.stderr).not.toContain("generate image --import");
+
+    // The help text keeps the #572 import path note.
+    const help = ralphy(["project", "log-asset", "--help"]);
+    expect(help.stdout).toContain("ralphy generate image --import <file> --project <id> --slot <name>");
+  });
+
+  test("--source is inferred from --copy-from, else --dest (#573)", () => {
+    createProject("p5");
+    const srcDir = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-src-"));
+    const srcFile = path.join(srcDir, "hero.png");
+    fs.writeFileSync(srcFile, "hero-bytes");
+
+    const copied = ralphy(["project", "log-asset", "p5", "--kind", "photo", "--copy-from", srcFile]);
+    expect(copied.exitCode, copied.stderr).toBe(0);
+    expect(copied.json.source).toBe(srcFile);
+    expect(copied.json.sourceFrom).toBe("--copy-from");
+
+    const stored = ralphy(["project", "log-asset", "p5", "--kind", "doc", "--dest", "prompts/scene-01.txt"]);
+    expect(stored.exitCode, stored.stderr).toBe(0);
+    expect(stored.json.source).toBe("prompts/scene-01.txt");
+    expect(stored.json.sourceFrom).toBe("--dest");
+
+    // An explicit --source still wins and is reported as given.
+    const explicit = ralphy([
+      "project", "log-asset", "p5", "--kind", "ref-url", "--source", "https://example.com/ref",
+    ]);
+    expect(explicit.exitCode, explicit.stderr).toBe(0);
+    expect(explicit.json.source).toBe("https://example.com/ref");
+    expect(explicit.json.sourceFrom).toBeUndefined();
+
+    const rows = readAssetLog("p5");
+    expect(rows.map((row) => row.source)).toEqual([srcFile, "prompts/scene-01.txt", "https://example.com/ref"]);
+    fs.rmSync(srcDir, { recursive: true, force: true });
   });
 });

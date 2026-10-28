@@ -3,8 +3,25 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { DomainError } from "./errors/domain.js";
+import type { CommandScopeLabels } from "./context-state.js";
 import { assertStartupJournalReady } from "./migration/cutover-journal.js";
-import { GLOBAL_MEMORY_WORKSPACE_ID, MIGRATIONS, SCHEMA_VERSION } from "./store/schema.js";
+import {
+  countProjects,
+  countWorkspaces,
+  describeChoices,
+  describeProject,
+  describeWorkspace,
+  findProjectRefById,
+  findProjectRefs,
+  findWorkspaceRef,
+  listProjectRefs,
+  listWorkspaceRefs,
+  plainRef,
+  quoteRef,
+  type ProjectRef,
+  type WorkspaceRef,
+} from "./scope-ref.js";
+import { MIGRATIONS, SCHEMA_VERSION } from "./store/schema.js";
 
 export type DataRootIdentity = {
   dataRoot: string;
@@ -15,6 +32,12 @@ export type DataRootIdentity = {
 export type CommandContext =
   | { kind: "session"; sessionId: string; workspaceId: string; projectId?: string }
   | { kind: "scope"; workspaceId: string; projectId?: string };
+
+/** The resolved context plus the slugs it was known by (#573). */
+export type ResolvedCommandScope = {
+  context: CommandContext;
+  labels: CommandScopeLabels;
+};
 
 export function resolveDataRoot(input: {
   root?: string;
@@ -54,14 +77,29 @@ export function resolveDataRoot(input: {
   throw new DomainError("E_MIGRATION_INCOMPLETE");
 }
 
-export function resolveCommandContext(input: {
+type CommandContextInput = {
   sessionId?: string;
+  /** Workspace id or slug. */
   workspaceId?: string;
+  /** Project id or slug. */
   projectId?: string;
   positionalProjectId?: string;
   cwd?: string;
   dataRoot: string;
-}): CommandContext {
+};
+
+/**
+ * Resolve the immutable command context. Workspace and Project references may
+ * be ids or slugs; each resolves to exactly one row or fails with the valid
+ * choices listed (#573). There is no implicit current Workspace: without an
+ * explicit scope only a library holding exactly one Workspace resolves.
+ */
+export function resolveCommandContext(input: CommandContextInput): CommandContext {
+  return resolveCommandScope(input).context;
+}
+
+/** {@link resolveCommandContext} plus the slugs of the resolved scope. */
+export function resolveCommandScope(input: CommandContextInput): ResolvedCommandScope {
   const dataRoot = canonicalDirectory(input.dataRoot, "--root");
   const databasePath = path.join(dataRoot, "ralphy.db");
   if (!fs.existsSync(databasePath)) {
@@ -81,16 +119,9 @@ export function resolveCommandContext(input: {
 
 function resolveContext(
   db: Database,
-  input: {
-    sessionId?: string;
-    workspaceId?: string;
-    projectId?: string;
-    positionalProjectId?: string;
-    cwd?: string;
-    dataRoot: string;
-  },
-): CommandContext {
-  const explicitProjectId = coherentProjectIds(
+  input: CommandContextInput,
+): ResolvedCommandScope {
+  const explicitProjectRef = coherentProjectIds(
     input.projectId,
     input.positionalProjectId,
   );
@@ -99,63 +130,224 @@ function resolveContext(
     input.dataRoot,
     input.cwd ?? process.cwd(),
   );
+  const explicitWorkspace = input.workspaceId === undefined
+    ? undefined
+    : requireWorkspace(db, input.workspaceId);
 
   if (input.sessionId !== undefined) {
-    const session = db
-      .query<
-        { workspaceId: string; projectId: string | null; endedAt: number | null },
-        [string]
-      >(
-        `SELECT workspace_id AS workspaceId, project_id AS projectId,
-                ended_at AS endedAt
-         FROM agent_sessions WHERE id = ?`,
-      )
-      .get(input.sessionId);
-    if (!session || session.endedAt !== null) {
-      throw inputError("--session", "expected an existing active Agent Session");
+    return resolveSessionScope(db, input.sessionId, {
+      workspaceRef: input.workspaceId,
+      workspace: explicitWorkspace,
+      projectRef: explicitProjectRef,
+      cwdProjectId: cwdProject?.projectId,
+    });
+  }
+
+  if (explicitProjectRef !== undefined && cwdProject !== null) {
+    const explicit = resolveProject(
+      db,
+      explicitProjectRef,
+      explicitWorkspace ?? requireWorkspace(db, cwdProject.workspaceId),
+    );
+    if (explicit.id !== cwdProject.projectId) {
+      throw inputError("--project", "conflicts with the Project derived from --cwd");
     }
-    assertMatch("--workspace", input.workspaceId, session.workspaceId);
-    assertMatch("--project", explicitProjectId, session.projectId);
-    assertMatch("--cwd", cwdProject?.projectId, session.projectId);
-    return Object.freeze({
+  }
+  const projectRef = explicitProjectRef ?? cwdProject?.projectId;
+  if (projectRef !== undefined) {
+    const project = resolveProject(db, projectRef, explicitWorkspace);
+    return {
+      context: Object.freeze({
+        kind: "scope",
+        workspaceId: project.workspaceId,
+        projectId: project.id,
+      }),
+      labels: { workspaceSlug: project.workspaceSlug, projectSlug: project.slug },
+    };
+  }
+
+  const workspace = explicitWorkspace ?? inferOnlyWorkspace(db);
+  return {
+    context: Object.freeze({ kind: "scope", workspaceId: workspace.id }),
+    labels: { workspaceSlug: workspace.slug },
+  };
+}
+
+function resolveSessionScope(
+  db: Database,
+  sessionId: string,
+  explicit: {
+    workspaceRef?: string;
+    workspace?: WorkspaceRef;
+    projectRef?: string;
+    cwdProjectId?: string;
+  },
+): ResolvedCommandScope {
+  const session = db
+    .query<
+      { workspaceId: string; projectId: string | null; endedAt: number | null },
+      [string]
+    >(
+      `SELECT workspace_id AS workspaceId, project_id AS projectId,
+              ended_at AS endedAt
+       FROM agent_sessions WHERE id = ?`,
+    )
+    .get(sessionId);
+  if (!session || session.endedAt !== null) {
+    throw inputError("--session", "expected an existing active Agent Session");
+  }
+  const workspace = requireWorkspace(db, session.workspaceId);
+  const project = session.projectId === null
+    ? null
+    : findProjectRefById(db, session.projectId);
+  const bound = sessionScopeLabel(sessionId, workspace, project, session.projectId);
+
+  if (explicit.workspace !== undefined && explicit.workspace.id !== workspace.id) {
+    throw inputError(
+      "--workspace",
+      `Workspace ${quoteRef(explicit.workspaceRef ?? explicit.workspace.id)} ` +
+        `(${explicit.workspace.id}) ${SESSION_CONFLICT}: ${bound}. ` +
+        "Drop --workspace to use the Session's Workspace, or drop --session and pass the Workspace explicitly",
+    );
+  }
+  if (explicit.projectRef !== undefined) {
+    const named = sessionProjectCandidate(db, explicit.projectRef, workspace.id);
+    if (named?.id !== session.projectId) {
+      const resolved = named ? ` (${named.id})` : "";
+      throw inputError(
+        "--project",
+        `Project ${quoteRef(explicit.projectRef)}${resolved} ${SESSION_CONFLICT}: ${bound}. ` +
+          (project
+            ? `Pass ${plainRef(project.slug)} or ${project.id}, or drop --session and pass the Project explicitly`
+            : "Drop the Project, or drop --session and pass the Project explicitly"),
+      );
+    }
+  }
+  if (explicit.cwdProjectId !== undefined && explicit.cwdProjectId !== session.projectId) {
+    throw inputError(
+      "--cwd",
+      `the Project of the current directory (${explicit.cwdProjectId}) ${SESSION_CONFLICT}: ${bound}`,
+    );
+  }
+  return {
+    context: Object.freeze({
       kind: "session",
-      sessionId: input.sessionId,
+      sessionId,
       workspaceId: session.workspaceId,
       ...(session.projectId === null ? {} : { projectId: session.projectId }),
-    });
-  }
+    }),
+    labels: {
+      workspaceSlug: workspace.slug,
+      ...(project ? { projectSlug: project.slug } : {}),
+    },
+  };
+}
 
-  const projectId = explicitProjectId ?? cwdProject?.projectId;
-  if (
-    explicitProjectId !== undefined &&
-    cwdProject !== null &&
-    explicitProjectId !== cwdProject.projectId
-  ) {
-    throw inputError("--project", "conflicts with the Project derived from --cwd");
-  }
-  if (projectId !== undefined) {
-    const project = db
-      .query<{ id: string; workspaceId: string }, [string, string]>(
-        "SELECT id, workspace_id AS workspaceId FROM projects WHERE id = ? OR slug = ?",
-      )
-      .get(projectId, projectId);
-    if (!project) throw inputError("--project", `Project not found: ${projectId}`);
-    assertMatch("--workspace", input.workspaceId, project.workspaceId);
-    return Object.freeze({
-      kind: "scope",
-      workspaceId: project.workspaceId,
-      projectId: project.id,
-    });
-  }
+const SESSION_CONFLICT = "conflicts with the immutable Agent Session scope";
 
-  const workspaceId = input.workspaceId ?? inferOnlyWorkspace(db);
-  const workspace = db
-    .query<{ id: string }, [string]>("SELECT id FROM workspaces WHERE id = ?")
-    .get(workspaceId);
-  if (!workspace) {
-    throw inputError("--workspace", `Workspace not found: ${workspaceId}`);
+function sessionScopeLabel(
+  sessionId: string,
+  workspace: WorkspaceRef,
+  project: ProjectRef | null,
+  projectId: string | null,
+): string {
+  const scope = project
+    ? `Workspace ${describeWorkspace(workspace)} and Project ${plainRef(project.slug)} (${project.id})`
+    : projectId !== null
+      ? `Workspace ${describeWorkspace(workspace)} and Project ${projectId}`
+      : `Workspace ${describeWorkspace(workspace)} with no Project`;
+  return `Session ${sessionId} is bound to ${scope}`;
+}
+
+/** The Project a reference names from inside a Session's Workspace. */
+function sessionProjectCandidate(
+  db: Database,
+  ref: string,
+  workspaceId: string,
+): ProjectRef | undefined {
+  const matches = findProjectRefs(db, ref);
+  return matches.find((project) => project.id === ref) ??
+    matches.find((project) => project.workspaceId === workspaceId) ??
+    matches[0];
+}
+
+function requireWorkspace(db: Database, ref: string): WorkspaceRef {
+  const workspace = findWorkspaceRef(db, ref);
+  if (workspace) return workspace;
+  throw inputError(
+    "--workspace",
+    `Workspace not found: ${quoteRef(ref)}. ${workspaceChoices(db)}`,
+  );
+}
+
+/**
+ * Exactly one Project for an id or slug, optionally inside an explicit
+ * Workspace. Ambiguity and misses list the candidates instead of guessing.
+ */
+function resolveProject(
+  db: Database,
+  ref: string,
+  workspace: WorkspaceRef | undefined,
+): ProjectRef {
+  const matches = findProjectRefs(db, ref);
+  const exact = matches.find((project) => project.id === ref);
+  if (exact) {
+    if (workspace !== undefined && exact.workspaceId !== workspace.id) {
+      throw inputError(
+        "--workspace",
+        `Project ${describeProject(exact)} is not in Workspace ${describeWorkspace(workspace)}. ` +
+          `Example: --workspace ${exact.workspaceId}, or drop --workspace`,
+      );
+    }
+    return exact;
   }
-  return Object.freeze({ kind: "scope", workspaceId });
+  const scoped = workspace === undefined
+    ? matches
+    : matches.filter((project) => project.workspaceId === workspace.id);
+  if (scoped.length === 1) return scoped[0]!;
+  if (scoped.length > 1) {
+    throw inputError(
+      "--project",
+      `Project ${quoteRef(ref)} is ambiguous: it matches ${scoped.length} Projects: ` +
+        `${describeChoices(scoped.map(describeProject))}. ` +
+        `Pass the Project id (example: ${scoped[0]!.id}) or add --workspace <id|slug>`,
+    );
+  }
+  if (workspace !== undefined && matches.length > 0) {
+    throw inputError(
+      "--workspace",
+      `Project ${quoteRef(ref)} is not in Workspace ${describeWorkspace(workspace)}; ` +
+        `it exists as ${describeChoices(matches.map(describeProject))}. ` +
+        `Example: --workspace ${matches[0]!.workspaceId}`,
+    );
+  }
+  throw inputError(
+    "--project",
+    `Project not found: ${quoteRef(ref)}. ${projectChoices(db, workspace)}`,
+  );
+}
+
+function workspaceChoices(db: Database): string {
+  const workspaces = listWorkspaceRefs(db);
+  if (workspaces.length === 0) return "No Workspace exists yet: run `ralphy workspace create <name>`";
+  return `Workspaces (id or slug): ${describeChoices(
+    workspaces.map(describeWorkspace),
+    countWorkspaces(db),
+  )}. Example: --workspace ${workspaces[0]!.id}`;
+}
+
+function projectChoices(db: Database, workspace: WorkspaceRef | undefined): string {
+  const projects = listProjectRefs(db, workspace?.id);
+  const where = workspace ? ` in Workspace ${plainRef(workspace.slug)}` : "";
+  if (projects.length === 0) {
+    return `No Project exists${where}: run \`ralphy project create <name>${
+      workspace ? ` --workspace ${workspace.id}` : ""
+    }\``;
+  }
+  return `Recent Projects${where} (id or slug): ${describeChoices(
+    projects.map(describeProject),
+    countProjects(db, workspace?.id),
+  )}. List all with \`ralphy project list --workspace <id|slug>\``;
 }
 
 function identifyDataRoot(dataRoot: string): DataRootIdentity {
@@ -408,19 +600,17 @@ function projectFromCwd(
   return row ?? null;
 }
 
-function inferOnlyWorkspace(db: Database): string {
-  const rows = db
-    .query<{ id: string }, [string]>("SELECT id FROM workspaces WHERE id <> ? ORDER BY id LIMIT 2")
-    .all(GLOBAL_MEMORY_WORKSPACE_ID);
-  if (rows.length !== 1) {
+function inferOnlyWorkspace(db: Database): WorkspaceRef {
+  const rows = listWorkspaceRefs(db, 2);
+  if (rows.length === 0) throw inputError("--workspace", "no Workspace exists");
+  if (rows.length > 1) {
     throw inputError(
       "--workspace",
-      rows.length === 0
-        ? "no Workspace exists"
-        : "more than one Workspace exists; pass an explicit Workspace or Agent Session",
+      "more than one Workspace exists; pass an explicit Workspace or Agent Session. " +
+        workspaceChoices(db),
     );
   }
-  return rows[0]!.id;
+  return rows[0]!;
 }
 
 function coherentProjectIds(
@@ -431,16 +621,6 @@ function coherentProjectIds(
     throw inputError("--project", "conflicts with the positional Project");
   }
   return flagged ?? positional;
-}
-
-function assertMatch(
-  field: string,
-  actual: string | undefined,
-  expected: string | null,
-): void {
-  if (actual !== undefined && actual !== expected) {
-    throw inputError(field, "conflicts with the immutable Agent Session scope");
-  }
 }
 
 function canonicalDirectory(value: string, field: string): string {

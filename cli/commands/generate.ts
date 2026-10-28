@@ -12,6 +12,7 @@ import { existsSync } from "node:fs";
 import { projectDir, ralphDir, root, workspaceDir } from "../lib/paths.js";
 import { ok, out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
+import { USAGE_EXAMPLES } from "../lib/usage-examples.js";
 import { transcribe, type TranscribeBackend } from "../lib/transcribe.js";
 import {
   type BrandSpellingDict,
@@ -271,17 +272,23 @@ async function ensureProject(projectId: string): Promise<void> {
   }
 }
 
-export function resolveGenerateDestination(opts: {
-  project?: string;
-  workspace?: string;
-}): GenerationDestination {
+export function resolveGenerateDestination(
+  opts: {
+    project?: string;
+    workspace?: string;
+  },
+  kind = "image",
+): GenerationDestination {
   try {
     return generationDestination({ projectId: opts.project, workspaceId: opts.workspace });
   } catch {
+    // #573: name the fix, not only the rule (3 baseline errors).
     raiseError("E_INPUT_INVALID", {
       field: "destination",
-      detail: "pass exactly one of --project <id> or --workspace <slug>",
-      verb: "generate",
+      detail:
+        "pass exactly one of --project <id|slug> or --workspace <id|slug>; " +
+        `example: ${USAGE_EXAMPLES[`generate ${kind}`] ?? `ralphy generate ${kind} --project <project> --slot <slot>`}`,
+      verb: `generate ${kind}`,
     });
   }
 }
@@ -849,7 +856,7 @@ Example (register a host-generated image in one call, $0, no provider call):
 `,
     )
     .action(async (opts, command: Command) => {
-      const destination = resolveGenerateDestination(opts);
+      const destination = resolveGenerateDestination(opts, "image");
       await ensureGenerateDestination(destination);
       if (opts.import !== undefined) {
         await runImageImport(opts, command, destination);
@@ -1279,7 +1286,7 @@ Example (register a host-generated image in one call, $0, no provider call):
     .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
     .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff on TLS / ECONNRESET / 5xx / skeleton-null payloads. Wraps the initial videos-submit POST; the poll loop has its own budget.")
     .action(async (opts) => {
-      const destination = resolveGenerateDestination(opts);
+      const destination = resolveGenerateDestination(opts, "video");
       await ensureGenerateDestination(destination);
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
@@ -1539,7 +1546,7 @@ Example (register a host-generated image in one call, $0, no provider call):
     .option("--dry-run", "Print resolved request + cost estimate; do not submit", false)
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
-      const destination = resolveGenerateDestination(opts);
+      const destination = resolveGenerateDestination(opts, "voiceover");
       await ensureGenerateDestination(destination);
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
@@ -1666,7 +1673,7 @@ Example (register a host-generated image in one call, $0, no provider call):
     .option("--dry-run", "Print resolved request + cost estimate; do not submit", false)
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
-      const destination = resolveGenerateDestination(opts);
+      const destination = resolveGenerateDestination(opts, "music");
       await ensureGenerateDestination(destination);
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
@@ -1823,7 +1830,7 @@ Example (register a host-generated image in one call, $0, no provider call):
     .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
     .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff on TLS / ECONNRESET / 5xx.")
     .action(async (opts) => {
-      const destination = resolveGenerateDestination(opts);
+      const destination = resolveGenerateDestination(opts, "sfx");
       await ensureGenerateDestination(destination);
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);

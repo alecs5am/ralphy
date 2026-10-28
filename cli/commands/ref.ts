@@ -6,6 +6,7 @@ import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "
 import { slugify, generateId } from "../lib/ids.js";
 import { out, ok, err } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
+import { USAGE_EXAMPLES } from "../lib/usage-examples.js";
 import { scoreTikTok } from "../lib/score.js";
 import { ralphDir, root, projectDir, referencesDir } from "../lib/paths.js";
 import {
@@ -196,7 +197,7 @@ export function refCmd() {
       if (Boolean(opts.project) === Boolean(opts.workspace)) {
         raiseError("E_INPUT_INVALID", {
           field: "destination",
-          detail: "video pull requires exactly one of --project <id> or --workspace <id>",
+          detail: `video pull requires exactly one of --project <id> or --workspace <id> (ids or slugs); example: ${USAGE_EXAMPLES["ref pull"]}`,
           verb: "ref pull",
         });
         return;
@@ -313,7 +314,7 @@ export function refCmd() {
     if (Boolean(projectId) === Boolean(workspace)) {
       raiseError("E_INPUT_INVALID", {
         field: "destination",
-        detail: "bulk image pull requires exactly one of --project <id> or --workspace <id>",
+        detail: "bulk image pull requires exactly one of --project <id> or --workspace <id> (ids or slugs); example: ralphy ref pull <url> --kind reference-image --project <project>",
         verb: "ref pull",
       });
       return;
@@ -1381,7 +1382,7 @@ function resolveReferenceArtifact(slug: string, kind: "video" | "audio", opts: a
   if (Boolean(opts.project) === Boolean(opts.workspace)) {
     raiseError("E_INPUT_INVALID", {
       field: "destination",
-      detail: `ref ${kind === "video" ? "frames" : "transcribe"} requires exactly one of --project <id> or --workspace <id>`,
+      detail: `ref ${kind === "video" ? "frames" : "transcribe"} requires exactly one of --project <id> or --workspace <id> (ids or slugs); example: ralphy ref ${kind === "video" ? "frames" : "transcribe"} ${slug} --project <project>`,
       verb: kind === "video" ? "ref frames" : "ref transcribe",
     });
   }

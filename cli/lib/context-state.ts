@@ -4,14 +4,30 @@ export type ResolvedCommandContext =
   | { kind: "session"; sessionId: string; workspaceId: string; projectId?: string }
   | { kind: "scope"; workspaceId: string; projectId?: string };
 
-let current: ResolvedCommandContext | null = null;
+/**
+ * The slugs the resolved scope is also known by (#573). Compatibility verbs
+ * still address a Project or Workspace by slug; naming the resolved scope by
+ * its slug is not a conflict with it.
+ */
+export type CommandScopeLabels = {
+  workspaceSlug?: string;
+  projectSlug?: string;
+};
 
-export function setCommandContext(context: ResolvedCommandContext): void {
+let current: ResolvedCommandContext | null = null;
+let labels: CommandScopeLabels = {};
+
+export function setCommandContext(
+  context: ResolvedCommandContext,
+  scopeLabels: CommandScopeLabels = {},
+): void {
   current = context;
+  labels = { ...scopeLabels };
 }
 
 export function clearCommandContext(): void {
   current = null;
+  labels = {};
 }
 
 export function getCommandContext(): ResolvedCommandContext | null {
@@ -19,10 +35,14 @@ export function getCommandContext(): ResolvedCommandContext | null {
 }
 
 export function assertCommandWorkspace(workspaceId: string): void {
-  if (current !== null && current.workspaceId !== workspaceId) {
+  if (
+    current !== null &&
+    current.workspaceId !== workspaceId &&
+    labels.workspaceSlug !== workspaceId
+  ) {
     throw conflict(
       "workspace",
-      "Workspace conflicts with the immutable command scope",
+      `Workspace ${quote(workspaceId)} conflicts with the immutable command scope (${describeScope(current)})`,
     );
   }
 }
@@ -31,13 +51,41 @@ export function assertCommandProject(
   projectId: string,
   workspaceId?: string,
 ): void {
-  if (current?.projectId !== undefined && current.projectId !== projectId) {
+  if (
+    current?.projectId !== undefined &&
+    current.projectId !== projectId &&
+    labels.projectSlug !== projectId
+  ) {
     throw conflict(
       "project",
-      "Project conflicts with the immutable command scope",
+      `Project ${quote(projectId)} conflicts with the immutable command scope (${describeScope(current)}); ` +
+        `pass ${labels.projectSlug ? `${plain(labels.projectSlug)} or ` : ""}${current.projectId}, or change the scope flags`,
     );
   }
   if (workspaceId !== undefined) assertCommandWorkspace(workspaceId);
+}
+
+function describeScope(context: ResolvedCommandContext): string {
+  const workspace = labels.workspaceSlug
+    ? `Workspace ${plain(labels.workspaceSlug)} (${context.workspaceId})`
+    : `Workspace ${context.workspaceId}`;
+  const project = context.projectId === undefined
+    ? ""
+    : labels.projectSlug
+      ? `, Project ${plain(labels.projectSlug)} (${context.projectId})`
+      : `, Project ${context.projectId}`;
+  const session = context.kind === "session" ? `Session ${context.sessionId}: ` : "";
+  return `${session}${workspace}${project}`;
+}
+
+/** One printable, bounded line: DomainError rejects control characters. */
+function plain(value: string, max = 80): string {
+  const flat = value.replace(/[\p{Cc}\p{Cs}\u2028\u2029]+/gu, " ").replaceAll('"', "'");
+  return flat.length > max ? `${flat.slice(0, max - 1)}...` : flat;
+}
+
+function quote(value: string): string {
+  return `"${plain(value)}"`;
 }
 
 function conflict(field: "workspace" | "project", detail: string): DomainError {

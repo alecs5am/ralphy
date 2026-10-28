@@ -303,5 +303,38 @@ The large `ref pull` / `ref paths` outputs in the baseline came from Codex cells
 
 ### Not done here
 
-- **`ralphy models …` needs a resolvable Workspace scope.** In a library with more than one Workspace, `ralphy models show <id>` fails with "more than one Workspace exists" unless the call passes `--workspace` or runs in a Session. The registry lookup is per-machine, so `models` should join `prompts` and `skill` in the scope-free branch of `cli/index.ts` (that file was out of scope for this change).
+- **`ralphy models …` needs a resolvable Workspace scope.** In a library with more than one Workspace, `ralphy models show <id>` fails with "more than one Workspace exists" unless the call passes `--workspace` or runs in a Session. The registry lookup is per-machine, so `models` should join `prompts` and `skill` in the scope-free branch of `cli/index.ts` (that file was out of scope for this change). Done in #573.
 - **`cli/lib/eval/prompt-optimize.ts` protects `MODELS.md` but not `docs/models/`.** Add the directory to its protected public-guidance paths.
+
+## #573 changes
+
+Fixes for the 42 `ralphy` verb usage errors in section 3 (ranked fixes 2 and 3). Measured on the working tree on 2026-10-28 against a fixture library with two Workspaces. No new production sessions exist yet: re-run the corpus command above on sessions recorded after this change and add the measured drop here. The session-report classifier still matches the old leading phrases ("Workspace not found", "more than one Workspace exists", "conflicts with the immutable command scope", "Project not found"), so the counts stay comparable. It adds two categories for the new message shapes: "ambiguous project" and "project outside workspace".
+
+| Baseline error | Count | Change | Expected effect |
+|---|---|---|---|
+| `project log-asset`: required `--source` missing | 13 | `--source` is optional. It defaults to the `--copy-from` path, else `--dest`. With none of the three, the error keeps commander's message and adds the copy-paste examples, including the #572 `generate image --import` note. | The failing calls in the corpus passed `--copy-from` without `--source`. They now succeed. |
+| Workspace slug passed where the id is expected ("Workspace not found") | 8 | `--workspace` accepts an id or a slug, in the command context and in every verb that resolves scope through it. An unknown value lists every Workspace (slug, id, name) and an example `--workspace <id>`. | These calls succeed. |
+| "more than one Workspace exists", scope missing | 4 | The error lists every Workspace (slug, id, name) and an example `--workspace <id>`. No implicit current Workspace was added. | Still an error, but the retry needs no lookup. |
+| Project conflicts with the immutable session scope (`project log-prompt` / `log-asset`) | 4 | The command context resolves a Project slug to its id. The compatibility guard accepts the resolved scope's own slug. A real conflict names the Session, its Workspace and Project, and the conflicting value. | The slug-for-id conflicts succeed. A real conflict explains itself. |
+| Destination missing (`ref pull`, `generate video`) | 3 | The error adds a copy-paste example for the verb. | Still an error, but the retry needs no lookup. |
+| Project not found (slug vs id) | 2 | Project slugs resolve. A slug that names Projects in several Workspaces fails and lists each candidate (slug, id, name, Workspace). A miss lists the most recent Projects in scope. | Slug cases succeed. |
+| `migrate`: required `--run-id` missing | 2 | Commander errors for a missing required option or argument print one example invocation for the verb. Curated examples cover the baseline verbs. Every other verb gets an example built from its required arguments and options (`cli/lib/usage-examples.ts`). | Still an error, but the retry needs no lookup. |
+| Other: `activity list` without `--since` | 1 | Same example mechanism: `ralphy activity list --workspace <workspace> --since 0`. | Still an error, but the retry needs no lookup. |
+| Other: `doctor` with no workspace | 1 | Only the choice listing applies. `doctor` still needs a resolvable scope on a library with several Workspaces. | Partly addressed. |
+| Other: `provider auth list`, `project style-lock --show`, `memory recall <arg>`, `ref pull --global` | 4 | Not addressed. | Unchanged. |
+
+`ralphy models …` also joined the scope-free branch in `cli/index.ts`, next to `prompts` and `skill` (the #574 follow-up above).
+
+Example messages before and after:
+
+- `ralphy --workspace alpha session list`
+  - Before: `Invalid input for --workspace: Workspace not found: alpha`
+  - After: the call succeeds. A typo (`--workspace alph`) gives `Workspace not found: "alph". Workspaces (id or slug): alpha (ws_..., "Alpha Brand"), beta (ws_..., "Beta Brand"). Example: --workspace ws_...`
+- `ralphy session list` with two Workspaces
+  - Before: `more than one Workspace exists; pass an explicit Workspace or Agent Session`
+  - After: the same sentence, then `Workspaces (id or slug): alpha (ws_..., "Alpha Brand"), beta (ws_..., "Beta Brand"). Example: --workspace ws_...`
+- `ralphy --session <id> project show promo` in a Session bound to Project `solo`
+  - Before: `Invalid input for --project: conflicts with the immutable Agent Session scope`
+  - After: `Project "promo" (prj_...) conflicts with the immutable Agent Session scope: Session session_... is bound to Workspace alpha (ws_..., "Alpha Brand") and Project solo (prj_...). Pass solo or prj_..., or drop --session and pass the Project explicitly`
+
+Known gap: `project log-asset`, `log-prompt`, `timeline` and the other compatibility verbs still look a Project up in the legacy registry. A Project that exists only in the store now resolves in the command context, so the misleading scope conflict is gone. These verbs then report `E_NOT_FOUND`, and they need a store-backed lookup to finish the fix. For host-generated images, `generate image --import` (#572) is the store-backed path.

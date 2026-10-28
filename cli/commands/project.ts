@@ -9,6 +9,7 @@ import { artifactsDir, projectRefsDir, resolveArtifactKindDirs, projectDir, proj
 import { existsSync } from "node:fs";
 import { out, ok, err } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
+import { USAGE_EXAMPLES } from "../lib/usage-examples.js";
 import { readLog, readGenerations, logUserPrompt, logUserAsset, logGeneration, type UserPromptEntry, type UserAssetEntry } from "../lib/gen-log.js";
 import { transcribe, DEFAULT_MODEL, WHISPER_MODEL, type TranscribeLanguage, type TranscribeBackend } from "../lib/transcribe.js";
 import { scoreScenario, type Scenario } from "../lib/score.js";
@@ -56,7 +57,6 @@ import {
   createIteration,
   createProject,
   getProject,
-  getWorkspace,
   listFeedback,
   listIterations,
   listProjectStages,
@@ -93,12 +93,39 @@ async function safeJson(fp: string) {
 
 // #572: copy-paste examples shown after `project log-asset --help` and after
 // its missing --source error. A host-generated image belongs in a slot via
-// `generate image --import`, not in the user-asset log.
+// `generate image --import`, not in the user-asset log. #573: --source is
+// inferred from --copy-from (else --dest), so the example no longer repeats it.
 const LOG_ASSET_EXAMPLES = `Example:
-  ralphy project log-asset <id> --kind photo --source ~/Downloads/product.png --copy-from ~/Downloads/product.png --purpose product-ref
+  ${USAGE_EXAMPLES["project log-asset"]}
+  ralphy project log-asset <project> --kind ref-url --source https://example.com/reference --purpose style-ref
 Host-generated image (Codex / Claude image tool)? Register it in one call instead:
   ralphy generate image --import <file> --project <id> --slot <name> --prompt "<prompt>"
 `;
+
+/**
+ * #573: `--source` is the original path or URL of a logged asset. The #562
+ * baseline's most common usage error (13 calls) was `--copy-from <file>` with
+ * no `--source`, although the copied file IS the source. Rule: an explicit
+ * `--source` wins; else the absolute `--copy-from` path; else `--dest` (the
+ * file already lives in the project tree). With none of the three there is
+ * nothing to log, so the caller gets the error and a working example.
+ */
+export function inferLogAssetSource(opts: {
+  source?: string;
+  copyFrom?: string;
+  dest?: string;
+}): { source: string; inferredFrom: "source" | "copy-from" | "dest" } | null {
+  if (typeof opts.source === "string" && opts.source.trim() !== "") {
+    return { source: opts.source, inferredFrom: "source" };
+  }
+  if (typeof opts.copyFrom === "string" && opts.copyFrom.trim() !== "") {
+    return { source: path.resolve(opts.copyFrom), inferredFrom: "copy-from" };
+  }
+  if (typeof opts.dest === "string" && opts.dest.trim() !== "") {
+    return { source: opts.dest, inferredFrom: "dest" };
+  }
+  return null;
+}
 
 export function projectCmd() {
   const cmd = new Command("project").description("Manage video projects");
@@ -125,8 +152,9 @@ export function projectCmd() {
         });
       }
       const name = positionalName ?? opts.name ?? titleCase(opts.id);
+      // The context resolved --workspace (id or slug, #573) to its id.
       const context = resolveDomainContext(command);
-      const workspaceId = opts.workspace ?? context.workspaceId;
+      const workspaceId = context.workspaceId;
       out(
         createProject({
           workspaceId,
@@ -147,7 +175,7 @@ export function projectCmd() {
       const context = resolveDomainContext(command);
       out(
         listProjects({
-          workspaceId: opts.workspace ?? context.workspaceId,
+          workspaceId: context.workspaceId,
           cursor: opts.cursor,
           limit: opts.limit,
         }),
@@ -174,7 +202,7 @@ export function projectCmd() {
     .description("Show database-derived Project stages, bindings, Iteration, and feedback")
     .action((id: string, _opts, command: Command) => {
       const context = resolveDomainContext(command, id);
-      out(projectStatus(context.workspaceId, id));
+      out(projectStatus(context.workspaceId, context.projectId ?? id));
     });
 
   // ── repair-plan (#409) ─────────────────────────────────────────────────────
@@ -532,7 +560,8 @@ export function projectCmd() {
     .requiredOption("--expected <version>", "Expected row version", parseCount)
     .action((id: string, opts, command: Command) => {
       const context = resolveDomainContext(command, id);
-      getProject({ workspaceId: context.workspaceId, projectId: id });
+      const projectId = context.projectId ?? id;
+      getProject({ workspaceId: context.workspaceId, projectId });
       if (opts.state !== undefined && opts.state !== "active" && opts.state !== "archived") {
         raiseError("E_INPUT_INVALID", {
           field: "--state",
@@ -542,7 +571,7 @@ export function projectCmd() {
       try {
         out(
           updateProject(
-            id,
+            projectId,
             { name: opts.name, slug: opts.slug, state: opts.state },
             opts.expected,
           ),
@@ -562,14 +591,15 @@ export function projectCmd() {
     .option("--reason <reason>", "Iteration reason")
     .action((id: string, opts, command: Command) => {
       const context = resolveDomainContext(command, id);
-      getProject({ workspaceId: context.workspaceId, projectId: id });
-      out(createIteration({ projectId: id, title: opts.title, reason: opts.reason }));
+      const projectId = context.projectId ?? id;
+      getProject({ workspaceId: context.workspaceId, projectId });
+      out(createIteration({ projectId, title: opts.title, reason: opts.reason }));
     });
 
   cmd
     .command("transfer [id]")
     .description("Journal and verify a Project bucket transfer")
-    .option("--to <workspace-id>", "Destination Workspace ID")
+    .option("--to <workspace>", "Destination Workspace ID or slug")
     .option("--resume <transfer-id>", "Resume a transfer journal")
     .option("--expected <version>", "Expected Project row version", parseCount)
     .action(async (id: string | undefined, opts, command: Command) => {
@@ -597,17 +627,16 @@ export function projectCmd() {
           });
         }
         const context = resolveDomainContext(command, id);
-        getProject({ workspaceId: context.workspaceId, projectId: id });
-        try {
-          getWorkspace(opts.to);
-        } catch {
-          raiseError("E_NOT_FOUND", { kind: "Workspace", id: opts.to });
-        }
+        const projectId = context.projectId ?? id;
+        getProject({ workspaceId: context.workspaceId, projectId });
+        // --to accepts a Workspace id or slug (#573).
+        const destination = getWorkspaceByReference(opts.to);
+        if (!destination) raiseError("E_NOT_FOUND", { kind: "Workspace", id: opts.to });
         out(
           await transferProject({
             context: domainQueryContext(context),
-            projectId: id,
-            destinationWorkspaceId: opts.to,
+            projectId,
+            destinationWorkspaceId: destination.id,
             expectedRowVersion: opts.expected,
           }),
         );
@@ -721,18 +750,17 @@ export function projectCmd() {
       "Append a user-asset entry to project logs. Accept project id positionally OR via --project (#031). With --copy-from <src>, copies the file into <project>/artifacts/refs/ first (auto-detects disposable macOS NSIRD / /tmp paths and rescues them before they evaporate). Sanitizes U+202F NARROW NO-BREAK SPACE in filenames. For an image made by a host-native image tool (Codex / Claude), use `ralphy generate image --import <file> --project <id> --slot <name>` instead: one call registers it as a slot revision with provenance at $0 (#572).",
     )
     .addHelpText("after", `\n${LOG_ASSET_EXAMPLES}`);
-  // #572: the #562 baseline counted 13 log-asset usage errors and 14 retries.
-  // Append copy-paste examples to the missing --source error only; commander's
-  // message, exit code and every other error stay unchanged.
-  logAssetCmd.configureOutput({
-    outputError: (message, write) => {
-      write(message.includes("'--source <source>'") ? `${message}${LOG_ASSET_EXAMPLES}` : message);
-    },
-  });
+  // #572/#573: the #562 baseline counted 13 log-asset usage errors and 14
+  // retries, nearly all `--copy-from <file>` without `--source`. --source is
+  // now inferred (see inferLogAssetSource); when it cannot be, the action
+  // fails with commander's original message plus the copy-paste examples.
   logAssetCmd
     .option("--project <id>", "Project id (alternative to the positional <id>)")
     .requiredOption("--kind <kind>", "screenshot | photo | video | audio | doc | ref-url | other")
-    .requiredOption("--source <source>", "Original path or URL")
+    .option(
+      "--source <source>",
+      "Original path or URL. Default: the --copy-from path, else --dest",
+    )
     .option("--dest <dest>", "Stored path inside project (used as-is if no --copy-from)")
     .option(
       "--copy-from <src>",
@@ -740,7 +768,17 @@ export function projectCmd() {
     )
     .option("--purpose <purpose>", "character-ref | product-ref | brand-screenshot | ...")
     .option("--note <note>", "Free-form note")
-    .action(async (idArg: string | undefined, opts: any) => {
+    .action(async (idArg: string | undefined, opts: any, command: Command) => {
+      const inferred = inferLogAssetSource(opts);
+      if (!inferred) {
+        command.error(
+          "error: required option '--source <source>' not specified " +
+            "(it defaults to --copy-from, else --dest; pass one of the three)\n" +
+            LOG_ASSET_EXAMPLES.trimEnd(),
+        );
+        return;
+      }
+      opts.source = inferred.source;
       const id = idArg ?? (opts.project as string | undefined);
       if (!id) raiseError("E_VALIDATION_FAILED", { target: "project id", detail: "pass it positionally or via --project" });
       const project = await getEntity("projects", id);
@@ -890,6 +928,8 @@ export function projectCmd() {
         project: id,
         logged: "user-asset",
         kind: opts.kind,
+        source: opts.source,
+        ...(inferred.inferredFrom === "source" ? {} : { sourceFrom: `--${inferred.inferredFrom}` }),
         dest,
         originalPath,
         localPath,

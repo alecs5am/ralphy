@@ -1,6 +1,6 @@
 # Scope and required-flag ergonomics for agents
 
-> **Status:** todo
+> **Status:** done — 2026-10-28 (workspace and project slugs resolve; scope errors list candidates and name the Session scope; log-asset infers --source; required-flag errors print an example; models is scope-free. Known gap: compatibility verbs still read registry.json)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** medium

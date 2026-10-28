@@ -209,8 +209,9 @@ export function artifactCmd(): Command {
           detail: "choose exactly one of --workspace, --project, or --feedback",
         });
       }
+      // The context resolved --workspace / --project (ids or slugs, #573).
       if (opts.project) {
-        getProject({ workspaceId: context.workspaceId, projectId: opts.project });
+        getProject({ workspaceId: context.workspaceId, projectId: context.projectId ?? opts.project });
       } else if (opts.feedback) {
         getFeedback({ context: queryContext(context), feedbackId: opts.feedback });
       }
@@ -221,9 +222,9 @@ export function artifactCmd(): Command {
             role: opts.role,
             lifecycle: opts.lifecycle,
             ...(opts.workspace
-              ? { workspaceId: opts.workspace }
+              ? { workspaceId: context.workspaceId }
               : opts.project
-                ? { projectId: opts.project }
+                ? { projectId: context.projectId ?? opts.project }
                 : { feedbackId: opts.feedback }),
           }),
         );

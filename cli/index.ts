@@ -7,7 +7,7 @@ import { findProjectRootSafe, loadProjectEnv } from "./lib/project-root.js";
 import { installSigintHandler, CancelledError } from "./lib/cancel.js";
 import { raiseError } from "./lib/errors/index.js";
 import { DomainError } from "./lib/errors/domain.js";
-import { resolveCommandContext, resolveDataRoot } from "./lib/context.js";
+import { resolveCommandScope, resolveDataRoot } from "./lib/context.js";
 import { setCommandContext } from "./lib/context-state.js";
 import {
   activateCredentialResolver,
@@ -131,6 +131,7 @@ import { artifactCmd } from "./commands/artifact.js";
 import { feedbackCmd } from "./commands/feedback.js";
 import { compositionCmd } from "./commands/composition.js";
 import { bannerString } from "./lib/banner.js";
+import { installUsageExamples } from "./lib/usage-examples.js";
 import { VERSION } from "./lib/version.js";
 
 const program = new Command();
@@ -239,16 +240,19 @@ program
          unrunnable on exactly the libraries that have been used. */
       /* Same for `skill`: it writes the agent's instruction files and installs
          the pack, both of which are per-machine, not per-workspace. */
+      /* And `models`: the curated registry and the OpenRouter catalog are
+         read-only and global, so `models list|show|alias|preflight` must not
+         refuse on a library with several Workspaces (#573, found in #574). */
       // An explicit stdin credential probe does not select or mutate a workspace.
       const explicitCredentialProbe = sub === "provider" && actionCommand.name() === "test"
         && actionCommand.opts().stdin === true && actionCommand.opts().ping === true;
-      if (sub === "prompts" || sub === "skill" || explicitCredentialProbe) {
+      if (sub === "prompts" || sub === "skill" || sub === "models" || explicitCredentialProbe) {
         setDataRoot(identity.dataRoot);
         return true;
       }
-      let context: ReturnType<typeof resolveCommandContext>;
+      let resolved: ReturnType<typeof resolveCommandScope>;
       try {
-        context = resolveCommandContext({
+        resolved = resolveCommandScope({
           dataRoot: identity.dataRoot,
           sessionId: opts.session,
           workspaceId: opts.workspace,
@@ -267,8 +271,9 @@ program
         }
         throw error;
       }
+      const { context, labels } = resolved;
       setDataRoot(identity.dataRoot);
-      setCommandContext(context);
+      setCommandContext(context, labels);
       const descriptors = [
         ...STATIC_CREDENTIAL_DESCRIPTORS,
         ...listConnectors().map((connector) => connector.credential),
@@ -574,4 +579,6 @@ function positionalProjectId(command: Command): string | undefined {
 }
 
 preserveStagedScopeOptions(program);
+// #573: a missing required flag or argument prints one working example.
+installUsageExamples(program);
 program.parseAsync();
