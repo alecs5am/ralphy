@@ -336,7 +336,7 @@ describe("CLI smoke: ralphy eval optimize-prompt (fully offline)", () => {
         "--candidate-predictions", candPredPath,
         "--candidate", candPath,
       ],
-      { cwd: tmp, encoding: "utf8", env: { ...process.env } },
+      { cwd: tmp, encoding: "utf8", env: { ...process.env, HOME: tmp, RALPHY_PROJECT_DIR: "" } },
     );
     expect(r.status).toBe(0);
     const json = JSON.parse(r.stdout);
@@ -376,7 +376,7 @@ describe("CLI smoke: ralphy eval optimize-prompt (fully offline)", () => {
     const r = spawnSync(
       "bun",
       ["run", CLI, "--json", "eval", "optimize-prompt", "--prompt", promptPath, "--dataset", datasetPath, "--dry-run"],
-      { cwd: tmp, encoding: "utf8", env: { ...process.env } },
+      { cwd: tmp, encoding: "utf8", env: { ...process.env, HOME: tmp, RALPHY_PROJECT_DIR: "" } },
     );
     expect(r.status).toBe(0);
     const json = JSON.parse(r.stdout);
@@ -397,7 +397,7 @@ describe("CLI smoke: ralphy eval optimize-prompt (fully offline)", () => {
     const r = spawnSync(
       "bun",
       ["run", CLI, "--json", "eval", "optimize-prompt", "--prompt", promptPath, "--dataset", datasetPath, "--train-split", "1.5"],
-      { cwd: tmp, encoding: "utf8", env: { ...process.env } },
+      { cwd: tmp, encoding: "utf8", env: { ...process.env, HOME: tmp, RALPHY_PROJECT_DIR: "" } },
     );
     expect(r.status).not.toBe(0);
     expect(r.stderr).toContain("E_INPUT_INVALID");

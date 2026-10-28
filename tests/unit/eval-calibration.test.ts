@@ -230,7 +230,7 @@ describe("CLI smoke: ralphy eval calibrate --predictions (offline)", () => {
         "--dataset", datasetPath,
         "--predictions", predPath,
       ],
-      { cwd: tmp, encoding: "utf8", env: { ...process.env } },
+      { cwd: tmp, encoding: "utf8", env: { ...process.env, HOME: tmp, RALPHY_PROJECT_DIR: "" } },
     );
     expect(r.status).toBe(0);
     const json = JSON.parse(r.stdout);
@@ -257,7 +257,7 @@ describe("CLI smoke: ralphy eval calibrate --predictions (offline)", () => {
     const r = spawnSync(
       "bun",
       ["run", CLI, "--json", "eval", "calibrate", "--gate", "ocr", "--dataset", datasetPath],
-      { cwd: tmp, encoding: "utf8", env: { ...process.env } },
+      { cwd: tmp, encoding: "utf8", env: { ...process.env, HOME: tmp, RALPHY_PROJECT_DIR: "" } },
     );
     expect(r.status).not.toBe(0);
     expect(r.stderr).toContain("E_INPUT_INVALID");
