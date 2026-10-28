@@ -111,8 +111,8 @@ describe("--pretty forces pretty regardless of isTTY (#001 §E)", () => {
   });
 
   test("models list: --pretty renders a table (box-drawing), no flag renders JSON", () => {
-    const pretty = ralphy(["--pretty", "models", "list"], { cwd: tmp });
-    const auto = ralphy(["models", "list"], { cwd: tmp });
+    const pretty = ralphy(["--pretty", "models", "list"], { cwd: tmp, env: { HOME: tmp } });
+    const auto = ralphy(["models", "list"], { cwd: tmp, env: { HOME: tmp } });
 
     expect(() => JSON.parse(auto.stdout.trim()), "auto-detect (non-TTY) models list is not JSON").not.toThrow();
     // Pretty mode renders a cli-table3 box; assert a box-drawing char is present

@@ -130,7 +130,7 @@ Use Ralphy CLI for every UGC generation step. Read ${packDir}/AGENTS.md before a
 - ralphy template suggest "<utterance>" — match a template
 - ralphy render <id> — produce the mp4
 
-Host-native image tools (the Codex or Claude image tool) are allowed only through \`ralphy generate image --import <file> --project <id> --slot <name>\`, which records the image with provenance at $0 in one call.
+Host-native image tools (the Codex or Claude image tool) are a free path: prefer them over a paid provider when the host model fits the brief, and register every image with \`ralphy generate image --import <file> --project <id> --slot <name>\`, which records it with provenance at $0 in one call.
 
 Source-of-truth playbooks live under ${packDir}/docs/playbooks/. The full CLI surface is in ${packDir}/docs/cli-surface.generated.md.
 If that directory is missing, run \`ralphy prompts install\` once — the pack ships with the CLI and with the desktop app.`;
