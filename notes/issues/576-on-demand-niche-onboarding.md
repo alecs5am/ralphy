@@ -21,6 +21,14 @@ The owner's core use case: "I decided to grow in the psychology niche" -> collec
 5. **Open taxonomy.** A niche created by `niche init` is a first-class niche with its own sub-niches, not forced into the fixed list; the fixed list stays as the cross-niche default.
 6. **Niche report.** Top outliers overall and per sub-niche and size band; winning formats and hook types with n and lift; posting cadence and video length of the creators who grow; sub-niche saturation (creator count) versus demand (median multiplier), as a gap table; entry formats for a new account; links to #557 digests for the top 20 references. Written as a Document and printable.
 
+7. **Copyability ranking (owner rule).** A breakout on a small account is a better reference than a hit from a large one: the small creator has no audience to carry the video, so the format did the work. The report's default "what to copy" list ranks by a copyability score, not by raw views:
+   - **creator-relative multiplier** from #556 (the base signal; it already lifts small-account breakouts);
+   - **reach beyond the audience**: views / followers at snapshot time; a video far above its creator's follower count was distributed by the algorithm;
+   - **size discount**: weight falls as the creator's size band rises (`nano` and `micro` highest, `mega` lowest), because a large account's views are partly audience-driven;
+   - **replication**: a format or hook type that broke out for 2 or more unrelated small creators ranks above a single outlier (format, not luck); a creator whose breakout repeats on the same format counts as stronger evidence;
+   - **noise floor**: a minimum absolute views threshold (default 50k, tunable per niche) so a 3x jump from 300 views is not a reference.
+   Every ranked item shows the components, so the agent can explain why it picked a reference.
+
 ## Why it matters
 
 A content plan "based on top performers" starts from a niche the owner names, often outside our taxonomy. Without a relevance gate the corpus fills with whoever used the hashtag; without size quotas it only describes megastars.
@@ -30,6 +38,7 @@ A content plan "based on top performers" starts from a niche the owner names, of
 - `niche init` on "psychology" (EN) reaches at least 150 relevant creators and 4,000 videos on free sources, with wall time and blocks recorded in `docs/research/trend-corpus.md`.
 - Relevance gate precision checked by hand on 50 random kept and 20 dropped creators (target 90% / 80%).
 - `niche report psychology` produces every section above; sections with too little data say so (minimum-n rule as in #558).
+- The default "what to copy" list is ranked by the copyability score; a test shows a `micro` creator's 20x breakout with 500k views outranks a `mega` creator's 1.5x video with 5M views, and a 3x jump below the noise floor is excluded.
 - Tests for seed persistence, snowball stop rule, relevance threshold, size-band quotas, report shape; `bun run lint`, `bun test`, `cli:surface:check` pass.
 
 ## Notes
