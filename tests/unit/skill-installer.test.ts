@@ -165,6 +165,8 @@ describe("installSkill — codex adapter", () => {
     const agentsMd = path.join(projectRoot, "AGENTS.md");
     expect(fs.existsSync(agentsMd)).toBe(true);
     expect(fs.readFileSync(agentsMd, "utf8")).toContain(SENTINEL_START);
+    // #572: Codex reads this block; host image tools route through the import path.
+    expect(fs.readFileSync(agentsMd, "utf8")).toContain("ralphy generate image --import <file>");
   });
 
   test("respects an existing foreign AGENTS.md by merging via sentinels", () => {

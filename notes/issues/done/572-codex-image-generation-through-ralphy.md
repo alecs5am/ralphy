@@ -1,6 +1,6 @@
 # Route host-native image generation through ralphy
 
-> **Status:** todo
+> **Status:** done — 2026-10-28 (`generate image --import`; store-backed Run + revision at $0; AGENTS.md, Codex installer block and desktop preamble carry the rule)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** high

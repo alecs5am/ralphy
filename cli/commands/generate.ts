@@ -10,7 +10,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { projectDir, ralphDir, root, workspaceDir } from "../lib/paths.js";
-import { out } from "../lib/output.js";
+import { ok, out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { transcribe, type TranscribeBackend } from "../lib/transcribe.js";
 import {
@@ -83,6 +83,12 @@ import type { GenerateResult } from "../lib/providers/types.js";
 import type { ArtifactKind } from "../lib/store/types.js";
 import { providerCompletionFacts } from "../lib/artifact-production.js";
 import { generationInput, generationParameter } from "../lib/generation-input.js";
+import {
+  IMAGE_IMPORT_SOURCES,
+  importImageArtifact,
+  isImageImportSource,
+  probeImportImage,
+} from "../lib/image-import.js";
 import { registerGenerateText } from "./generate-text.js";
 
 // Re-export for unit tests (single import target).
@@ -641,6 +647,148 @@ async function runImageBatch(args: {
   return { count: results.length, totalCostUsd, slots: results, failures };
 }
 
+/**
+ * `generate image --import <file>` (#572): register a host-generated image
+ * (Codex / Claude host image tool, or any local file) into a slot in one call.
+ * No provider call, no spend gate, no model preflight — the bytes already
+ * exist. The domain evidence matches a provider generation (Run kind
+ * `generate.image`, Attempt with cost 0, a new Artifact revision), so the
+ * cost rollup, revision history and media detail see it like any other
+ * generation. See cli/lib/image-import.ts.
+ */
+async function runImageImport(
+  opts: any,
+  command: Command,
+  destination: GenerationDestination,
+): Promise<void> {
+  const verb = "generate image";
+  for (const [flag, value] of [["--batch", opts.batch], ["--queue", opts.queue || undefined]] as const) {
+    if (value !== undefined) {
+      raiseError("E_INPUT_INVALID", {
+        field: "import",
+        detail: `${flag} cannot be combined with --import (one file per call)`,
+        verb,
+      });
+    }
+  }
+  if (opts.variants !== undefined && opts.variants !== 1) {
+    raiseError("E_INPUT_INVALID", {
+      field: "import",
+      detail: "--variants cannot be combined with --import (one file per call)",
+      verb,
+    });
+  }
+  if (!opts.slot) {
+    raiseError("E_INPUT_INVALID", {
+      field: "slot",
+      detail: "--slot <slot> is required with --import <file>",
+      verb,
+    });
+  }
+  const slot = normalizeSlot(opts.slot);
+
+  const raw = String(opts.import ?? "").trim();
+  if (!raw || /^[a-z][a-z0-9+.-]*:/i.test(raw) && !/^[a-z]:[\\/]/i.test(raw)) {
+    raiseError("E_INPUT_INVALID", {
+      field: "import",
+      detail: `--import takes a local file path, got '${raw || "<empty>"}' (download a URL first, or use \`ralphy ref pull\` for references)`,
+      verb,
+    });
+  }
+  const sourcePath = intakeDestinationPath(raw, destination, "import");
+  const probe = await probeImportImage(sourcePath);
+  if (!probe.ok) {
+    raiseError("E_INPUT_INVALID", { field: "import", detail: probe.reason, verb });
+  }
+  const declared = path.extname(sourcePath).toLowerCase();
+  const sniffedExt = probe.image.extension;
+  if (declared && declared !== sniffedExt && !(declared === ".jpeg" && sniffedExt === ".jpg")) {
+    // eslint-disable-next-line no-console
+    console.error(`[warn] import: ${path.basename(sourcePath)} contains ${probe.image.mime} bytes; stored as ${slot}${sniffedExt}`);
+  }
+
+  const sourceValue = opts.source ?? "host-native";
+  if (!isImageImportSource(sourceValue)) {
+    raiseError("E_INPUT_INVALID", {
+      field: "source",
+      detail: `'${sourceValue}' is not one of ${IMAGE_IMPORT_SOURCES.join(" | ")}`,
+      verb,
+    });
+  }
+  // `--model` carries a provider default; only an explicitly passed value is
+  // provenance. An unknown host model is recorded as null, never guessed.
+  const modelSource = command.getOptionValueSource("model");
+  const model = modelSource && modelSource !== "default"
+    ? String(opts.model ?? "").trim() || null
+    : null;
+  if (model && (model.length > 160 || /[\u0000-\u001F\u007F]/.test(model))) {
+    raiseError("E_INPUT_INVALID", {
+      field: "model",
+      detail: "host model name must be 1-160 printable characters",
+      verb,
+    });
+  }
+  const prompt = await readPromptOrFile({
+    prompt: opts.prompt,
+    promptFile: opts.promptFile,
+    ...providerDestination(destination),
+  });
+
+  // Flags that only shape a provider request mean nothing for an import.
+  const ignored = [
+    ...(opts.ref?.length ? ["--ref"] : []),
+    ...(opts.refFile ? ["--ref-file"] : []),
+    ...(opts.negative ? ["--negative"] : []),
+    ...(opts.aspect ? ["--aspect"] : []),
+    ...(command.getOptionValueSource("size") === "cli" ? ["--size"] : []),
+    ...(opts.provider ? ["--provider"] : []),
+  ];
+  if (ignored.length > 0) {
+    // eslint-disable-next-line no-console
+    console.error(`[warn] import: ignoring ${ignored.join(", ")} (no provider call is made)`);
+  }
+
+  if (opts.dryRun) {
+    out({
+      dryRun: true,
+      mode: "import",
+      slot,
+      source: sourceValue,
+      model,
+      mime: probe.image.mime,
+      bytes: probe.bytes,
+      would_call: [],
+      cost_estimate_usd: 0,
+    });
+    return;
+  }
+
+  const completed = await importImageArtifact({
+    destination,
+    slot,
+    sourcePath,
+    image: probe.image,
+    source: sourceValue,
+    model,
+    prompt: prompt && prompt.trim() ? prompt : null,
+  });
+  ok(`imported ${slot} → revision ${completed.revision.revisionNo} ($0, ${sourceValue})`);
+  out({
+    mode: "import",
+    slot,
+    artifactId: completed.artifact.id,
+    revisionId: completed.revision.id,
+    revisionNo: completed.revision.revisionNo,
+    objectId: completed.revision.objectId,
+    runId: completed.run.id,
+    source: sourceValue,
+    model,
+    mime: probe.image.mime,
+    bytes: probe.bytes,
+    costUsd: 0,
+  });
+}
+
 export function generateCmd() {
   const cmd = new Command("generate")
     .alias("gen")
@@ -650,7 +798,7 @@ export function generateCmd() {
   // ── image ───────────────────────────────────────────────────────────────
   const imageCmd = cmd
     .command("image")
-    .description("Generate one image via OpenRouter (default: google/gemini-3-pro-image-preview — nano-banana-pro, multi-ref consistency, ≥4 concurrent). Pass --model openai/gpt-5.4-image-2 when label typography matters more than ref consistency.")
+    .description("Generate one image via OpenRouter (default: google/gemini-3-pro-image-preview — nano-banana-pro, multi-ref consistency, ≥4 concurrent). Pass --model openai/gpt-5.4-image-2 when label typography matters more than ref consistency. Pass --import <file> to register a host-generated image (Codex / Claude host image tool, or any local PNG / JPEG / WebP) into the slot as a new revision with provenance at $0 — no provider call (#572).")
     .option("--project <id>", "Project ID")
     .option("--workspace <slug>", "Workspace shared-asset destination")
     .option("--slot <slot>", "Asset slot id (e.g. scene-01-bg-image). Required unless --batch <jsonl> is passed (the jsonl carries per-line slots).")
@@ -684,9 +832,36 @@ export function generateCmd() {
     .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff on TLS / ECONNRESET / 5xx / skeleton-null payloads. Use for tests / debugging where you want the first response no matter what.")
     .option("--dry-run", "Print resolved request + cost estimate; do not submit (01.02.05)", false)
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
-    .action(async (opts) => {
+    .option(
+      "--import <file>",
+      "Register an existing image file (host-native image tool output, or any local PNG / JPEG / WebP) into --slot instead of calling a provider (#572). COPIES the file (the source is never moved), appends a new Artifact revision (re-import never overwrites), and records a generate.image Run at $0 with --source, --model (the host model name, when known) and --prompt as provenance. Works with --project or --workspace.",
+    )
+    .option(
+      "--source <source>",
+      `With --import: where the image came from (${IMAGE_IMPORT_SOURCES.join(" | ")}). Recorded as the Run Attempt provider. Default: host-native.`,
+    )
+    .addHelpText(
+      "after",
+      `
+Example (register a host-generated image in one call, $0, no provider call):
+  ralphy generate image --import ./hero.png --project <id> --slot scene-01-bg \\
+    --prompt "<the prompt the host tool was given>" --model <host-model-name>
+`,
+    )
+    .action(async (opts, command: Command) => {
       const destination = resolveGenerateDestination(opts);
       await ensureGenerateDestination(destination);
+      if (opts.import !== undefined) {
+        await runImageImport(opts, command, destination);
+        return;
+      }
+      if (opts.source !== undefined) {
+        raiseError("E_INPUT_INVALID", {
+          field: "source",
+          detail: "--source only applies with --import <file>",
+          verb: "generate image",
+        });
+      }
       await maybeLogNoRefConsent(opts);
       if (opts.queue) rejectProjectOnlyMode(destination, "--queue");
       if (maybeEnqueue(opts, "generate.image", opts.project)) return;

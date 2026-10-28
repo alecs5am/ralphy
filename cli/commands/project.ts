@@ -71,6 +71,15 @@ async function safeJson(fp: string) {
   try { return JSON.parse(await fs.readFile(fp, "utf-8")); } catch { return null; }
 }
 
+// #572: copy-paste examples shown after `project log-asset --help` and after
+// its missing --source error. A host-generated image belongs in a slot via
+// `generate image --import`, not in the user-asset log.
+const LOG_ASSET_EXAMPLES = `Example:
+  ralphy project log-asset <id> --kind photo --source ~/Downloads/product.png --copy-from ~/Downloads/product.png --purpose product-ref
+Host-generated image (Codex / Claude image tool)? Register it in one call instead:
+  ralphy generate image --import <file> --project <id> --slot <name> --prompt "<prompt>"
+`;
+
 export function projectCmd() {
   const cmd = new Command("project").description("Manage video projects");
 
@@ -682,11 +691,21 @@ export function projectCmd() {
       out({ project: id, logged: "user-prompt" });
     });
 
-  cmd
+  const logAssetCmd = cmd
     .command("log-asset [id]")
     .description(
-      "Append a user-asset entry to project logs. Accept project id positionally OR via --project (#031). With --copy-from <src>, copies the file into <project>/artifacts/refs/ first (auto-detects disposable macOS NSIRD / /tmp paths and rescues them before they evaporate). Sanitizes U+202F NARROW NO-BREAK SPACE in filenames.",
+      "Append a user-asset entry to project logs. Accept project id positionally OR via --project (#031). With --copy-from <src>, copies the file into <project>/artifacts/refs/ first (auto-detects disposable macOS NSIRD / /tmp paths and rescues them before they evaporate). Sanitizes U+202F NARROW NO-BREAK SPACE in filenames. For an image made by a host-native image tool (Codex / Claude), use `ralphy generate image --import <file> --project <id> --slot <name>` instead: one call registers it as a slot revision with provenance at $0 (#572).",
     )
+    .addHelpText("after", `\n${LOG_ASSET_EXAMPLES}`);
+  // #572: the #562 baseline counted 13 log-asset usage errors and 14 retries.
+  // Append copy-paste examples to the missing --source error only; commander's
+  // message, exit code and every other error stay unchanged.
+  logAssetCmd.configureOutput({
+    outputError: (message, write) => {
+      write(message.includes("'--source <source>'") ? `${message}${LOG_ASSET_EXAMPLES}` : message);
+    },
+  });
+  logAssetCmd
     .option("--project <id>", "Project id (alternative to the positional <id>)")
     .requiredOption("--kind <kind>", "screenshot | photo | video | audio | doc | ref-url | other")
     .requiredOption("--source <source>", "Original path or URL")

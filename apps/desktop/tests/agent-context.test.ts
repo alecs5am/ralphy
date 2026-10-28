@@ -22,6 +22,7 @@ describe("what a chat can reach", () => {
     expect(preamble).toContain("do not collect cards at the end");
     expect(preamble).toContain("unit revise");
     expect(preamble).toContain("hypotheses");
+    expect(preamble).toContain("generate image --import <file>");
   });
   test("read-only chats explain the permission restriction without asking for credential changes", () => {
     const preamble = ralphyPreamble({ rootPath: "/library/.ralphy", cwd: "/library", instructions: [], cli: "/bin/ralphy", permissionMode: "plan" });
@@ -34,6 +35,7 @@ describe("what a chat can reach", () => {
     expect(preamble).not.toContain("unit create");
     expect(preamble).not.toContain("Persist real previews");
     expect(preamble).not.toContain("Keep source IDs");
+    expect(preamble).not.toContain("generate image --import");
     expect(preamble).toContain("<PromptCard title=");
     expect(preamble).toContain("they do not generate, save, schedule or publish");
   });

@@ -36,6 +36,11 @@ Between "scenario approved" and "assets on disk for the editor" — that's my zo
 ralphy generate image --project <id> --slot scene-01-bg --prompt "<text>" \
   [--ref <url> ...] [--model <id>] [--size 1080x1920] [--negative "<text>"]
 
+# Host-native image (Codex / Claude image tool output): the ONLY allowed use of a host
+# image tool. One call copies it into the slot as a new revision, $0, no provider call.
+ralphy generate image --import <file> --project <id> --slot scene-01-bg \
+  [--prompt "<prompt the host tool got>"] [--model <host-model-name>] [--source host-native]
+
 # Video (default model: kwaivgi/kling-v3.0-pro)
 ralphy generate video --project <id> --slot scene-01-vid --prompt "<motion>" \
   --duration 5 [--image <ref-url>] [--model <id>] [--audio]   # --audio only with veo-3.1

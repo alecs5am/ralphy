@@ -236,7 +236,11 @@ Commands:
                          google/gemini-3-pro-image-preview — nano-banana-pro,
                          multi-ref consistency, ≥4 concurrent). Pass --model
                          openai/gpt-5.4-image-2 when label typography matters
-                         more than ref consistency.
+                         more than ref consistency. Pass --import <file> to
+                         register a host-generated image (Codex / Claude host
+                         image tool, or any local PNG / JPEG / WebP) into the
+                         slot as a new revision with provenance at $0 — no
+                         provider call (#572).
   image-batch [options]  Fan out N image gens from a directory of `*.txt` prompt
                          files (each file → one slot named by stem). Shares
                          --model / --ref / --size across the batch; respects
@@ -939,7 +943,11 @@ Commands:
                                 (auto-detects disposable macOS NSIRD / /tmp
                                 paths and rescues them before they evaporate).
                                 Sanitizes U+202F NARROW NO-BREAK SPACE in
-                                filenames.
+                                filenames. For an image made by a host-native
+                                image tool (Codex / Claude), use `ralphy
+                                generate image --import <file> --project <id>
+                                --slot <name>` instead: one call registers it as
+                                a slot revision with provenance at $0 (#572).
   score [options] <id>          Run virality rubric over scenario.json (Hard
                                 fails + warnings, no LLM)
   image-pack [options] <id>     Scaffold a first-class image-pack workflow

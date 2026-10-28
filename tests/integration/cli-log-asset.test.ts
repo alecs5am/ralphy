@@ -222,4 +222,18 @@ describe("`ralphy project log-asset --copy-from` (#038)", () => {
 
     fs.rmSync(srcDir, { recursive: true, force: true });
   });
+
+  test("missing --source error keeps commander's message and adds copy-paste examples, incl. generate image --import (#572)", () => {
+    const r = ralphy(["project", "log-asset", "p1", "--kind", "photo"]);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr).toContain("error: required option '--source <source>' not specified");
+    expect(r.stderr).toContain("ralphy project log-asset <id> --kind photo --source");
+    expect(r.stderr).toContain("ralphy generate image --import <file> --project <id> --slot <name>");
+
+    // Other usage errors are untouched.
+    const missingKind = ralphy(["project", "log-asset", "p1", "--source", "x.png"]);
+    expect(missingKind.exitCode).toBe(1);
+    expect(missingKind.stderr).toContain("error: required option '--kind <kind>' not specified");
+    expect(missingKind.stderr).not.toContain("generate image --import");
+  });
 });
