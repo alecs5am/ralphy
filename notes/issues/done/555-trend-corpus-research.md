@@ -1,6 +1,6 @@
 # Trend corpus at 100k+ videos: research and design
 
-> **Status:** todo
+> **Status:** done — 2026-10-28 (docs/research/trend-corpus.md; #556 sharpened)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** high
