@@ -16,6 +16,7 @@ From the #562 baseline: 42 `ralphy` usage errors. 23 were workspace / project sc
 - Scope errors list the valid ids and name the active session scope on conflict.
 - `project log-asset`: infer or default `--source`, and print a working example in the error.
 - Required-flag errors from commander print one example invocation.
+- `ralphy models ...` needs no Workspace scope (read-only registry and catalog): join the scope-free branch in `cli/index.ts` with `prompts` and `skill` (found in #574).
 
 ## Scope / acceptance
 
