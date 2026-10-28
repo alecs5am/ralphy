@@ -1,6 +1,6 @@
 # Reference digest bundle and contact-sheet quality/cost eval
 
-> **Status:** todo
+> **Status:** done — 2026-10-28 (`ralphy ref digest`; default fixed 0.5 s, 36 tiles, max 4 sheets: about 2.6k image tokens per 30 s, 0.94 on the 18-video eval)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** high

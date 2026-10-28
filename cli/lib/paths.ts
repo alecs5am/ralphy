@@ -420,6 +420,12 @@ export function svgCacheDir() {
   return path.join(workspace(), "cache", "svg");
 }
 
+// Reference digest bundles (#557) built without --project, keyed by a content
+// hash. Append-only: an existing bundle is never rewritten (`<hash>.v2`, …).
+export function digestCacheDir() {
+  return path.join(workspace(), "cache", "digests");
+}
+
 // ─── Per-project artifact layout (#105) ─────────────────────────────────────
 //
 // A project's media lives in ONE tree: `<project>/artifacts/<kind>/`. `refs`

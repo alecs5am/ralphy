@@ -1043,6 +1043,29 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
     {
+      label: "ref.digest",
+      shape: {
+        bundle: ".ralphy/workspaces/default/projects/demo-001/artifacts/refs/top-ref/digest",
+        digest: ".ralphy/workspaces/default/projects/demo-001/artifacts/refs/top-ref/digest/digest.json",
+        mode: "fixed",
+        everySec: 0.5,
+        durationSec: 28.021,
+        frames: 57,
+        capped: false,
+        cuts: 6,
+        sheets: [
+          { file: "sheet-01.jpg", tiles: 36, width: 1154, height: 978, visionTokens: 1505 },
+          { file: "sheet-02.jpg", tiles: 21, width: 1154, height: 734, visionTokens: 1130 },
+        ],
+        tilesPerSheet: 36,
+        tileWidth: 126,
+        visionTokens: 2635,
+        buildMs: 2061,
+        transcript: "skipped",
+        metrics: null,
+      },
+    },
+    {
       label: "ref.contact-sheet",
       shape: {
         project: "demo-001",

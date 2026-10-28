@@ -39,6 +39,24 @@ import {
 } from "../lib/store/runs.js";
 import { generationRunScope } from "../lib/generation-scope.js";
 import { produceArtifactRevision } from "../lib/artifact-production.js";
+import { existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  CLAUDE_VISION_BUDGET,
+  DIGEST_DEFAULTS,
+  buildDigest,
+  createVersionedDir,
+  metricsFromYtDlpMeta,
+  readTranscriptFile,
+  sha256File,
+  transcriptCandidates,
+  type DigestMode,
+  type SheetFormat,
+  type TranscriptWord,
+} from "../lib/ref-digest.js";
+import { digestCacheDir } from "../lib/paths.js";
+import { compressVoiceSample } from "../lib/ffmpeg-recipes.js";
+import { transcribe } from "../lib/transcribe.js";
 
 export function refCmd() {
   const cmd = new Command("ref").description("Manage references (websites, social media)");
@@ -1138,6 +1156,40 @@ export function refCmd() {
       });
     });
 
+  // ── digest (#557 — one-request reference bundle for agent vision) ───────
+  // Local and free by default: ffprobe + one ffmpeg scene-score pass + one
+  // frame pass + an in-process sheet compositor. Transcription is reused only
+  // when a transcript already exists (or --transcript); the paid ElevenLabs /
+  // OpenRouter path runs only with an explicit --transcribe. Append-only: an
+  // existing bundle dir is never rewritten (`digest.v2`, `<hash>.v2`, …).
+  cmd
+    .command("digest <video-or-url>")
+    .description(
+      "Build a reference digest bundle: digest.json (duration, fps, resolution, scene cuts, per-sheet tile -> timestamp map, transcript words when one exists, metrics) plus timestamp-labeled contact sheets sized to the agent's vision budget. Local ffmpeg only; no model calls unless --transcribe. Writes <project>/artifacts/refs/<slug>/digest/ with --project, else .ralphy/cache/digests/<hash>/. Append-only (.v2 sibling). Defaults chosen by docs/research/contact-sheet-eval.md.",
+    )
+    .option("--project <id>", "Write the bundle under <project>/artifacts/refs/<slug>/digest/")
+    .option("--slug <name>", "Bundle slug inside the project (default: derived from the file name or URL)")
+    .option("--out <dir>", "Explicit bundle directory (overrides --project / cache placement; still append-only)")
+    .option("--mode <mode>", "Sampling: fixed | cut-adaptive", DIGEST_DEFAULTS.mode)
+    .option("--every <sec>", "Fixed: one frame every <sec>. Cut-adaptive: in-shot cadence (fast shots get half)", String(DIGEST_DEFAULTS.everySec))
+    .option("--tiles <n>", "Tiles per sheet", String(DIGEST_DEFAULTS.tilesPerSheet))
+    .option("--tile-width <px>", "Tile width in px (default: the largest width whose sheet fits the vision budget)")
+    .option("--no-fit", "Do not clamp sheets to the vision budget (larger sheets are downscaled by the API anyway)")
+    .option("--max-sheets <n>", "Maximum sheets; frames beyond tiles x sheets are evenly subsampled", String(DIGEST_DEFAULTS.maxSheets))
+    .option("--max-frames <n>", "Frame cap (default: tiles x max-sheets)")
+    .option("--cut-threshold <score>", "ffmpeg scene-score threshold for cuts (0..1)", String(DIGEST_DEFAULTS.cutThreshold))
+    .option("--format <fmt>", "Sheet image format: jpg | png", DIGEST_DEFAULTS.format)
+    .option("--max-sheet-pixels <n>", "Vision budget: sheet area cap in pixels", String(CLAUDE_VISION_BUDGET.maxPixels))
+    .option("--max-sheet-edge <px>", "Vision budget: sheet long-edge cap in pixels", String(CLAUDE_VISION_BUDGET.maxLongEdge))
+    .option("--transcript <path>", "Use this transcript JSON (Caption[] / { captions } / { words })")
+    .option("--transcribe", "Paid: transcribe the audio when no transcript exists (ElevenLabs / OpenRouter)", false)
+    .option("--language <lang>", "--transcribe language: ru | en | auto", "auto")
+    .option("--backend <backend>", "--transcribe backend: elevenlabs | openrouter | gemini")
+    .option("--metrics <json-or-path>", "Known metrics as inline JSON or a JSON file path")
+    .action(async (input: string, opts: any) => {
+      await runRefDigest(input, opts);
+    });
+
   cmd
     .command("delete <id>")
     .description("Delete a reference")
@@ -1244,6 +1296,8 @@ Examples:
   ralphy ref pack my-project-001 --add artifacts/refs/hero.png --type product --lock
   ralphy ref pack my-project-001 --mode product-shot  # report missing required ref types
   ralphy ref locate --image shot.jpg --object "label tab on the bottle" --top-k 3
+  ralphy ref digest artifacts/refs/top-ref.mp4 --project my-proj-001   # contact sheets + digest.json
+  ralphy ref digest top.mp4 --mode fixed --every 0.25 --tiles 64       # dense fixed cadence
 `,
   );
 
@@ -1294,4 +1348,224 @@ function referenceImageMime(extension: string): string {
   if (extension === ".webp") return "image/webp";
   if (extension === ".gif") return "image/gif";
   throw new Error(`unsupported reference image extension: ${extension || "<none>"}`);
+}
+
+// ── ref digest worker (#557) ───────────────────────────────────────────────
+
+function digestNumber(
+  raw: unknown,
+  field: string,
+  bounds: { min: number; max?: number; int?: boolean; exclusiveMin?: boolean },
+): number {
+  const n = Number(raw);
+  const bad =
+    !Number.isFinite(n) ||
+    (bounds.exclusiveMin ? n <= bounds.min : n < bounds.min) ||
+    (bounds.max !== undefined && n > bounds.max) ||
+    (bounds.int === true && !Number.isInteger(n));
+  if (bad) {
+    raiseError("E_INPUT_INVALID", {
+      field,
+      detail: `expected ${bounds.int ? "an integer" : "a number"} ${bounds.exclusiveMin ? ">" : ">="} ${bounds.min}${bounds.max !== undefined ? ` and <= ${bounds.max}` : ""}, got ${String(raw)}`,
+      verb: "ref digest",
+    });
+  }
+  return n;
+}
+
+function parseDigestMetrics(raw: string, projectId: string | undefined): Record<string, unknown> {
+  let parsed: unknown;
+  try {
+    const text = raw.trim().startsWith("{") ? raw : readFileSync(intakePath(raw, projectId, "metrics"), "utf8");
+    parsed = JSON.parse(text);
+  } catch (e: any) {
+    raiseError("E_INPUT_INVALID", { field: "metrics", detail: `not a JSON object or readable JSON file: ${e?.message ?? String(e)}`, verb: "ref digest" });
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    raiseError("E_INPUT_INVALID", { field: "metrics", detail: "metrics must be a JSON object", verb: "ref digest" });
+  }
+  return parsed as Record<string, unknown>;
+}
+
+async function runRefDigest(input: string, opts: any): Promise<void> {
+  const mode = String(opts.mode) as DigestMode;
+  if (mode !== "fixed" && mode !== "cut-adaptive") {
+    raiseError("E_INPUT_INVALID", { field: "mode", detail: `expected fixed | cut-adaptive, got ${mode}`, verb: "ref digest" });
+  }
+  const format = String(opts.format) as SheetFormat;
+  if (format !== "jpg" && format !== "png") {
+    raiseError("E_INPUT_INVALID", { field: "format", detail: `expected jpg | png, got ${format}`, verb: "ref digest" });
+  }
+  const everySec = digestNumber(opts.every, "every", { min: 0.04, max: 60 });
+  const tilesPerSheet = digestNumber(opts.tiles, "tiles", { min: 1, max: 400, int: true });
+  const tileWidth = opts.tileWidth !== undefined ? digestNumber(opts.tileWidth, "tile-width", { min: 16, max: 4096, int: true }) : undefined;
+  const maxSheets = digestNumber(opts.maxSheets, "max-sheets", { min: 1, max: 100, int: true });
+  const maxFrames = opts.maxFrames !== undefined ? digestNumber(opts.maxFrames, "max-frames", { min: 1, max: 40_000, int: true }) : undefined;
+  const cutThreshold = digestNumber(opts.cutThreshold, "cut-threshold", { min: 0, max: 1, exclusiveMin: true });
+  const maxPixels = digestNumber(opts.maxSheetPixels, "max-sheet-pixels", { min: 10_000, int: true });
+  const maxLongEdge = digestNumber(opts.maxSheetEdge, "max-sheet-edge", { min: 64, int: true });
+
+  const projectId: string | undefined = opts.project;
+  if (projectId) {
+    const project = await getEntity("projects", projectId);
+    if (!project) {
+      raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
+      return;
+    }
+  }
+
+  const isUrl = /^https?:\/\//i.test(input);
+  let videoPath: string | undefined;
+  let sha256: string | undefined;
+  if (!isUrl) {
+    videoPath = intakePath(input, projectId, "video");
+    if (!existsSync(videoPath)) {
+      raiseError("E_NOT_FOUND", { kind: "Video", id: videoPath });
+      return;
+    }
+    sha256 = await sha256File(videoPath);
+  }
+  const slug =
+    slugify(String(opts.slug ?? (isUrl ? slugFromUrl(input) : path.basename(videoPath!, path.extname(videoPath!))))) || "ref";
+  const cacheKey = (isUrl ? createHash("sha256").update(input).digest("hex") : sha256!).slice(0, 16);
+  const base = opts.out
+    ? path.resolve(String(opts.out))
+    : projectId
+      ? path.join(projectRefsDir(projectId), slug, "digest")
+      : path.join(digestCacheDir(), cacheKey);
+
+  // URL input: allocate the versioned bundle first and pull into <bundle>/source
+  // through the existing yt-dlp path, so a re-run never overwrites a prior pull.
+  let preallocated: string | undefined;
+  let pulledMeta: Record<string, unknown> | null = null;
+  if (isUrl) {
+    preallocated = await createVersionedDir(base);
+    try {
+      const pulled = await pullReference({ url: input, slug, outputDir: path.join(preallocated, "source") });
+      if (!pulled.videoPath) throw new Error("yt-dlp returned no video stream");
+      videoPath = pulled.videoPath;
+      pulledMeta = pulled.meta;
+    } catch (e: any) {
+      raiseError("E_PROVIDER_HTTP", { provider: "yt-dlp", status: 0, detail: e?.message ?? String(e) });
+      return;
+    }
+  }
+  const video = videoPath!;
+
+  // Transcript: explicit file > sibling transcript > paid --transcribe > skipped.
+  let transcript: { words: TranscriptWord[]; source: string } | { skipped: string } | undefined;
+  if (opts.transcript) {
+    const p = intakePath(String(opts.transcript), projectId, "transcript");
+    const words = existsSync(p) ? readTranscriptFile(p) : null;
+    if (!words) {
+      raiseError("E_INPUT_INVALID", { field: "transcript", detail: `unreadable or unrecognized transcript JSON: ${p}`, verb: "ref digest" });
+      return;
+    }
+    transcript = { words, source: path.relative(root(), p) };
+  } else {
+    for (const cand of transcriptCandidates(video)) {
+      const words = existsSync(cand) ? readTranscriptFile(cand) : null;
+      if (words && words.length > 0) {
+        transcript = { words, source: path.relative(root(), cand) };
+        break;
+      }
+    }
+  }
+  if (!transcript && opts.transcribe) {
+    const audio = path.join(ralphDir(), "tmp", `digest-${cacheKey}-${Date.now().toString(36)}`, "audio.mp3");
+    try {
+      await compressVoiceSample({ src: video, dst: audio, maxSeconds: 3600, bitrateKbps: 64 });
+      const r = await transcribe({
+        audioPath: audio,
+        language: String(opts.language) as TranscribeLanguage,
+        ...(opts.backend ? { backend: String(opts.backend) as TranscribeBackend } : {}),
+      });
+      transcript = {
+        words: r.captions.map((c) => ({ text: c.text.trim(), startMs: c.startMs, endMs: c.endMs })).filter((w) => w.text),
+        source: `${r.provider}/${r.model}`,
+      };
+      if (projectId) {
+        await logGeneration(projectId, {
+          provider: r.provider,
+          model: r.model,
+          endpoint: r.model,
+          kind: "text",
+          input: { project: projectId, slot: `ref-digest-${slug}-transcript`, language: String(opts.language) },
+          status: "ok",
+          latency_ms: r.durationMs,
+          cost_usd: r.costUsd,
+          note: "ref digest --transcribe",
+        });
+      }
+    } catch (e: any) {
+      raiseError("E_PROVIDER_HTTP", { provider: "transcribe", status: 0, detail: projectRunFailure(e).message });
+      return;
+    }
+  }
+  if (!transcript) {
+    transcript = { skipped: "no transcript found next to the video; pass --transcript <path> or --transcribe (paid)" };
+  }
+
+  // Metrics: yt-dlp meta (pulled or sibling meta.info.json) merged under --metrics.
+  const siblingMeta = path.join(path.dirname(video), "meta.info.json");
+  let metaMetrics: Record<string, unknown> | null = null;
+  try {
+    const meta = pulledMeta ?? (existsSync(siblingMeta) ? JSON.parse(readFileSync(siblingMeta, "utf8")) : null);
+    metaMetrics = meta ? metricsFromYtDlpMeta(meta) : null;
+  } catch {
+    metaMetrics = null;
+  }
+  const explicit = opts.metrics ? parseDigestMetrics(String(opts.metrics), projectId) : null;
+  const metrics = metaMetrics || explicit ? { ...(metaMetrics ?? {}), ...(explicit ?? {}) } : null;
+
+  let result: Awaited<ReturnType<typeof buildDigest>>;
+  try {
+    result = await buildDigest({
+      videoPath: video,
+      bundleDir: preallocated ?? base,
+      preallocated: preallocated !== undefined,
+      sha256,
+      input,
+      url: isUrl ? input : null,
+      mode,
+      everySec,
+      tilesPerSheet,
+      tileWidth,
+      fit: opts.fit !== false,
+      maxSheets,
+      maxFrames,
+      cutThreshold,
+      format,
+      budget: { maxLongEdge, maxPixels, pixelsPerToken: CLAUDE_VISION_BUDGET.pixelsPerToken },
+      transcript,
+      metrics,
+    });
+  } catch (e: any) {
+    raiseError("E_INTERNAL", { detail: `ref digest failed: ${e?.message ?? String(e)}` });
+    return;
+  }
+
+  const d = result.digest;
+  const rel = (p: string) => {
+    const r = path.relative(root(), p);
+    return r.startsWith("..") || path.isAbsolute(r) ? p : r;
+  };
+  ok(`Digest → ${rel(result.bundleDir)} (${d.sheets.length} sheet(s), ${d.sampling.frameCount} frames, ~${d.cost.visionTokens} vision tokens)`);
+  out({
+    bundle: rel(result.bundleDir),
+    digest: rel(result.digestPath),
+    mode: d.sampling.mode,
+    everySec: d.sampling.everySec,
+    durationSec: d.video.durationSec,
+    frames: d.sampling.frameCount,
+    capped: d.sampling.capped,
+    cuts: d.scenes.cuts.length,
+    sheets: d.sheets.map((s) => ({ file: s.file, tiles: s.tiles, width: s.width, height: s.height, visionTokens: s.visionTokens })),
+    tilesPerSheet: d.layout.tilesPerSheet,
+    tileWidth: d.layout.tileWidth,
+    visionTokens: d.cost.visionTokens,
+    buildMs: d.cost.buildMs,
+    transcript: d.transcript.status,
+    metrics: d.metrics ? Object.keys(d.metrics) : null,
+  });
 }

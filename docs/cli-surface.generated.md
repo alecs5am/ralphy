@@ -828,6 +828,7 @@ Commands:
   pack [options] <project-id>                    Build/update the project's reference pack — gathers + classifies refs from artifacts/refs/ (and workspace shared/refs/ + research-facts hints) into a typed, lockable ref-pack.json + REF_PACK.md. Append-only: a re-run merges by path. `--add` registers a ref manually; `--show` prints without rebuilding; `--mode` reports missing required ref types.
   lint [options] <project-id>                    Lint the project's reference pack — flags missing files, unsupported formats, tiny resolutions, duplicate hashes, suspicious temp paths, missing provenance, and (with --mode) required ref types absent for the mode. Deterministic, no model calls. `--contact-sheet` also renders the grouped-by-type montage.
   contact-sheet [options] <project-id>           Render a grouped-by-type contact sheet of the project's image refs to artifacts/refs/contact-sheet.png (one row per ref type). Uses the existing ffmpeg contact-sheet recipe; append-only (auto-versions an existing sheet). Video/audio refs are excluded.
+  digest [options] <video-or-url>                Build a reference digest bundle: digest.json (duration, fps, resolution, scene cuts, per-sheet tile -> timestamp map, transcript words when one exists, metrics) plus timestamp-labeled contact sheets sized to the agent's vision budget. Local ffmpeg only; no model calls unless --transcribe. Writes <project>/artifacts/refs/<slug>/digest/ with --project, else .ralphy/cache/digests/<hash>/. Append-only (.v2 sibling). Defaults chosen by docs/research/contact-sheet-eval.md.
   delete <id>                                    Delete a reference
   locate [options]                               Locate an object in an image — returns pixel bbox(es) via Gemini vision
   help [command]                                 display help for command
@@ -846,6 +847,8 @@ Examples:
   ralphy ref pack my-project-001 --add artifacts/refs/hero.png --type product --lock
   ralphy ref pack my-project-001 --mode product-shot  # report missing required ref types
   ralphy ref locate --image shot.jpg --object "label tab on the bottle" --top-k 3
+  ralphy ref digest artifacts/refs/top-ref.mp4 --project my-proj-001   # contact sheets + digest.json
+  ralphy ref digest top.mp4 --mode fixed --every 0.25 --tiles 64       # dense fixed cadence
 ```
 
 ### `ralphy project`
