@@ -43,5 +43,7 @@ A content plan "based on top performers" starts from a niche the owner names, of
 
 ## Notes
 
+- Dataset design (niches, creator quotas, negative control group, enrichment tiers, gold set, filters): `docs/research/trend-dataset-spec.md`. Onboarding follows it; the four approved niches are psychology (EN + RU), AI tools / tech tips, personal finance, and one visual niche.
+
 - Sequence after #556 (uses its tables, sources, circuit breaker and outlier score) and #557 (digests).
 - Instagram Business Discovery (free, needs a Meta app and a professional account) returns views, likes and comments for other professional accounts per the #555 research; evaluate it here as the free Instagram path.

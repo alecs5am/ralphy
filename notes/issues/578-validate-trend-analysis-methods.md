@@ -50,6 +50,8 @@ The analysis exists to make better content. Methods that do not improve predicti
 
 ## Notes
 
+- Data contract: `docs/research/trend-dataset-spec.md` (backfill vs prospective cohorts, matched controls, negative control creators, gold set, time-based splits). Validation runs only on a frozen dataset version built to that spec.
+
 - Blocked until #556 has run long enough to have 28-day outcomes for early checkpoints (about 4-6 weeks of refresh on at least one niche); start with the #576 psychology niche if it exists by then.
 - Retention and completion exist only for our own posts (#558); methods that need them are deferred until enough own posts exist (minimum-n rule).
 - Methods list comes from the chat discussion of 2026-10-28; add new candidates here rather than building them first.
