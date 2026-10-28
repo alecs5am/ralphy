@@ -6,7 +6,8 @@ import type { JsonValue } from "./types.js";
 /**
  * Outcome reads for performance-linked eval (#558). Read-only joins over the
  * existing Unit → Presentation → Publication → Metric Snapshot chain plus the
- * per-Unit decision-ledger Documents. No schema of its own.
+ * per-Unit decision-ledger and post-comments (#582) Documents. No schema of
+ * its own.
  *
  * Visibility: a Workspace context reads the whole Workspace TREE (Workspace-
  * owned Units and every Project's Units), the same explicit choice
@@ -27,6 +28,18 @@ const ANALYTICS_IMPORT_BODY_KIND = "ralphy.analytics-import";
 
 export function decisionLedgerSlug(unitSlug: string): string {
   return `${DECISION_LEDGER_SLUG_PREFIX}${unitSlug}`;
+}
+
+/**
+ * Document kind + slug convention for the per-Unit post comments (#582): a
+ * sibling of the decision ledger in the Unit's own scope.
+ */
+export const POST_COMMENTS_DOCUMENT_KIND = "custom" as const;
+export const POST_COMMENTS_DOCUMENT_BODY_KIND = "ralphy.post-comments";
+export const POST_COMMENTS_SLUG_PREFIX = "post-comments-";
+
+export function postCommentsSlug(unitSlug: string): string {
+  return `${POST_COMMENTS_SLUG_PREFIX}${unitSlug}`;
 }
 
 export type UnitLocationDto = {
@@ -261,16 +274,40 @@ export function findUnitLedgerDocument(input: {
   context: QueryContext;
   unitId: string;
 }): DecisionLedgerDocumentDto | null {
+  return findUnitScopedDocument(input.context, input.unitId, decisionLedgerSlug, DECISION_LEDGER_DOCUMENT_KIND);
+}
+
+/** The post-comments Document of one Unit (#582), or null when none was imported yet. */
+export function findUnitCommentsDocument(input: {
+  context: QueryContext;
+  unitId: string;
+}): DecisionLedgerDocumentDto | null {
+  return findUnitScopedDocument(input.context, input.unitId, postCommentsSlug, POST_COMMENTS_DOCUMENT_KIND);
+}
+
+/** Every visible Unit's post-comments Document body, keyed by Unit ID (#582). */
+export function listUnitCommentDocuments(input: { context: QueryContext }): Map<string, DecisionLedgerDocumentDto> {
   const db = openDomainDb();
   const scope = resolveQueryContext(db, input.context);
+  return readUnitDocuments(db, scope, POST_COMMENTS_DOCUMENT_KIND, POST_COMMENTS_SLUG_PREFIX, POST_COMMENTS_DOCUMENT_BODY_KIND);
+}
+
+function findUnitScopedDocument(
+  context: QueryContext,
+  unitId: string,
+  slugFor: (unitSlug: string) => string,
+  kind: string,
+): DecisionLedgerDocumentDto | null {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, context);
   const visibility = unitScopeClause(scope);
   const unit = db
     .query<{ slug: string; projectId: string | null; workspaceId: string }, string[]>(
       `SELECT unit.slug AS slug, unit.project_id AS projectId, unit.workspace_id AS workspaceId
        FROM units unit WHERE ${visibility.sql} AND unit.id = ?`,
     )
-    .get(...visibility.values, input.unitId);
-  if (!unit) throw new Error(`Unit not found: ${input.unitId}`);
+    .get(...visibility.values, unitId);
+  if (!unit) throw new Error(`Unit not found: ${unitId}`);
   const row = db
     .query<LedgerDbRecord, [string, string | null, string, string]>(
       `SELECT d.id AS documentId, d.project_id AS projectId,
@@ -279,7 +316,7 @@ export function findUnitLedgerDocument(input: {
        LEFT JOIN document_revisions r ON r.id = d.current_revision_id
        WHERE d.workspace_id = ? AND d.project_id IS ? AND d.slug = ? AND d.kind = ?`,
     )
-    .get(unit.workspaceId, unit.projectId, decisionLedgerSlug(unit.slug), DECISION_LEDGER_DOCUMENT_KIND);
+    .get(unit.workspaceId, unit.projectId, slugFor(unit.slug), kind);
   if (!row) return null;
   return {
     documentId: row.documentId,
@@ -311,6 +348,16 @@ export function listProjectAttemptModels(input: {
 }
 
 function readLedgerDocuments(db: Database, scope: ResolvedScope): Map<string, DecisionLedgerDocumentDto> {
+  return readUnitDocuments(db, scope, DECISION_LEDGER_DOCUMENT_KIND, DECISION_LEDGER_SLUG_PREFIX, DECISION_LEDGER_BODY_KIND);
+}
+
+function readUnitDocuments(
+  db: Database,
+  scope: ResolvedScope,
+  kind: string,
+  slugPrefix: string,
+  bodyKind: string,
+): Map<string, DecisionLedgerDocumentDto> {
   const projectClause = scope.projectId === null ? "" : " AND (d.project_id IS NULL OR d.project_id = ?)";
   const rows = db
     .query<LedgerDbRecord, string[]>(
@@ -322,8 +369,8 @@ function readLedgerDocuments(db: Database, scope: ResolvedScope): Map<string, De
     )
     .all(
       scope.workspaceId,
-      DECISION_LEDGER_DOCUMENT_KIND,
-      `${DECISION_LEDGER_SLUG_PREFIX}%`,
+      kind,
+      `${slugPrefix}%`,
       ...(scope.projectId === null ? [] : [scope.projectId]),
     );
   const out = new Map<string, DecisionLedgerDocumentDto>();
@@ -331,7 +378,7 @@ function readLedgerDocuments(db: Database, scope: ResolvedScope): Map<string, De
     const body = parseJson(row.body);
     if (!body || typeof body !== "object" || Array.isArray(body)) continue;
     const record = body as Record<string, JsonValue>;
-    if (record.kind !== DECISION_LEDGER_BODY_KIND || typeof record.unitId !== "string") continue;
+    if (record.kind !== bodyKind || typeof record.unitId !== "string") continue;
     out.set(record.unitId, {
       documentId: row.documentId,
       currentRevisionId: row.currentRevisionId,

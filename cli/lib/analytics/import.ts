@@ -512,7 +512,8 @@ function findPublication(context: QueryContext, presentationId: string, publicat
   return found;
 }
 
-function checkScreenshot(file: string): { file: string; mime: string; bytes: number } {
+/** Validate one screenshot path (.png / .jpg / .jpeg / .webp, non-empty, under 25 MiB). */
+export function checkScreenshot(file: string): { file: string; mime: string; bytes: number } {
   const resolved = path.resolve(file);
   const mime = SCREENSHOT_MIME[path.extname(resolved).toLowerCase()];
   if (!mime) {

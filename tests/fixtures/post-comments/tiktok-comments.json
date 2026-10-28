@@ -1,0 +1,26 @@
+{
+  "capturedAt": "2026-10-27T12:00:00Z",
+  "notes": "Synthetic comments for the kettle review fixture (tests/fixtures/decision-ledger/project-a).",
+  "comments": [
+    { "ref": "c1", "author": "@brewbuddy", "text": "Part 2 please!", "likes": 120, "postedAt": "6d" },
+    { "author": "@leafandsteam", "text": "Can you do one on the milk frother?", "likes": 64, "postedAt": "6d" },
+    { "author": "@morningpour", "text": "Please make a video about the milk frother next", "likes": 30, "postedAt": "5d" },
+    { "author": "@kettlehead", "text": "Wait what happened at 0:05? I'm lost", "likes": 41, "postedAt": "6d" },
+    { "author": "@tealover", "text": "I don't get the part at 0:07, what does thin stream mean?", "likes": 12, "postedAt": "5d" },
+    { "author": "@quietcup", "text": "The spout bit at 0:06 was confusing", "likes": 9, "postedAt": "4d" },
+    { "author": "@hotwater", "text": "That's not true, the handle gets hot after two boils", "likes": 22, "postedAt": "5d" },
+    { "author": "@steeped", "text": "Clickbait, you never showed the third way", "likes": 18, "postedAt": "6d" },
+    { "author": "@drip", "text": "Title is misleading, only two ways shown", "likes": "7", "postedAt": "3d" },
+    { "author": "@calmcoffee", "text": "You talk way too fast, slow down", "likes": 15, "postedAt": "5d" },
+    { "author": "@espressoyes", "text": "Talking so fast at the start, couldn't keep up", "likes": 6, "postedAt": "4d" },
+    { "author": "@goodbrew", "text": "Love this, so helpful", "likes": "1.2K", "postedAt": "6d" },
+    { "author": "@fanmail", "text": "🔥🔥🔥", "likes": 3, "postedAt": "2d" },
+    { "author": "@promoking", "text": "Check out my page for free followers www.example-promo.test/win", "likes": 0, "postedAt": "1d" },
+    { "author": "@kettlebrand", "text": "Part 2 is coming Friday!", "byCreator": true, "replyTo": "c1", "likes": 40, "postedAt": "5d" },
+    { "author": "@hardwaterhank", "text": "How does it handle hard water?", "likes": 11, "postedAt": "4d" },
+    { "author": "@scalebuster", "text": "What about hard water scale after a month?", "likes": 5, "postedAt": "3d" },
+    { "author": "@audiophile", "text": "The music is too loud at 0:18", "likes": 4, "postedAt": "3d" },
+    { "author": "@latecomer", "text": "Where can I buy it?", "likes": 2, "postedAt": "2d" },
+    { "author": "@seconder", "text": "part 2!!", "likes": 8, "postedAt": "2d" }
+  ]
+}

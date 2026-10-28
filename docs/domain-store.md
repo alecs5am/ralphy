@@ -38,7 +38,12 @@ screenshot Artifact revisions) travel in a versioned `ralphy.analytics-import`
 raw envelope that only `store/outcomes.ts` projects. A Unit's decision ledger
 is a JSON Document of kind `custom` with slug `decision-ledger-<unit-slug>` in
 the Unit's own scope, so its history is append-only revisions and portable
-export carries it unchanged.
+export carries it unchanged. Comments on our own posts (`analytics comments
+import`, #582) follow the same pattern: a `ralphy.post-comments` JSON Document
+of kind `custom` with slug `post-comments-<unit-slug>` beside the ledger; each
+import appends one revision with the merged comment set (author handles stored
+only as Workspace-salted hashes), and comment screenshots are image Artifact
+revisions.
 
 ## Trend corpus
 

@@ -1,0 +1,13 @@
+{
+  "id": "Ab3dE6gH9jK",
+  "title": "Three ways this kettle beats the one you own",
+  "webpage_url": "https://www.youtube.com/shorts/Ab3dE6gH9jK",
+  "duration": 24,
+  "comment_count": 4,
+  "comments": [
+    { "id": "Ugw1", "parent": "root", "text": "Do a follow-up comparing it to a gooseneck kettle", "like_count": 33, "author": "@pourover-pat", "author_id": "UC111", "author_is_uploader": false, "is_pinned": false, "timestamp": 1761400000 },
+    { "id": "Ugw2", "parent": "root", "text": "What happened at 0:08? The cut lost me", "like_count": 9, "author": "@lostviewer", "author_id": "UC222", "author_is_uploader": false, "is_pinned": false, "timestamp": 1761410000 },
+    { "id": "Ugw2.r1", "parent": "Ugw2", "text": "It shows the spout pouring slowly", "like_count": 2, "author": "@kettlebrand", "author_id": "UC999", "author_is_uploader": true, "is_pinned": false, "timestamp": 1761420000 },
+    { "id": "Ugw3", "parent": "root", "text": "Great review, thank you", "like_count": 5, "author": "@happycamper", "author_id": "UC333", "author_is_uploader": false, "is_pinned": true, "timestamp": 1761430000 }
+  ]
+}

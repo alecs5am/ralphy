@@ -16,13 +16,16 @@ import {
   readImportData,
 } from "../lib/analytics/import.js";
 import { DEFAULT_REPORT_OPTIONS, loadOutcomeReport } from "../lib/analytics/report.js";
+import { importComments, isCommentPlatform, readCommentsData } from "../lib/analytics/comment-import.js";
+import { DEFAULT_COMMENT_REPORT_OPTIONS, DEFAULT_COMMENT_SIGNAL_MIN_N, loadCommentReport } from "../lib/analytics/comment-report.js";
+import { DEFAULT_YTDLP_MAX_COMMENTS } from "../lib/analytics/comment-ytdlp.js";
 import { isOutcomeMetric, OUTCOME_METRICS } from "../lib/analytics/outcomes.js";
 import { trendCohortProvider } from "../lib/trends/cohort-provider.js";
 import { currentCurves } from "../lib/trends/ingest.js";
 
 export function analyticsCmd(): Command {
   const command = new Command("analytics").description(
-    "Query Publication metric snapshots, import screenshot analytics, and report outcomes per decision",
+    "Query Publication metric snapshots, import screenshot analytics and post comments, and report outcomes per decision",
   );
 
   command
@@ -138,6 +141,78 @@ export function analyticsCmd(): Command {
       }));
     });
 
+  // ── comments (#582) ───────────────────────────────────────────────────────
+  // Comments on our own posts: the agent reads comment screenshots with its
+  // own vision (or the owner pastes text, or yt-dlp pulls our own YouTube
+  // video's comments for free), previews, then re-runs with --yes. Nothing is
+  // ever posted or replied to.
+  const comments = command
+    .command("comments")
+    .description("Import and analyze the comments on our own posts: classes, moments mapped to scenario beats, and iteration proposals with evidence");
+
+  comments
+    .command("import <unit-or-project>")
+    .description(
+      "Import comments for a Unit from agent-read screenshot JSON, pasted text (one comment per line), or --from-ytdlp for our own YouTube video. Classifies with deterministic rules (agent labels win; --llm labels the rest on --yes). Previews unless --yes; nothing is posted or replied to.",
+    )
+    .requiredOption("--platform <platform>", "tiktok | instagram | youtube")
+    .option("--data <json-file-or-text>", "Comments JSON (an array, or {capturedAt, postUrl, comments: [{text, author, likes, postedAt, replyTo, labels, timestamps}]}), a JSON file, or pasted text")
+    .option("--screenshot <files...>", "Source screenshot image(s); copied into the store as provenance")
+    .option("--from-ytdlp <video-url>", "Pull the comments of OUR OWN YouTube video with yt-dlp (free; one video URL, passed explicitly)")
+    .option("--max-comments <count>", "Comment cap for --from-ytdlp", String(DEFAULT_YTDLP_MAX_COMMENTS))
+    .option("--llm", "Label the comments the rules left unlabeled with one cheap callLLM() pass per 100 (runs on --yes only)")
+    .option("--dry-run", "Preview only: parsed comments, labels, moments, and the merge plan (the default)")
+    .option("--yes", "Store the comments after the owner confirmed the preview")
+    .action(async (ref: string, opts, child: Command) => {
+      if (!isCommentPlatform(opts.platform)) {
+        raiseError("E_FLAG_UNKNOWN", { flag: "platform", value: opts.platform, allowed: "tiktok, instagram, youtube" });
+      }
+      if (opts.yes && opts.dryRun) {
+        raiseError("E_INPUT_INVALID", { field: "yes", detail: "--yes and --dry-run are mutually exclusive" });
+      }
+      if (!opts.data && !opts.fromYtdlp) {
+        raiseError("E_INPUT_INVALID", { field: "data", detail: "pass --data <json|file|pasted text> or --from-ytdlp <our youtube video url>" });
+      }
+      const read = typeof opts.data === "string" ? readCommentsData(opts.data) : null;
+      out(await importComments({
+        context: context(child),
+        ref,
+        platform: opts.platform,
+        ...(read ? { data: read.data, dataFormat: read.format } : {}),
+        screenshots: opts.screenshot ?? [],
+        ...(typeof opts.fromYtdlp === "string"
+          ? { ytdlp: { url: opts.fromYtdlp, maxComments: positiveInt(opts.maxComments, "max-comments") } }
+          : {}),
+        llm: Boolean(opts.llm),
+        write: Boolean(opts.yes),
+      }));
+    });
+
+  comments
+    .command("report <unit-or-project>")
+    .description(
+      "Comment report for one Unit: counts and top comments per class, a beat-level map of the moments viewers name (joined to the imported retention curve), and iteration proposals (next videos from demand, beat fixes, hook / packaging / delivery changes), each with comment ids and counts. Read-only.",
+    )
+    .option("--min-n <count>", "Distinct commenters a pattern needs before it becomes a proposal", String(DEFAULT_COMMENT_REPORT_OPTIONS.minN))
+    .option("--top <count>", "Comments listed per class", String(DEFAULT_COMMENT_REPORT_OPTIONS.top))
+    .option("--platform <platform>", "Restrict to one platform's comments")
+    .option("--from <dir>", "Project working directory holding scenario.json (beats)")
+    .action((ref: string, opts, child: Command) => {
+      if (opts.platform !== undefined && !isCommentPlatform(opts.platform)) {
+        raiseError("E_FLAG_UNKNOWN", { flag: "platform", value: opts.platform, allowed: "tiktok, instagram, youtube" });
+      }
+      out(loadCommentReport(
+        context(child),
+        ref,
+        {
+          minN: positiveInt(opts.minN, "min-n"),
+          top: positiveInt(opts.top, "top"),
+          ...(typeof opts.platform === "string" ? { platform: opts.platform } : {}),
+        },
+        typeof opts.from === "string" ? opts.from : undefined,
+      ));
+    });
+
   // ── report (#558) ─────────────────────────────────────────────────────────
   command
     .command("report")
@@ -154,6 +229,7 @@ export function analyticsCmd(): Command {
     .option("--no-derive", "Use stored decision ledgers only (skip on-the-fly derivation)")
     .option("--cohort-workspace <id>", "Trend corpus Workspace (#556) whose creator-listed videos supply cohort baselines")
     .option("--cohort-niche <niche...>", "Restrict cohort baselines to these corpus niches (e.g. ai-tools tech-tips)")
+    .option("--comments-min-n <count>", "Analyzed comments a unit + platform needs before its comment signals show (#582)", String(DEFAULT_COMMENT_SIGNAL_MIN_N))
     .action((opts, child: Command) => {
       if (!isOutcomeMetric(opts.metric)) {
         raiseError("E_FLAG_UNKNOWN", { flag: "metric", value: opts.metric, allowed: OUTCOME_METRICS.join(", ") });
@@ -169,6 +245,7 @@ export function analyticsCmd(): Command {
         ...(opts.hitThreshold !== undefined ? { hitThreshold: nonNegative(opts.hitThreshold, "hit-threshold") } : {}),
         ...(typeof opts.platform === "string" ? { platform: opts.platform } : {}),
         deriveMissing: opts.derive !== false,
+        commentMinN: positiveInt(opts.commentsMinN, "comments-min-n"),
         ...(typeof opts.cohortWorkspace === "string"
           ? {
               cohort: trendCohortProvider({

@@ -1866,8 +1866,8 @@ ____        __      __
 
 Usage: ralphy analytics [options] [command]
 
-Query Publication metric snapshots, import screenshot analytics, and report
-outcomes per decision
+Query Publication metric snapshots, import screenshot analytics and post
+comments, and report outcomes per decision
 
 Options:
   -h, --help                          display help for command
@@ -1886,6 +1886,10 @@ Commands:
                                       numbers and planned writes unless --yes;
                                       --extract pre-fills the JSON with one
                                       callLLM() vision pass (off by default).
+  comments                            Import and analyze the comments on our own
+                                      posts: classes, moments mapped to scenario
+                                      beats, and iteration proposals with
+                                      evidence
   report [options]                    Outcome report for the --workspace tree
                                       (or one --project): hit rate against the
                                       workspace's own rolling median,

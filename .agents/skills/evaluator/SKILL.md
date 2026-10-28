@@ -12,7 +12,7 @@ description: >-
 
 ## Trigger refinements
 
-**ALSO FIRE** when the user just dropped a path that ends in `.mp4` from `.ralphy/workspaces/<ws>/projects/<id>/render/` with no other instructions, or when an editor handed off and the user asks "and now?" (any language).
+**ALSO FIRE** when the user just dropped a path that ends in `.mp4` from `.ralphy/workspaces/<ws>/projects/<id>/render/` with no other instructions, when an editor handed off and the user asks "and now?" (any language), or when the owner sends the comments on a posted video ("what do the comments say", "analyze the comments", "what should the next video be") — that is the post-publish comments flow below.
 
 **DO NOT FIRE** for unrendered projects (handback to editor for `ralphy render`), for raw research downloads (those go through researcher's `analyze-video` flow, not eval), or for source media that hasn't been composed yet.
 
@@ -147,6 +147,10 @@ Alongside `ralphy eval video`, run the course-grounded editorial pass in [`../sc
 
 The render eval judges craft; real outcomes judge whether the work was worth doing. When the owner sends platform analytics screenshots, read them yourself (free), fill the JSON payload, run `ralphy analytics import <unit> --platform <p> --data <json> --screenshot <png> --dry-run`, show the parsed numbers, and write only after the owner confirms (`--yes`). Then `ralphy analytics report --workspace <ws>` gives the hit rate and the decision-vs-outcome table. Field locations, unit conversions, and traps per platform: [`references/analytics-screenshots.md`](references/analytics-screenshots.md).
 
+## Post-publish comments (#582)
+
+Comments on our own posts say what viewers wanted next, where they got lost, and what they disputed. Read comment screenshots yourself (free) into the JSON payload, take pasted text as is, or pull our own YouTube video's comments with `--from-ytdlp <url>`. Then `ralphy analytics comments import <unit> --platform <p> --data <json> --dry-run`, show the labels, re-run with `--yes`, and run `ralphy analytics comments report <unit>` for class counts, the beat-level confusion map (joined to the imported retention curve), and iteration proposals with comment-id evidence. Nothing is posted or replied to. Payload, classes, and how proposals are derived: [`references/post-comments.md`](references/post-comments.md).
+
 ## When findings are clearly false-positives
 
 The October 2026 gate audit ([`docs/research/gate-audit-2026-10.md`](../../../docs/research/gate-audit-2026-10.md), #569) moved the most common format-choice findings to advisory in code:
@@ -172,6 +176,7 @@ Do not try to fix from inside evaluator. The skill ends at the report.
 
 - `references/report-schema.md` — full JSON schema of `eval.json`
 - `references/analytics-screenshots.md` — reading TikTok / Instagram / YouTube analytics screenshots for `ralphy analytics import`
+- `references/post-comments.md` — comment payload, classes, and proposals for `ralphy analytics comments import|report`
 - `../scenarist/references/retention-review.md` — the post-render editorial retention review (Content Autopilot method)
 - `cli/lib/eval/findings.ts` — rule taxonomy + thresholds (the source of truth for `category` and severity ladders)
 - `MODELS.md` — vision model used (`google/gemini-2.5-flash` via OpenRouter)

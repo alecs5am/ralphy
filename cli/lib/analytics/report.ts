@@ -23,7 +23,14 @@ import {
 import { deriveDecisions, effectiveDecisions, gatherLedgerSources, parseLedgerBody } from "./ledger.js";
 import { existsSync } from "node:fs";
 import { domainDbPath } from "../store/db.js";
-import { listUnitOutcomeFacts, type UnitLocationDto, type UnitOutcomeFactsDto } from "../store/outcomes.js";
+import {
+  listUnitCommentDocuments,
+  listUnitOutcomeFacts,
+  type UnitLocationDto,
+  type UnitOutcomeFactsDto,
+} from "../store/outcomes.js";
+import { parsePostCommentsBody, type PostCommentsBody } from "../schemas/post-comments.js";
+import { commentSignalsSection, DEFAULT_COMMENT_SIGNAL_MIN_N } from "./comment-report.js";
 import { unitContext } from "../unit-revision.js";
 import type { QueryContext } from "../store/scope-context.js";
 
@@ -45,6 +52,8 @@ export interface OutcomeReportOptions {
   /** Derive ledgers on the fly for units without a stored one (default true). */
   deriveMissing?: boolean;
   cohort?: CohortBaselineProvider;
+  /** Minimum analyzed comments per unit + platform before comment signals show (#582). */
+  commentMinN?: number;
 }
 
 export const DEFAULT_REPORT_OPTIONS: OutcomeReportOptions = {
@@ -63,6 +72,8 @@ export function buildOutcomeReport(input: {
   units: UnitOutcomeFactsDto[];
   decisionsFor: (unit: UnitOutcomeFactsDto) => DecisionsForUnit;
   options: OutcomeReportOptions;
+  /** Stored post comments per Unit ID (#582); absent = none loaded. */
+  comments?: Map<string, PostCommentsBody>;
   generatedAt?: string;
 }) {
   const options = input.options;
@@ -97,6 +108,17 @@ export function buildOutcomeReport(input: {
   }
 
   const cohort = cohortSection(observations, baselines, options);
+  const comments = commentSignalsSection({
+    units: input.units.map((unit) => ({ unitId: unit.unitId, slug: unit.slug })),
+    bodies: input.comments ?? new Map(),
+    outcomeFor: (unitId, platform) => {
+      const observation = observations.find((entry) => entry.unitId === unitId && entry.platform === platform);
+      if (!observation) return null;
+      return { target: observation.metrics[options.metric], hit: evaluations.get(observation)?.hit ?? null };
+    },
+    minN: options.commentMinN ?? DEFAULT_COMMENT_SIGNAL_MIN_N,
+    ...(options.platform ? { platform: options.platform } : {}),
+  });
   const notes: string[] = [];
   if (observations.length === 0) {
     notes.push("No measured outcomes yet. Read the platform analytics screenshot, then `ralphy analytics import <unit> --platform <p> --data <json> --dry-run` and re-run with --yes.");
@@ -147,6 +169,7 @@ export function buildOutcomeReport(input: {
     ).filter((row) => row.n > 0),
     cohort,
     decisions,
+    comments,
     observations: observationRows(observations, evaluations, options.metric),
     observationsTruncated: Math.max(0, observations.length - MAX_OBSERVATION_ROWS),
     notes,
@@ -261,7 +284,22 @@ export function loadOutcomeReport(context: QueryContext, options: OutcomeReportO
     units,
     decisionsFor: ledgerDecisionsFor(context, options.deriveMissing ?? true),
     options,
+    comments: loadCommentBodies(context),
   });
+}
+
+/** Stored post comments per Unit (#582); best effort, never fatal to the report. */
+function loadCommentBodies(context: QueryContext): Map<string, PostCommentsBody> {
+  const out = new Map<string, PostCommentsBody>();
+  try {
+    for (const [unitId, document] of listUnitCommentDocuments({ context })) {
+      const body = parsePostCommentsBody(document.body);
+      if (body) out.set(unitId, body);
+    }
+  } catch {
+    /* comment signals are optional evidence */
+  }
+  return out;
 }
 
 // ─── production-plan citation ────────────────────────────────────────────────
