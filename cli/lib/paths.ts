@@ -27,6 +27,8 @@ import {
   assertCommandProject,
   clearCommandContext,
   getCommandContext,
+  getCommandScopeLabels,
+  namesCommandProject,
 } from "./context-state.js";
 
 let _root: string = process.cwd();
@@ -244,7 +246,9 @@ function readRegistryProjectsSync(): Record<string, any> {
 
 /**
  * Which workspace a project belongs to. Resolution order:
- *   1. registry entry's `workspace` field (absent → "default")
+ *   1. registry entry's `workspace` field (absent → "default"), except that a
+ *      legacy entry never moves the scoped Project out of the Workspace the
+ *      store resolved for it (#585)
  *   2. immutable command context when one is resolved
  *   3. unknown id: an existing `workspaces/<ws>/projects/<id>/` directory
  *   4. the constant default Workspace for compatibility creation
@@ -256,6 +260,12 @@ export function projectWorkspace(projectId: string): string {
     const ws = entry.workspace;
     const workspaceId =
       typeof ws === "string" && ws.length > 0 ? ws : DEFAULT_WORKSPACE;
+    if (context && namesCommandProject(projectId)) {
+      const scopeSlug = getCommandScopeLabels().workspaceSlug;
+      if (workspaceId !== context.workspaceId && workspaceId !== scopeSlug) {
+        return context.workspaceId;
+      }
+    }
     assertProjectReference(projectId, workspaceId);
     return workspaceId;
   }

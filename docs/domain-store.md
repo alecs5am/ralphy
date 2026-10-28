@@ -136,6 +136,16 @@ Legacy registry/current-Workspace pointers and control files are not
 authoritative state. Use explicit Workspace scope, immutable Sessions, and the
 portable package contract for cross-installation transfer.
 
+Compatibility verbs that work on a Project's on-disk tree (`project
+log-asset`, `log-prompt`, `timeline`, the `ref` and `assets unpack` verbs, ...)
+find the Project in the store by id or slug inside the resolved scope (#585,
+`cli/lib/project-lookup.ts`). The tree lives in the store Workspace's
+`projects/` directory, named by the slug or the id, whichever tree exists. The
+legacy registry is read only on a root where no store scope resolves (no
+`ralphy.db`, or a store without a Workspace), and for descriptive fields such
+as `brief` or `refs` that a store Project's metadata does not carry yet. It never
+overrides the store's Workspace for a Project.
+
 ## Migration safety
 
 The domain migration is resumable and journaled:

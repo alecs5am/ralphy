@@ -34,6 +34,20 @@ export function getCommandContext(): ResolvedCommandContext | null {
   return current;
 }
 
+/** The slugs the resolved scope is known by; empty without a resolved scope. */
+export function getCommandScopeLabels(): CommandScopeLabels {
+  return { ...labels };
+}
+
+/**
+ * Whether a compatibility reference names the scoped Project: its id, or the
+ * slug the scope was resolved from (#573, #585).
+ */
+export function namesCommandProject(reference: string): boolean {
+  return current?.projectId !== undefined &&
+    (reference === current.projectId || reference === labels.projectSlug);
+}
+
 export function assertCommandWorkspace(workspaceId: string): void {
   if (
     current !== null &&

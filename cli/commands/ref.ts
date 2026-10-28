@@ -3,6 +3,9 @@ import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "../lib/registry.js";
+import { requireCompatibilityProject } from "../lib/project-lookup.js";
+import { updateProject } from "../lib/store/scopes.js";
+import { StoreConflictError, type JsonValue } from "../lib/store/types.js";
 import { slugify, generateId } from "../lib/ids.js";
 import { out, ok, err } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
@@ -133,12 +136,27 @@ export function refCmd() {
     .action(async (refId: string, opts: any) => {
       const ref = await getEntity("refs", refId);
       if (!ref) raiseError("E_NOT_FOUND", { kind: "Reference", id: refId });
-      const project = await getEntity("projects", opts.to);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id: opts.to });
+      const project = await requireCompatibilityProject(opts.to);
 
-      const refs = project.refs || [];
+      const refs = project.record.refs || [];
       if (!refs.includes(refId)) refs.push(refId);
-      await updateEntity("projects", opts.to, { refs });
+      if (project.source === "store") {
+        // #585: a store Project keeps its attached refs in its own metadata.
+        try {
+          updateProject(
+            project.id,
+            { metadata: { ...(project.metadata ?? {}), refs } as JsonValue },
+            project.rowVersion!,
+          );
+        } catch (error) {
+          if (error instanceof StoreConflictError) {
+            raiseError("E_CONFLICT", { kind: "Project", id: opts.to });
+          }
+          throw error;
+        }
+      } else {
+        await updateEntity("projects", opts.to, { refs });
+      }
       ok(`Reference ${refId} attached to project ${opts.to}`);
       out({ refId, projectId: opts.to });
     });
@@ -456,19 +474,15 @@ export function refCmd() {
     .option("--page-timeout <ms>", "Per-page timeout in ms (default 20000)", (v) => parseInt(v, 10), 20_000)
     .action(async (url: string, opts: any) => {
       const t0 = Date.now();
-      const projectId: string | undefined = opts.project;
+      // #585: store-backed lookup; the path helpers take the resolved slug.
+      const projectId: string | undefined = opts.project
+        ? (await requireCompatibilityProject(opts.project)).ref
+        : undefined;
       // Compute outDir: per-project artifacts/refs/ when --project given, else a
       // workspace-level references/<slug>/ scratch dir.
       const outDir = projectId
         ? projectRefsDir(projectId)
         : path.join(referencesDir(), new URL(url).hostname.replace(/^www\./, ""));
-      if (projectId) {
-        const project = await getEntity("projects", projectId);
-        if (!project) {
-          raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
-          return;
-        }
-      }
       try {
         const result = await extractSite({
           url,
@@ -918,9 +932,10 @@ export function refCmd() {
         return;
       }
       // Branch 2 — read project scenario.json + attached refs.
-      const project = await getEntity("projects", projectId);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
-      const projDir = projectDir(projectId);
+      const resolved = await requireCompatibilityProject(projectId);
+      projectId = resolved.ref;
+      const project = resolved.record;
+      const projDir = resolved.dir;
       let scenario: any = null;
       try {
         const raw = await fs.readFile(path.join(projDir, "scenario.json"), "utf-8");
@@ -975,11 +990,7 @@ export function refCmd() {
       } = await import("../lib/ref-pack.js");
       const { REF_PACK_ARTIFACT, lockedRefs } = await import("../lib/schemas/ref-pack.js");
 
-      const project = await getEntity("projects", projectId);
-      if (!project) {
-        raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
-        return;
-      }
+      projectId = (await requireCompatibilityProject(projectId)).ref;
       const projDir = projectDir(projectId);
       const packPath = path.join(projDir, REF_PACK_ARTIFACT);
       const mdPath = path.join(projDir, REF_PACK_MD_ARTIFACT);
@@ -1063,11 +1074,7 @@ export function refCmd() {
     .option("--contact-sheet", "Also render the grouped-by-type contact sheet to artifacts/refs/contact-sheet.png", false)
     .option("--force-overwrite", "Overwrite an existing contact sheet instead of auto-versioning", false)
     .action(async (projectId: string, opts: { mode?: string; contactSheet?: boolean; forceOverwrite?: boolean }) => {
-      const project = await getEntity("projects", projectId);
-      if (!project) {
-        raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
-        return;
-      }
+      projectId = (await requireCompatibilityProject(projectId)).ref;
       const { readRefPack } = await import("../lib/ref-pack.js");
       const { lintRefPack, buildRefPackContactSheet, defaultRefProbe, REF_PACK_CONTACT_SHEET_ARTIFACT } =
         await import("../lib/ref-pack-lint.js");
@@ -1131,11 +1138,7 @@ export function refCmd() {
     )
     .option("--force-overwrite", "Overwrite an existing contact sheet instead of auto-versioning", false)
     .action(async (projectId: string, opts: { forceOverwrite?: boolean }) => {
-      const project = await getEntity("projects", projectId);
-      if (!project) {
-        raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
-        return;
-      }
+      projectId = (await requireCompatibilityProject(projectId)).ref;
       const { readRefPack } = await import("../lib/ref-pack.js");
       const { buildRefPackContactSheet, REF_PACK_CONTACT_SHEET_ARTIFACT } = await import("../lib/ref-pack-lint.js");
       const { resolveProjectPath } = await import("../lib/path-resolution.js");
@@ -1467,14 +1470,10 @@ async function runRefDigest(input: string, opts: any): Promise<void> {
   const maxPixels = digestNumber(opts.maxSheetPixels, "max-sheet-pixels", { min: 10_000, int: true });
   const maxLongEdge = digestNumber(opts.maxSheetEdge, "max-sheet-edge", { min: 64, int: true });
 
-  const projectId: string | undefined = opts.project;
-  if (projectId) {
-    const project = await getEntity("projects", projectId);
-    if (!project) {
-      raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
-      return;
-    }
-  }
+  // #585: store-backed lookup; the path helpers take the resolved slug.
+  const projectId: string | undefined = opts.project
+    ? (await requireCompatibilityProject(opts.project)).ref
+    : undefined;
 
   const isUrl = /^https?:\/\//i.test(input);
   let videoPath: string | undefined;

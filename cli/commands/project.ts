@@ -3,7 +3,15 @@ import fs from "fs/promises";
 import path from "path";
 import crypto from "node:crypto";
 import { spawn } from "node:child_process";
-import { addEntity, getEntity, updateEntity, deleteEntity } from "../lib/registry.js";
+import { addEntity, updateEntity, deleteEntity } from "../lib/registry.js";
+// #585: compatibility verbs find their Project through the store (the legacy
+// registry only on a root without a store scope). `id = project.ref` rebinds
+// the reference to the slug (or registry id) the path helpers take.
+import {
+  findCompatibilityProject,
+  requireCompatibilityProject,
+  type CompatibilityProject,
+} from "../lib/project-lookup.js";
 import { slugify, generateId } from "../lib/ids.js";
 import { artifactsDir, projectRefsDir, resolveArtifactKindDirs, projectDir, projectWorkspace, layoutMode, workspaceDir } from "../lib/paths.js";
 import { existsSync } from "node:fs";
@@ -220,10 +228,10 @@ export function projectCmd() {
     )
     .option("--out-dir <path>", "Override where eval.json / eval-deep-vision.json are read and the plan is written (default: project dir)")
     .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
 
-      const dir = opts.outDir ? path.resolve(String(opts.outDir)) : projectDir(id);
+      const dir = opts.outDir ? path.resolve(String(opts.outDir)) : project.dir;
       const evalReport = (await safeJson(path.join(dir, "eval.json"))) as EvalReport | null;
       if (!evalReport) {
         raiseError("E_NOT_FOUND", {
@@ -279,8 +287,8 @@ export function projectCmd() {
     .requiredOption("--phase <phase>", "Council phase: preflight | polish")
     .option("--no-llm", "Skip the per-role LLM passes — deterministic abstaining roster (offline)")
     .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
 
       const phase = String(opts.phase);
       if (phase !== "preflight" && phase !== "polish") {
@@ -290,7 +298,7 @@ export function projectCmd() {
         });
       }
 
-      const dir = projectDir(id);
+      const dir = project.dir;
       // `--no-llm` → opts.llm === false (commander negates). Inject the live
       // per-role callLLM seam unless the user opted out.
       const deps = opts.llm === false ? {} : { callRole: makeLlmCallRole() };
@@ -376,8 +384,8 @@ export function projectCmd() {
     .option("--platform <platform>", "Target platform override (default: tiktok)")
     .option("--no-llm", "Skip the LLM enrichment pass — deterministic fields only")
     .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
 
       const warnings: string[] = [];
       const candidates = await loadTemplateCandidates((m) => warnings.push(m));
@@ -402,7 +410,7 @@ export function projectCmd() {
 
       // Append-only: auto-version all artifacts if they already exist
       // (protectExistingAsset renames the existing file to .v{N}). AGENTS.md #14.
-      const dir = projectDir(id);
+      const dir = project.dir;
       await fs.mkdir(dir, { recursive: true });
       const mdPath = path.join(dir, "PRODUCTION_PLAN.md");
       const jsonPath = path.join(dir, "production-plan.json");
@@ -448,12 +456,12 @@ export function projectCmd() {
       "Gate mode: report { ok, hasLock, required, refuse } and exit non-zero when the lock is missing for a covered mode. Writes nothing.",
     )
     .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
 
       // Resolve content_mode: explicit --mode wins, else the production plan's
       // recorded mode. The plan also seeds the deterministic scaffold context.
-      const plan = await safeJson(path.join(projectDir(id), "production-plan.json"));
+      const plan = await safeJson(path.join(project.dir, "production-plan.json"));
       const planMode: string | null = plan?.contentMode?.mode ?? null;
       const mode: string | null = opts.mode ?? planMode;
       const required = requiresStyleLock(mode);
@@ -484,7 +492,7 @@ export function projectCmd() {
       // ── scaffold/write path ──
       const ctx: StyleLockContext = {
         projectId: id,
-        brief: opts.brief ?? plan?.brief ?? project.brief ?? null,
+        brief: opts.brief ?? plan?.brief ?? project.record.brief ?? null,
         contentMode: mode,
         required,
         guidelineSlugs: modeEntry?.guidelineOrStyleLock.guidelineSlugs ?? [],
@@ -515,7 +523,7 @@ export function projectCmd() {
       const body = renderStyleLockScaffold(ctx, content);
 
       // Append-only: auto-version if STYLE_LOCK.md already exists (#14).
-      const dir = projectDir(id);
+      const dir = project.dir;
       await fs.mkdir(dir, { recursive: true });
       const lockPath = styleLockPath(id);
       const archived = await protectExistingAsset(lockPath, false);
@@ -677,8 +685,8 @@ export function projectCmd() {
     .option("--type <type>", "Log type: generations | user-prompts | user-assets | all", "generations")
     .option("--limit <n>", "Max entries (newest last)", (v) => parseInt(v, 10), 50)
     .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
 
       const types: Array<"generations" | "user-prompts" | "user-assets"> =
         opts.type === "all" ? ["user-prompts", "user-assets", "generations"] : [opts.type];
@@ -699,8 +707,8 @@ export function projectCmd() {
     .command("timeline <id>")
     .description("Merged project timeline (user requests + assets + generations) as pretty chronological log")
     .action(async (id: string) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
       const [prompts, assets, gens] = await Promise.all([
         readLog<UserPromptEntry>(id, "user-prompts"),
         readLog<UserAssetEntry>(id, "user-assets"),
@@ -735,10 +743,10 @@ export function projectCmd() {
     .option("--stage <stage>", "Stage label (brief | feedback | ...)")
     .option("--note <note>", "Free-form note")
     .action(async (idArg: string | undefined, opts: any) => {
-      const id = idArg ?? (opts.project as string | undefined);
+      let id = idArg ?? (opts.project as string | undefined);
       if (!id) raiseError("E_VALIDATION_FAILED", { target: "project id", detail: "pass it positionally or via --project" });
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
       await logUserPrompt(id, { text: opts.text, stage: opts.stage, note: opts.note });
       ok(`Prompt logged for ${id}`);
       out({ project: id, logged: "user-prompt" });
@@ -779,10 +787,10 @@ export function projectCmd() {
         return;
       }
       opts.source = inferred.source;
-      const id = idArg ?? (opts.project as string | undefined);
+      let id = idArg ?? (opts.project as string | undefined);
       if (!id) raiseError("E_VALIDATION_FAILED", { target: "project id", detail: "pass it positionally or via --project" });
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
 
       // Disposable-path detector (issue #038). macOS screenshot temp paths
       // auto-delete within minutes; warn loudly when the user logs one
@@ -941,16 +949,16 @@ export function projectCmd() {
     .description("Run virality rubric over scenario.json (Hard fails + warnings, no LLM)")
     .option("--strict", "Exit with code 1 if any failure")
     .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
       const scenario = (await safeJson(
-        path.join(projectDir(id), "scenario.json")
+        path.join(project.dir, "scenario.json")
       )) as Scenario | null;
       if (!scenario) err(`No scenario.json found for ${id}`);
 
       // The content mode decides whether this gate applies in full (#569): the
       // production plan wins, else the scenario's own content_mode.
-      const plan = (await safeJson(path.join(projectDir(id), "production-plan.json"))) as
+      const plan = (await safeJson(path.join(project.dir, "production-plan.json"))) as
         | { contentMode?: { mode?: string } }
         | null;
       const result = scoreScenario(scenario as Scenario, { mode: plan?.contentMode?.mode ?? null });
@@ -987,8 +995,8 @@ export function projectCmd() {
     .option("--force", "Bypass append-only auto-versioning and overwrite an existing pack.json / prompts/pack.jsonl in place")
     .option("--score", "Run the deterministic image-pack eval rubric (role coverage / aspect / selected-set cohesion) instead of scaffolding")
     .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
 
       // ── --score: run the rubric, write nothing ──
       if (opts.score) {
@@ -1049,14 +1057,14 @@ export function projectCmd() {
     )
     .option("--mode <mode>", "Content-mode override for the thresholds (default: production-plan.json contentMode)")
     .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
 
       const card = buildScorecard({ projectId: id, mode: opts.mode ? String(opts.mode) : null });
 
       // Append-only: auto-version a prior scorecard.json (protectExistingAsset
       // renames the existing file to .v{N}). AGENTS.md #14.
-      const dir = projectDir(id);
+      const dir = project.dir;
       await fs.mkdir(dir, { recursive: true });
       const jsonPath = path.join(dir, SCORECARD_ARTIFACT);
       const archivedJson = await protectExistingAsset(jsonPath, false);
@@ -1091,10 +1099,10 @@ export function projectCmd() {
       "Grade a production plan BEFORE it becomes the contract for expensive work (#432). Deterministic CRITIC — reads production-plan.json and grades it against the content-mode registry expectations (mode fit, missing inputs, research grounding, style lock, model stack, cost/ETA, gates, first checkpoint) into ONE verdict (strong | weak | blocked). BLOCKED when the plan lacks a required artifact for its mode (a required ref type / input missing, a lock-required mode with no style lock, an empty stack, an unsupported/unclassified mode). Makes ZERO model calls. Writes plan-grade.json + PLAN_GRADE.md (append-only, auto-versions). JSON output. Example: ralphy project grade-plan spring-001",
     )
     .action(async (id: string) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
 
-      const dir = projectDir(id);
+      const dir = project.dir;
       const planRaw = await safeJson(path.join(dir, "production-plan.json"));
       if (!planRaw) {
         raiseError("E_NOT_FOUND", { kind: "production-plan.json", id: path.join(dir, "production-plan.json") });
@@ -1153,8 +1161,8 @@ export function projectCmd() {
     .option("--expiry <iso|duration>", "Expiry as an ISO timestamp or a duration (e.g. 24h, 7d, 30m, 2w). Default: never expires")
     .option("--scope <scope>", "project | batch", "project")
     .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
 
       const cap = Number(opts.cap);
       if (!Number.isFinite(cap) || cap < 0) {
@@ -1192,7 +1200,7 @@ export function projectCmd() {
         reason: approval.reason,
         approvedAt: approval.approvedAt,
         approvals: ledger.approvals.length,
-        artifact: path.join(projectDir(id), "spend-ledger.json"),
+        artifact: path.join(project.dir, "spend-ledger.json"),
       });
     });
 
@@ -1207,8 +1215,8 @@ export function projectCmd() {
       "Show the project's spend ledger state (#444): the active budget cap, actual spend (sum of generations.jsonl cost_usd), remaining budget, an over-budget flag, expiry status, and the full append-only approval history. With no ledger, reports hasLedger:false and the actual spend so far (generation is unenforced). Makes ZERO model calls, never mutates the project. JSON output. Example: ralphy project budget spring-001",
     )
     .action(async (id: string) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
 
       const s = await budgetSummary(id);
       ok(
@@ -1238,11 +1246,11 @@ export function projectCmd() {
     .option("--model <model>", "(advanced; only honored for backend=openrouter)", DEFAULT_MODEL)
     .option("--out <path>", "Output JSON path (default: <project>/captions.json)")
     .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
 
       const audioPath = path.resolve(opts.audio);
-      const projDir = projectDir(id);
+      const projDir = project.dir;
       const outPath = opts.out
         ? path.resolve(opts.out)
         : path.join(projDir, "captions.json");
@@ -1306,13 +1314,18 @@ export function projectCmd() {
     .description("Clone a project")
     .requiredOption("--name <name>", "New project name")
     .action(async (id: string, opts: any) => {
+      // #585: the copy is a legacy registry entry, so a store Project is
+      // refused here instead of failing later on the scope guard.
+      const project = await findCompatibilityProject(id);
+      if (project?.source === "store") {
+        refuseStoreProject("project clone", project, "project clone only copies legacy registry Projects; create the new Project with `ralphy project create`");
+      }
       const src = projectDir(id);
       const newId = slugify(opts.name) || generateId("proj");
       const dst = projectDir(newId);
       await fs.cp(src, dst, { recursive: true });
 
-      const project = await getEntity("projects", id);
-      await addEntity("projects", newId, { ...(project || {}), name: opts.name, id: newId, createdAt: new Date().toISOString() });
+      await addEntity("projects", newId, { ...(project?.record || {}), name: opts.name, id: newId, createdAt: new Date().toISOString() });
       ok(`Project cloned: ${id} → ${newId}`);
       out({ id: newId, clonedFrom: id });
     });
@@ -1329,7 +1342,13 @@ export function projectCmd() {
         // carries the catalog payload (path helpers would throw anyway).
         raiseError("E_LEGACY_LAYOUT", { verb: "project move" });
       }
-      const project = await getEntity("projects", id);
+      // #585: store-backed lookup. Moving a store Project's tree here would
+      // leave its store record in the old Workspace, so only legacy registry
+      // Projects move.
+      const project = await findCompatibilityProject(id);
+      if (project?.source === "store") {
+        refuseStoreProject("project move", project, "project move only relocates legacy registry Projects; a store Project changes Workspace through `ralphy project transfer`");
+      }
       const src = projectDir(id);
       if (!project && !existsSync(src)) {
         raiseError("E_NOT_FOUND", { kind: "Project", id });
@@ -1369,9 +1388,9 @@ export function projectCmd() {
     )
     .option("--kind <kind>", "Filter by classified kind: video | image | audio")
     .action(async (id: string, opts: { kind?: string }) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
-      const dir = projectDir(id);
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
+      const dir = project.dir;
 
       try {
         ensureFfprobe();
@@ -1608,9 +1627,9 @@ export function projectCmd() {
     )
     .option("--out <path>", "Output PNG path (default under <project>/compositions/thumbnails/)")
     .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
-      const dir = projectDir(id);
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
+      const dir = project.dir;
       const src = opts.src
         ? (path.isAbsolute(opts.src) ? opts.src : path.join(dir, opts.src))
         : path.join(dir, "render", "final.mp4");
@@ -1659,9 +1678,9 @@ export function projectCmd() {
     )
     .option("--src <path>", "Single file to probe instead of the artifacts/ walk")
     .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
-      const dir = projectDir(id);
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
+      const dir = project.dir;
       let files: string[];
       if (opts.src) {
         const p = path.isAbsolute(opts.src) ? opts.src : path.join(dir, opts.src);
@@ -1707,9 +1726,9 @@ export function projectCmd() {
     .option("--name <name>", "Output basename (default: contact-<timestamp>)")
     .option("--out <path>", "Override output path entirely")
     .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
-      const dir = projectDir(id);
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
+      const dir = project.dir;
       const imagesDirs = resolveArtifactKindDirs(id, "images");
       const entryToDir = new Map<string, string>();
       for (const d of imagesDirs) {
@@ -1769,15 +1788,15 @@ export function projectCmd() {
     .option("--all", "Zip everything except logs/ and node_modules / cache")
     .option("--out <path>", "Output path (default: <cwd>/<id>.zip)")
     .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const project = await requireCompatibilityProject(id);
+      id = project.ref;
       if (!opts.selected && !opts.all) {
         raiseError("E_VALIDATION_FAILED", {
           target: "--selected | --all",
           detail: "pass --selected (cherry-picked deliverables) or --all (full project minus logs/cache)",
         });
       }
-      const dir = projectDir(id);
+      const dir = project.dir;
       const t0 = Date.now();
       const dst = opts.out
         ? path.resolve(opts.out)
@@ -1837,6 +1856,15 @@ export function projectCmd() {
     });
 
   return cmd;
+}
+
+/** #585: verbs that still write the legacy registry refuse a store Project. */
+function refuseStoreProject(verb: string, project: CompatibilityProject, detail: string): never {
+  raiseError("E_INPUT_INVALID", {
+    field: "project",
+    detail: `Project ${project.slug} (${project.id}) is owned by the store; ${detail}`,
+    verb,
+  });
 }
 
 function resolveDomainContext(command: Command, positionalProjectId?: string) {

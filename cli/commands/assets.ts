@@ -17,7 +17,7 @@ import { raiseError } from "../lib/errors/index.js";
 import { unpackBrandZip } from "../lib/unpack-zip.js";
 import { intakePath } from "../lib/path-resolution.js";
 import { logGeneration } from "../lib/gen-log.js";
-import { getEntity } from "../lib/registry.js";
+import { requireCompatibilityProject } from "../lib/project-lookup.js";
 
 export function assetsCmd() {
   const cmd = new Command("assets").description("Pull / list / clean assets from the ralphy-assets companion repo");
@@ -212,11 +212,9 @@ export function assetsCmd() {
     .requiredOption("--project <id>", "Target project id (zip is flattened into <project>/brand/)")
     .option("--dest <subdir>", "Subdir under <project>/ for output (default: 'brand')", "brand")
     .action(async (zipArg: string, opts: { project: string; dest: string }) => {
-      const project = await getEntity("projects", opts.project);
-      if (!project) {
-        raiseError("E_NOT_FOUND", { kind: "Project", id: opts.project });
-        return;
-      }
+      // #585: store-backed lookup; the path helpers take the resolved slug.
+      const project = await requireCompatibilityProject(opts.project);
+      opts.project = project.ref;
       const zipPath = intakePath(zipArg, opts.project, "zip");
       let stat;
       try {
@@ -233,7 +231,7 @@ export function assetsCmd() {
         });
         return;
       }
-      const projDir = projectDir(opts.project);
+      const projDir = project.dir;
       const destDir = path.join(projDir, opts.dest);
       let result;
       try {
