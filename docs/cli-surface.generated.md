@@ -2157,180 +2157,229 @@ Usage: ralphy eval [options] [command]
 Evaluate the quality of a rendered video
 
 Options:
-  -h, --help                    display help for command
+  -h, --help                          display help for command
 
 Commands:
-  video [options] <path>        Run the eval pipeline on a single mp4 and write
-                                eval-report.md + eval.json. Defaults to the
-                                native-video final gate (full-mp4 model pass)
-                                when a model provider is configured; without one
-                                it falls back to structure-only (not a ship
-                                gate).
-  prose [options] <file>        Run the deterministic AI-tell prose lint (#529)
-                                over a text file: a rule pack (inflated
-                                symbolism, superficial -ing analyses,
-                                promotional language, vague attribution,
-                                'delve'-class AI vocabulary, copula avoidance,
-                                negative parallelisms, rule-of-three, false
-                                ranges, em-dash overuse, persuasive-authority
-                                tropes, signposting, chatbot artifacts, generic
-                                conclusions) plus a paragraph-rhythm-uniformity
-                                check. Each rule cites its source (Wikipedia
-                                'Signs of AI writing'), carries a warn|fail
-                                level, and emits a #409-vocabulary finding.
-                                Makes ZERO model calls. Use --target captions to
-                                route findings to the editor
-                                (captions.ai-tell.*) instead of the scenarist
-                                (structure.ai-tell.*). Example: ralphy eval
-                                prose draft.md
-  run [options] <project>       Run the quality flywheel (#484): orchestrate the
-                                gates RELEVANT to a project (via gatesForContext
-                                over mode/format/platform), cheap-deterministic
-                                before model-graded, persist each gate's
-                                existing report (eval.json / hook.json /
-                                captions-gate.json / text-legibility.json /
-                                fidelity.json / claims.json /
-                                platform-spec.json), then call buildScorecard
-                                for the final verdict. Advisory gates
-                                (distribution-pack / council) are noted, never
-                                run. Recommends `ralphy project repair-plan` on
-                                a repair/blocked verdict — never spends or
-                                repairs. --dry-run prints the plan and makes
-                                ZERO model calls. Example: ralphy eval run
-                                glitter-cream-001 --platform tiktok,reels
-                                --dry-run
-  fidelity [options] <project>  Run the product/brand fidelity gate (#422):
-                                compare the project's generated stills against
-                                the LOCKED product/brand refs +
-                                research-facts.json (productFacts /
-                                claimsToAvoid). Commercial modes only — a
-                                non-commercial project returns a not-applicable
-                                pass. Writes fidelity.json (append-only) and
-                                prints the verdict + blocksShip. Example: ralphy
-                                eval fidelity glitter-cream-001
-  ocr [options] <project>       Run the text-legibility / OCR gate (#439): read
-                                the baked copy in the project's stills + sampled
-                                video frames and flag unreadable small text,
-                                clipped copy, garbled text / typos, wrong
-                                emphasis, and literal markdown artifacts.
-                                Compares against expected copy when --expected
-                                is given. Baked-text modes only — a text-free
-                                mode returns a not-applicable pass. Writes
-                                text-legibility.json (append-only). Example:
-                                ralphy eval ocr glitter-cream-001 --expected
-                                copy.txt
-  hook [options] <project>      Run the first-frame hook gate (#440): extract
-                                the FIRST FRAME + the ~1s preview from the
-                                project's render and score the opener on subject
-                                clarity, visual contrast, subject/product
-                                visibility, text-hook legibility, curiosity gap,
-                                and scroll-stop pull (mode-thresholded). Flags a
-                                MISLEADING opener that over-promises. A
-                                stills-only project returns a not-applicable
-                                pass. Writes hook.json (append-only) and prints
-                                the verdict + blocksShip + the 0-100 hook score
-                                the variant tournament (#421) can weight.
-                                Example: ralphy eval hook glitter-cream-001
-  captions [options] <project>  Run the caption sync/readability gate (#441):
-                                read the project's caption track + sampled
-                                render frames and flag timing drift vs the
-                                word-level startMs, captions on screen too
-                                briefly to read, overcrowded windows (too many
-                                words), captions overlapping a face/product/CTA,
-                                and unsafe placement in the platform UI chrome.
-                                ENRICHES (does not duplicate) the eval density
-                                findings (captions.thin/dense/missing). A
-                                project with no caption track returns a
-                                not-applicable pass. Writes captions-gate.json
-                                (append-only). Example: ralphy eval captions
-                                choose-silenthill-001
-  claims [options] <project>    Run the claims & policy gate (#442): extract the
-                                factual claims in the project's commercial copy
-                                (script VO/hook + prompts + on-screen OCR text +
-                                captions + distribution/social copy) and
-                                classify each against product facts +
-                                mode/platform restrictions. Categories:
-                                health-medical, financial-earnings,
-                                performance-efficacy, warranty-guarantee,
-                                pricing, platform-policy, testimonial,
-                                prohibited-comparative. HIGH-RISK unsupported
-                                claims (health/financial/absolute) BLOCK ship
-                                unless proof is supplied (--proof or a
-                                research-facts.json productFacts/proofPoints
-                                entry). Commercial modes only — a non-commercial
-                                project returns a not-applicable pass. Writes
-                                claims.json (append-only). Example: ralphy eval
-                                claims glitter-cream-001 --proof
-                                substantiation.txt
-  platform [options] <project>  Run the platform spec validator (#443): probe
-                                the project's final media (render/final.mp4 +
-                                artifacts/{images,videos}) and check each
-                                against the declared target platforms — aspect
-                                ratio, resolution, duration, file size, codecs,
-                                safe areas, required metadata. Reports CONCRETE
-                                fixes (e.g. 'H.264 required; got vp9 —
-                                re-encode'). A hard spec violation (wrong aspect
-                                / over-duration / unsupported codec /
-                                over-filesize) blocks ship. Defaults --platform
-                                to the project's distribution-pack platforms
-                                when present. Writes platform-spec.json
-                                (append-only). Example: ralphy eval platform
-                                glitter-cream-001 --platform tiktok,reels
-  calibrate [options]           Measure a binary eval JUDGE's agreement with
-                                human labels (#483). Reads a calibration dataset
-                                (human-labeled pass/fail examples for ONE gate)
-                                and runs the gate's judge over each example,
-                                then reports the confusion matrix +
-                                TPR/TNR/precision/recall/accuracy + Cohen's
-                                kappa + a promote-vs-advisory recommendation
-                                (default bar kappa >= 0.6). Binary convention:
-                                positive class = the gate should BLOCK (verdict
-                                fail). Offline with --predictions (a {
-                                exampleId: pass|fail } map → NO model calls, the
-                                CI seam); without it the LIVE judge runs (paid,
-                                honors --no-vision). Example: ralphy eval
-                                calibrate --gate first-frame-hook --dataset
-                                hooks.json --predictions preds.json
-  metrics [options] <project>   Run the OPTIONAL specialized media metric
-                                adapters (#485) and ENRICH the project's
-                                eval.json under `metrics` (read → merge → write
-                                back, append-only). Adapters degrade to `na` +
-                                an actionable hint when their
-                                tool/model/expected-input is missing — they
-                                never crash and never change the eval verdict.
-                                Initial adapters: tts-wer (speech
-                                intelligibility = Word Error Rate of the
-                                transcribed VO vs the expected script; needs
-                                --expected + a transcribe provider) and
-                                image-aesthetic (a pluggable seam, `na` until a
-                                scorer is configured). --dry-run lists the
-                                applicable adapters + availability + thresholds
-                                with ZERO model calls. Example: ralphy eval
-                                metrics glitter-cream-001 --adapter tts-wer
-                                --expected script.txt --dry-run
-  optimize-prompt [options]     EXPERIMENTAL (#486): improve a judge/generator
-                                prompt against a #483 calibration dataset and
-                                emit a REVIEWABLE proposal. Splits the dataset
-                                into train/held-out (deterministic by id-hash),
-                                evaluates the BASELINE prompt on held-out, asks
-                                the LLM to improve it from the train-split
-                                failures, evaluates the CANDIDATE on held-out,
-                                then compares baseline-vs-candidate Cohen's
-                                kappa. NEVER overwrites the source prompt /
-                                templates / guidelines / MODELS.md — a `propose`
-                                recommendation writes an append-only
-                                `proposal-vN/` dir for a maintainer to apply by
-                                hand. DSPy/MIPRO is the inspiration, not a hard
-                                dep. Offline (the CI seam, NO model calls):
-                                --baseline-predictions + --candidate-predictions
-                                ({ exampleId: pass|fail } maps) + --candidate (a
-                                candidate prompt file). --dry-run prints the
-                                plan only. Example: ralphy eval optimize-prompt
-                                --prompt judge.txt --dataset hooks.json
-                                --baseline-predictions base.json
-                                --candidate-predictions cand.json --candidate
-                                cand.txt
-  help [command]                display help for command
+  video [options] <path>              Run the eval pipeline on a single mp4 and
+                                      write eval-report.md + eval.json. Defaults
+                                      to the native-video final gate (full-mp4
+                                      model pass) when a model provider is
+                                      configured; without one it falls back to
+                                      structure-only (not a ship gate).
+  prose [options] <file>              Run the deterministic AI-tell prose lint
+                                      (#529) over a text file: a rule pack
+                                      (inflated symbolism, superficial -ing
+                                      analyses, promotional language, vague
+                                      attribution, 'delve'-class AI vocabulary,
+                                      copula avoidance, negative parallelisms,
+                                      rule-of-three, false ranges, em-dash
+                                      overuse, persuasive-authority tropes,
+                                      signposting, chatbot artifacts, generic
+                                      conclusions) plus a
+                                      paragraph-rhythm-uniformity check. Each
+                                      rule cites its source (Wikipedia 'Signs of
+                                      AI writing'), carries a warn|fail level,
+                                      and emits a #409-vocabulary finding. Makes
+                                      ZERO model calls. Use --target captions to
+                                      route findings to the editor
+                                      (captions.ai-tell.*) instead of the
+                                      scenarist (structure.ai-tell.*). Example:
+                                      ralphy eval prose draft.md
+  retention-check [options] <target>  Deterministic retention FACTS pre-check
+                                      (#571) over a scenario.json: hook length
+                                      (hook-scene end + the estimated moment the
+                                      first statement and the first promise cue
+                                      land), the longest beat and the longest
+                                      stretch with no new VO/on-screen words,
+                                      CTA position as % of runtime (+ ask cues
+                                      inside the VO), whether the last beat
+                                      echoes the opening, and words-per-second
+                                      per scene. Reports facts only and NEVER
+                                      fails or blocks: it is context for the
+                                      course-grounded retention review in
+                                      .agents/skills/scenarist/references/retention-review.md,
+                                      which interprets the numbers against the
+                                      content job. Also prints where the Content
+                                      Autopilot archive resolves
+                                      (RALPHY_CA_ARCHIVE → workspace setting
+                                      contentAutopilotArchive →
+                                      ~/Desktop/Content-Autopilot-Archive).
+                                      <target> is a project id, a project dir,
+                                      or a path to a scenario JSON. ZERO model
+                                      calls, writes nothing. Example: ralphy
+                                      eval retention-check glitter-cream-001
+  run [options] <project>             Run the quality flywheel (#484):
+                                      orchestrate the gates RELEVANT to a
+                                      project (via gatesForContext over
+                                      mode/format/platform), cheap-deterministic
+                                      before model-graded, persist each gate's
+                                      existing report (eval.json / hook.json /
+                                      captions-gate.json / text-legibility.json
+                                      / fidelity.json / claims.json /
+                                      platform-spec.json), then call
+                                      buildScorecard for the final verdict.
+                                      Advisory gates (distribution-pack /
+                                      council) are noted, never run. Recommends
+                                      `ralphy project repair-plan` on a
+                                      repair/blocked verdict — never spends or
+                                      repairs. --dry-run prints the plan and
+                                      makes ZERO model calls. Example: ralphy
+                                      eval run glitter-cream-001 --platform
+                                      tiktok,reels --dry-run
+  fidelity [options] <project>        Run the product/brand fidelity gate
+                                      (#422): compare the project's generated
+                                      stills against the LOCKED product/brand
+                                      refs + research-facts.json (productFacts /
+                                      claimsToAvoid). Commercial modes only — a
+                                      non-commercial project returns a
+                                      not-applicable pass. Writes fidelity.json
+                                      (append-only) and prints the verdict +
+                                      blocksShip. Example: ralphy eval fidelity
+                                      glitter-cream-001
+  ocr [options] <project>             Run the text-legibility / OCR gate (#439):
+                                      read the baked copy in the project's
+                                      stills + sampled video frames and flag
+                                      unreadable small text, clipped copy,
+                                      garbled text / typos, wrong emphasis, and
+                                      literal markdown artifacts. Compares
+                                      against expected copy when --expected is
+                                      given. Baked-text modes only — a text-free
+                                      mode returns a not-applicable pass. Writes
+                                      text-legibility.json (append-only).
+                                      Example: ralphy eval ocr glitter-cream-001
+                                      --expected copy.txt
+  hook [options] <project>            Run the first-frame hook gate (#440):
+                                      extract the FIRST FRAME + the ~1s preview
+                                      from the project's render and score the
+                                      opener on subject clarity, visual
+                                      contrast, subject/product visibility,
+                                      text-hook legibility, curiosity gap, and
+                                      scroll-stop pull (mode-thresholded). Flags
+                                      a MISLEADING opener that over-promises. A
+                                      stills-only project returns a
+                                      not-applicable pass. Writes hook.json
+                                      (append-only) and prints the verdict +
+                                      blocksShip + the 0-100 hook score the
+                                      variant tournament (#421) can weight.
+                                      Example: ralphy eval hook
+                                      glitter-cream-001
+  captions [options] <project>        Run the caption sync/readability gate
+                                      (#441): read the project's caption track +
+                                      sampled render frames and flag timing
+                                      drift vs the word-level startMs, captions
+                                      on screen too briefly to read, overcrowded
+                                      windows (too many words), captions
+                                      overlapping a face/product/CTA, and unsafe
+                                      placement in the platform UI chrome.
+                                      ENRICHES (does not duplicate) the eval
+                                      density findings
+                                      (captions.thin/dense/missing). A project
+                                      with no caption track returns a
+                                      not-applicable pass. Writes
+                                      captions-gate.json (append-only). Example:
+                                      ralphy eval captions choose-silenthill-001
+  claims [options] <project>          Run the claims & policy gate (#442):
+                                      extract the factual claims in the
+                                      project's commercial copy (script VO/hook
+                                      + prompts + on-screen OCR text + captions
+                                      + distribution/social copy) and classify
+                                      each against product facts + mode/platform
+                                      restrictions. Categories: health-medical,
+                                      financial-earnings, performance-efficacy,
+                                      warranty-guarantee, pricing,
+                                      platform-policy, testimonial,
+                                      prohibited-comparative. HIGH-RISK
+                                      unsupported claims
+                                      (health/financial/absolute) BLOCK ship
+                                      unless proof is supplied (--proof or a
+                                      research-facts.json
+                                      productFacts/proofPoints entry).
+                                      Commercial modes only — a non-commercial
+                                      project returns a not-applicable pass.
+                                      Writes claims.json (append-only). Example:
+                                      ralphy eval claims glitter-cream-001
+                                      --proof substantiation.txt
+  platform [options] <project>        Run the platform spec validator (#443):
+                                      probe the project's final media
+                                      (render/final.mp4 +
+                                      artifacts/{images,videos}) and check each
+                                      against the declared target platforms —
+                                      aspect ratio, resolution, duration, file
+                                      size, codecs, safe areas, required
+                                      metadata. Reports CONCRETE fixes (e.g.
+                                      'H.264 required; got vp9 — re-encode'). A
+                                      hard spec violation (wrong aspect /
+                                      over-duration / unsupported codec /
+                                      over-filesize) blocks ship. Defaults
+                                      --platform to the project's
+                                      distribution-pack platforms when present.
+                                      Writes platform-spec.json (append-only).
+                                      Example: ralphy eval platform
+                                      glitter-cream-001 --platform tiktok,reels
+  calibrate [options]                 Measure a binary eval JUDGE's agreement
+                                      with human labels (#483). Reads a
+                                      calibration dataset (human-labeled
+                                      pass/fail examples for ONE gate) and runs
+                                      the gate's judge over each example, then
+                                      reports the confusion matrix +
+                                      TPR/TNR/precision/recall/accuracy +
+                                      Cohen's kappa + a promote-vs-advisory
+                                      recommendation (default bar kappa >= 0.6).
+                                      Binary convention: positive class = the
+                                      gate should BLOCK (verdict fail). Offline
+                                      with --predictions (a { exampleId:
+                                      pass|fail } map → NO model calls, the CI
+                                      seam); without it the LIVE judge runs
+                                      (paid, honors --no-vision). Example:
+                                      ralphy eval calibrate --gate
+                                      first-frame-hook --dataset hooks.json
+                                      --predictions preds.json
+  metrics [options] <project>         Run the OPTIONAL specialized media metric
+                                      adapters (#485) and ENRICH the project's
+                                      eval.json under `metrics` (read → merge →
+                                      write back, append-only). Adapters degrade
+                                      to `na` + an actionable hint when their
+                                      tool/model/expected-input is missing —
+                                      they never crash and never change the eval
+                                      verdict. Initial adapters: tts-wer (speech
+                                      intelligibility = Word Error Rate of the
+                                      transcribed VO vs the expected script;
+                                      needs --expected + a transcribe provider)
+                                      and image-aesthetic (a pluggable seam,
+                                      `na` until a scorer is configured).
+                                      --dry-run lists the applicable adapters +
+                                      availability + thresholds with ZERO model
+                                      calls. Example: ralphy eval metrics
+                                      glitter-cream-001 --adapter tts-wer
+                                      --expected script.txt --dry-run
+  optimize-prompt [options]           EXPERIMENTAL (#486): improve a
+                                      judge/generator prompt against a #483
+                                      calibration dataset and emit a REVIEWABLE
+                                      proposal. Splits the dataset into
+                                      train/held-out (deterministic by id-hash),
+                                      evaluates the BASELINE prompt on held-out,
+                                      asks the LLM to improve it from the
+                                      train-split failures, evaluates the
+                                      CANDIDATE on held-out, then compares
+                                      baseline-vs-candidate Cohen's kappa. NEVER
+                                      overwrites the source prompt / templates /
+                                      guidelines / MODELS.md — a `propose`
+                                      recommendation writes an append-only
+                                      `proposal-vN/` dir for a maintainer to
+                                      apply by hand. DSPy/MIPRO is the
+                                      inspiration, not a hard dep. Offline (the
+                                      CI seam, NO model calls):
+                                      --baseline-predictions +
+                                      --candidate-predictions ({ exampleId:
+                                      pass|fail } maps) + --candidate (a
+                                      candidate prompt file). --dry-run prints
+                                      the plan only. Example: ralphy eval
+                                      optimize-prompt --prompt judge.txt
+                                      --dataset hooks.json
+                                      --baseline-predictions base.json
+                                      --candidate-predictions cand.json
+                                      --candidate cand.txt
+  help [command]                      display help for command
 ```
 
 ### `ralphy research`

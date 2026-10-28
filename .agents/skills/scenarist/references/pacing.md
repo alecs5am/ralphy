@@ -1,5 +1,7 @@
 # Pacing
 
+> These are short-ad defaults (15 s commerce clips), not universal retention rules. For any other job or format, check the context rules in [retention-review.md](./retention-review.md#context-rules-what-the-course-does-not-prescribe) before treating a long scene, a long piece or a slower word rate as a defect.
+
 ## 15s formula (TikTok/Reels default)
 
 ```

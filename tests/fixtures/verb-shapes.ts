@@ -350,6 +350,29 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
     {
+      // #571 — facts only, never a verdict; null hook/cta values render as the em-dash.
+      label: "eval.retention-check",
+      shape: {
+        project: "demo-001",
+        scenarioPath: ".ralphy/workspaces/default/projects/demo-001/scenario.json",
+        factsOnly: true,
+        runtime: { runtimeS: 16, sceneSumS: 16, declaredS: 19, sceneCount: 3, voWords: 24, wpsOverall: 1.5, wpsMax: { sceneId: "scene-01", wps: 3 }, wordCoveragePct: 68.8 },
+        hook: { sceneIds: ["scene-01"], endS: 3, endPct: 18.8, voWords: 9, wps: 3, firstStatementS: 2.33, promiseCueS: null, promiseCue: null, timing: "uniform-word-timing-within-scene" },
+        longestBeat: { sceneId: "scene-02", seconds: 8, startS: 3, endS: 11 },
+        longestQuietStretch: { seconds: 5, startS: 11, endS: 16, sceneIds: ["scene-03"], basis: "words" },
+        cta: { declared: false, sceneIds: [], startS: null, startPct: null, askCues: [{ sceneId: "scene-02", atS: 3, atPct: 18.8, cue: "follow" }] },
+        loopBack: { echoesOpening: false, sharedWords: [], visualReturnCue: false, lastSceneId: "scene-03", rule: "last scene shares >= 2 content words with the first scene, or its direction says it returns to the opening" },
+        scenes: [
+          { id: "scene-01", role: "hook", startS: 0, endS: 3, durationS: 3, voWords: 9, wps: 3, textWords: 0, newWords: 6, newInfo: true },
+          { id: "scene-02", role: "body", startS: 3, endS: 11, durationS: 8, voWords: 15, wps: 1.88, textWords: 4, newWords: 9, newInfo: true },
+          { id: "scene-03", role: "body", startS: 11, endS: 16, durationS: 5, voWords: 0, wps: null, textWords: 0, newWords: 0, newInfo: false },
+        ],
+        notes: [],
+        archive: { path: "/Users/demo/Desktop/Content-Autopilot-Archive", source: "default", available: false },
+        reviewMethod: ".agents/skills/scenarist/references/retention-review.md",
+      },
+    },
+    {
       label: "eval.captions",
       shape: {
         verdict: "fail",

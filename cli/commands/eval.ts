@@ -7,7 +7,7 @@
 
 import { Command } from "commander";
 import path from "node:path";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { out, err } from "../lib/output.js";
 import { evaluateVideo } from "../lib/eval/orchestrator.js";
 import { discoverStyleLock } from "../lib/style-lock.js";
@@ -24,6 +24,7 @@ import {
 } from "../lib/eval/platform.js";
 import { runQualityFlywheel } from "../lib/eval/flywheel.js";
 import { lintProse, type ProseTarget } from "../lib/eval/prose-tells.js";
+import { retentionCheck, resolveCaArchive, RETENTION_REVIEW_DOC } from "../lib/eval/retention-check.js";
 import { planMetrics, runMetrics, enrichEvalWithMetrics } from "../lib/eval/metrics/run.js";
 import { getMetricAdapter } from "../lib/eval/metrics/registry.js";
 import { projectDir } from "../lib/paths.js";
@@ -163,6 +164,45 @@ export function evalCmd() {
         });
       } catch (e) {
         err(`eval prose failed: ${(e as Error).message}`);
+      }
+    });
+
+  cmd
+    .command("retention-check <target>")
+    .description("Deterministic retention FACTS pre-check (#571) over a scenario.json: hook length (hook-scene end + the estimated moment the first statement and the first promise cue land), the longest beat and the longest stretch with no new VO/on-screen words, CTA position as % of runtime (+ ask cues inside the VO), whether the last beat echoes the opening, and words-per-second per scene. Reports facts only and NEVER fails or blocks: it is context for the course-grounded retention review in .agents/skills/scenarist/references/retention-review.md, which interprets the numbers against the content job. Also prints where the Content Autopilot archive resolves (RALPHY_CA_ARCHIVE → workspace setting contentAutopilotArchive → ~/Desktop/Content-Autopilot-Archive). <target> is a project id, a project dir, or a path to a scenario JSON. ZERO model calls, writes nothing. Example: ralphy eval retention-check glitter-cream-001")
+    .option("--pretty", "Render a table instead of JSON")
+    .action((target: string) => {
+      try {
+        const scenarioPath = resolveScenarioTarget(target);
+        if (!scenarioPath) {
+          raiseError("E_NOT_FOUND", { kind: "scenario.json", id: target });
+        }
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(readFileSync(scenarioPath, "utf8"));
+        } catch (e) {
+          raiseError("E_VALIDATION_FAILED", { target: scenarioPath, detail: `not valid JSON (${(e as Error).message})` });
+        }
+        const facts = retentionCheck(parsed);
+        const archive = resolveCaArchive();
+        const looksLikeId = !existsSync(path.resolve(target));
+        out({
+          project: looksLikeId ? target : null,
+          scenarioPath,
+          factsOnly: true,
+          runtime: facts.runtime,
+          hook: facts.hook,
+          longestBeat: facts.longestBeat,
+          longestQuietStretch: facts.longestQuietStretch,
+          cta: facts.cta,
+          loopBack: facts.loopBack,
+          scenes: facts.scenes,
+          notes: facts.notes,
+          archive: { path: archive.path, source: archive.source, available: archive.available },
+          reviewMethod: RETENTION_REVIEW_DOC,
+        });
+      } catch (e) {
+        err(`eval retention-check failed: ${(e as Error).message}`);
       }
     });
 
@@ -795,6 +835,33 @@ export function evalCmd() {
     });
 
   return cmd;
+}
+
+/**
+ * Resolve the `eval retention-check` target to a scenario JSON path: an
+ * existing file is used as-is, an existing directory resolves to its
+ * scenario.json, anything else is treated as a project id. Returns null when
+ * no scenario file exists. Never throws.
+ */
+function resolveScenarioTarget(target: string): string | null {
+  const abs = path.resolve(target);
+  try {
+    if (existsSync(abs)) {
+      if (statSync(abs).isDirectory()) {
+        const inDir = path.join(abs, "scenario.json");
+        return existsSync(inDir) ? inDir : null;
+      }
+      return abs;
+    }
+  } catch {
+    return null;
+  }
+  try {
+    const fromProject = path.join(projectDir(target), "scenario.json");
+    return existsSync(fromProject) ? fromProject : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

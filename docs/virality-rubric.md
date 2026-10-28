@@ -2,6 +2,8 @@
 
 Objective criteria for (a) ranking scraped TikToks and (b) scoring our own scenarios before render. Source: adapted from `dansugc/reelclaw` + `TheMattBerman/ugc-factory-skill` for the Russian UGC context.
 
+> **Reconciliation note (#571).** The numbers below are craft defaults tuned on 15-second commerce clips. The Content Autopilot course the owner studied treats fixed hook windows, durations, cut intervals, mandatory captions, a CTA on every post and a loop ending as context-dependent. Before treating a rubric number as a defect outside that format, read the disagreement table in [`retention-review.md`](../.agents/skills/scenarist/references/retention-review.md#where-this-disagrees-with-docsvirality-rubricmd) and run the facts-only `ralphy eval retention-check <id>`.
+
 Used automatically:
 - `scoreTikTok()` in `cli/lib/score.ts` — over the JSON from a TikTok scraper (4.3).
 - `scoreScenario()` in `cli/lib/score.ts` — over `scenario.json` before handoff to `art-director playbook`.
@@ -62,6 +64,8 @@ After the scenarist writes a draft, run each dimension. If **any** is below tier
 | **completion_likelihood** | Hook promises a payoff | Payoff in the first 7s + a new hook | Loop-friendly ending (re-watchable) |
 | **shareability** | It's clear why anyone would share it | "I have to show this to [a specific kind of person]" | Sharing becomes a social signal |
 
+> **Course disagreement.** `hook_strength` tier 1 ("hook in first 1-3s"), `pacing_flow` ("no scenes >3s without a cut", "beats average 1-2s") and `completion_likelihood` tier 3 ("loop-friendly ending") are not universal in the course: the hook is the whole opening statement, cut timing follows completed thoughts, and looping back is one completion device among several. See [`retention-review.md`](../.agents/skills/scenarist/references/retention-review.md#where-this-disagrees-with-docsvirality-rubricmd).
+
 ## Part 3. The 15-second formula
 
 Default UGC-shorts duration: **10–15 seconds**.
@@ -76,6 +80,8 @@ Default UGC-shorts duration: **10–15 seconds**.
 - ≤ 15s total for shorts (unless it's a podcast clip or a story).
 - 5–8 scenes on average (1.5–3s each).
 - No more than one scene in a row >3s without a cut/transition.
+
+> **Course disagreement.** The course sets no ideal duration and no fixed hook or CTA slot: length is whatever delivers the idea, and whether and where to ask for action depends on the content job. Treat this formula as the default for the short-ad format only. See [`retention-review.md`](../.agents/skills/scenarist/references/retention-review.md#where-this-disagrees-with-docsvirality-rubricmd).
 
 ## Part 4. Hook formulas
 
@@ -100,6 +106,8 @@ Detailed hook library with examples — `docs/creative-library/hooks/HOOK_LIBRAR
 - Contrast: white text + black 3px outline OR a colored box with 95% opacity.
 - All captions inside Green Zone Y 210→1480 (see `docs/green-zone.md`).
 - ≤ 7 words per "card".
+
+> **Course disagreement.** Captions usually help comprehension, but intentionally captionless and restrained-text pieces are valid; music is optional and editor volume percentages are not loudness standards. See [`retention-review.md`](../.agents/skills/scenarist/references/retention-review.md#where-this-disagrees-with-docsvirality-rubricmd).
 
 ### Hashtags
 - Description: 5–8 hashtags, always include `#fyp` (TikTok) or `#reels` (IG).
@@ -137,3 +145,5 @@ A scenario **does not pass** further if:
 - [ ] No `angle` set (one of 5 formats: testimonial / unboxing / problem-solution / comparison / demo).
 
 These checks aren't LLM calls — they're structural. Implemented in `scoreScenario()` in `cli/lib/score.ts`.
+
+> **Course disagreement.** The first five checks encode format defaults the course does not hold as universal (hook seconds, total duration, per-scene cut cap, hook word count). The gate still runs as implemented; the retention review reports where a failure is a format choice rather than a retention defect, and the user decides. See [`retention-review.md`](../.agents/skills/scenarist/references/retention-review.md#where-this-disagrees-with-docsvirality-rubricmd).

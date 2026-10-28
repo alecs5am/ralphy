@@ -16,7 +16,7 @@ description: >-
 > 2. **Aspect / platform** (9:16 TikTok / 16:9 YouTube / 1:1 broadcast realism). Square for caught-on-TV trends, never portrait.
 > 3. **Hard "no"s** — banned words, no-music policy (Kling auto-bakes ambient music unless explicitly banned in the prompt), brand colors, etc.
 > 4. **Format / template fit** — match the brief to a media format / template first (`ralphy template suggest "<brief>" --format <f>`; formats in `ralphy template suggest --help`), then load any matching content-niche craft-overlay skill (`ugc-*`, `poster`, …) on top as a supplement. A *style* template enters as a remix target only on an explicit pointer. Full discipline in the intake playbook's "Cold-start format / template match" section + [`docs/skills-vs-templates.md`](../../../docs/skills-vs-templates.md).
-> 5. **Storyboard lock** — produce `STORYBOARD.md` (scene table) and get explicit user "go" BEFORE handing to art-director. Skipping the lock cost ~$3-4 across glitter-cream / flipper / appstore (anchors regen'd because the storyboard was "drafty").
+> 5. **Storyboard lock** — produce `STORYBOARD.md` (scene table) plus the pre-render `RETENTION_REVIEW.md` ([retention-review.md](./references/retention-review.md)) and get explicit user "go" BEFORE handing to art-director. Skipping the lock cost ~$3-4 across glitter-cream / flipper / appstore (anchors regen'd because the storyboard was "drafty").
 >
 > See [`.agents/skills/intake/SKILL.md`](../intake/SKILL.md) for the full intake protocol that fires before this playbook.
 
@@ -117,6 +117,7 @@ If the scenario references a creator / TikTok / IG handle and there's no `.ralph
 | [scenarist/pacing.md](./references/pacing.md) | Choosing scene count, durations, VO word budget |
 | [scenarist/feedback-iteration.md](./references/feedback-iteration.md) | User has scenario.json + a feedback message |
 | [scenarist/quality-gate.md](./references/quality-gate.md) | Before handoff — `ralphy project score <id>` gate |
+| [scenarist/retention-review.md](./references/retention-review.md) | After the first draft, before the storyboard lock — run `ralphy eval retention-check <id>` (facts only, never fails), then write `<project>/RETENTION_REVIEW.md` with the course-grounded method. Advisory: where it disagrees with the score gate, show the user both |
 
 ## Sub-tasks
 
@@ -124,7 +125,7 @@ If the scenario references a creator / TikTok / IG handle and there's no `.ralph
 |---|---|---|
 | `new-scenario` | brief exists, no scenario.json yet | hook-formulas + pacing |
 | `iterate-scenario` | scenario.json exists + user feedback | feedback-iteration |
-| `quality-gate` | before handoff (auto) | quality-gate |
+| `quality-gate` | before handoff (auto) | quality-gate + retention-review |
 
 ## What I read on start
 

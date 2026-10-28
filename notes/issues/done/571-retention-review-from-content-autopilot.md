@@ -1,6 +1,6 @@
 # Retention and structure review grounded in the Content Autopilot course
 
-> **Status:** todo
+> **Status:** done — 2026-10-28 (eval retention-check facts verb + scenarist retention-review reference; rubric reconciled; trial in docs/research/retention-review-trial.md)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** high
