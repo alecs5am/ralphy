@@ -26,6 +26,7 @@ workspace/
 # Local research / QA scratch outputs
 .firecrawl/
 render/
+!cli/lib/render/
 voice_example*.mp3
 
 # Dashboard build
