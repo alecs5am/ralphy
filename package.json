@@ -64,6 +64,7 @@
     "lint:no-legacy-state": "bun run scripts/lint-no-legacy-state.ts",
     "lint:no-cyrillic": "bun run scripts/lint-no-cyrillic.ts",
     "smoke:modes": "bun run scripts/smoke-modes.ts",
+    "session:report": "bun run scripts/session-report.ts",
     "prepare": "husky",
     "dev": "mise exec bun@1.4.2 -- bun run scripts/build-binaries.ts --current --smoke --desktop-dev",
     "dev:renderer": "mise exec bun@1.4.2 -- bun run --cwd apps/desktop dev:renderer",

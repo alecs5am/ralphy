@@ -1,6 +1,6 @@
 # Harness speed and token self-eval
 
-> **Status:** todo
+> **Status:** done — 2026-10-28 (scripts/session-report.ts + baseline in docs/research/harness-baseline-2026-10.md; follow-ups #572-#575)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** medium
