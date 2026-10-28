@@ -31,7 +31,7 @@ Scaffold the slot set first with `ralphy project image-pack <id>` (it writes `pa
 
 ## Model recommendations
 
-Verify against `MODELS.md` every run.
+Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Hero + multi-slot product consistency — `google/gemini-3-pro-image-preview`.** Renders precise device geometry from the textual product-DNA, best for the clean hero anchor and holding the product across the callout / lifestyle slots; multi-ref product consistency.
 - **Infographic / callout typography — `openai/gpt-5.4-image-2`.** Stronger at crisp embedded text where the callout labels, dimension numbers, and comparison-grid copy must read legibly at small scale, and at preserving exact geometry across the set once the hero is locked.
 - Pass the hero anchor as `--ref` on every downstream slot.

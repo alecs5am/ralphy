@@ -22,7 +22,7 @@ A generalized format overlay, not a finished PSA. It does not name a subject, a 
 
 ## Hard invariants
 
-- All generation routes through `ralphy generate` (image / sfx / voiceover) — no raw API. Read `MODELS.md` before naming any model id.
+- All generation routes through `ralphy generate` (image / sfx / voiceover) — no raw API. Run `ralphy models show <id>` (index: `MODELS.md`) before naming any model id.
 - **Lock the visual STYLE on a single prototype icon BEFORE generating the other nine.** The 10 pictograms must be siblings of one approved master. Iterating mid-batch costs $1.00+ on prototype gens (analog-horror-fridge-001 burned $1.00 of v3 → v10 iterations). Pass `--ref <approved-master>` on every sibling gen.
 - **Icons must be chroma-keyed to alpha BEFORE composition.** Otherwise the near-black icon bg shows as a visible rectangle on the `#1a1a1a` Remotion / HyperFrames underlay. Two-pass ffmpeg colorkey: `colorkey=0x000000:0.20:0.08,colorkey=0xFFFFFF:0.20:0.05` — second pass catches any icon that generates on a white outer panel.
 - **Verify ElevenLabs voice exists before bulk regen.** Voice IDs (especially community / "Alerter" library voices) can disappear between sessions. `xh GET /v1/voices/<id> | jq .voice_id` as a pre-flight.

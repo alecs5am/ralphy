@@ -23,7 +23,7 @@ A generalized overlay, not a finished video. It does not name a product, a scrip
 
 - This skill never bypasses AGENTS.md invariants. The reference-required gate still fires for a **named real brand product** (an "iPhone 16", a "Dyson Airwrap") — refuse without a ref or logged `--no-ref-consent`. A no-name / generic product proceeds without a ref.
 - All generation routes through `ralphy generate` (no raw API). Renders go through `ralphy render <id>`.
-- Read `MODELS.md` before naming any model id — the stack below is a default, not a hardcode.
+- Run `ralphy models show <id>` (index: `MODELS.md`) before naming any model id — the stack below is a default, not a hardcode.
 
 ## The niche, in one paragraph
 

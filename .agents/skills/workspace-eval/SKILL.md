@@ -30,7 +30,7 @@ Inherited from `AGENTS.md`:
 
 1. **`ralphy` is the only entry-point.** Run the eval through `ralphy workspace eval` — never call the model or probe the mp4 directly.
 2. **Append-only.** The runner archives any existing `workspace-eval.json` / `workspace-eval-report.md` to `.vN` before writing the fresh one; never `--force-overwrite` without the user asking.
-3. **Read `MODELS.md`** before overriding the vision model (`--model`).
+3. **Run `ralphy models show <id>`** before overriding the vision model (`--model`).
 
 ## Run it
 
@@ -40,7 +40,7 @@ ralphy workspace eval <project>
 
 Flags:
 - `--no-vision` — deterministic criteria only, NO model call (a free pass; use it to check the code-checked criteria without spending).
-- `--model <id>` — override the deep-vision model (default `google/gemini-3.1-pro-preview`; check `MODELS.md` first).
+- `--model <id>` — override the deep-vision model (default `google/gemini-3.1-pro-preview`; check `ralphy models show <id>` first).
 - `--workspace <slug>` — score against a different workspace's rubric (default: the project's registered workspace).
 - `--video <path>` — override the scored video (default `<project>/render/final.mp4`).
 

@@ -33,7 +33,7 @@ All LLM traffic goes through `callLLM()` / the `generate-text` / `generate-objec
 
 ## Model recommendations
 
-Verify against `MODELS.md` every run.
+Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Draft + outline — `anthropic/claude-sonnet-4.6`** (the MODELS.md scenarist / rewrite row): strong long-form structure, holds the claim-standalone discipline, EN/RU parity.
 - **Harder synthesis across many sources — `anthropic/claude-opus-4.6`.**
 - Optional hero / inline figures — `google/gemini-3-pro-image-preview` (only when the brief asks for images; the article is prose-first).

@@ -22,7 +22,7 @@ A generalized overlay, not a finished ad. It tells the pipeline HOW believable U
 
 ## Hard invariants
 
-- **Provider invariants stand.** All generation via `ralphy generate` (OpenRouter media + ElevenLabs only — no FAL, no Higgsfield, no Canva, no raw API). Renders via `ralphy render <id>`. Read `MODELS.md` before naming any model id.
+- **Provider invariants stand.** All generation via `ralphy generate` (OpenRouter media + ElevenLabs only — no FAL, no Higgsfield, no Canva, no raw API). Renders via `ralphy render <id>`. Run `ralphy models show <id>` (index: `MODELS.md`) before naming any model id.
 - **Reference gate.** A **named real brand product** ("iPhone 16", "CeraVe cleanser") fires the reference-required gate — refuse without a ref photo or logged `--no-ref-consent`. A no-name / generic product proceeds without a ref.
 - **AI-creator faces are synthetic personas, not real people.** Build a consistent non-existent creator (see workflow). Do not face-mix toward a recognizable real person.
 - **Music is a separate ElevenLabs pass.** Kling `--audio` is for the VO/lipsync only; ban music in the Kling prompt and overlay an instrumental bed in the editor stage (per `MEMORY.md` Kling-no-music note).

@@ -135,4 +135,4 @@ into it.
 - **Identical start/end frames.** Guarantees a static i2v clip.
 - **Music bleeding in from the i2v model.** Kling will add a random library cue
   that fights the dialogue — ban music in the prompt and post-mix a separate
-  ElevenLabs Music pass (see `MODELS.md` `--audio` policy).
+  ElevenLabs Music pass (see the `--audio` policy in `ralphy models show <video-model-id>`).

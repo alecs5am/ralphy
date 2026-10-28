@@ -36,11 +36,11 @@ A prompt consists of four layers in strict order:
 - Motion description: 1-2 phrases. "subtle handheld camera shake, character slightly nods, eyes blink naturally". Don't describe the whole frame — it's already in the keyframe.
 - Camera movement: "static" / "slow push-in 5%" / "subtle handheld" — pick one.
 - Duration: 5s or 10s. 15s only for veo-3.1.
-- **`generate_audio: false`** always (see MODELS.md — no native TTS).
+- **`generate_audio: false`** always (see `ralphy models show <video-model-id>` — no native TTS).
 
 ### Voiceover (ElevenLabs)
 
-- Voice settings deadpan-young — see MODELS.md "Voice settings".
+- Voice settings deadpan-young — see `ralphy models show eleven_multilingual_v2`.
 - `output_format: mp3_44100_128`.
 - Text — exactly as the scenarist wrote it, no edits of your own. If an edit is needed — handback to `scenarist playbook`.
 

@@ -74,7 +74,7 @@ If the user previously said "batch repair, just fix it" earlier in the session, 
 ### 4. Apply the approved fixes — through existing verbs only
 
 For each `approved` item, route by owner:
-- **art-director** → regenerate the affected keyframe / re-anchor the i2v / swap the model via `ralphy generate image|video ...` (read `.agents/skills/art-director/SKILL.md`; check `MODELS.md` before any model pick). Pass the locked product/model master via `--ref` to prevent identity drift (MEMORY.md: super-original refs).
+- **art-director** → regenerate the affected keyframe / re-anchor the i2v / swap the model via `ralphy generate image|video ...` (read `.agents/skills/art-director/SKILL.md`; check `ralphy models show <id>` before any model pick). Pass the locked product/model master via `--ref` to prevent identity drift (MEMORY.md: super-original refs).
 - **scenarist** → re-time `scenario.json` or rewrite the opening line (`.agents/skills/scenarist/SKILL.md`), then regenerate the affected VO / scene.
 - **editor** → loudnorm / recut / re-render / regen captions through `ralphy` editor verbs (`.agents/skills/editor/SKILL.md`). For aligned-to-VO captions, follow the scribe-first rule (AGENTS.md #16).
 
@@ -103,4 +103,4 @@ The old `eval.json` was auto-versioned by the re-eval (or lives alongside) — c
 - `cli/lib/schemas/repair-plan.ts` — the `RepairPlan` Zod schema (item shape, approval states).
 - `.agents/skills/evaluator/SKILL.md` — the upstream: how the report is produced.
 - `docs/playbooks/{art-director,scenarist,editor}.md` — the role playbooks the fixes route into.
-- `MODELS.md` — read before any model pick on an art-director re-roll.
+- `ralphy models show <id>` (index: `MODELS.md`) — run before any model pick on an art-director re-roll.

@@ -22,7 +22,7 @@ A generalized overlay, not a finished animation. It names no subject, no cast, n
 
 ## Hard invariants
 
-- **Provider invariants stand.** All generation via `ralphy generate` (OpenRouter media + ElevenLabs only — no FAL, no raw API). Renders via `ralphy render <id>`. Read `MODELS.md` before naming any model id.
+- **Provider invariants stand.** All generation via `ralphy generate` (OpenRouter media + ElevenLabs only — no FAL, no raw API). Renders via `ralphy render <id>`. Run `ralphy models show <id>` (index: `MODELS.md`) before naming any model id.
 - **seedance-2.0 t2v is the engine — NOT kling.** kling-v3.0-pro is tuned for default UGC selfie motion (talking head, light gesture) and **smears** any non-default physics — jumps, flips, grinds, chases, aerial rotation, combat. Stylized cartoon/painterly action is exactly the non-default lane. Use `bytedance/seedance-2.0` t2v. (Memory `[[feedback_vg_model_picks]]`.)
 - **Pure t2v, not i2v from a photoreal anchor.** seedance's privacy filter blocks photoreal-human i2v anchors even AI-generated; but pure stylized/cartoon/painterly **t2v** is fine. Describe the characters in text, don't anchor on a photoreal frame. (Memory `[[feedback_seedance_rejects_realistic_people]]` — scope is photoreal-i2v only.)
 - **Music is a separate ElevenLabs pass, banned inside seedance.** Every seedance prompt carries the AUDIO-POLICY block (diegetic SFX only). The music bed is a post-render ElevenLabs pass, genre+BPM+instrumentation only — NEVER name modern recording artists. (Memory `[[feedback_elevenlabs_music_no_artist_names]]`, `[[feedback_kling_no_music_eleven_music_postmix]]`.)

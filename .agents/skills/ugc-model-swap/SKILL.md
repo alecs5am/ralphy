@@ -21,7 +21,7 @@ The craft specialist for the **swap** kind of remix. The user supplies a source 
 
 ## Hard invariants
 
-- **Provider invariants stand.** Source analysis, generation, and render all go through `ralphy` (`ralphy ref analyze-video <slug>` for the source breakdown; `ralphy generate video` for the swap; `ralphy render`). No Higgsfield MCP, no raw API. Read `MODELS.md` before naming a model id.
+- **Provider invariants stand.** Source analysis, generation, and render all go through `ralphy` (`ralphy ref analyze-video <slug>` for the source breakdown; `ralphy generate video` for the swap; `ralphy render`). No Higgsfield MCP, no raw API. Run `ralphy models show <id>` (index: `MODELS.md`) before naming a model id.
 - **Model choice is the trap — get it right (per `MEMORY.md`):**
   - **Photoreal human replacement → `kwaivgi/kling-v3.0-pro`.** `bytedance/seedance-2.0` blocks photoreal-human i2v anchors (privacy filter), even AI-generated ones — it fails the swap. Do NOT reach for seedance for a realistic person, regardless of what a non-ralphy tutorial claims.
   - **Stylized / non-human character (cartoon, creature, mascot) → `bytedance/seedance-2.0` is fine** and often better for non-default physics motion. The privacy filter only bites photoreal humans.

@@ -25,7 +25,7 @@ Author each seedance clip as SUBJECTS → ENVIRONMENT → AUDIO-POLICY → STYLE
 
 ## Model recommendations
 
-Verify against `MODELS.md` every run.
+Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Character design + script:** the scenarist LLM (`callLLM`) — the SUBJECTS blocks + shot beats.
 - **Action video:** `bytedance/seedance-2.0` t2v, 1080p, `--audio` ON with the AUDIO-POLICY banning music. NOT kling (tuned for default selfie motion, **smears** jumps / flips / combat) and NOT veo (5-6× pricier, no gain on painterly). Pure t2v, not i2v from a photoreal anchor (seedance blocks photoreal-human i2v).
 - **Music:** post-render ElevenLabs Music, instrumental, genre+BPM+instrumentation only — no artist names; on `400 bad_prompt` resubmit the API `prompt_suggestion`.

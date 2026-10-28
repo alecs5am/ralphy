@@ -43,7 +43,7 @@ Before every commit, run `rg '\p{Cyrillic}' --hidden -g '!.git' -g '!node_module
 
 - `.ralphy/workspaces/<ws>/projects/<id>/` — every file. Regen writes `.v2`, never overwrites.
 - `cli/lib/errors/catalog.ts` — codes are **append-only post-v1.0** (decision `01-D-07`). Don't rename, don't remove, don't repurpose a code. Cap is `< 40` (raised from `< 30` when category 02 landed). The test in `tests/unit/errors-catalog.test.ts` enforces this.
-- `MODELS.md` "Tried-and-dropped" section — once a model is in there, leave it. The next person trying the same swap reads that section first.
+- The tried-and-dropped table in [`docs/models/dropped.md`](models/dropped.md) — once a model is in there, leave it. The next person trying the same swap reads that table first.
 - `generations.jsonl`, `user-prompts.jsonl`, `user-assets.jsonl` — never truncate, never rewrite in-place.
 
 ## Auto-generated files (don't hand-edit)
@@ -101,10 +101,11 @@ Every `out(...)` call in `cli/commands/` renders two ways: JSON when piped / `--
 
 ## Model discipline
 
-- **Read `MODELS.md` before naming any model id.** Training memory is stale.
+- **Run `ralphy models show <id>` (index: `MODELS.md`) before naming any model id.** Training memory is stale.
 - Default image model as of 2026-05-20: `google/gemini-3-pro-image-preview` (nano-banana-pro). Premium typography alternative: `openai/gpt-5.4-image-2`.
-- Adding a new model: update `MODELS.md` first, then add a prompt adapter under `cli/lib/providers/prompt-adapter/`, then add tests. Update the public model reference in [`ralphy-docs`](https://github.com/alecs5am/ralphy-docs) when the visible catalog changes.
-- The model registry verb `ralphy models list` is OR-catalog-backed (24h cached) — when the OR catalog changes shape, the catalog ages out automatically.
+- **The registry is two layers with one source of truth each (#574).** `MODELS.md` is the short index (one row per model: role + price). Per-model detail lives in `docs/models/<kind>.md` under a `` ## `<id>` `` heading; every other `## ` section there is a shared note that `ralphy models show` attaches to each model it names in code font. Put a fact that spans models in a shared note once, not in each model section. `tests/unit/models-registry.test.ts` fails when the index and the sections disagree.
+- Adding a new model: add the `MODELS.md` index row and the `docs/models/<kind>.md` section first, then add a prompt adapter under `cli/lib/providers/prompt-adapter/`, then add tests. A new `docs/models/*.md` file must also be embedded in `cli/lib/models/registry.ts` (text import, so the compiled binary carries it). Update the public model reference in [`ralphy-docs`](https://github.com/alecs5am/ralphy-docs) when the visible catalog changes.
+- `ralphy models list` is OR-catalog-backed (24h cached) — when the OR catalog changes shape, the catalog ages out automatically. `ralphy models list --registry` prints the curated index offline.
 
 ## Test discipline
 
@@ -117,6 +118,7 @@ Every `out(...)` call in `cli/commands/` renders two ways: JSON when piped / `--
 
 - **Bun only.** Never `npm` / `npx` / `yarn`. Always `bun` / `bunx`.
 - The user's machine has `fd`, `rg`, `bat`, `jq`, `yq`, `sd`, `ast-grep`, `xh`, `gh`, `hyperfine`, `dust`, `procs`, `mlr`, `scc`, `tokei` installed (see `~/.claude/CLAUDE.md`). **Prefer these over their legacy equivalents** — `fd` over `find`, `rg` over `grep -r`, `sd` over simple `sed`, `ast-grep` for structural code refactors.
+- **Bound reads of files over 20k characters.** Check the size first (`wc -c`), then read a range (`sed -n '120,220p'`, `head -n 200`, `Read` with `offset` / `limit`) or search (`rg -n <pattern>`) instead of a whole-file `cat` or an unbounded `Read`. Each oversized output is re-sent on every later turn of the session (#562 baseline: 257 outputs over 20k chars, about 2.2M tokens).
 
 ## Where to file work (it all goes in `notes/`)
 

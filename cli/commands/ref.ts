@@ -165,6 +165,7 @@ export function refCmd() {
     .option("--from-file <path>", "Bulk mode: read URLs from a file (one per line, # comments OK)")
     .option("--concurrency <n>", "Bulk mode: parallel downloads (default 4)", (v) => parseInt(v, 10), 4)
     .option("--timeout <ms>", "Bulk mode: per-URL timeout in ms (default 30000)", (v) => parseInt(v, 10), 30_000)
+    .option("--verbose", "Full output: every bulk URL row plus per-URL progress on stderr, and the source metadata (full title, description, counts) for a video pull. Default output is compact (#574)", false)
     .action(async (urls: string[], opts: any) => {
       // Route: bulk-image mode when --kind reference-image OR --from-file is set.
       const isBulkImage =
@@ -284,6 +285,10 @@ export function refCmd() {
             revisionId: item.revision.id,
           })),
           ...summary,
+          // Compact by default (#574): a social caption can arrive as a multi-kB
+          // `title`; the full metadata stays on the metadata Artifact.
+          title: opts.verbose ? summary.title : truncateText(summary.title, TITLE_PREVIEW_CHARS),
+          ...(opts.verbose ? { source: referenceSourceDetail(result.meta) } : {}),
         });
       } catch (e: any) {
         const projected = projectRunFailure(e, { provider: opts.local ? "local" : "yt-dlp" });
@@ -391,7 +396,9 @@ export function refCmd() {
         revisionId: completed.revision.id,
         runId: completed.run.id,
       });
-      process.stderr.write(`  ↓ ${url} → Artifact Revision ${completed.revision.id}\n`);
+      if (opts.verbose || process.stderr.isTTY) {
+        process.stderr.write(`  ↓ ${url} → Artifact Revision ${completed.revision.id}\n`);
+      }
     }
     const downloaded = results.filter((r) => r.status === "downloaded").length;
     const skipped = results.filter((r) => r.status.startsWith("skipped")).length;
@@ -404,14 +411,20 @@ export function refCmd() {
       downloaded,
       skipped,
       errored,
-      results: results.map((r) => ({
-        url: r.url,
-        status: r.status,
-        filename: r.filename ?? null,
-        bytes: r.bytes ?? null,
-        sha256: r.sha256 ?? null,
-        ...(r.error ? { error: r.error } : {}),
-      })),
+      // Compact by default (#574): per-URL rows only for URLs that did NOT
+      // download (skipped / errored); `artifacts` already names every stored
+      // revision. --verbose lists every URL.
+      results: results
+        .filter((r) => opts.verbose || r.status !== "downloaded")
+        .map((r) => ({
+          url: r.url,
+          status: r.status,
+          filename: r.filename ?? null,
+          bytes: r.bytes ?? null,
+          sha256: r.sha256 ?? null,
+          ...(r.error ? { error: r.error } : {}),
+        })),
+      ...(opts.verbose ? {} : { resultsOmitted: downloaded }),
     });
   }
 
@@ -812,10 +825,16 @@ export function refCmd() {
   // ── show-paths (debug helper) ──────────────────────────────────────────
   cmd
     .command("paths <slug>")
-    .description("Print every research path for <slug> (helpful when scripting follow-ups)")
+    .description("Print the research directory for <slug>, its file names, and which exist. --verbose prints every absolute path (helpful when scripting follow-ups)")
     .option("--global", "Resolve the slug in the global .ralphy/references/ tree only (#401)", false)
+    .option("--verbose", "Print every absolute path (the pre-#574 shape) instead of the compact dir + file-name view", false)
     .action(async (slug: string, opts: any) => {
-      out({ slug, derivedFromUrl: slugFromUrl(slug), ...refPaths(slug, { global: opts.global === true }) });
+      const paths = refPaths(slug, { global: opts.global === true });
+      if (opts.verbose) {
+        out({ slug, derivedFromUrl: slugFromUrl(slug), ...paths });
+        return;
+      }
+      out(compactRefPaths(slug, paths));
     });
 
   cmd
@@ -1314,6 +1333,48 @@ function referenceSummary(meta: Record<string, unknown>): {
     uploader: typeof meta.uploader === "string" ? meta.uploader : null,
     duration: typeof meta.duration === "number" && Number.isFinite(meta.duration) ? meta.duration : null,
   };
+}
+
+/** Longest `title` a compact `ref pull` prints; social captions often arrive as the title. */
+const TITLE_PREVIEW_CHARS = 120;
+
+function truncateText(text: string | null, max: number): string | null {
+  if (text === null || text.length <= max) return text;
+  return `${text.slice(0, max - 1).trimEnd()}…`;
+}
+
+/** The extra source metadata `ref pull --verbose` prints (never the full yt-dlp dump). */
+function referenceSourceDetail(meta: Record<string, unknown>): Record<string, unknown> {
+  const pick = (key: string) => (meta[key] === undefined ? null : meta[key]);
+  return {
+    webpageUrl: pick("webpage_url"),
+    uploadDate: pick("upload_date"),
+    description: pick("description"),
+    viewCount: pick("view_count"),
+    likeCount: pick("like_count"),
+    commentCount: pick("comment_count"),
+    tags: Array.isArray(meta.tags) ? meta.tags : [],
+  };
+}
+
+/**
+ * Compact `ref paths` view (#574): the directory once, then file names relative
+ * to it and which of them exist — instead of eleven absolute paths.
+ */
+export function compactRefPaths(slug: string, paths: ReturnType<typeof refPaths>): {
+  slug: string;
+  dir: string;
+  files: Record<string, string>;
+  present: string[];
+} {
+  const { dir, ...rest } = paths;
+  const files: Record<string, string> = {};
+  const present: string[] = [];
+  for (const [key, abs] of Object.entries(rest)) {
+    files[key] = path.relative(dir, abs) || ".";
+    if (existsSync(abs)) present.push(key);
+  }
+  return { slug, dir, files, present };
 }
 
 function resolveReferenceArtifact(slug: string, kind: "video" | "audio", opts: any) {

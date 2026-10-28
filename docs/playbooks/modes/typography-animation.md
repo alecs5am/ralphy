@@ -24,7 +24,7 @@ No model-reference gate — authored in HyperFrames code, not generated from a p
 
 ## Model recommendations
 
-Verify against `MODELS.md` every run.
+Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Engine:** HyperFrames + GSAP SplitText / WAAPI per-char timelines → `ralphy render <id>` (the only render path).
 - **VO (when synced):** Kling `--audio` for EN; ElevenLabs for non-EN — confirm target language.
 - **Music:** ElevenLabs Music post-mix; no artist names.

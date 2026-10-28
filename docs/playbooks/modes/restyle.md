@@ -26,7 +26,7 @@ Use the [`/json-prompt-engine`](../../../.agents/skills/json-prompt-engine/SKILL
 
 ## Model recommendations
 
-Verify against `MODELS.md` every run.
+Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Default — `google/gemini-3-pro-image-preview`.** Strongest multi-ref consistency — holds the source subject while applying the new style; supports the source + style-ref dual-ref.
 - **Premium — `openai/gpt-5.4-image-2`.** Use when the target aesthetic carries legible baked typography.
 

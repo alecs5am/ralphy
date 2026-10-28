@@ -21,7 +21,7 @@ A generalized **style** overlay, not a finished video. It tells the scenarist an
 
 ## Hard invariants
 
-- **Provider invariants stand.** All generation via `ralphy generate`; renders via `ralphy render <id>`. No Higgsfield / Runway / raw API — those appear in the source draft and are NOT our stack. Read `MODELS.md` for the current i2v / image ids.
+- **Provider invariants stand.** All generation via `ralphy generate`; renders via `ralphy render <id>`. No Higgsfield / Runway / raw API — those appear in the source draft and are NOT our stack. Pick current i2v / image ids from the `MODELS.md` index and confirm with `ralphy models show <id>`.
 - **Original homage, not impersonation.** Build the *aesthetic* and *satirical world* — do not impersonate a real living person, and do not reproduce a specific copyrighted GTA mission/scene shot-for-shot. Fake brands and invented characters are the point.
 - **Music is a separate ElevenLabs pass** with no artist/producer names (`MEMORY.md`) — describe the register (West-Coast hip-hop bed, cinematic tension score) by genre + instrumentation only. Ban music in the Kling prompt; overlay in the editor.
 

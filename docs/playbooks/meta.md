@@ -16,14 +16,13 @@ Examples of the closest-sibling pattern:
 
 playdate-pixel-001 explicitly identified this as "the single highest-leverage 10 minutes" of the session — rules 5, 6, 7 from the flipper postmortem applied verbatim and would have saved 4 turns of relearning.
 
-## Rule 2 — Always check `MODELS.md` before any model call
+## Rule 2 — Always check the model registry before any model call
 
-This is AGENTS invariant #6 surfaced here too because it's a meta-rule: Claude's training data is stale. Model availability, pricing, per-endpoint caps, prompt-char caps, and "tried-and-dropped" reasons all live in MODELS.md and update faster than training cuts. The bullet "Kling `--last-frame` returned 400 base64 for ~6 days" in MODELS.md is exactly the kind of thing the model would never know without reading the file.
+This is AGENTS invariant #6 surfaced here too because it's a meta-rule: Claude's training data is stale. Model availability, pricing, per-endpoint caps, prompt-char caps, and "tried-and-dropped" reasons all live in the model registry and update faster than training cuts. The note "Kling `--last-frame` returned 400 base64 for ~6 days" is exactly the kind of thing the model would never know without looking it up.
 
-Specifically, **before picking `--model`**, scan:
-- The per-stage "Default narrative i2v" / "Default character image" / etc. table
-- The "Discovered breakage" numbered list (now 9 items as of 2026-05-19)
-- The "Tried-and-dropped" cross-reference table
+Specifically, **before picking `--model`**:
+- Pick the candidate from the per-kind tables in the [`MODELS.md`](../../MODELS.md) index (role + price per model).
+- Run `ralphy models show <id>` for it. That prints the model's failure modes and lessons, the shared rules that name it (routing, `--audio` policy, concurrency caps), its tried-and-dropped rows, and live catalog params for video. Do not read `docs/models/*.md` whole.
 
 ## Rule 3 — Match the format / template first; niche skills are craft overlays
 
@@ -58,7 +57,7 @@ That feeling is the bug this file exists to prevent. The postmortems show that t
 
 The five files to always have warm at session start:
 - `AGENTS.md` (auto-loaded by CLAUDE.md)
-- `MODELS.md` (always check before model call)
+- `MODELS.md` (the short index; `ralphy models show <id>` before a model call)
 - `CLI.md` (verb / flag reference)
 - The closest sibling postmortem (per rule 1)
 - The matched playbook from AGENTS.md routing (read fully, then act)

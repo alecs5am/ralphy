@@ -23,7 +23,7 @@ A generalized cover-first / dual-ref / mascot-fit overlay, not a finished carous
 
 ## Hard invariants
 
-- All generation routes through `ralphy generate image` (no raw API). Read `MODELS.md` before naming any model id.
+- All generation routes through `ralphy generate image` (no raw API). Run `ralphy models show <id>` (index: `MODELS.md`) before naming any model id.
 - **`gpt-5.4-image-2` for baked text on carousel slides.** Validated 30/30 slides on `ralphy-carousel-001` for 1-2-line headlines + small label + sub-line legible and spelled right. gemini smudges small embedded type — don't finalize there.
 - **Carousel batches serialize per style, but parallel across styles is fine.** Don't run two bg gen-loops on the same OpenRouter key writing to the same prompt files at once.
 - **Never mutate prompt-input files while a background gen-loop is reading them.** The gen loop `cat`s each prompt file per iteration — a mid-flight `rm` or `mv` corrupts the batch. Edit / delete prompt files AFTER background jobs finish (or before they start). See `ralphy-carousel-001` Finding B.

@@ -307,8 +307,8 @@ ____        __      __
 
 Usage: ralphy models [options] [command]
 
-Inspect available OpenRouter video models and their per-model parameter
-constraints
+Inspect the curated model registry (MODELS.md) and the OpenRouter video
+catalog's per-model parameter constraints
 
 Options:
   -h, --help           display help for command
@@ -316,9 +316,14 @@ Options:
 Commands:
   list [options]       List all OR video-generation models with their per-model
                        durations / resolutions / aspect-ratios / frame-anchor
-                       support
-  show [options] <id>  Show full per-model schema (description + params + price
-                       estimate) for one model
+                       support. --registry prints the curated MODELS.md index
+                       instead (id, kind, role, price; offline)
+  show [options] <id>  Show one model: its curated registry entry (role, price,
+                       capabilities, limits, quirks, lessons, plus shared rules
+                       that name it) and, for OpenRouter video models, the live
+                       catalog params + price estimate. Accepts shorthand
+                       (kling, nano banana pro, eleven_v3). Use this instead of
+                       reading MODELS.md
   alias [shorthand]    Resolve a model shorthand (`kling`, `nano banana pro`,
                        `gpt image 2`, ...) to its canonical OpenRouter slug.
                        With no argument, prints the full alias map.
@@ -822,7 +827,7 @@ Commands:
   audio-describe [options] <slug>                Send <slug>/source.mp3 to Gemini-audio → <slug>/audio-analysis.json (tone, music, VO style)
   blueprint [options] <slug>                     Synthesize <slug>/blueprint.md from {meta + analysis + audio-analysis + transcript}
   rasterize [options] <file>                     Rasterize a vector reference (SVG) to a crisp PNG at the requested long-edge size. Preserves intrinsic aspect ratio. `--bg <hex>` adds a solid background (default: transparent).
-  paths [options] <slug>                         Print every research path for <slug> (helpful when scripting follow-ups)
+  paths [options] <slug>                         Print the research directory for <slug>, its file names, and which exist. --verbose prints every absolute path (helpful when scripting follow-ups)
   scrape-trends [options]                        Scrape TikTok hashtag pages via Playwright (Apify-compatible JSON shape) and rank with scoreTikTok()
   check [options] <project-id>                   Run the reference-required gate classifier on <project-id>'s scenario.json. Reports whether a real-entity name (person / brand-product / IP) was detected and, if so, whether at least one ref is attached. Exit 5 (gate) when the gate fires AND no ref is attached.
   pack [options] <project-id>                    Build/update the project's reference pack — gathers + classifies refs from artifacts/refs/ (and workspace shared/refs/ + research-facts hints) into a typed, lockable ref-pack.json + REF_PACK.md. Append-only: a re-run merges by path. `--add` registers a ref manually; `--show` prints without rebuilding; `--mode` reports missing required ref types.

@@ -22,7 +22,7 @@ Every durable thing a project produces is one of a small set of KINDS, and each 
 | Effect / treatment (ffmpeg filtergraph, HF snippet, encode recipe, prompt technique) | **Recipe block** | publish via templater → `publish-entity.ts --block` | Only when it carries an extractable artifact; else it is a Tag (recipe-vs-tag #082/#083). |
 | Finished example | **Unit** | `<project>/units/<slug>/` (#069) | The shipped deliverable + provenance; the `produced` end of a Template. |
 | Reusable public building block | **library entity** | companion [`ralphy-web`](https://github.com/alecs5am/ralphy-web) repository | Discoverable by id across users. |
-| Model warning / tried-and-dropped | **MODELS.md** | `MODELS.md` "Tried-and-dropped" (append-only) | The next agent trying the same swap reads it first; never deleted (`developing-ralphy.md`). |
+| Model warning / tried-and-dropped | **MODELS.md** | the model's section in `docs/models/<kind>.md`; the tried-and-dropped table in `docs/models/dropped.md` (append-only) | The next agent trying the same swap reads it first; never deleted (`developing-ralphy.md`). |
 | Content-mode rule (a per-mode route / gate / research-depth tweak) | **content-mode registry** | [`../../cli/lib/content-modes.ts`](../../cli/lib/content-modes.ts) | The mode sits above format; a rule that changes a route belongs to its mode. |
 | CLI bug / missing verb | **notes-issue** | [`../../notes/issues/`](../../notes/issues/) | The live backlog `/dev-loop` executes; never improvise around a gap silently. |
 | Transient / environment-dependent / over-narrow | **dropped** | (no write) | A retry-solved error or a missing-key failure hardens into stale refusals if kept (AGENTS.md #18). |

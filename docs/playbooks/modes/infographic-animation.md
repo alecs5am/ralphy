@@ -25,7 +25,7 @@ This mode produces a HyperFrames composition, so the "spine" is the build patter
 
 ## Model recommendations
 
-Verify against `MODELS.md` every run.
+Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Engine:** HyperFrames + GSAP (the editor playbook + [`/gsap`](../../../.agents/skills/gsap/SKILL.md)) → `ralphy render <id>`. `ralphy render` is the only render path; direct `bunx hyperframes render` is debug-only.
 - **Narration (optional):** Kling `--audio` for EN; ElevenLabs for non-EN — confirm target language. When synced, derive caption / beat timing from a word-level transcript (`ralphy generate captions`), snap timing constants to `startMs` (AGENTS #16).
 - **Baked stills (logo / icon):** `google/gemini-3-pro-image-preview` default; `openai/gpt-5.4-image-2` when a baked element needs crisp typography.

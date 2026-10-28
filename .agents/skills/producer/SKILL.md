@@ -122,7 +122,7 @@ This repository does not run an unattended scheduler. If the user explicitly wan
 - **`docs/templates-index.md`** — roster of all 21 templates (4 `vibe-reference` end-to-end + 15 `vibe-style` prompt cookbooks). Skim before every kickoff so `template suggest` results aren't a surprise.
 - `templates/` + `.ralphy/workspaces/<ws>/templates/` + `ralphy template list -p` — what's available.
 - `.ralphy/workspaces/<ws>/batches/<batch-id>/state.json` for running batches.
-- `MODELS.md` — per-model cost figures.
+- `MODELS.md` — per-model cost figures (index; `ralphy models show <id>` for one model).
 
 ## Hard rules (inherited from AGENTS.md)
 

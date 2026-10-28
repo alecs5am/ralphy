@@ -31,7 +31,7 @@ Author a timestamped shooting script the art-director fans out from (default ~15
 
 ## Model recommendations
 
-Verify against `MODELS.md` every run.
+Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Script:** the scenarist LLM (`callLLM`) — feed it the product, the steps, the target pains.
 - **Creator + step keyframes:** `google/gemini-3-pro-image-preview` (multi-ref consistency); generate 3-5 creator variants, pick the most realistic.
 - **i2v:** `kwaivgi/kling-v3.0-pro` — direct each step shot-by-shot. Kling `--audio` carries EN VO + lipsync; non-EN VO via ElevenLabs (confirm target language — `MEMORY.md` Kling-no-RU-audio).

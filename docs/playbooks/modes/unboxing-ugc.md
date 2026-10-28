@@ -34,7 +34,7 @@ Hand the beat structure to the scenarist (default ~15-25s, 9:16):
 
 ## Model recommendations
 
-Verify against `MODELS.md` every run.
+Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Keyframes:** `google/gemini-3-pro-image-preview` for product + hands anchors.
 - **i2v:** `kwaivgi/kling-v3.0-pro` — hand-on-object motion + tactile micro-gestures are its strength.
 - **VO:** Kling `--audio` for EN; ElevenLabs for non-EN (confirm target language).

@@ -23,7 +23,8 @@
 //   #3  reference-required gate                   — TESTED (tests/unit/eval-refs.test.ts)
 //   #4  quality gates refuse-not-warn             — doc-only (agent-discipline)
 //   #5  no auto-launched processes                — doc-only (agent-discipline)
-//   #6  always check MODELS.md                    — doc-only (agent-discipline)
+//   #6  check the model registry (`models show`)  — doc-only discipline; registry shape TESTED
+//                                                   (tests/unit/models-registry.test.ts)
 //   #7  always bun / bunx                         — TESTED (this file)
 //   #8  always ralphy <command>                   — doc-only (agent-discipline)
 //   #9  speed targets                             — doc-only (perf-targets.md)

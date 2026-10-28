@@ -34,7 +34,7 @@ These are inherited from `AGENTS.md`; they are load-bearing here because the who
 1. **Wait-for-go before paid generation (the paid gate).** The #473 loop auto-applies only FREE editor fixes (`costEstimate === 0`). The moment a stage needs a PAID regeneration (`costEstimate > 0` — an art-director re-roll, any `ralphy generate …`), the loop STOPS and surfaces `pendingPaidActions`. You present them and wait for explicit user approval before spending. No paid call between checkpoints without a prior "batch repair, don't ask me" opt-in. This mirrors `AGENTS.md` invariant #1 and `/fixer`'s hard gate.
 2. **`ralphy` is the only entry-point.** Every assemble / eval / repair / render step routes through a `ralphy` verb. No raw `ffmpeg` / `curl` / `bunx tsx`. If a stage needs a verb that doesn't exist, propose adding it and stop (`AGENTS.md` #2).
 3. **Append-only.** Re-assembles and repairs auto-version (`.v2`); never `--force-overwrite` without the user asking. Each stage's prior `workspace-eval.json` is archived to `.vN`; the old artifacts all stay on disk (`AGENTS.md` #14).
-4. **Read `MODELS.md` before any model call** (`AGENTS.md` #6). Claude's training is stale.
+4. **Check the model registry before any model call** (`AGENTS.md` #6): `ralphy models show <id>`, index in `MODELS.md`. Claude's training is stale.
 5. **Generic — no universe literals.** Everything (which stage owns which criteria, the gate severity, the benchmarks) flows from the ACTIVE workspace's rubric. Never bake one universe's facts into the flow.
 
 ## Where the framework lives
@@ -84,4 +84,4 @@ The four stages are a user-facing VIEW of the canonical production contract (`do
 - `.agents/skills/evaluator/SKILL.md` — the standalone eval skill (this one drives the workspace-eval variant per stage).
 - `docs/playbooks/{art-director,scenarist,editor}.md` — the per-role playbooks each stage delegates to.
 - `docs/playbooks/agent-production-contract.md` — the canonical phase order the four stages map onto.
-- `MODELS.md` — read before any model pick.
+- `ralphy models show <id>` (index: `MODELS.md`) — run before any model pick.

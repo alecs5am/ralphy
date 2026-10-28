@@ -146,7 +146,7 @@ Read `audio-analysis.json` to set the music-bed style + emphasis-detection sensi
 
 ### Step 5 — claim segmentation + chapter detection
 
-LLM pass (default model: `anthropic/claude-sonnet-4-6` via OpenRouter — confirm against `MODELS.md`).
+LLM pass (default model: `anthropic/claude-sonnet-4-6` via OpenRouter — confirm with `ralphy models show <id>`).
 
 Prompt input: `captions.json` + `audio-analysis.json`.
 
@@ -252,6 +252,6 @@ If the user wants to evaluate the final mp4, route to `/evaluator`.
 - `scripts/capture-screenshot.ts` — Playwright helper for `browser-frame` overlays.
 - `.agents/skills/hyperframes/references/playbook.md` — composition rules, GSAP timelines, registry blocks.
 - `.agents/skills/editor/SKILL.md` — render / preflight / iteration handback.
-- `MODELS.md` — segmentation + planner model defaults.
+- `MODELS.md` — segmentation + planner model defaults (`ralphy models show <id>` for one model).
 - `notes/ideas/006-hyperframes-overlay-blocks.md` — upstream HyperFrames block contributions.
 - `notes/ideas/007-ralphy-audio-remove-silence.md` — the missing CLI verb the skill works around for now.

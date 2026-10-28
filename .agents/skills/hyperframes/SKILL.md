@@ -5,22 +5,15 @@ description: Create video compositions, animations, title cards, overlays, capti
 
 # HyperFrames
 
+> **Minimal re-read set after context compaction:** "Approach" Steps 1-3 and the HARD-GATE, "Data Attributes", "Composition Structure", "Video and Audio" (HARD RULES #047), "Timeline Contract", "Rules (Non-Negotiable)", "Scene Transitions", and the "Output Checklist" in this file. Load `references/` files only for the technique in hand, with a bounded read for any file over 20k characters.
+
 HTML is the source of truth for video. A composition is an HTML file with `data-*` attributes for timing, a GSAP timeline for animation, and CSS for appearance. The framework handles clip visibility, media playback, and timeline sync.
 
 ## Approach
 
 ### Discovery (exploratory requests only)
 
-For open-ended requests ("make me a product launch video", "create something for our brand") where the user hasn't committed to a direction, understand intent before picking colors:
-
-- **Audience** — who watches this? Developers? Executives? General consumers?
-- **Platform** — where does it play? Social (15s), website hero, product demo, internal?
-- **Priority** — what matters most? Motion quality? Content accuracy? Brand fidelity? Speed?
-- **Variations** — does the user want options, or a single best shot?
-
-For specific requests ("add a title card", "fix the timing on scene 3"), skip discovery.
-
-For exploratory requests, consider offering 2-3 variations that differ meaningfully — not just color swaps, but different pacing, energy levels, or structural approaches. One safe/expected, one ambitious. Don't mandate this — it's a tool available when appropriate.
+Open-ended request ("make me a product launch video") with no committed direction: ask audience, platform, priority, and whether the user wants variations before picking colors ([`references/discovery.md`](./references/discovery.md)). Specific requests ("add a title card") skip discovery.
 
 ### Step 1: Design system
 
@@ -50,7 +43,7 @@ Before writing HTML, think at a high level:
 2. **Structure** — how many compositions, which are sub-compositions vs inline, what tracks carry what (video, audio, overlays, captions).
 3. **Rhythm** — declare your scene rhythm before implementing. Which scenes are quick hits, which are holds, where do shaders land, where does energy peak. Name the pattern: fast-fast-SLOW-fast-SHADER-hold. Read [references/beat-direction.md](references/beat-direction.md) for rhythm templates.
 4. **Timing** — which clips drive the duration, where do transitions land, what's the pacing.
-5. **Layout** — build the end-state first. See "Layout Before Animation" below.
+5. **Layout** — build the end-state first. See "Layout Before Animation" below ([`references/layout-before-animation.md`](./references/layout-before-animation.md)).
 6. **Animate** — then add motion using the rules below.
 
 **Build what was asked.** A request for "a title card" is not a request for "a title card + 3 supporting scenes + ambient music + captions." Every scene, every element, every tween should earn its place. If additional scenes or elements would genuinely improve the piece, propose them — don't add them.
@@ -63,73 +56,7 @@ Before writing ANY composition HTML — verify you have a visual identity from S
 
 ## Layout Before Animation
 
-Position every element where it should be at its **most visible moment** — the frame where it's fully entered, correctly placed, and not yet exiting. Write this as static HTML+CSS first. No GSAP yet.
-
-**Why this matters:** If you position elements at their animated start state (offscreen, scaled to 0, opacity 0) and tween them to where you think they should land, you're guessing the final layout. Overlaps are invisible until the video renders. By building the end state first, you can see and fix layout problems before adding any motion.
-
-### The process
-
-1. **Identify the hero frame** for each scene — the moment when the most elements are simultaneously visible. This is the layout you build.
-2. **Write static CSS** for that frame. The `.scene-content` container MUST fill the full scene using `width: 100%; height: 100%; padding: Npx;` with `display: flex; flex-direction: column; gap: Npx; box-sizing: border-box`. Use padding to push content inward — NEVER `position: absolute; top: Npx` on a content container. Absolute-positioned content containers overflow when content is taller than the remaining space. Reserve `position: absolute` for decoratives only.
-3. **Add entrances with `gsap.from()`** — animate FROM offscreen/invisible TO the CSS position. The CSS position is the ground truth; the tween describes the journey to get there. (In sub-compositions loaded via `data-composition-src`, prefer `gsap.fromTo()` — see load-bearing GSAP rules in [references/motion-principles.md](references/motion-principles.md).)
-4. **Add exits with `gsap.to()`** — animate TO offscreen/invisible FROM the CSS position.
-
-### Example
-
-```css
-/* scene-content fills the scene, padding positions content */
-.scene-content {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  padding: 120px 160px;
-  gap: 24px;
-  box-sizing: border-box;
-}
-.title {
-  font-size: 120px;
-}
-.subtitle {
-  font-size: 42px;
-}
-/* Container fills any scene size (1920x1080, 1080x1920, etc).
-   Padding positions content. Flex + gap handles spacing. */
-```
-
-**WRONG — hardcoded dimensions and absolute positioning:**
-
-```css
-.scene-content {
-  position: absolute;
-  top: 200px;
-  left: 160px;
-  width: 1920px;
-  height: 1080px;
-  display: flex; /* ... */
-}
-```
-
-```js
-// Step 3: Animate INTO those positions
-tl.from(".title", { y: 60, opacity: 0, duration: 0.6, ease: "power3.out" }, 0);
-tl.from(".subtitle", { y: 40, opacity: 0, duration: 0.5, ease: "power3.out" }, 0.2);
-tl.from(".logo", { scale: 0.8, opacity: 0, duration: 0.4, ease: "power2.out" }, 0.3);
-
-// Step 4: Animate OUT from those positions
-tl.to(".title", { y: -40, opacity: 0, duration: 0.4, ease: "power2.in" }, 3);
-tl.to(".subtitle", { y: -30, opacity: 0, duration: 0.3, ease: "power2.in" }, 3.1);
-tl.to(".logo", { scale: 0.9, opacity: 0, duration: 0.3, ease: "power2.in" }, 3.2);
-```
-
-### When elements share space across time
-
-If element A exits before element B enters in the same area, both should have correct CSS positions for their respective hero frames. The timeline ordering guarantees they never visually coexist — but if you skip the layout step, you won't catch the case where they accidentally overlap due to a timing error.
-
-### What counts as intentional overlap
-
-Layered effects (glow behind text, shadow elements, background patterns) and z-stacked designs (card stacks, depth layers) are intentional. The layout step is about catching **unintentional** overlap — two headlines landing on top of each other, a stat covering a label, content bleeding off-frame.
+Build each scene's **hero frame** (its most-visible moment) as static HTML+CSS first, then add `gsap.from()` entrances that land on that ground truth (exits only where "Scene Transitions" below allows them). `.scene-content` fills the scene with `width: 100%; height: 100%; padding: Npx;` flex column + `box-sizing: border-box` — never `position: absolute; top: Npx` on a content container (absolute is for decoratives only). The full process, a worked example, and the shared-space / intentional-overlap rules: [`references/layout-before-animation.md`](./references/layout-before-animation.md).
 
 ## Data Attributes
 
@@ -193,72 +120,7 @@ Load in root: `<div id="el-1" data-composition-id="my-comp" data-composition-src
 
 ## Variables (Parametrized Compositions)
 
-Render the same composition with different content — title, theme color, prices, captions — without editing the source HTML.
-
-**Three-step pattern:**
-
-1. **Declare** variables on the composition's `<html>` root with `data-composition-variables`. Each entry needs `id`, `type` (one of `string`, `number`, `color`, `boolean`, `enum`), `label`, and `default`. Enum entries also need `options: [{value, label}, ...]`.
-2. **Read** the resolved values inside the composition's script with `window.__hyperframes.getVariables()`. Returns the merged result of declared defaults + per-instance overrides + CLI overrides.
-3. **Override** at render time with `npx hyperframes render --variables '{...}'` (top-level) or with `data-variable-values='{...}'` on the host element (per-instance for sub-comps).
-
-```html
-<!doctype html>
-<html
-  data-composition-variables='[
-  {"id":"title","type":"string","label":"Title","default":"Hello"},
-  {"id":"theme","type":"enum","label":"Theme","default":"light","options":[
-    {"value":"light","label":"Light"},
-    {"value":"dark","label":"Dark"}
-  ]}
-]'
->
-  <body>
-    <div data-composition-id="root" data-width="1920" data-height="1080">
-      <h1 id="hero" class="clip" data-start="0" data-duration="3"></h1>
-      <script>
-        const { title, theme } = window.__hyperframes.getVariables();
-        document.getElementById("hero").textContent = title;
-        document.body.dataset.theme = theme;
-      </script>
-    </div>
-  </body>
-</html>
-```
-
-```bash
-# Dev preview uses declared defaults
-npx hyperframes preview
-
-# Render with overrides
-npx hyperframes render --variables '{"title":"Q4 Report","theme":"dark"}' --output q4.mp4
-
-# Or from a JSON file
-npx hyperframes render --variables-file ./vars.json
-```
-
-**Sub-composition per-instance values:** the same `getVariables()` works inside sub-comps loaded via `data-composition-src`. Each host element passes its own values:
-
-```html
-<div
-  data-composition-id="card-pro"
-  data-composition-src="compositions/card.html"
-  data-variable-values='{"title":"Pro","price":"$29"}'
-></div>
-<div
-  data-composition-id="card-enterprise"
-  data-composition-src="compositions/card.html"
-  data-variable-values='{"title":"Enterprise","price":"Custom"}'
-></div>
-```
-
-The runtime layers each host's `data-variable-values` over the sub-comp's declared defaults on a per-instance basis, so the same source can be embedded multiple times with different content.
-
-**Rules of thumb:**
-
-- Always provide a sensible `default` for every declared variable. Dev preview uses defaults — without them, the composition won't render correctly until `--variables` is provided.
-- Read variables once at the top of the script (`const { title } = ...`), not inside frame loops or event handlers — `getVariables()` allocates a fresh object per call.
-- Use `--strict-variables` in CI to fail fast on undeclared keys or type mismatches.
-- Variable types are validated at render time. `string`, `number`, `boolean`, and `color` (hex string) check `typeof`; `enum` checks the value is in the declared `options`.
+Render one composition with different content (title, theme color, prices, captions) by declaring `data-composition-variables` on the `<html>` root (`id`, `type` = string | number | color | boolean | enum, `label`, `default`; enum adds `options`). Declaration, reading values in scripts, and render-time overrides: [`references/variables.md`](./references/variables.md).
 
 ## Video and Audio
 
@@ -431,86 +293,12 @@ If no `design.md` exists, follow [house-style.md](./house-style.md) for aestheti
 **Slow (run in parallel while presenting the preview to the user):**
 
 - [ ] `npx hyperframes inspect` passes, or every reported overflow is intentionally marked
-- [ ] Contrast warnings addressed (see Quality Checks below)
+- [ ] Contrast warnings addressed (see Quality Checks below / [`references/quality-checks.md`](./references/quality-checks.md))
 - [ ] Animation choreography verified (see Quality Checks below)
 
 ## Quality Checks
 
-### Visual Inspect
-
-`hyperframes inspect` runs the composition in headless Chrome, seeks through the timeline, and maps visual layout issues with timestamps, selectors, bounding boxes, and fix hints. Run it after `lint` and `validate`:
-
-```bash
-npx hyperframes inspect
-npx hyperframes inspect --json
-```
-
-Failures usually mean text is spilling out of a bubble/card, a fixed-size label is clipping dynamic copy, or text has moved off the canvas. Fix by increasing container size or padding, reducing font size or letter spacing, adding a real `max-width` so text wraps inside the container, or using `window.__hyperframes.fitTextFontSize(...)` for dynamic copy.
-
-Use `--samples 15` for dense videos and `--at 1.5,4,7.25` for specific hero frames. Repeated static issues are collapsed by default to avoid flooding agent context. If overflow is intentional for an entrance/exit animation, mark the element or ancestor with `data-layout-allow-overflow`. If a decorative element should never be audited, mark it with `data-layout-ignore`.
-
-`hyperframes layout` is the compatibility alias for the same check.
-
-### Contrast
-
-`hyperframes validate` runs a WCAG contrast audit by default. It seeks to 5 timestamps, screenshots the page, samples background pixels behind every text element, and computes contrast ratios. Failures appear as warnings:
-
-```
-⚠ WCAG AA contrast warnings (3):
-  · .subtitle "secondary text" — 2.67:1 (need 4.5:1, t=5.3s)
-```
-
-If warnings appear:
-
-- On dark backgrounds: brighten the failing color until it clears 4.5:1 (normal text) or 3:1 (large text, 24px+ or 19px+ bold)
-- On light backgrounds: darken it
-- Stay within the palette family — don't invent a new color, adjust the existing one
-- Re-run `hyperframes validate` until clean
-
-Use `--no-contrast` to skip if iterating rapidly and you'll check later.
-
-### Design Adherence
-
-If a `design.md` exists, verify the composition follows it after authoring. Read the HTML and check:
-
-1. **Colors** — every hex value in the composition appears in design.md's palette section (however the user labeled it: Colors, Palette, Theme, etc.). Flag any invented colors.
-2. **Typography** — font families and weights match design.md's type spec. No substitutions.
-3. **Corners** — border-radius values match the declared corner style, if specified.
-4. **Spacing** — padding and gap values fall within the declared density range, if specified.
-5. **Depth** — shadow usage matches the declared depth level, if specified (flat = none, subtle = light, layered = glows).
-6. **Avoidance rules** — if design.md has a section listing things to avoid (commonly "What NOT to Do", "Don'ts", "Anti-patterns", or "Do's and Don'ts"), verify none are present.
-
-Report violations as a checklist. Fix each one before serving.
-
-If no `design.md` exists (house-style-only path), verify:
-
-1. **Palette consistency** — the same bg, fg, and accent colors are used across all scenes. No per-scene color invention.
-2. **No lazy defaults** — check the composition against house-style.md's "Lazy Defaults to Question" list. If any appear, they must be a deliberate choice for the content, not a default.
-
-### Animation Map
-
-After authoring animations, run the animation map to verify choreography:
-
-```bash
-node skills/hyperframes/scripts/animation-map.mjs <composition-dir> \
-  --out <composition-dir>/.hyperframes/anim-map
-```
-
-Outputs a single `animation-map.json` with:
-
-- **Per-tween summaries**: `"#card1 animates opacity+y over 0.50s. moves 23px up. fades in. ends at (120, 200)"`
-- **ASCII timeline**: Gantt chart of all tweens across the composition duration
-- **Stagger detection**: reports actual intervals (`"3 elements stagger at 120ms"`)
-- **Dead zones**: periods over 1s with no animation — intentional hold or missing entrance?
-- **Element lifecycles**: first/last animation time, final visibility
-- **Scene snapshots**: visible element state at 5 key timestamps
-- **Flags**: `offscreen`, `collision`, `invisible`, `paced-fast` (under 0.2s), `paced-slow` (over 2s)
-
-Read the JSON. Scan summaries for anything unexpected. Check every flag — fix or justify. Verify the timeline shows the intended choreography rhythm. Re-run after fixes.
-
-Skip on small edits (fixing a color, adjusting one duration). Run on new compositions and significant animation changes.
-
----
+After `lint` and `validate`, before hand-off: `npx hyperframes inspect` (layout overflow with timestamps and fix hints), the WCAG contrast audit in `hyperframes validate`, a design-adherence read against `design.md` (no invented colors, no lazy defaults), and the animation map for choreography. Commands, flags, and how to fix each failure: [`references/quality-checks.md`](./references/quality-checks.md).
 
 ## References (loaded on demand)
 

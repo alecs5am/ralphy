@@ -2,7 +2,7 @@
 
 This is the LLM prompt for step 5 of the workflow — grouping word-stream into claim blocks and chapters.
 
-Default model: `anthropic/claude-sonnet-4-6` via OpenRouter (verify against `MODELS.md` at call time).
+Default model: `anthropic/claude-sonnet-4-6` via OpenRouter (verify with `ralphy models show <id>` at call time).
 
 ## System prompt
 

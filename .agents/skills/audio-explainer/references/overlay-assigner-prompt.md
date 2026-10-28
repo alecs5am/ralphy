@@ -2,7 +2,7 @@
 
 LLM prompt for step 6 of the workflow — picking an overlay type for each claim block emitted by the segmenter.
 
-Default model: `anthropic/claude-sonnet-4-6` via OpenRouter (verify against `MODELS.md` at call time).
+Default model: `anthropic/claude-sonnet-4-6` via OpenRouter (verify with `ralphy models show <id>` at call time).
 
 ## System prompt
 

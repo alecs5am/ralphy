@@ -34,7 +34,7 @@ Hand the scenarist these five beats (default ~15-30s; aspect per the chosen guid
 
 ## Model recommendations
 
-Verify against `MODELS.md` every run.
+Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Script:** the scenarist LLM (`callLLM`) — feed it the brand idea, the proof point, the chosen register.
 - **Scene keyframes / hero + end card:** `openai/gpt-5.4-image-2` for crisp baked typography (end-card wordmark, on-screen brand text) and from-text masters; `google/gemini-3-pro-image-preview` for multi-ref identity / brand lock across scenes once a master exists (per the cinematic / spokesman guideline model tables).
 - **i2v:** `kwaivgi/kling-v3.0-pro` for photoreal-human / spokesman motion + `--audio` (EN only); `bytedance/seedance-2.0` for stylized / non-default-physics / camera-move motion (`MEMORY.md` VG-model-picks). Pick per the motion the scene demands; seedance rejects photoreal-human anchors.

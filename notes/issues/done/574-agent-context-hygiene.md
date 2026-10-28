@@ -1,6 +1,6 @@
 # Agent context hygiene: MODELS.md split, skill trims, bounded output
 
-> **Status:** todo
+> **Status:** done — 2026-10-28 (MODELS.md 41k to 7k bytes as an index plus docs/models/*; `ralphy models show <id>`; seven largest skills trimmed 41%; compact ref pull / ref paths output)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** medium

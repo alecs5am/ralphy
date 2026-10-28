@@ -742,6 +742,43 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
     {
+      label: "models.list.registry",
+      shape: {
+        source: "MODELS.md",
+        count: 2,
+        models: [
+          { id: "google/gemini-3-pro-image-preview", kind: "image", role: "Default — multi-ref / character consistency", price: "~$0.15 / image" },
+          { id: "elevenlabs/music_v1", kind: "music", role: "Default — instrumental beds", price: "subscription" },
+        ],
+        next: "ralphy models show <id>",
+      },
+    },
+    {
+      label: "models.show",
+      shape: {
+        id: "kwaivgi/kling-v3.0-pro",
+        kind: "video",
+        role: "Default narrative i2v — character consistency, keyframe hold",
+        price: "$0.14/s ✓",
+        source: "docs/models/video.md",
+        aliases: ["kling", "kling-pro"],
+        detail: "Snapshot: durations 3-15 s · 720p · 9:16, 16:9, 1:1 · first + last frame anchors.\n\n### Failure modes",
+        related: [
+          { from: "video.md › Shared notes › Routing rules", text: "- **Talking-head, photoreal humans** → `kwaivgi/kling-v3.0-pro`." },
+        ],
+        catalog: null,
+      },
+    },
+    {
+      label: "models.show.dropped",
+      shape: {
+        id: "fal-ai/lyria2",
+        status: "dropped",
+        source: "docs/models/dropped.md",
+        mentions: [{ from: "dropped.md › Out-of-scope / dropped", text: "- `fal-ai/lyria2` — out." }],
+      },
+    },
+    {
       label: "models.recommend",
       shape: {
         query: { mode: "ugc-review", task: "i2v", kind: "video" },
@@ -1010,6 +1047,42 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
     { label: "ref.show", shape: { id: "old-spice-bottle", kind: "refs", path: "artifacts/refs/old-spice.png", bytes: 442100 } },
     { label: "ref.check", shape: { project: "demo-001", result: { needs_ref: true, matched: ["Old Spice"], category: "brand-product" }, examples_in_prompts: 2 } },
     { label: "ref.frames", shape: { slug: "tiktok-ref", dir: "artifacts/refs/tiktok-ref/frames", count: 24 } },
+    {
+      label: "ref.pull",
+      shape: {
+        slug: "instagram-abc123",
+        runId: "run_01",
+        artifacts: [{ kind: "video", artifactId: "art_01", revisionId: "arev_01" }],
+        title: "A caption that arrived as the title, cut at 120 characters…",
+        uploader: "creator",
+        duration: 14.2,
+      },
+    },
+    {
+      label: "ref.pull.bulk",
+      shape: {
+        project: "demo-001",
+        artifacts: [{ artifactId: "art_01", revisionId: "arev_01", runId: "run_01" }],
+        total: 3,
+        downloaded: 1,
+        skipped: 1,
+        errored: 1,
+        results: [
+          { url: "https://example.com/a.png", status: "skipped-duplicate", filename: "a.png", bytes: 2048, sha256: "ab12" },
+          { url: "https://example.com/b.png", status: "error", filename: null, bytes: null, sha256: null, error: "http request failed" },
+        ],
+        resultsOmitted: 1,
+      },
+    },
+    {
+      label: "ref.paths",
+      shape: {
+        slug: "youtube-abc",
+        dir: ".ralphy/references/youtube-abc",
+        files: { sourceMp4: "source.mp4", meta: "meta.info.json", transcript: "transcript.json" },
+        present: ["sourceMp4", "meta"],
+      },
+    },
     {
       label: "ref.pack",
       shape: {

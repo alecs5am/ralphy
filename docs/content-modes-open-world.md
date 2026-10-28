@@ -22,7 +22,7 @@ For `unknown`, `inferClosestFormat()` reads deterministic container cues (most-s
 
 ## 3. The provisional-mode profile
 
-When status is `unknown`, the agent drafts a `ProvisionalMode` (`cli/lib/schemas/provisional-mode.ts`) rather than refusing. `buildProvisionalMode(brief)` seeds a deterministic, schema-valid skeleton — closest format, weakly-matched modes as `couldMapTo` candidates, generic unfamiliar-mode assumptions + risks, format-derived quality gates and a suggested model stack (advisory; reconfirm against `MODELS.md`), and the stricter checkpoint cadence. The agent then researches the niche, asks only high-leverage questions, and fills it.
+When status is `unknown`, the agent drafts a `ProvisionalMode` (`cli/lib/schemas/provisional-mode.ts`) rather than refusing. `buildProvisionalMode(brief)` seeds a deterministic, schema-valid skeleton — closest format, weakly-matched modes as `couldMapTo` candidates, generic unfamiliar-mode assumptions + risks, format-derived quality gates and a suggested model stack (advisory; reconfirm with `ralphy models show <id>`), and the stricter checkpoint cadence. The agent then researches the niche, asks only high-leverage questions, and fills it.
 
 **The load-bearing rule (acceptance):** a provisional mode IS allowed to produce content; it is NOT allowed to pretend it has the support level of a tested, registered mode. `supportLevel` is the literal `"provisional"` — it can never be upgraded in place; promotion is a separate proposal (§5).
 

@@ -157,7 +157,7 @@ graph LR
 |---|---|
 | [**Library**](https://www.alecs5am.com/library) | Browse published units + templates with live rendered previews. |
 | [`AGENTS.md`](AGENTS.md) | First. Routing rules + the "read the playbook before acting" discipline. |
-| [`MODELS.md`](MODELS.md) | Before **every** model call. Claude's training is stale on model names. |
+| [`MODELS.md`](MODELS.md) | Before **every** model call: pick from the index, then `ralphy models show <id>`. Claude's training is stale on model names. |
 | [`docs/playbooks/`](docs/playbooks/) | Per-role instructions (researcher, scenarist, art-director, editor, producer). |
 | [GitHub Discussions](https://github.com/alecs5am/ralphy/discussions) | Q&A, Show & Tell, Tester feedback. |
 
@@ -180,7 +180,7 @@ bun run build:bin              # build cross-platform binaries
 A pre-commit hook runs the test suite. CI runs the same on push/PR.
 
 PRs welcome — especially:
-- **New model entries** in [`MODELS.md`](MODELS.md) with real cost numbers + known pitfalls.
+- **New model entries** in [`MODELS.md`](MODELS.md) (index row) and `docs/models/<kind>.md` (detail) with real cost numbers + known pitfalls.
 - **Bug fixes** in [`cli/lib/providers/`](cli/lib/providers/).
 - **New guidelines** under [`guidelines/<slug>/`](guidelines/) (image-prompt rules — tag-able from chat as `@guideline:<slug>`).
 

@@ -9,6 +9,8 @@ description: >-
 
 # Editor playbook
 
+> **Minimal re-read set after context compaction:** "CLI cookbook", "What I read on start", "Hard rules", and "Pixels vs code" in this file, plus the project's `index.html` (read with a range or `rg` once it passes 20k characters). Open a `references/` file only for the sub-task in hand.
+
 **Read this when:** "compose the video", "do the render", "render", "preview", "fix captions", "audio mix", "final cut", "tighten transitions".
 
 Composer + renderer. I take `scenario.json` + `asset-manifest.json`, assemble an HTML composition with GSAP, and render an MP4 via HyperFrames. I do not generate media — that's the art director. I stitch, time, transition, caption, mix, sanity-check.
@@ -60,14 +62,7 @@ For HyperFrames API specifics (composition rules, GSAP timelines, captions, tran
 
 ### Extending a stylized clip (i2v last-frame anchor + full 15s blocks)
 
-When the user asks to "extend" / lengthen an existing stylized clip (toon, painterly, Spider-Verse / Arcane register), don't generate a fresh disconnected clip — **anchor a new i2v clip from the last frame of the existing one** so the join is seamless:
-
-1. Extract the final frame: `ralphy video extract-segment` (or an `ffmpeg -sseof` tail-frame grab via a `ralphy video` recipe) of the last ~0.15s → one PNG.
-2. Feed that PNG as the `--first-frame` of a new `ralphy generate video` i2v call on `bytedance/seedance-2.0`. The new clip starts on the real last frame, so the cut is invisible. (Stylized/painterly anchors don't trip seedance's photoreal-human privacy filter — that filter only fires on photoreal human faces, see `feedback_seedance_rejects_realistic_people`.)
-3. Default the extension to a **full 15s block, not 5s.** Short extensions feel rushed and lose dynamics; a 15s block has room for a real beat (e.g. solo → camera orbit revealing the crowd → finale) and the stylized register comes through stronger on action-heavy long blocks than on static wides. Emphasize a moving camera (orbit / crane) for dynamics. Keep the SUBJECT / STYLE / AUDIO-POLICY prompt blocks verbatim across blocks.
-4. `ralphy video concat` the blocks, regenerate a music bed sized to the FULL new length with the climax aligned to the finale, then `ralphy audio sidechain` (duck music under VO) and copy to `render/final.mp4`.
-
-**Does NOT apply to:** photoreal-human clips (seedance rejects the anchor — extend via `kwaivgi/kling-v3.0-pro` instead); slow static / dialogue-driven beats where a 5s extension is the right length; cases where the new beat is a hard scene change rather than a continuation (then it's a new scene, not an extend, and the last-frame anchor is unnecessary).
+Extend a toon / painterly clip by anchoring a new `bytedance/seedance-2.0` i2v clip on its real last frame (`--first-frame`), in full 15s blocks with a moving camera, then `ralphy video concat` + a music bed sized to the new length + `ralphy audio sidechain`. Photoreal humans extend via `kwaivgi/kling-v3.0-pro`. Steps and exceptions: [`references/extend-clip.md`](./references/extend-clip.md).
 
 ## Sub-docs (read on demand)
 
@@ -80,6 +75,8 @@ When the user asks to "extend" / lengthen an existing stylized clip (toon, paint
 | [editor/audio-mixing.md](./references/audio-mixing.md) | VO + music + SFX levels, ducking, fades |
 | [editor/green-zone.md](./references/green-zone.md) | Text/overlay placement inside 1080×1920 safe zone |
 | [editor/hard-rules.md](./references/hard-rules.md) | 12-item ffmpeg / cut-discipline checklist for finals |
+| [extend-clip.md](./references/extend-clip.md) | Lengthen a stylized clip from its last frame |
+| [pixels-vs-code.md](./references/pixels-vs-code.md) | Full motion-graphics routing table |
 
 ## Sub-tasks
 
@@ -111,31 +108,13 @@ When the user asks to "extend" / lengthen an existing stylized clip (toon, paint
 3. **Captions via `ralphy generate captions`** (whisper-1 OpenRouter) or `bunx hyperframes transcribe` for word-level timestamps. **Run it BEFORE writing any HF / Remotion timing constants** when the composition has caption overlays (AGENTS invariant #16). For aligned-to-VO cuts overall, scribe-first via [editor/vo-sync.md](./references/vo-sync.md). See [editor/captions.md](./references/captions.md).
 4. **Quality gate before final-render** — every slot in the manifest must have `score >= 7` or explicit bypass-consent.
 5. **FFmpeg post-processing** — only via `cli/lib/ffmpeg-recipes.ts`. See [editor/hard-rules.md](./references/hard-rules.md) (12 items).
-6. **Motion graphics → composition code, never video models** (`04.0A.02`). See the decision tree below — animated text, kinetic typography, lower-thirds, animated charts, animated UI mocks, transition wipes are **all** composed as HyperFrames HTML + GSAP. They are NOT generated via `ralphy generate video`; that path is reserved for live-action / illustration / photoreal scenes — pixel content the model produces, not code-composited motion.
+6. **Motion graphics → composition code, never video models** (`04.0A.02`). See "Pixels vs code" below — animated text, kinetic typography, lower-thirds, animated charts, animated UI mocks, transition wipes are **all** composed as HyperFrames HTML + GSAP. They are NOT generated via `ralphy generate video`; that path is reserved for live-action / illustration / photoreal scenes — pixel content the model produces, not code-composited motion.
 7. **MUST log every user feedback turn on the render** via `ralphy project log-prompt <id> --text "<verbatim>" --stage <feedback|approval|critique|rejection>` — push-back on a cut, caption fix, audio re-mix, "ship it" approval, render-killer critique. Same MUST-log discipline as the scenarist playbook (see [`scenarist.md` → "User-prompt logging"](../scenarist/SKILL.md#user-prompt-logging-must-every-turn)). Sparse logs leave the postmortem layer guessing about which render version the user actually approved.
-8. **Kling + seedance overshoot `--duration` by ~1s.** Every clip from `kwaivgi/kling-v3.0-pro` and `bytedance/seedance-2.0` lands ~1s longer than the requested duration (tokyo-y2k-001 measured 5s/4s/9s → 6.04/5.04/10.04). Before composing a multi-clip cut, either (a) request `--duration` 1s shorter at art-director stage, or (b) budget a per-clip vision-trim pass. Full recipe + numbers in [editor/render-pipeline.md → Source-clip duration overshoot](./references/render-pipeline.md#source-clip-duration-overshoot-kling--seedance). Structural solution lives in the future `ralphy editor trim-analyze` verb (issue [034](../../../notes/issues/done/034-no-editor-preflight-and-trim-analyze.md)).
+8. **Kling + seedance overshoot `--duration` by ~1s** (video lesson 12 in `ralphy models show kwaivgi/kling-v3.0-pro`). Before a multi-clip cut, either request `--duration` 1s shorter at the art-director stage or budget a per-clip trim (`ralphy editor trim-analyze <id>`). Recipe and numbers: [editor/render-pipeline.md → Source-clip duration overshoot](./references/render-pipeline.md#source-clip-duration-overshoot-kling--seedance).
 
-## Pixels vs code — the motion-graphics decision tree (04.0A.02)
+## Pixels vs code
 
-Before routing a scene to `ralphy generate video`, classify the output:
-
-| Pattern | Route | Why |
-|---|---|---|
-| Live-action scene (person, room, action, weather, gameplay capture) | `ralphy generate video` (i2v / t2v) | Model produces pixels the code can't fake |
-| Photoreal still + parallax | `ralphy generate image` + HyperFrames GSAP tween | Image is the asset; motion is the composition |
-| Animated text / kinetic typography / "WORDS SLAM IN" | HyperFrames component + GSAP timeline | Code controls timing and exact spelling; video model will smear letters and drift fonts |
-| Lower-third / name card / chyron | HyperFrames HTML + GSAP | Trivially parameterized; pixel-route would re-render fonts every gen |
-| Animated chart / data viz | HyperFrames HTML + GSAP / Three.js | Code is the source of truth for the data; pixel-route would hallucinate values |
-| Animated UI mockup / app screen | HyperFrames HTML + GSAP | Pixel-route invents UI affordances; the result reads as AI slop |
-| Transition between two clips | HyperFrames shader/crossfade registry block | The two clips are the assets; the transition is a code recipe |
-| Particle / FX overlay | HyperFrames CSS/SVG/Canvas/WebGPU | Repeatable; pixel-route is non-deterministic |
-| Lottie animation drop-in | HyperFrames `lottie` adapter | Lottie file is the asset; runtime plays it deterministically |
-
-**Tell-tale signs** (the lint at `bun run lint:templates` flags known offenders in `prompts.json`): "animated text", "kinetic typography", "lower third animates in", "chart animates in", "logo slides in", "transition wipe" → these go to the HTML+GSAP side, not the video model. If you find yourself writing one of those phrases as a `--prompt` to `ralphy generate video`, stop and compose the component instead.
-
-Cross-link: read [`hyperframes`](../hyperframes/references/playbook.md) for the API specifics.
-
-> **Historical aside (Remotion).** If you're spelunking a pre-`92ef823` branch or a postmortem that mentions `STATIC_ROOT` / `composition-props.json`, the legacy Remotion convention is documented at [editor/render-pipeline.md → Legacy: Remotion `STATIC_ROOT` recipe](./references/render-pipeline.md#legacy-remotion-static_root-recipe-archived-for-postmortem-cross-reference). Not relevant to current HyperFrames work.
+Before routing a scene to `ralphy generate video`, classify it (`04.0A.02`). **Pixels** (live-action, weather, gameplay capture, photoreal scenes) → `ralphy generate video`. **Code** (animated text / kinetic typography, lower-thirds, animated charts, UI mockups, transitions, particle FX, Lottie drop-ins, still + parallax) → HyperFrames HTML + GSAP over generated stills. Prompt phrases like "animated text", "lower third animates in", "chart animates in", "logo slides in", "transition wipe" mean compose the component, never prompt a video model. The full routing table, the tell-tale lint, and the legacy Remotion note: [`references/pixels-vs-code.md`](./references/pixels-vs-code.md).
 
 ## Handoff
 

@@ -41,7 +41,7 @@ Build the prompt with the [`/json-prompt-engine`](../../../.agents/skills/json-p
 
 ## Model recommendations
 
-Verify against `MODELS.md` every run.
+Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Default / matches a locked model + garment — `google/gemini-3-pro-image-preview`.** Best at honouring `--ref` for identity lock (garment + recurring model) with low drift across shots; the strongest pick when the same model and garment must repeat.
 - **Master-portrait of a new virtual model (no ref) — `openai/gpt-5.4-image-2`.** Strongest at "real person, plain backdrop" from text alone; generate the model master here, then carry it as `--ref` into the try-on.
 - For a moving try-on (`video` format), anchor a still first and route the i2v to the human-safe video model per `MODELS.md` (kling for photoreal-human anchors — `MEMORY.md` `feedback_seedance_rejects_realistic_people`).

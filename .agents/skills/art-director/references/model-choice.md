@@ -1,6 +1,6 @@
 # Model choice
 
-**Single source of truth: `MODELS.md`.** Don't hardcode model-id from memory.
+**Single source of truth: the model registry.** Pick from the `MODELS.md` index, then confirm with `ralphy models show <id>` (limits, quirks, live video params). Don't hardcode model-id from memory.
 
 ## Decision tree
 
@@ -31,7 +31,7 @@ Before a batch — **always** state the estimate out loud:
 
 > "N keyframes × gemini-3-pro-image-preview ≈ $X.XX, M × kling-v3.0-pro × Ts ≈ $Y.YY, K VO calls ≈ $Z.ZZ, music 1× ≈ $W. Total ≈ $T. Run?"
 
-Pull prices from the `MODELS.md` references. Real totals — from `generations.jsonl.cost_usd` of previous runs (Claude pricing knowledge stale).
+Pull prices from the `MODELS.md` index (or `ralphy models show <id>`). Real totals — from `generations.jsonl.cost_usd` of previous runs (Claude pricing knowledge stale).
 
 ## Inheritance from template
 

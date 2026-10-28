@@ -37,3 +37,18 @@ A `--require-snapshot-review` flag on the `ralphy hyperframes render` namespace 
 
 - All six items pass → editor playbook, `final-render` sub-task.
 - Any item fails → back to `regeneration.md` for the offending slot, then re-snapshot.
+
+## Pre-render self-review (HARD gate)
+
+Before handing the project to the editor for `ralphy render <id>` — every project, no exceptions — walk the pre-render checklist. This is not a soft "should snapshot key beats"; it is a refuse-not-warn gate.
+
+- **MUST snapshot every beat** in `STORYBOARD.md` via `bunx hyperframes snapshot .ralphy/workspaces/<ws>/projects/<id>` before render.
+- **MUST eyeball every snapshot for anatomy** (hands, eyes, limb clipping — the `noski-people-001` failure class).
+- **MUST eyeball every snapshot for location continuity** (same couch / wall / light across scenes that share a setting).
+- **MUST eyeball every snapshot for pivot / camera-axis sanity** (180° line, camera height, no v1→v2 mirror flip).
+- **MUST cross-check identity locks** against each cast master shot.
+- **MUST verify on-prompt props** present at the right timestamp.
+
+A single fail aborts the render — fix at this layer via `regeneration.md`, then re-snapshot. Full worked rationale + `noski-people-001` / `odindoma-fb-ad-001` postmortem evidence in [art-director/pre-render-checklist.md](./pre-render-checklist.md).
+
+The future `--require-snapshot-review` flag on the `ralphy hyperframes render` namespace (out of scope here — tracked in [notes/issues/028](../../../../notes/issues/done/028-no-ralphy-hyperframes-namespace.md)) will mechanise this gate. Until it ships, the agent enforces by reading the sub-doc.

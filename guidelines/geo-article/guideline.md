@@ -79,7 +79,7 @@ quotable claims (GEO).
 | Draft body + outline | `anthropic/claude-sonnet-4.6` | Strong long-form structure, holds the claim-standalone discipline, EN/RU parity. |
 | Harder register / heavier synthesis | `anthropic/claude-opus-4.6` | When the topic needs denser reasoning across many sources. |
 
-Always verify the id against `MODELS.md` before the call — training memory is
+Always verify the id with `ralphy models show <id>` before the call — training memory is
 stale.
 
 ## Checklist (the deterministic gate mirrors this)

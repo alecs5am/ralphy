@@ -256,3 +256,52 @@ Ranked by estimated savings per session, highest first.
 - **`docs/perf-targets.md`:** add Seedance 2.x budget rows and per-output-second render budgets, and record this baseline under Validation.
 - **Eval:** surface `project status --contract` after `ralphy render` so eval is not skipped.
 - **`session-report` coverage:** read project `logs/` and `generations.jsonl` to add provider latency and cost per call, and give content-mode a tool signature so the phase becomes measurable.
+
+## #574 changes
+
+Static before/after sizes for ranked fixes 4-6, measured on the working tree on 2026-10-28. "Before" is `HEAD` (`261ad3b3`). No new production sessions exist yet, so this section compares what an agent has to read, not a second `session:report` run. Re-run the corpus command above once a few sessions have used the new surfaces and add the measured comparison here.
+
+### Model registry
+
+`MODELS.md` is now a short index: one row per model with role and price. Per-model detail moved to `docs/models/<kind>.md` (image, video, voiceover, music, transcription, llm) plus `docs/models/dropped.md`. Each model has a `` ## `<id>` `` section. Facts that span models (routing rules, the `--audio` policy, concurrency caps, duration overshoot, tried-and-dropped rows) are written once as shared notes. `ralphy models show <id>` prints the index row, the model's section, and every shared note that names the id in code font.
+
+| What an agent reads | Before | After |
+|---|---|---|
+| `MODELS.md` (whole file) | 41,271 bytes | 7,009 bytes (index) |
+| One model, `ralphy models show <id> --no-catalog` (pretty JSON) | the whole 41k file, or paging through it | kling-v3.0-pro 9,581 · seedance-2.0 9,765 · gemini-3-pro-image 6,306 · gpt-5.4-image-2 6,340 · music_v1 4,514 · eleven_v3 1,276 · gemini-2.5-flash 476 bytes |
+| Index as JSON, `ralphy models list --registry` | not available | 5,378 bytes |
+| All registry Markdown (index + detail) | 41,271 bytes | 49,863 bytes (no content dropped; headings and shared-note structure added) |
+
+At the baseline's 35 `MODELS.md` reads (median 28.7k chars each, about 1.12M chars), the same lookups through `models show` would cost about 0.1-0.35M chars, depending on which models are looked up.
+
+### Skill bodies (target: at least 30% smaller)
+
+Reference material moved verbatim into on-demand `references/` files. Routing triggers (frontmatter), hard rules, and checklists stay in `SKILL.md`. Each body now opens with a "minimal re-read set after context compaction" line.
+
+| Skill | `SKILL.md` before | `SKILL.md` after | Change | Moved into |
+|---|---|---|---|---|
+| `art-director` | 24,264 | 16,589 | -32% | `anchor-order.md`, `prompt-hygiene.md`, `split-scene.md`, `style-lock-gate.md`, `pre-render-checklist.md` (appended) |
+| `editor` | 14,321 | 11,490 | -20% | `extend-clip.md`, `pixels-vs-code.md` |
+| `scenarist` | 13,193 | 10,704 | -19% | `output-contract.md`, `user-prompt-logging.md`, `pre-flight.md` |
+| `hyperframes` | 32,938 | 23,271 | -29% | `discovery.md`, `layout-before-animation.md`, `variables.md`, `quality-checks.md` |
+| `intake` | 32,179 | 20,071 | -38% | `memory-recall.md`, `research-bootstrap-step.md`, `plan-and-style-lock.md`, `format-match.md`, `remix-path.md`, `default-picks.md`, `clarification-triage.md`, `ship-and-gating.md`, `cross-references.md` |
+| `seedance-prompts` | 28,410 | 13,170 | -54% | `camera-and-style.md`, `capability-patterns.md`, `reference-formulas.md`, `example-templates.md`, `safety-filter.md` |
+| `humanizer` | 28,023 | 6,331 | -77% | `patterns.md` (the 29-pattern catalog, with a one-line index left in `SKILL.md`), `full-example.md` |
+| **Total** | **173,328** | **101,626** | **-41%** | |
+
+`lint:skills` and `lint:skill-routing` stay green; no frontmatter description changed.
+
+### Bounded output
+
+| Verb | Before | After |
+|---|---|---|
+| `ref paths <slug>` | 11 absolute paths plus a meaningless `derivedFromUrl` for a non-URL slug (2,006 chars for a sample slug) | `dir` once, relative file names, and the `present` list (650 chars). `--verbose` keeps the old shape. |
+| `ref pull <url>` | the full `title`, which for social posts is often the whole caption | `title` cut to 120 chars. `--verbose` adds the full title plus description, URL, upload date, counts, and tags. |
+| `ref pull --kind reference-image` (bulk) | one result row per URL, plus one stderr progress line per URL | result rows only for URLs that did not download (`resultsOmitted` counts the rest); `artifacts` still lists every stored revision. Per-URL progress prints on a TTY or with `--verbose`. |
+
+The large `ref pull` / `ref paths` outputs in the baseline came from Codex cells that chained the verb with other commands, so the verb change alone does not remove them. The read-bounding rule (check the size, then read a range or `rg`, never a whole-file `cat` over 20k characters) is now in `docs/developing-ralphy.md` → Tools, and in each trimmed skill's re-read line.
+
+### Not done here
+
+- **`ralphy models …` needs a resolvable Workspace scope.** In a library with more than one Workspace, `ralphy models show <id>` fails with "more than one Workspace exists" unless the call passes `--workspace` or runs in a Session. The registry lookup is per-machine, so `models` should join `prompts` and `skill` in the scope-free branch of `cli/index.ts` (that file was out of scope for this change).
+- **`cli/lib/eval/prompt-optimize.ts` protects `MODELS.md` but not `docs/models/`.** Add the directory to its protected public-guidance paths.

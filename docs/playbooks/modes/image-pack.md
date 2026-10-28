@@ -35,7 +35,7 @@ Each step is an existing `ralphy` verb. The image-pack verb is only the scaffold
 
 ## Model recommendations
 
-Verify against `MODELS.md` every run.
+Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **App Store / Play Store / ad-creative typography** — `openai/gpt-5.4-image-2` for crisp embedded text (headlines, callouts, price stacks, code-cards).
 - **Multi-ref cohesion / fast exploration** — `google/gemini-3-pro-image-preview`.
 

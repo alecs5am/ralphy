@@ -69,12 +69,12 @@ Across the full tokyo-y2k-001 cut, planned 75s of clips landed as 90.7s of raw m
 
 **Why it matters.** Predictable surprise costs an extra trim iteration on every multi-clip project. Knowing the overshoot up front lets you choose one of two strategies before composing:
 
-1. **(a) Pre-shorten at art-director stage.** Request `--duration` 1s shorter than the storyboard target on every kling / seedance call. Storyboard says 5s? Pass `--duration 4` to `ralphy generate video`. The returned clip will land at ~5.04s — i.e., the storyboard target. Net win: zero trim debt, zero extra cost (per-clip flat billing means a shorter `--duration` doesn't save money on these two models — see MODELS.md §"Pricing reality check"). Cleanest path when the storyboard is locked.
+1. **(a) Pre-shorten at art-director stage.** Request `--duration` 1s shorter than the storyboard target on every kling / seedance call. Storyboard says 5s? Pass `--duration 4` to `ralphy generate video`. The returned clip will land at ~5.04s — i.e., the storyboard target. Net win: zero trim debt, zero extra cost (per-clip flat billing means a shorter `--duration` doesn't save money on these two models — see the "Per-clip pricing" shared note in `ralphy models show kwaivgi/kling-v3.0-pro`). Cleanest path when the storyboard is locked.
 2. **(b) Budget a per-clip vision-trim pass.** Accept the overshoot, then run a vision pass to find the cleanest `trim_in_s` / `trim_out_s` per clip (drop dead-time, low-motion tails, identity drift in the last 0.5s, etc.) and trim with `ralphy video extract-segment`. Slower but it lets the model breathe — sometimes the "extra" 1s contains the best gesture beat, and a smart trim keeps it.
 
 **The structural solution: `ralphy editor trim-analyze`.** Issue [034](../../../../notes/issues/done/034-no-editor-preflight-and-trim-analyze.md) tracks the verb. When it lands, it will batch a `gemini analyze-video` pass over every clip and write `artifacts/analysis/summary.json` with `{slot, dead_time_s, hot_moments[], suggested_trim_in_s, suggested_trim_out_s}` per clip — i.e., it automates strategy (b). Until the verb exists, pick (a) by default and only fall back to (b) when the storyboard explicitly wants the trim discretion (e.g., gesture-heavy UGC where the model's exact gesture timing matters more than the storyboard's nominal duration).
 
-**Cross-link.** The model-level fact is also in MODELS.md (rows for `kwaivgi/kling-v3.0-pro` and `bytedance/seedance-2.0`); this section is the playbook recipe.
+**Cross-link.** The model-level fact is also in the model registry (video lesson 12 in [`docs/models/video.md`](../../../../docs/models/video.md), printed by `ralphy models show kwaivgi/kling-v3.0-pro` and `ralphy models show bytedance/seedance-2.0`); this section is the playbook recipe.
 
 ## Legacy: Remotion `STATIC_ROOT` recipe (archived, for postmortem cross-reference)
 

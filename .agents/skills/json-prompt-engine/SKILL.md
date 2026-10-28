@@ -24,7 +24,7 @@ The inverse of `docs/prompts/image/` (the mode-by-mode prompt cookbook). The coo
 ## Hard invariants
 
 - **Route through `ralphy generate image --prompt-file <path>`.** Never paste raw provider API code, never `curl` openrouter, never call a model SDK directly (AGENTS.md invariant #1/#2). The JSON you emit is the *prompt body* — JSON-structured prompts are an established ralphy pattern (the carousel and fb-creatives skills use the same STYLE + QUALITY block shape).
-- **Read `MODELS.md` before naming any model id.** The stack below is the default as of 2026-05-20, not a hardcode. Default image model: `google/gemini-3-pro-image-preview` (multi-ref consistency). Premium typography / legible-label work: `openai/gpt-5.4-image-2`. Match the model to the `quality` profile you write (see Cookbook).
+- **Run `ralphy models show <id>` (index: `MODELS.md`) before naming any model id.** The stack below is the default as of 2026-05-20, not a hardcode. Default image model: `google/gemini-3-pro-image-preview` (multi-ref consistency). Premium typography / legible-label work: `openai/gpt-5.4-image-2`. Match the model to the `quality` profile you write (see Cookbook).
 - **Reference-required gate still fires.** If the recovered prompt names a real person, a recognizable branded product, or an IP (AGENTS.md invariant #3), the *source image itself* is the ref — pass it on the generate call with `--ref <path>`. If the user only wants the JSON text and no generation, that is fine; the gate fires when they ask to *generate*.
 - **Fold in the matching guideline.** If the reference sits in a register the guideline library covers (photoreal humans, broadcast realism, anti-AI-slop), run `ralphy guideline show <slug>` and merge its `avoid` cluster and required tokens into the JSON `quality` block before handing the prompt off (AGENTS.md invariant #13). The `quality.avoid` array is exactly where the anti-AI-slop negative cluster belongs.
 - **Quality gate refuses, not warns.** When you do generate, two failed `scoreImage` in a row -> stop and report concrete options. Do not keep re-rolling silently.
@@ -132,7 +132,7 @@ Populate each section from what you observe. **Omit sections that are not releva
 
 ## Video prompts (image-to-video)
 
-When the output feeds `ralphy generate video` (image-to-video off this still), add a `motion` block. Read `MODELS.md` for the current video stack — `kwaivgi/kling-v3.0-pro` for photoreal-human anchors, `bytedance/seedance-2.0` for cartoon / non-human / abstract motion. The start and end frames must show a distinct physical beat (memory: `feedback_start_end_frame_motion_delta`).
+When the output feeds `ralphy generate video` (image-to-video off this still), add a `motion` block. Confirm the current video stack with `ralphy models show <id>` (index: `MODELS.md`) — `kwaivgi/kling-v3.0-pro` for photoreal-human anchors, `bytedance/seedance-2.0` for cartoon / non-human / abstract motion. The start and end frames must show a distinct physical beat (memory: `feedback_start_end_frame_motion_delta`).
 
 ```json
 "motion": {

@@ -9,27 +9,29 @@ description: >-
 
 # Art director playbook
 
+> **Minimal re-read set after context compaction:** the anchor-order block, "CLI cookbook", and "Hard rules" in this file, plus the project's `STYLE_LOCK.md` and `STORYBOARD.md`. Open a `references/` file only for the sub-task in the table below; read large project files (`prompts.json`, `generations.jsonl`) with a range or `rg`, not whole.
+
 **Read this when:** "generate prompts", "generate assets", "make images / video / VO / music", "regenerate scene-XX <slot>", "try a different model", "A/B variant", "how much will it cost".
 
-> **Anchor order discipline (every multi-scene project):**
-> 1. **Location-master-plate first** — for any project where ≥2 scenes share a setting, generate the room / location plate as **anchor #1**, BEFORE any character or scene anchor. Pass the plate as `--ref` alongside character masters on every subsequent scene gen. Skipping this cost noski-people-001 $0.45 image-regen + 45 min user-feedback loop ("in every shot they're sitting on a different couch and I asked for the same one" — three different couches across three anchors). For ≥25-scene projects, the plate alone isn't enough — generate ≥3 unique anchor angles per recurring subject (location, hero character, hero product). Full discipline + CLI shape + worked example: [`art-director/location-plate.md`](./references/location-plate.md). This is the single highest-leverage rule in this playbook.
-> 2. **Character / persona masters second** — one per cast member, each generated with the location plate as `--ref`. Pass both (location + character) on every downstream scene gen to lock identity + setting.
-> 3. **Scene anchors third** — scene-01 first, surfaced to user → wait → scene-02 → wait → … only batch 4-6 anchors at a time AFTER two solo gens land with user approval.
-> 4. **i2v / video generation last** — never i2v an unapproved scene anchor.
+> **Anchor order discipline (every multi-scene project)** — full wording and postmortem evidence in [`references/anchor-order.md`](./references/anchor-order.md):
+> 1. **Location-master-plate first** whenever ≥2 scenes share a setting; pass it as `--ref` on every later scene gen. ≥25-scene projects need ≥3 anchor angles per recurring subject. CLI shape: [`location-plate.md`](./references/location-plate.md). The single highest-leverage rule here.
+> 2. **Character / persona masters second**, each with the location plate as `--ref`.
+> 3. **Scene anchors third**, one at a time with user approval; batch 4-6 only after two solo approvals.
+> 4. **i2v / video last** — never i2v an unapproved anchor.
 >
-> **Photoreal-human projects:** read [`art-director/photoreal-humans.md`](./references/photoreal-humans.md) before drafting prompts — TV-commercial register (Tom-Ford / chiaroscuro / marble) is the wrong default for natural-feeling UGC; use Sony A7 IV + Sigma 35/85mm + Kodak Portra 400 still-photo register instead. Venom-bodywash-001 burned ~$3 on this miscalibration.
+> **Photoreal humans:** read [`photoreal-humans.md`](./references/photoreal-humans.md) first (still-photo register, not TV-commercial).
 >
-> **Aesthetic-lock checkpoint (HARD gate, applies before anchor fan-out):** after the location-master-plate (anchor #1) and the character master(s) (anchor #2) are approved by the user, the agent MUST (a) name the **register** in one phrase ("still-photo candid documentary" / "Old-Spice high-key commercial" / "liminal-spaces analog-horror" / "CGI translucent specimen" / etc. — taxonomy at the top of [`photoreal-humans.md`](./references/photoreal-humans.md)), (b) run the [`character-fit.md`](./references/character-fit.md) check (clean mascot + gritty register? pick reinterpret / distressed-variant / shift-register BEFORE fan-out), (c) write the one-line **aesthetic-lock string** into `STORYBOARD.md`, and (d) generate **one cover per register** and surface it to the user. **Refuse to fan out scene anchors until the cover is approved.** Skipping this is the documented cause of `ralphy-vs-higgsfield-001`'s three-register shipping defect (Lesson #7) and `ralphy-carousel-001`'s clean-ghost-in-punk drift (postmortem #2). When in doubt about which register applies, run `ralphy ref pull <one-canonical-url> --frames` and READ the frames — do NOT scrape-summarize (`biofix-hypnic-en-001` defect class).
+> **Aesthetic-lock checkpoint (HARD gate, before anchor fan-out):** after plate + character masters are approved, name the register in one phrase, run the [`character-fit.md`](./references/character-fit.md) check, write the aesthetic-lock string into `STORYBOARD.md`, and surface one cover per register. **Refuse to fan out scene anchors until the cover is approved.** Unsure of the register → `ralphy ref pull <url> --frames` and READ the frames.
 >
-> **Model drift handling:** read [`art-director/regeneration.md`](./references/regeneration.md) — **one retry max** on a kling/seedance prompt that misses; then **redesign the scene**, don't fight model basins. Glitter-cream-001 lost 2× $0.42 fighting "jar near cheek → powder compact" drift across 3 retries.
+> **Model drift:** **one retry max** on a missed kling / seedance prompt, then redesign the scene ([`regeneration.md`](./references/regeneration.md)).
 
-Between "scenario approved" and "assets on disk for the editor" — that's my zone. Prompt engineering, API orchestration, single-slot regeneration, A/B variants, cost discipline. Never invent model-id from memory — always cross-check `MODELS.md`.
+Between "scenario approved" and "assets on disk for the editor" — that's my zone. Prompt engineering, API orchestration, single-slot regeneration, A/B variants, cost discipline. Never invent model-id from memory — pick from the `MODELS.md` index and confirm with `ralphy models show <id>`.
 
 > **STOP rule.** Every model call goes through `ralphy generate`. No raw `fetch` / `curl` / `bunx tsx` against a media API — gen-log + asset-manifest + cost rollup all depend on the CLI. AGENTS invariant #2.
 
 ## CLI cookbook
 
-**Every model call goes through `ralphy generate`. No raw `fetch` / `curl` / `bunx tsx` against media APIs — the gen-log + asset-manifest depend on it.** Cross-check `MODELS.md` for `--model` overrides.
+**Every model call goes through `ralphy generate`. No raw `fetch` / `curl` / `bunx tsx` against media APIs — the gen-log + asset-manifest depend on it.** Confirm any `--model` override with `ralphy models show <id>`.
 
 ```bash
 # Image (default model: google/gemini-3-pro-image-preview)
@@ -38,7 +40,7 @@ ralphy generate image --project <id> --slot scene-01-bg --prompt "<text>" \
 
 # Host-native image (Codex / Claude image tool output): the FREE path. Prefer it over a
 # paid model when the host model fits the brief (photoreal, typography and multi-ref
-# consistency may still need the MODELS.md pick). Always register it: one call copies it
+# consistency may still need the registry pick). Always register it: one call copies it
 # into the slot as a new revision, $0, no provider call.
 ralphy generate image --import <file> --project <id> --slot scene-01-bg \
   [--prompt "<prompt the host tool got>"] [--model <host-model-name>] [--source host-native]
@@ -77,7 +79,7 @@ ralphy project log <id> --type generations --limit 50    # cost + latency + erro
 ralphy asset list --project <id>         # disk inventory by slot
 ```
 
-If you reach for a backend that isn't covered (e.g. lipsync, image editing, talking-head) — STOP. Don't write a script. Either `MODELS.md` already documents the route, or propose adding the verb to `cli/commands/generate.ts`.
+If you reach for a backend that isn't covered (e.g. lipsync, image editing, talking-head) — STOP. Don't write a script. Either the model registry (`ralphy models show <id>`) already documents the route, or propose adding the verb to `cli/commands/generate.ts`.
 
 ## Sub-docs (read on demand)
 
@@ -92,6 +94,10 @@ If you reach for a backend that isn't covered (e.g. lipsync, image editing, talk
 | [art-director/regeneration.md](./references/regeneration.md) | Single-slot regen, A/B variants, seed/prompt drift |
 | [art-director/quality-gate.md](./references/quality-gate.md) | scoreImage / scoreVideo gate after each generation |
 | [art-director/pre-render-checklist.md](./references/pre-render-checklist.md) | HARD snapshot-review gate before handing to editor |
+| [anchor-order.md](./references/anchor-order.md) | Full anchor-order, aesthetic-lock, and drift rules with postmortem evidence |
+| [prompt-hygiene.md](./references/prompt-hygiene.md) | Verbatim anti-mockup blocks, markdown-in-copy, background-job file rules |
+| [split-scene.md](./references/split-scene.md) | A scene failed twice on the same axis — split it into micro-shots |
+| [style-lock-gate.md](./references/style-lock-gate.md) | Covered content modes and derivation routes for the `STYLE_LOCK.md` gate |
 
 ## Sub-tasks
 
@@ -106,7 +112,7 @@ If you reach for a backend that isn't covered (e.g. lipsync, image editing, talk
 ## What I read on start
 
 - **`AGENTS.md`** — invariants (no FAL, no scripts, ref-required, quality gates).
-- **`MODELS.md`** — every model call. Don't hardcode from memory.
+- **`MODELS.md` index + `ralphy models show <id>`** — every model call. Don't hardcode from memory, and don't read `docs/models/*.md` whole.
 - **`.agents/skills/ugc-*`** (and `/poster`, `/carousel`, …) — the content-niche craft-overlay skill for the brief's *kind* of content, loaded on top of the matched format / template as the prompt-authoring overlay. The format / template is the primary route (`docs/templates-index.md`, `ralphy template suggest --help`); a *style* template doubles as a remix target only when the user pointed at a specific video to reproduce. See [`docs/skills-vs-templates.md`](../../../docs/skills-vs-templates.md).
 - **`docs/creative-library/personas/ARCHETYPES.md`** — 8 archetypes (when there's a persona slot).
 - **`docs/creative-library/scenes/SETTINGS.md`** — 9 scene settings (when you need to pick a setting).
@@ -127,91 +133,26 @@ Before writing a prompt for any slot, run `ralphy prompts library lookup --goal 
 1. **All calls go through `ralphy generate {image|video|voiceover|music}`.** No runtime TS scripts in `.ralphy/workspaces/<ws>/projects/<id>/scripts/`. If an operation isn't covered — stop and extend `cli/commands/generate.ts`, don't copy code into the project.
 2. **Reference-required gate (named real entities only).** See [art-director/ref-photo-policy.md](./references/ref-photo-policy.md). The gate fires for a named person / recognizable brand product / IP. Generic briefs do not trigger. Override path: `ralphy generate ... --no-ref-consent "<reason>"` on the specific failing call; the CLI auto-appends `stage: "no-ref-consent"` to `user-prompts.jsonl`.
 3. **Quality gate.** See [art-director/quality-gate.md](./references/quality-gate.md). Two failures in a row → stop, report concrete options to the user. Refuse, do not warn (AGENTS invariant #4).
-4. **MODELS.md is the only source.** See [art-director/model-choice.md](./references/model-choice.md). Always pick the best model per kind — there is no "cheaper draft" path. Budget caps (`.agents/skills/producer/SKILL.md#budget`) are the lever to control cost, not model downgrade (`04.0A.03`).
+4. **The model registry is the only source** (`MODELS.md` index, `ralphy models show <id>` per model). See [art-director/model-choice.md](./references/model-choice.md). Always pick the best model per kind — there is no "cheaper draft" path. Budget caps (`.agents/skills/producer/SKILL.md#budget`) are the lever to control cost, not model downgrade (`04.0A.03`).
 5. **Iterate by single-slot regen, never overwrite.** "Rework scene-03" → `ralphy generate <kind> --project <id> --slot scene-03-<kind> --prompt "<new>"`. Append-only versioning writes `<slot>.v2.<ext>` (then `v3`, `v4`, …). The prior version stays on disk for diff / rollback; the manifest tracks both. Pass `--force-overwrite` only when the user explicitly asks for legacy destructive behavior (`04.01.03`).
 6. **Generation logging is automatic** via `ralphy generate` (logs are written to `generations.jsonl`). **User-prompt logging is NOT automatic — you MUST log it.** Every user feedback turn on an anchor / prompt / model swap goes to `user-prompts.jsonl` via `ralphy project log-prompt <id> --text "<verbatim>" --stage <feedback|approval|critique|rejection>` BEFORE you regenerate. Same MUST-log discipline as the scenarist playbook (see [`scenarist.md` → "User-prompt logging"](../scenarist/SKILL.md#user-prompt-logging-must-every-turn)). "Try v2 with a wider lens", "approve scene-03", "scene-05 looks AI-slop" — all log-prompt turns. Sparse logs are the documented cause of unreliable postmortems.
-7. **Style-lock gate before any prompt (#408).** Prompt preparation MUST cite the project's `STYLE_LOCK.md` — the locked visual register / pacing / hook / caption+audio / do-not-do list / benchmark refs / model implications are the source of truth every slot prompt is written against (and the same artifact the eval deep-vision pass scores against). For a **covered content mode** (the ones whose `guidelineOrStyleLock.required` is true in `cli/lib/content-modes.ts` — currently `product-shot`, `closeup-product-with-person`, `social-carousel`, `ad-creative-pack`, `virtual-model-tryout`, `tv-ad`, `cartoon-animation`, `restyle`, `amazon-listing`), a missing `STYLE_LOCK.md` is a **refuse-not-warn** condition: run `ralphy project style-lock <id> --check` (it exits non-zero with `refuse:true` when the lock is missing for a covered mode), and if it refuses, **stop and scaffold the lock first** with `ralphy project style-lock <id>` — do NOT start prompt fan-out over a missing lock. Derivation routes: a URL/handle in the brief → route through the [`researcher`](../researcher/SKILL.md) skill / site-grounding (AGENTS #15), fold the digest into the lock; otherwise derive the register from the matched template, the applicable guideline slugs, and memory. Read the lock's "Do-not-do" + "Model-specific implications" sections before every slot prompt.
+7. **Style-lock gate before any prompt (#408).** Every slot prompt cites the project's `STYLE_LOCK.md` (register, pacing, hook, caption/audio, do-not-do list, benchmark refs, model implications). For a covered content mode (`guidelineOrStyleLock.required` in `cli/lib/content-modes.ts`) a missing lock is **refuse-not-warn**: `ralphy project style-lock <id> --check` exits non-zero → stop and run `ralphy project style-lock <id>` before any prompt fan-out. Read the lock's "Do-not-do" and "Model-specific implications" before every slot prompt. Covered modes and derivation routes: [`references/style-lock-gate.md`](./references/style-lock-gate.md).
 
 ## Prompt hygiene
 
-Three small rules every `ralphy generate` call should clear before submit. Each is a one-liner; each saves one regen cycle (~$0.15–$1) per occurrence and was filed from a real postmortem. See [notes/issues/done/050-anti-mockup-and-prompt-hygiene.md](../../../notes/issues/done/050-anti-mockup-and-prompt-hygiene.md) for the bundle.
+Three checks before every submit (verbatim blocks and postmortem evidence in [`references/prompt-hygiene.md`](./references/prompt-hygiene.md)):
 
-### 1. Anti-mockup directive (nano-banana / gemini-3-pro-image-preview)
-
-`nano-banana` defaults to a **tiny iPhone-mockup-in-corner** composition unless the prompt explicitly forbids it. Without the forbid-string, even a clearly full-bleed brief (poster, hero, magazine layout) comes back with a postage-stamp phone floating in the lower third. Validated on `appstore-takeaminute-001` (`screen-01-hero-v2`/`-v4` both leaked mockups; 2 paid regens at $0.15 each before the directive went in; ~8 further regens prevented across the run).
-
-**Rule.** Any full-bleed slot prompt for nano-banana / gemini-3-pro-image-preview MUST lead with the verbatim block below. The HERO / TROPE / CTA register from `appstore-takeaminute-001` is the canonical wording:
-
-```
-CRITICAL: This is a FULL-BLEED MAGAZINE POSTER LAYOUT — NO iPhone
-device frame, NO phone mockup, NO screen bezel. The poster IS the
-entire image edge-to-edge.
-```
-
-The player-UI-overlay variant (HD / video-content register) — use when the slot is "video still with player chrome drawn on top", not a poster:
-
-```
-CRITICAL: This is FULL-BLEED video content with a PLAYER UI OVERLAY
-drawn directly on top — NO iPhone device frame, NO phone-mockup bezel
-around the image. The video scene IS the entire image edge-to-edge;
-the player chrome (scrubber, quality pill) sits ON TOP of the video
-like a watermark.
-```
-
-When the slot genuinely IS a phone-mockup (LIBRARY / NEW screen in an App Store pack — i.e. the phone is the intended subject), invert the rule and **name the mockup explicitly** so nano-banana places it deliberately instead of as a leak:
-
-```
-CENTER VISUAL: sleek 3D angled iPhone mockup floating tilted, screen
-showing <concrete scene description with named in-app content>. Soft
-<brand-color> glow under the phone, additional cards spilling out
-behind in 3D depth.
-```
-
-Naming actual in-app content (real series titles, real card text, the brand's real palette) makes nano-banana populate the mockup with plausible on-brand artwork instead of generic placeholders. Source: `.ralphy/workspaces/<ws>/projects/appstore-takeaminute-001/POSTMORTEM.md` § "Prompt patterns that worked (verbatim)".
-
-### 2. Markdown punctuation in quoted strings
-
-Markdown emphasis (`**bold**`, `_italic_`, `~strike~`) inside a typography slot **bakes literal asterisks / underscores into the rendered glyphs**. `appstore-takeaminute-001` shipped a prompt with `**EVERY DAY**` and got back a poster with actual `**` characters set in the headline — a $0.15 regen.
-
-**Rule.** Before submitting any `ralphy generate image` / `ralphy generate video` prompt that quotes on-poster / on-screen copy, scan the quoted strings for `**`, `__`, `~~`, and stray single `*` / `_` used as emphasis. Strip them, OR replace them with a non-markdown emphasis directive (e.g. `the word EVERY DAY set larger / in the accent color`). The model only sees plain text — there is no markdown renderer between you and the typography. The CLI-side fix (auto-strip at the `cli/lib/providers/media.ts` submit boundary, or warn-on-detect) is a future cleanup; until it lands, this is an agent-side hygiene step.
-
-### 3. Background-job file hygiene
-
-Mirror of AGENTS.md invariant #17. `ralphy generate image --prompt-file` reads prompt / ref files **lazily during the run**, not eagerly at submit. Deleting or rewriting those files while the daemon is running fails silently — `ralphy-carousel-001` lost slides 03-05 of a 6-slide dark-background loop because `rm prompts/slide-0?.txt` ran mid-loop and the daemon reported `--prompt arg missing` without aborting.
-
-**Rule.** While any background `ralphy generate` is in flight against this project, treat its `--prompt-file`, `--ref`, and `prompts/` paths as read-only. To swap a prompt, kill the job first and relaunch; do not edit-in-flight. The CLI-side fix (snapshot prompt-file contents at submit time, or warn-on-delete-of-referenced-file) is tracked in the same issue.
+1. **Anti-mockup directive** — every full-bleed slot on nano-banana / `google/gemini-3-pro-image-preview` leads with the `CRITICAL: This is a FULL-BLEED … NO iPhone device frame` block (player-UI variant for video stills); when the phone IS the subject, name the mockup explicitly.
+2. **No markdown emphasis in quoted on-screen copy** — strip `**`, `__`, `~~`, stray `*` / `_`; the model bakes them into the glyphs.
+3. **Background-job file hygiene** (AGENTS #17) — while a `ralphy generate` job runs, its `--prompt-file`, `--ref`, and `prompts/` paths are read-only; kill and relaunch to swap a prompt.
 
 ## Split-scene-instead-of-regen (repeat-failure rule)
 
-**Rule.** When a single scene fails twice on the same axis — the same motion beat, the same camera move, the same physically-impossible action — **stop re-prompting and split it into N micro-shots inside the original slot's time budget.** Don't try a third prompt variant; that loop converges nowhere.
-
-The default agent instinct is re-prompt-on-fail (tweak verbs, try a different model, add a negative). For "one beat the model can't deliver" failures, that instinct is wrong. Splitting converts an impossible 5s shot into three possible ~1.6s shots — each a beat the model *can* hit — and the editor stitches them within the same slot duration. The total cost is usually lower than a third regen and the result actually lands.
-
-**Concrete example — `flipper-hypermotion-001` scene-03 (POSTMORTEM rule #11).** Scene-03 was a single 5s hypermotion shot the model couldn't sustain; two regens on the same prompt axis drifted the same way. The redo (one scene, split into micro-shots) cost **$1.28 — ~10% of the entire project budget** — and produced more lessons per dollar than the rest of phase 3 combined. The lesson the postmortem locked in: the second failure on the same axis is the signal to restructure, not to re-prompt.
-
-**Structural pairing.** Splitting becomes much cheaper once `ralphy ref extract-frame` + `ralphy generate video --extend-from <slot>` ship (see [notes/issues/done/012-no-frame-extract-or-i2v-extend-verbs.md](../../../notes/issues/done/012-no-frame-extract-or-i2v-extend-verbs.md)) — that pair lets you i2v-anchor each micro-shot from the previous one's last frame, keeping continuity without a fresh anchor for every sub-beat. Until those verbs land, hand-author the split by reusing the scene anchor as `--ref` on every micro-shot.
-
-**Operationally.**
-
-1. After the second failure on the same axis, write down the axis in one line ("camera can't crash-zoom through the prop on contact") and stop regenerating.
-2. Rewrite the scene as 2-4 micro-shots whose durations sum to the original slot. Each micro-shot must be a beat the model has hit in this project before.
-3. Update `scenario.json` slot list (`scene-03a`, `scene-03b`, …) via `ralphy project update`, regenerate prompts for the new slots only, then `ralphy generate` each.
-4. Editor stitches the micro-shots back into the original scene's time window.
+**Rule.** When a scene fails twice on the same axis (same motion beat, camera move, or impossible action), stop re-prompting: write the axis down in one line and split the scene into 2-4 micro-shots that sum to the original slot duration, each a beat the model has already hit in this project. Update the slot list via `ralphy project update`, regenerate prompts for the new slots only, and let the editor stitch them. Example (`flipper-hypermotion-001`) and continuity tips: [`references/split-scene.md`](./references/split-scene.md).
 
 ## Pre-render self-review (HARD gate)
 
-Before handing the project to the editor for `ralphy render <id>` — every project, no exceptions — walk the pre-render checklist. This is not a soft "should snapshot key beats"; it is a refuse-not-warn gate.
-
-- **MUST snapshot every beat** in `STORYBOARD.md` via `bunx hyperframes snapshot .ralphy/workspaces/<ws>/projects/<id>` before render.
-- **MUST eyeball every snapshot for anatomy** (hands, eyes, limb clipping — the `noski-people-001` failure class).
-- **MUST eyeball every snapshot for location continuity** (same couch / wall / light across scenes that share a setting).
-- **MUST eyeball every snapshot for pivot / camera-axis sanity** (180° line, camera height, no v1→v2 mirror flip).
-- **MUST cross-check identity locks** against each cast master shot.
-- **MUST verify on-prompt props** present at the right timestamp.
-
-A single fail aborts the render — fix at this layer via `regeneration.md`, then re-snapshot. Full worked rationale + `noski-people-001` / `odindoma-fb-ad-001` postmortem evidence in [art-director/pre-render-checklist.md](./references/pre-render-checklist.md).
-
-The future `--require-snapshot-review` flag on the `ralphy hyperframes render` namespace (out of scope here — tracked in [notes/issues/028](../../../notes/issues/done/028-no-ralphy-hyperframes-namespace.md)) will mechanise this gate. Until it ships, the agent enforces by reading the sub-doc.
+Refuse-not-warn, every project, before handing to the editor: snapshot every `STORYBOARD.md` beat (`bunx hyperframes snapshot .ralphy/workspaces/<ws>/projects/<id>`) and check anatomy, location continuity, camera-axis sanity, identity locks against each cast master, and on-prompt props at the right timestamp. One fail aborts the render: fix via `regeneration.md` and re-snapshot. Full checklist and postmortem evidence: [`references/pre-render-checklist.md`](./references/pre-render-checklist.md).
 
 ## Handoff
 

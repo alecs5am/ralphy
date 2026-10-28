@@ -1,4 +1,5 @@
-// `ralphy models <list|show>` — inspect OpenRouter video-model catalog.
+// `ralphy models <list|show>` — inspect the curated model registry (MODELS.md
+// index + docs/models/ detail, #574) and the OpenRouter video-model catalog.
 //
 // Each generate-video request is constrained by the model's
 // `supported_durations`, `supported_resolutions`, `supported_aspect_ratios`,
@@ -27,19 +28,57 @@ import {
   preflightModelCall,
   type GenerateKind,
 } from "../lib/models/constraints.js";
+import {
+  MODEL_KINDS,
+  INDEX_PATH,
+  listRegistry,
+  findRegistryEntry,
+  findDroppedEntry,
+  kindNotes,
+  type ModelKind,
+} from "../lib/models/registry.js";
+import type { VideoModel } from "../lib/or-catalog.js";
+
+/** The live-catalog fields `models show` has always printed for an OR video model. */
+function catalogView(m: VideoModel) {
+  return {
+    id: m.id,
+    name: m.name,
+    description: m.description,
+    supported_durations: m.supported_durations,
+    supported_resolutions: m.supported_resolutions,
+    supported_aspect_ratios: m.supported_aspect_ratios,
+    supported_frame_images: m.supported_frame_images,
+    supported_input_references: m.supported_input_references,
+    priceUsdPerSec: estimateVideoCostUsd(m.id, 1),
+    priceUsd5s: estimateVideoCostUsd(m.id, 5),
+    priceUsd10s: estimateVideoCostUsd(m.id, 10),
+  };
+}
 
 export function modelsCmd() {
   const cmd = new Command("models").description(
-    "Inspect available OpenRouter video models and their per-model parameter constraints"
+    "Inspect the curated model registry (MODELS.md) and the OpenRouter video catalog's per-model parameter constraints"
   );
 
   cmd
     .command("list")
     .description(
-      "List all OR video-generation models with their per-model durations / resolutions / aspect-ratios / frame-anchor support"
+      "List all OR video-generation models with their per-model durations / resolutions / aspect-ratios / frame-anchor support. --registry prints the curated MODELS.md index instead (id, kind, role, price; offline)"
     )
     .option("--refresh", "Force-refresh the catalog (ignore TTL cache)", false)
+    .option("--registry", "Print the curated MODELS.md index (all kinds, offline) instead of the live OR video catalog", false)
+    .option("--kind <kind>", `With --registry: only one kind (${MODEL_KINDS.join(" | ")})`)
     .action(async (opts) => {
+      if (opts.registry || opts.kind) {
+        const kind = opts.kind as ModelKind | undefined;
+        if (kind && !(MODEL_KINDS as readonly string[]).includes(kind)) {
+          raiseError("E_INPUT_INVALID", { field: "kind", detail: `expected one of ${MODEL_KINDS.join(", ")}`, verb: "models list" });
+        }
+        const rows = listRegistry({ kind }).map(({ id, kind: k, role, price }) => ({ id, kind: k, role, price }));
+        out({ source: INDEX_PATH, count: rows.length, models: rows, next: "ralphy models show <id>" });
+        return;
+      }
       const catalog = await getOrCatalog({ force: opts.refresh });
       const rows = catalog.videoModels.map((m) => ({
         id: m.id,
@@ -66,36 +105,89 @@ export function modelsCmd() {
         { key: "priceUsd5s", header: "$/5s", format: (v) => c.value("$" + Number(v).toFixed(2)) },
       ]);
       console.log();
-      console.log(`  ${icons.bullet} ${c.cmd("ralphy models show <id>")}    full schema + price tiers`);
+      console.log(`  ${icons.bullet} ${c.cmd("ralphy models show <id>")}    registry entry + live schema + price tiers`);
+      console.log(`  ${icons.bullet} ${c.cmd("ralphy models list --registry")}  curated index of every kind (image, voice, music, ...)`);
       console.log(`  ${icons.bullet} ${c.cmd("ralphy models alias <name>")}  resolve shorthand (kling, nano-banana, ...)`);
       console.log();
     });
 
+  // `models show <id>` (#574) — ONE model's curated entry from the registry
+  // (MODELS.md index row + its docs/models/<kind>.md section + every shared
+  // note that names it), plus the live OR catalog params for OpenRouter video
+  // models. Agents call this instead of reading MODELS.md whole. Ids that are
+  // only in the live catalog keep the pre-#574 catalog shape; dropped ids answer
+  // from docs/models/dropped.md.
   cmd
     .command("show <id>")
     .description(
-      "Show full per-model schema (description + params + price estimate) for one model"
+      "Show one model: its curated registry entry (role, price, capabilities, limits, quirks, lessons, plus shared rules that name it) and, for OpenRouter video models, the live catalog params + price estimate. Accepts shorthand (kling, nano banana pro, eleven_v3). Use this instead of reading MODELS.md"
     )
     .option("--refresh", "Force-refresh the catalog (ignore TTL cache)", false)
-    .action(async (id, opts) => {
-      if (opts.refresh) await getOrCatalog({ force: true });
-      const m = await findVideoModel(id);
-      if (!m) {
+    .option("--no-catalog", "Skip the live OpenRouter catalog lookup (offline; registry entry only)")
+    .option("--no-related", "Omit the shared notes that name this model (the model's own section only)")
+    .option("--kind-notes", "Also include every shared note of the model's kind (routing rules, policies)", false)
+    .action(async (id: string, opts) => {
+      const entry = findRegistryEntry(id);
+      const wantCatalog = opts.catalog !== false && (!entry || entry.kind === "video");
+      let catalog: ReturnType<typeof catalogView> | null = null;
+      let catalogError: string | undefined;
+      if (wantCatalog) {
+        try {
+          if (opts.refresh) await getOrCatalog({ force: true });
+          const m = await findVideoModel(entry?.id ?? id);
+          catalog = m ? catalogView(m) : null;
+        } catch (e) {
+          catalogError = (e as Error).message;
+        }
+      }
+
+      if (!entry) {
+        if (catalog) {
+          // Live-catalog-only id: the pre-#574 shape, plus a pointer at the gap.
+          out({ ...catalog, registry: null, hint: `not in the curated index (${INDEX_PATH}); add a row before relying on it` });
+          return;
+        }
+        const dropped = findDroppedEntry(id);
+        if (dropped) {
+          out(dropped);
+          return;
+        }
         raiseError("E_NOT_FOUND", { kind: "Model", id });
       }
-      out({
-        id: m.id,
-        name: m.name,
-        description: m.description,
-        supported_durations: m.supported_durations,
-        supported_resolutions: m.supported_resolutions,
-        supported_aspect_ratios: m.supported_aspect_ratios,
-        supported_frame_images: m.supported_frame_images,
-        supported_input_references: m.supported_input_references,
-        priceUsdPerSec: estimateVideoCostUsd(m.id, 1),
-        priceUsd5s: estimateVideoCostUsd(m.id, 5),
-        priceUsd10s: estimateVideoCostUsd(m.id, 10),
-      });
+
+      const view = {
+        id: entry.id,
+        kind: entry.kind,
+        role: entry.role,
+        price: entry.price,
+        source: entry.source,
+        aliases: entry.aliases,
+        detail: entry.detail,
+        ...(opts.related === false ? {} : { related: entry.related }),
+        ...(opts.kindNotes ? { kindNotes: kindNotes(entry.kind) } : {}),
+        ...(entry.kind === "video" && opts.catalog !== false
+          ? { catalog, ...(catalogError ? { catalogError } : {}) }
+          : {}),
+      };
+
+      const ui = await import("../lib/ui.js");
+      if (!ui.isPrettyMode()) {
+        out(view);
+        return;
+      }
+      const { c, section, kv } = ui;
+      section(`${entry.id}  ${c.muted(`(${entry.kind}, ${entry.source})`)}`);
+      kv({ role: entry.role, price: entry.price, aliases: entry.aliases, ...(catalog ? { catalog: catalog } : {}) });
+      if (entry.detail) section("Detail", entry.detail);
+      if (opts.related !== false && entry.related.length > 0) {
+        section(`Shared notes that name this model (${entry.related.length})`);
+        for (const r of entry.related) {
+          console.log(`  ${c.muted(r.from)}`);
+          for (const line of r.text.split("\n")) console.log(`    ${line}`);
+        }
+      }
+      if (opts.kindNotes) section("Kind notes", kindNotes(entry.kind));
+      console.log();
     });
 
   cmd

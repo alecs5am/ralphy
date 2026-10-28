@@ -24,7 +24,7 @@ No reference required for generic / no-name topics. The reference-required gate 
 
 ## Model recommendations
 
-Verify against `MODELS.md` every run.
+Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Default — `openai/gpt-5.4-image-2`.** Crisp baked typography is the whole game; the headline and sub-line read sharp. Serialize (1 concurrent) — do not fan out parallel gens on this model.
 - **Fallback — `google/gemini-3-pro-image-preview`.** Faster/cheaper for fast composition exploration, but smudges small embedded type — never finalize a typography-heavy pin here.
 

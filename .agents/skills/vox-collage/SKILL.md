@@ -31,7 +31,7 @@ Before writing ANY image or motion prompt, read the two references — they are 
 
 ## Hard invariants
 
-- **All generation routes through `ralphy` verbs.** `ralphy generate image|video|voiceover|music|captions` and `ralphy render`. No provider API, no `curl`, no ad-hoc `ffmpeg` for a paid step. Read `MODELS.md` before naming any model id — training memory is stale.
+- **All generation routes through `ralphy` verbs.** `ralphy generate image|video|voiceover|music|captions` and `ralphy render`. No provider API, no `curl`, no ad-hoc `ffmpeg` for a paid step. Run `ralphy models show <id>` (index: `MODELS.md`) before naming any model id — training memory is stale.
 - **The beat map is the ONE mandatory approval gate.** Draft `beats.json` (arc + per-beat scene/headline/motion), show it in chat, get "go" BEFORE any paid generation. Everything downstream flows from it.
 - **Density is a HARD requirement in the image prompt.** A single sticker on a plain background reads EMPTY and dead. See "The density rule" — 6+ separate layered cut-out pieces filling the negative space, or the beat fails.
 - **Motion is flat-safe or it warps.** ONE continuous 2D camera move (`push_in`/`pan`/`tilt`/`parallax` = uniform scale/translate ONLY), ~5% amplitude, stability anchors on ALL text/seal/layout, dimensional lock, plus a negative prompt. BANNED (they bend flat art): `orbit`, `dolly_zoom`, `roll`, `whip`, `crane`, handheld, fast/snap zoom. This constraint is WHY `bytedance/seedance-2.0` works for this style.
@@ -188,5 +188,5 @@ The creative engine — the 5-part collage image-prompt structure, the flat-safe
 - [`.agents/skills/art-director/SKILL.md`](../../../.agents/skills/art-director/SKILL.md) — model picks, ref-anchor flow, prompt cookbook.
 - [`.agents/skills/editor/SKILL.md`](../../../.agents/skills/editor/SKILL.md) + [`/hyperframes`](../hyperframes/SKILL.md) — opacity-gated multi-scene assembly, hard cuts, captions.
 - [`/seedance-prompts`](../seedance-prompts/SKILL.md) — seedance i2v prompt craft for the motion step.
-- `MODELS.md` — read before naming any model id. `MEMORY.md` — seedance filters, kling routes, ElevenLabs-no-artist-names, music-as-separate-pass.
+- `ralphy models show <id>` (index: `MODELS.md`) — run before naming any model id. `MEMORY.md` — seedance filters, kling routes, ElevenLabs-no-artist-names, music-as-separate-pass.
 - Reference project: `.ralphy/workspaces/bitacora/projects/bitacora-firstbug-001/` — where the density + flat-safe-motion recipe was validated.
