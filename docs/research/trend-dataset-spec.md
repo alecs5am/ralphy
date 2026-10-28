@@ -72,4 +72,4 @@ About 3% of videos break out. Roughly 300 prospective breakouts per niche are ne
 
 ## Sources
 
-Core: yt-dlp (TikTok creator listings logged out, YouTube flat listings and subtitles), Playwright Explore / sound capture, YouTube Data API free quota (key pending), Instagram decision pending (Apify or Business Discovery). Open-source candidates to bake off against yt-dlp before adoption are listed in the 2026-10-28 chat summary and should be tested on the same 100 creators for field coverage, requests before a block, and maintenance. No proxies, cookies, CAPTCHA solving or request-signature forging.
+Core: yt-dlp (TikTok creator listings logged out, YouTube flat listings and subtitles), Playwright Explore / sound capture, YouTube Data API free quota (key pending), Instagram decision pending (Apify or Business Discovery). A different scraper is added only if a core path stops working. No proxies, cookies, CAPTCHA solving or request-signature forging.
