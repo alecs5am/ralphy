@@ -49,6 +49,9 @@ export const DOMAIN_ID_PREFIXES = [
   "campaign",
   "cell",
   "calendar",
+  "twatch",
+  "tcreator",
+  "tvideo",
 ] as const;
 
 export type DomainIdPrefix = (typeof DOMAIN_ID_PREFIXES)[number];

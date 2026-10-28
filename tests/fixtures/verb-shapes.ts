@@ -1092,6 +1092,97 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
   ],
+  trends: [
+    {
+      label: "trends.ingest",
+      shape: {
+        kind: "trend-ingest",
+        workspaceId: "ws_00000000-0000-4000-8000-000000000556",
+        source: "tiktok-explore",
+        niche: "tech-tips",
+        startedAt: "2026-10-28T08:00:00.000Z",
+        wallSeconds: 146.9,
+        passes: [
+          { kind: "trend.discover", source: "tiktok-explore", runId: "run_00000000-0000-4000-8000-000000000001", requests: 1, breaker: "closed", breakerReason: null, counts: { seeds: 1, creatorsFound: 59, videosCreated: 63 }, notes: [] },
+          { kind: "trend.list", source: "ytdlp-tiktok-user", runId: "run_00000000-0000-4000-8000-000000000002", requests: 59, breaker: "tripped", breakerReason: "bot-check", counts: { creatorsListed: 57, creatorsFailed: 2, videosCreated: 3057 }, notes: ["2 listing(s) creator"] },
+        ],
+        totals: { "trend.list.videosCreated": 3057 },
+        skipped: ["youtube-data-api: YOUTUBE_API_KEY not configured"],
+        scoreNote: "Multipliers, z scores, composites, and labels are Ralphy's own estimates from creator-relative baselines, not platform data.",
+      },
+    },
+    {
+      label: "trends.top",
+      shape: {
+        kind: "trend-top",
+        workspaceId: "ws_00000000-0000-4000-8000-000000000556",
+        niches: ["tech-tips"],
+        since: "14d",
+        by: "outlier",
+        scoreNote: "Multipliers, z scores, composites, and labels are Ralphy's own estimates from creator-relative baselines, not platform data.",
+        count: 2,
+        notes: ["1 video(s) in scope have no post time (YouTube Shorts tabs without the YouTube Data API connector) and are not ranked"],
+        videos: [
+          {
+            rank: 1, platform: "tiktok", creator: "fixture_alpha", followers: 45000, title: "5 AI tools that save time", url: "https://www.tiktok.com/@fixture_alpha/video/7700000000000000101",
+            postedAt: "2026-10-22T00:42:42.000Z", ageDays: 6.3, views: 53500, viewsPrecision: "exact", likes: 392, comments: 10, shares: 30, saves: 82,
+            metricsAsOf: "2026-10-28T08:14:42.689Z", multiplier: 12.4, band: "10-50x", composite: 6.1, viewsZ: 7.9, label: "breakout", flags: ["rising"],
+            mode: "projected", momentum: 0.42, cohort: { niche: "tech-tips", format: "listicle", hook: "numbered-list", length: "31-60s", size: "micro", language: "en", audio: "original" },
+            discoveredVia: "listing", digest: "bundle:cache/digests/abc/digest (v1)", id: "tvideo_00000000-0000-4000-8000-000000000001",
+          },
+          {
+            rank: 2, platform: "youtube", creator: "@fixturechannel", followers: null, title: null, url: "https://www.youtube.com/shorts/fixtureAAA1",
+            postedAt: null, ageDays: null, views: 125000, viewsPrecision: "rounded", likes: null, comments: null, shares: null, saves: null,
+            metricsAsOf: null, multiplier: null, band: null, composite: null, viewsZ: null, label: null, flags: ["undated"],
+            mode: null, momentum: null, cohort: { niche: "ai-tools", format: null, hook: null, length: null, size: null, language: null, audio: null },
+            discoveredVia: "listing", digest: null, id: "tvideo_00000000-0000-4000-8000-000000000002",
+          },
+        ],
+      },
+    },
+    {
+      label: "trends.status",
+      shape: {
+        kind: "trend-status",
+        workspaceId: "ws_00000000-0000-4000-8000-000000000556",
+        creators: [{ platform: "tiktok", tier: "active", n: 179, listed: 177 }],
+        videos: [{ platform: "tiktok", n: 9591, listed: 9500, dated: 9591, scored: 9400, young: 3839 }],
+        niches: [{ niche: "tech-tips", creators: 179, videos: 9591 }],
+        snapshots: 9654,
+        outlierLabels: [{ label: "normal", n: 5000 }, { label: null, n: 1200 }],
+        cohortLabels: [{ axis: "length_band", method: "rule", n: 9591 }],
+        dueCreators: 0,
+        lastRuns: [{ kind: "trend.list", source: "ytdlp-tiktok-user", state: "succeeded", at: "2026-10-28T08:00:00.000Z", seconds: 120.4, breaker: "closed", breakerReason: null, costUsd: null }],
+        breakers: [{ source: "ytdlp-tiktok-user", state: "closed", reason: null, retryAfter: null }],
+        youtubeDataApi: "not configured (YouTube videos stay undated and unscored; flat views are rounded)",
+        apify: { paidDefault: "off (needs --paid and --apify-daily-cap-usd)", configured: false, today: [], toDate: [{ actorId: "apify/instagram-reel-scraper", usd: 0.03, runs: 1 }] },
+        maturityCurves: { tiktok: "prior tau 54 h, k 1.15", youtube: "prior tau 96 h, k 1", instagram: "prior tau 96 h, k 1" },
+        scoreNote: "Multipliers, z scores, composites, and labels are Ralphy's own estimates from creator-relative baselines, not platform data.",
+      },
+    },
+    {
+      label: "trends.creator",
+      shape: {
+        kind: "trend-creator",
+        creator: { id: "tcreator_00000000-0000-4000-8000-000000000001", platform: "tiktok", platformCreatorId: "MS4wLjABAAAAfixture", handle: "fixture_alpha", displayName: null, followers: 45000, sizeBand: "micro", niche: "tech-tips", subNiche: null, nicheMethod: "seed", region: "US", tier: "active", discoveredVia: "explore-category:Technology", lastListedAt: "2026-10-28T08:00:00.000Z", nextListAt: "2026-10-29T08:00:00.000Z", lastPostedAt: null, listingFailures: 0, lastListError: null },
+        counts: { videos: 60, listed: 60, scored: 58, snapshots: 61 },
+        baselines: [{ formatKey: "tiktok-video", metric: "views", medianValue: 8493, medianLog: 9.047, scale: 1.2, n: 30, computedAt: "2026-10-28T08:00:00.000Z" }],
+        followerHistory: [{ asOf: "2026-10-28T08:00:00.000Z", source: "tiktok-explore", followers: 45000, videoCount: 120 }],
+        scoreNote: "Multipliers, z scores, composites, and labels are Ralphy's own estimates from creator-relative baselines, not platform data.",
+        videos: [],
+      },
+    },
+    {
+      label: "trends.watch-list",
+      shape: [
+        { id: "twatch_00000000-0000-4000-8000-000000000001", platform: "tiktok", kind: "explore-category", value: "Technology", source: "tiktok-explore", niche: "tech-tips", cadenceHours: 24, active: true, lastRunAt: null },
+      ],
+    },
+    {
+      label: "trends.score",
+      shape: { kind: "trend-score", workspaceId: "ws_00000000-0000-4000-8000-000000000556", runId: "run_00000000-0000-4000-8000-000000000003", counts: { scored: 3089, breakout: 260 }, curves: { tiktok: { tauHours: 54, k: 1.15, basis: "prior", n: 0 } }, notes: [], scoreNote: "Ralphy's own estimates" },
+    },
+  ],
   setup: [
     {
       label: "setup.report",

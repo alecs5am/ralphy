@@ -75,12 +75,12 @@ Working dir: `.ralphy/references/trends-<date>/`.
 ### Method
 
 ```bash
-ralphy ref scrape-trends \
-  --hashtags "ai,productivity,startuplife" \
-  --limit 15
+ralphy trends ingest --workspace <ws> --source tiktok-explore --seed Technology --niche tech-tips
+ralphy trends ingest --workspace <ws> --source youtube-hashtag --seed aitools --seed productivityhacks --niche ai-tools
+ralphy trends top --workspace <ws> --niche tech-tips ai-tools --since 14d --by outlier
 ```
 
-The script visits `tiktok.com/tag/<hashtag>` without login, parses `__UNIVERSAL_DATA_FOR_REHYDRATION__`, dumps Apify-shape JSON, runs each video through `scoreTikTok()` and returns the ranked top-N.
+The trend corpus (#556) is creator-first: Explore categories and hashtag pages only seed creators, and each creator's own listing (logged out, no cookies) supplies the baseline. `trends top` ranks by the creator-relative outlier score (multiplier vs the creator's rolling median, age-projected); discovery-only videos are never used as a baseline. `ralphy ref scrape-trends` is deprecated: TikTok's logged-out hashtag endpoint returns an empty body, so it saves 0 videos. The engagement-ratio table below still applies to a single video read in isolation.
 
 ### Scoring (engagement ratios)
 

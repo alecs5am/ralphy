@@ -247,6 +247,15 @@ const TEXT_COLUMNS = {
   unit_revisions: "id,unit_id,parent_revision_id,iteration_id,note,metadata_json,authored_by_session_id,composition_revision_id",
   units: "id,workspace_id,project_id,slug,format,latest_revision_id,selected_revision_id,composition_id,source_revision_id,source_label",
   personas: "id,workspace_id,slug,name,language,archetype,tone,metadata_json",
+  trend_baselines: "creator_id,format_key,metric",
+  trend_cohort_baselines: "workspace_id,cohort_key,metric",
+  trend_cohort_labels: "video_id,axis,method,label,model,run_id",
+  trend_creator_snapshots: "creator_id,source,run_id",
+  trend_creators: "id,workspace_id,platform,platform_creator_id,handle,display_name,size_band,niche,sub_niche,niche_method,region,tier,discovered_via,watchlist_id,last_list_error,metadata_json",
+  trend_metric_snapshots: "video_id,checkpoint,source,views_precision,run_id",
+  trend_video_digests: "video_id,ref_kind,digest_ref,params_json",
+  trend_videos: "id,workspace_id,platform,platform_video_id,creator_id,format_key,url,posted_at_source,title,description,hashtags_json,sound_id,sound_title,language,region,discovered_via,latest_views_precision,latest_source,cohort_key,outlier_label,outlier_mode,outlier_flags_json,outlier_detail_json",
+  trend_watchlists: "id,workspace_id,platform,kind,value,source,niche,cursor_json,last_run_id",
   workspace_templates: "id,workspace_id,slug,name,description,kind,format,category,document_revision_id,artifact_revision_id,metadata_json",
   workspaces: "id,slug,name,metadata_json",
 } as const;
@@ -268,6 +277,7 @@ const LOCATOR_COLUMNS = new Set([
   "storage_transfers.destination_bucket",
   "migration_entries.source_path",
   "migration_entries.target_path",
+  "trend_video_digests.digest_ref",
 ]);
 const BINARY_KEYS = new Set([
   "base64",
@@ -448,11 +458,20 @@ function scanTextPayloads(
 ): void {
   for (const [table, serializedColumns] of Object.entries(TEXT_COLUMNS)) {
     const columns = serializedColumns.split(",");
+    // WITHOUT ROWID tables (#556 trend snapshots and labels) have no rowid;
+    // their diagnostics use the 1-based scan position instead.
+    const withoutRowid = isWithoutRowidTable(db, table);
     const rows = db
-      .query<DbRow, []>(`SELECT rowid AS __rowid, * FROM "${table}"`)
+      .query<DbRow, []>(
+        withoutRowid
+          ? `SELECT * FROM "${table}"`
+          : `SELECT rowid AS __rowid, * FROM "${table}"`,
+      )
       .all();
+    let position = 0;
     for (const row of rows) {
-      const rowId = String(row.id ?? row.__rowid);
+      position += 1;
+      const rowId = String(row.id ?? (withoutRowid ? position : row.__rowid));
       for (const column of columns) {
         const value = row[column];
         if (value instanceof Uint8Array) {
@@ -508,6 +527,15 @@ function scanTextPayloads(
       }
     }
   }
+}
+
+function isWithoutRowidTable(db: Database, table: string): boolean {
+  const sql = db
+    .query<{ sql: string | null }, [string]>(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+    )
+    .get(table)?.sql;
+  return typeof sql === "string" && /\bWITHOUT\s+ROWID\s*$/i.test(sql.trim());
 }
 
 function isValidJson(db: Database, value: string): boolean {

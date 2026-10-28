@@ -109,6 +109,7 @@ import { imageCmd } from "./commands/image.js";
 import { bannerCmd } from "./commands/banner.js";
 import { evalCmd } from "./commands/eval.js";
 import { researchCmd } from "./commands/research.js";
+import { trendsCmd } from "./commands/trends.js";
 import { editorCmd } from "./commands/editor.js";
 import { composeCmd } from "./commands/compose.js";
 import { voiceCmd } from "./commands/voice.js";
@@ -386,6 +387,7 @@ program.addCommand(imageCmd());
 program.addCommand(bannerCmd());
 program.addCommand(evalCmd());
 program.addCommand(researchCmd());
+program.addCommand(trendsCmd());
 program.addCommand(promptsCmd());
 program.addCommand(bridgeCmd());
 

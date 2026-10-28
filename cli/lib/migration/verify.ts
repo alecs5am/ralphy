@@ -910,7 +910,15 @@ function inspectPlaintextRows(db: Database, blockers: MigrationIssue[]): void {
       .filter((column) => column.type.toUpperCase() === "TEXT")
       .map((column) => column.name);
     if (columns.length === 0 || FTS_TABLES.has(name)) continue;
-    for (const row of db.query<Record<string, string | number | null>, []>(`SELECT rowid AS __rowid, * FROM "${name}"`).all()) {
+    // WITHOUT ROWID tables (#556 trend snapshots) report their scan position instead.
+    const tableSql = db.query<{ sql: string | null }, [string]>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?").get(name)?.sql ?? "";
+    const withoutRowid = /\bWITHOUT\s+ROWID\s*$/i.test(tableSql.trim());
+    let position = 0;
+    for (const row of db.query<Record<string, string | number | null>, []>(
+      withoutRowid ? `SELECT 0 AS __rowid, * FROM "${name}"` : `SELECT rowid AS __rowid, * FROM "${name}"`,
+    ).all()) {
+      position += 1;
+      if (withoutRowid) row.__rowid = position;
       for (const column of columns) {
         const value = row[column];
         if (typeof value === "string" && isLegacySecretCandidate("row.txt", Buffer.from(value))) {

@@ -1,0 +1,41 @@
+{
+ "items": [
+  {
+   "id": "fixtureSHT1",
+   "snippet": {
+    "publishedAt": "2026-10-20T12:00:00Z",
+    "channelId": "UCfixtureChannelAlpha0001",
+    "channelTitle": "Fixture Channel",
+    "title": "Fixture short one",
+    "tags": [
+     "AI Tools",
+     "shorts"
+    ],
+    "defaultAudioLanguage": "en-US"
+   },
+   "contentDetails": {
+    "duration": "PT45S"
+   },
+   "statistics": {
+    "viewCount": "241234",
+    "likeCount": "1500",
+    "commentCount": "40"
+   }
+  },
+  {
+   "id": "fixtureSHT2",
+   "snippet": {
+    "publishedAt": "2026-10-25T08:30:00Z",
+    "channelId": "UCfixtureChannelBravo0002",
+    "channelTitle": "Fixture Bravo",
+    "title": "Fixture short two"
+   },
+   "contentDetails": {
+    "duration": "PT1M5S"
+   },
+   "statistics": {
+    "viewCount": "1500321"
+   }
+  }
+ ]
+}

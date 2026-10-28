@@ -75,6 +75,15 @@ const REQUIRED_TABLES = [
   "migration_entries",
   "migration_entry_supplemental_refs",
   "migration_issues",
+  "trend_watchlists",
+  "trend_creators",
+  "trend_creator_snapshots",
+  "trend_videos",
+  "trend_metric_snapshots",
+  "trend_baselines",
+  "trend_cohort_baselines",
+  "trend_cohort_labels",
+  "trend_video_digests",
 ] as const;
 
 let roots: TmpRoot[] = [];
@@ -139,8 +148,8 @@ describe("domain database bootstrap", () => {
     expect(db.query("SELECT version FROM schema_migrations").all()).toEqual(
       MIGRATIONS.map(({ version }) => ({ version })),
     );
-    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-    expect(SCHEMA_VERSION).toBe(10);
+    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(SCHEMA_VERSION).toBe(11);
 
     const socialAccountColumns = db
       .query<{ name: string }, []>("PRAGMA table_info('social_accounts')")

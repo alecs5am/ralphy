@@ -58,6 +58,15 @@ export const PORTABLE_TABLES: Table[] = [
   { name: "calendar_entries", type: "calendar_entry", prefix: "calendar", workspace: true },
   { name: "agent_turns", type: "agent_turn", owner: ["run_id", "runs"] },
   { name: "agent_turn_events", type: "agent_turn_event", owner: ["run_id", "runs"] },
+  // #556 trend corpus. Snapshot history cannot be re-scraped, so every trend
+  // table travels except the two recomputable baseline caches.
+  { name: "trend_watchlists", type: "trend_watchlist", prefix: "twatch", workspace: true },
+  { name: "trend_creators", type: "trend_creator", prefix: "tcreator", workspace: true },
+  { name: "trend_creator_snapshots", type: "trend_creator_snapshot", owner: ["creator_id", "trend_creators"] },
+  { name: "trend_videos", type: "trend_video", prefix: "tvideo", workspace: true },
+  { name: "trend_metric_snapshots", type: "trend_metric_snapshot", owner: ["video_id", "trend_videos"] },
+  { name: "trend_cohort_labels", type: "trend_cohort_label", owner: ["video_id", "trend_videos"] },
+  { name: "trend_video_digests", type: "trend_video_digest", owner: ["video_id", "trend_videos"] },
 ];
 export type PortableTables = Record<string, PortableRecord[]>;
 export type PortableMapping = { oldType: string; oldId: string; newType: string; newId: string };

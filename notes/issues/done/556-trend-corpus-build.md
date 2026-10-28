@@ -1,6 +1,6 @@
 # Trend corpus build: ingest, refresh, outliers, cohorts
 
-> **Status:** todo (research done in #555)
+> **Status:** done — 2026-10-28 (migration 11, `ralphy trends`; real free run 16,507 videos from 381 creators in 9.6 min, 0 blocks; follow-ups in Not done)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** high
@@ -41,3 +41,32 @@ Design source: `docs/research/trend-corpus.md` (sections named below). The corpu
 
 - Sequence after #555. Content-plan work (intake, producer) reads from this.
 - **Algrow (owner pointer, 2026-10-28).** YouTube-only service with an MCP server and an API: viral/outlier search, channel and thumbnail search, transcripts, daily channel refresh, 18.7M videos claimed. Credit-metered (165-535 credits/month at $25-$80), so it fits agent-side discovery and YouTube seed lists, not bulk ingest of 100k videos. Evaluate during the $1 trial: credits per call, fields returned, whether outlier multipliers match ours. If adopted for ingest, it goes behind a registered connector (`ALGROW_API_KEY`, AGENTS.md invariant 1); the MCP alone is fine for interactive research. TikTok and Instagram stay on the #555 mix. Virlo (TikTok, Shorts, Reels; API and MCP; from $34) is the cross-platform equivalent to evaluate alongside it.
+
+## Build decisions (2026-10-28)
+
+Recorded while implementing; they sharpen the Scope above where it was silent or inconsistent.
+
+- **Migration 11 confirmed free** (`SCHEMA_VERSION` was 10). Tables as sketched, plus: `trend_watchlists.source` (the method that serves a seed); `trend_creators.{niche_method, region, last_posted_at, listing_failures, last_list_error}`; `trend_videos.{posted_at_source, region, aigc_label, in_listing, latest_views_precision, latest_source, outlier_detail_json, momentum}`. `in_listing` marks videos seen in their own creator's listing: only those are baseline members, and a video is scored only when its creator has been listed.
+- **Snapshot key.** The sketch's PK `(video_id, checkpoint, source, as_of)` would let every refresh insert a row. The key is `(video_id, checkpoint, bucket_seq, source)`: `bucket_seq` is 0 for the fixed buckets, the month number for `monthly` (ages past 56 days; `d28` covers days 28-56), and the UTC day number for a new `undated` checkpoint (YouTube flat listings carry no post time). Insert is `INSERT OR IGNORE`, first sample wins, `latest_*` always moves forward.
+- **Label key** is `(video_id, axis, taxonomy_version, method)` so a rule pre-label and a later LLM label coexist append-only. Effective label: manual > llm (confidence >= 0.6, not `unknown`) > rule > seed.
+- **Digest link.** #557 writes bundle directories, not Documents, so `trend_video_digests` stores `ref_kind` (`bundle` | `document`) and `digest_ref` (a path relative to the data root, absolute paths rejected by a CHECK, or a `doc_` id). No import of #557 code. Verb: `ralphy trends link-digest <video> --ref <ref>`.
+- **WITHOUT ROWID.** `cli/lib/store/verify.ts` and `cli/lib/migration/verify.ts` scanned every table with `SELECT rowid`; both now detect WITHOUT ROWID tables. The verifier's TEXT-column registry lists the nine new tables.
+- **Hot creators** are creators on a watchlist of kind `creator` (explicitly watched) whose newest post is younger than 72 h, not every discovered creator (that would put most active TikTok creators on a 6 h cadence).
+- **Circuit breaker.** A bot check, CAPTCHA, login wall, HTTP 429, or 403 trips a source immediately; empty bodies trip after 3 in a row (one empty listing is usually a private or empty account). A tripped source is skipped for 60 minutes by later runs (recorded in the Run Attempt response, shown by `trends status`). A blocked listing never counts against the creator. Creator failures back off 24 h per failure; three in a row, or a permanent one (no Shorts tab, private account), exclude the creator. Request budget per source per pass (`--budget`). yt-dlp runs with `--ignore-config` and refuses cookie, credential, and proxy flags.
+- **YouTube without a key.** Channel Shorts tabs give rounded views and no post time, so those videos are stored `undated` and stay unscored. The existing registered connector (`cli/lib/providers/youtube-analytics.ts`, `YOUTUBE_API_KEY`) gained a 50-id `videos.list` call (`youtubeVideoDetails`) that dates videos, adds exact stats, resolves hashtag Shorts ids to channels, and drives the 30-day re-fetch; no new provider key. It was not exercised in the build run (no key configured). Hashtag Shorts pages carry no channel, so without the key those ids are counted as unresolved; channel seeds come from `/hashtag/<t>` and `ytsearchN:` instead.
+- **Paid sources** (`apify-tiktok` via `clockworks/tiktok-scraper`, `apify-instagram` via `apify/instagram-reel-scraper` by profile and by reel URL at ages 1/3/7/14 days) need `--paid` and `--apify-daily-cap-usd`. The remaining daily budget per actor (sum of Run Attempt `cost_usd` on trend runs) shrinks the request, and the same cap goes to Apify as `maxItems` / `maxTotalChargeUsd` (new `apifyRunActorDetailed` in the connector). Not run.
+- **Labels for the top list.** `trends top --by outlier` hides thin baselines by default (`--include-thin` shows them); thin and provisional scores carry no label. `under` is a views multiplier below 0.5.
+- **LLM labels** (`--llm`, default off): batches of 25, closed label sets, `google/gemini-2.5-flash` through `callLLM()`. Not run in the build.
+- **`ref scrape-trends`** is marked deprecated in `ralphy research --help` and the researcher skill references; its own help line in `cli/commands/ref.ts` was left alone because that file carries unrelated uncommitted #557 work. Follow-up: change that description to point at `ralphy trends`.
+- **Portable export** carries all `trend_*` tables except the two baseline caches (tested). The package manifest is JSON capped at 64 MiB: the build run's 16.5k-video corpus exported as 51.5 MB (about 3.1 KB per video with snapshots and labels), so export stops with an explicit size error at roughly 21k videos; a 100k corpus needs a streamed table format in the portable package (follow-up).
+
+## Not done here
+
+- `docs/cli-surface.generated.md` regeneration (owner regenerates).
+- Sound-page seeding (`--source tiktok-sound`) is implemented on the same XHR capture as Explore but was not exercised live.
+- Maturity-curve refit is implemented (`trends score --refit`, monthly in `refresh`) but needs videos with a `d28` snapshot, so no refit exists yet.
+- Outlier thresholds are the formula's; in the build run 9.5% of mature TikTok videos are `breakout` and 2.0% `outlier`, so the recalibration step (about 5% `outlier` per platform) is still open.
+- YouTube Data API, Apify, and LLM paths are covered by tests with fakes only.
+- Algrow / Virlo evaluation.
+
+Build run numbers (16,507 videos, 381 creators, 0 blocks, 9.6 minutes of ingest, 252 s full refresh) and the 100k projection are in `docs/research/trend-corpus.md` under "Build run (#556)".

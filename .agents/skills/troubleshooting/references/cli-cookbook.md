@@ -70,7 +70,7 @@ ralphy render <project> --loudnorm                # post-process EBU R128
 ### Reference
 ```bash
 ralphy ref create --url <URL> --type design|social
-ralphy ref scrape-trends --hashtags "ai,productivity" --limit 15
+ralphy trends top --workspace <ws> --niche ai-tools --since 14d --by outlier   # replaces the deprecated `ref scrape-trends`
 ralphy brand create --name "..." --url <URL>
 ```
 

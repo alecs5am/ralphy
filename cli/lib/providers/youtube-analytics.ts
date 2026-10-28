@@ -108,3 +108,87 @@ export async function youtubeVideoStatistics(
   if (comments !== undefined) out.comments = comments;
   return out;
 }
+
+// ─── Trend corpus batch details (#556) ──────────────────────────────────────
+
+/** One `videos.list` item projected for the trend corpus (dates + exact stats). */
+export type YouTubeVideoDetails = {
+  id: string;
+  channelId: string | null;
+  channelTitle: string | null;
+  publishedAt: number | null;
+  durationSec: number | null;
+  title: string | null;
+  tags: string[];
+  language: string | null;
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+};
+
+type VideosDetailsResponse = {
+  items?: Array<{
+    id?: string;
+    snippet?: {
+      publishedAt?: string;
+      channelId?: string;
+      channelTitle?: string;
+      title?: string;
+      tags?: string[];
+      defaultAudioLanguage?: string;
+      defaultLanguage?: string;
+    };
+    contentDetails?: { duration?: string };
+    statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
+  }>;
+};
+
+/** ISO 8601 duration ("PT1M5S") to seconds. */
+export function isoDurationSeconds(value: string | undefined): number | null {
+  if (!value) return null;
+  const match = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$/.exec(value);
+  if (!match) return null;
+  const [, days, hours, minutes, seconds] = match;
+  return Number(days ?? 0) * 86_400 + Number(hours ?? 0) * 3_600 + Number(minutes ?? 0) * 60 + Number(seconds ?? 0);
+}
+
+/**
+ * `GET /videos?part=snippet,contentDetails,statistics&id=<up to 50 ids>` —
+ * 1 quota unit per call. Stored statistics from this API must be refreshed or
+ * deleted within 30 days (YouTube developer policies); the corpus re-fetches
+ * them monthly and labels derived scores as Ralphy's own.
+ */
+export async function youtubeVideoDetails(
+  videoIds: readonly string[],
+  fetchImpl: FetchLike = fetch,
+): Promise<YouTubeVideoDetails[]> {
+  if (videoIds.length === 0) return [];
+  if (videoIds.length > 50) throw new TerminalProviderError("youtube videos.list accepts at most 50 ids per call");
+  const key = requireKey();
+  const url = `${API_BASE}/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(videoIds.join(","))}&key=${encodeURIComponent(key)}`;
+  const resp = await fetchImpl(url, { method: "GET" });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    const message = `youtube GET videos?part=snippet,contentDetails,statistics ${resp.status}: ${text.slice(0, 300)}`;
+    if (resp.status >= 400 && resp.status < 500) throw new TerminalProviderError(message);
+    throw new Error(message);
+  }
+  const body = (await resp.json()) as VideosDetailsResponse;
+  return (body.items ?? []).flatMap((item) => {
+    if (!item.id) return [];
+    const published = item.snippet?.publishedAt ? Date.parse(item.snippet.publishedAt) : Number.NaN;
+    return [{
+      id: item.id,
+      channelId: item.snippet?.channelId ?? null,
+      channelTitle: item.snippet?.channelTitle ?? null,
+      publishedAt: Number.isFinite(published) ? published : null,
+      durationSec: isoDurationSeconds(item.contentDetails?.duration),
+      title: item.snippet?.title ?? null,
+      tags: Array.isArray(item.snippet?.tags) ? item.snippet!.tags!.filter((tag) => typeof tag === "string") : [],
+      language: item.snippet?.defaultAudioLanguage ?? item.snippet?.defaultLanguage ?? null,
+      views: toCount(item.statistics?.viewCount) ?? null,
+      likes: toCount(item.statistics?.likeCount) ?? null,
+      comments: toCount(item.statistics?.commentCount) ?? null,
+    }];
+  });
+}

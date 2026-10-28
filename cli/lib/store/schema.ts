@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 export const GLOBAL_MEMORY_WORKSPACE_ID = "ws_00000000-0000-0000-0000-000000000000";
 
 export type Migration = {
@@ -4563,6 +4563,262 @@ export const MIGRATIONS: readonly Migration[] = [
     sql: `
       ALTER TABLE units ADD COLUMN source_revision_id TEXT REFERENCES unit_revisions(id) ON DELETE RESTRICT;
       ALTER TABLE units ADD COLUMN source_label TEXT;
+    `,
+  },
+  {
+    // #556 trend corpus. Creator-first: discovery seeds creators, a creator
+    // listing is the unit of refresh. Snapshot and label tables are
+    // append-only (triggers below); the two *_baselines tables are
+    // recomputable caches and are not carried by workspace export.
+    version: 11,
+    sql: `
+      CREATE TABLE trend_watchlists (
+        id TEXT PRIMARY KEY CHECK (id GLOB 'twatch_*'),
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+        platform TEXT NOT NULL CHECK (platform IN ('tiktok', 'youtube', 'instagram')),
+        kind TEXT NOT NULL CHECK (kind IN (
+          'hashtag', 'keyword', 'sound', 'explore-category', 'creator', 'related'
+        )),
+        value TEXT NOT NULL CHECK (length(value) BETWEEN 1 AND 512),
+        source TEXT NOT NULL CHECK (length(source) BETWEEN 1 AND 64),
+        niche TEXT,
+        cadence_hours INTEGER NOT NULL DEFAULT 24 CHECK (cadence_hours > 0),
+        active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+        cursor_json TEXT CHECK (cursor_json IS NULL OR json_valid(cursor_json)),
+        last_run_id TEXT REFERENCES runs(id) ON DELETE RESTRICT,
+        last_run_at INTEGER,
+        row_version INTEGER NOT NULL DEFAULT 1 CHECK (row_version > 0),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (workspace_id, platform, kind, value)
+      );
+
+      CREATE TABLE trend_creators (
+        id TEXT PRIMARY KEY CHECK (id GLOB 'tcreator_*'),
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+        platform TEXT NOT NULL CHECK (platform IN ('tiktok', 'youtube', 'instagram')),
+        platform_creator_id TEXT NOT NULL CHECK (length(platform_creator_id) BETWEEN 1 AND 256),
+        handle TEXT,
+        display_name TEXT,
+        follower_count INTEGER CHECK (follower_count IS NULL OR follower_count >= 0),
+        size_band TEXT CHECK (size_band IS NULL OR size_band IN ('seed', 'nano', 'micro', 'mid', 'macro', 'mega')),
+        niche TEXT,
+        sub_niche TEXT,
+        niche_method TEXT CHECK (niche_method IS NULL OR niche_method IN ('seed', 'llm', 'manual', 'hashtag')),
+        region TEXT,
+        tier TEXT NOT NULL DEFAULT 'active' CHECK (tier IN ('active', 'inactive', 'dormant', 'excluded')),
+        discovered_via TEXT NOT NULL CHECK (length(discovered_via) BETWEEN 1 AND 600),
+        watchlist_id TEXT REFERENCES trend_watchlists(id) ON DELETE RESTRICT,
+        last_listed_at INTEGER,
+        next_list_at INTEGER,
+        last_posted_at INTEGER,
+        listing_failures INTEGER NOT NULL DEFAULT 0 CHECK (listing_failures >= 0),
+        last_list_error TEXT,
+        metadata_json TEXT CHECK (metadata_json IS NULL OR json_valid(metadata_json)),
+        row_version INTEGER NOT NULL DEFAULT 1 CHECK (row_version > 0),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (workspace_id, platform, platform_creator_id)
+      );
+      CREATE INDEX trend_creators_due ON trend_creators (workspace_id, tier, next_list_at);
+      CREATE INDEX trend_creators_handle ON trend_creators (workspace_id, handle);
+
+      CREATE TABLE trend_creator_snapshots (
+        creator_id TEXT NOT NULL REFERENCES trend_creators(id) ON DELETE RESTRICT,
+        as_of INTEGER NOT NULL,
+        source TEXT NOT NULL,
+        follower_count INTEGER CHECK (follower_count IS NULL OR follower_count >= 0),
+        video_count INTEGER CHECK (video_count IS NULL OR video_count >= 0),
+        total_likes INTEGER CHECK (total_likes IS NULL OR total_likes >= 0),
+        run_id TEXT REFERENCES runs(id) ON DELETE RESTRICT,
+        PRIMARY KEY (creator_id, as_of, source)
+      ) WITHOUT ROWID;
+
+      CREATE TABLE trend_videos (
+        id TEXT PRIMARY KEY CHECK (id GLOB 'tvideo_*'),
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+        platform TEXT NOT NULL CHECK (platform IN ('tiktok', 'youtube', 'instagram')),
+        platform_video_id TEXT NOT NULL CHECK (length(platform_video_id) BETWEEN 1 AND 128),
+        creator_id TEXT NOT NULL REFERENCES trend_creators(id) ON DELETE RESTRICT,
+        format_key TEXT NOT NULL,
+        url TEXT NOT NULL,
+        posted_at INTEGER,
+        posted_at_source TEXT,
+        duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0),
+        width INTEGER,
+        height INTEGER,
+        title TEXT,
+        description TEXT,
+        hashtags_json TEXT CHECK (hashtags_json IS NULL OR json_valid(hashtags_json)),
+        sound_id TEXT,
+        sound_title TEXT,
+        sound_original INTEGER CHECK (sound_original IS NULL OR sound_original IN (0, 1)),
+        language TEXT,
+        region TEXT,
+        is_ad INTEGER CHECK (is_ad IS NULL OR is_ad IN (0, 1)),
+        aigc_label INTEGER CHECK (aigc_label IS NULL OR aigc_label IN (0, 1)),
+        discovered_via TEXT NOT NULL,
+        discovered_at INTEGER NOT NULL,
+        in_listing INTEGER NOT NULL DEFAULT 0 CHECK (in_listing IN (0, 1)),
+        latest_as_of INTEGER,
+        latest_views INTEGER, latest_likes INTEGER, latest_comments INTEGER,
+        latest_shares INTEGER, latest_saves INTEGER,
+        latest_views_precision TEXT CHECK (latest_views_precision IS NULL OR latest_views_precision IN ('exact', 'rounded')),
+        latest_source TEXT,
+        cohort_key TEXT,
+        outlier_multiplier REAL,
+        outlier_z REAL,
+        outlier_score REAL,
+        outlier_label TEXT CHECK (outlier_label IS NULL OR outlier_label IN (
+          'breakout', 'outlier', 'strong', 'normal', 'under'
+        )),
+        outlier_mode TEXT CHECK (outlier_mode IS NULL OR outlier_mode IN ('projected', 'same-age')),
+        outlier_flags_json TEXT CHECK (outlier_flags_json IS NULL OR json_valid(outlier_flags_json)),
+        outlier_detail_json TEXT CHECK (outlier_detail_json IS NULL OR json_valid(outlier_detail_json)),
+        outlier_computed_at INTEGER,
+        momentum REAL,
+        next_snapshot_at INTEGER,
+        row_version INTEGER NOT NULL DEFAULT 1 CHECK (row_version > 0),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (workspace_id, platform, platform_video_id)
+      );
+      CREATE INDEX trend_videos_creator_posted ON trend_videos (creator_id, posted_at DESC);
+      CREATE INDEX trend_videos_rank ON trend_videos (workspace_id, platform, posted_at, outlier_score DESC);
+      CREATE INDEX trend_videos_cohort ON trend_videos (workspace_id, cohort_key, posted_at);
+      CREATE INDEX trend_videos_due ON trend_videos (next_snapshot_at);
+
+      CREATE TRIGGER trend_videos_creator_scope_insert
+      BEFORE INSERT ON trend_videos
+      WHEN NOT EXISTS (
+        SELECT 1 FROM trend_creators creator
+        WHERE creator.id = NEW.creator_id
+          AND creator.workspace_id = NEW.workspace_id
+          AND creator.platform = NEW.platform
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Trend video creator must share its Workspace and platform');
+      END;
+
+      CREATE TRIGGER trend_videos_identity_guard
+      BEFORE UPDATE OF id, workspace_id, platform, platform_video_id, created_at ON trend_videos
+      WHEN NEW.id IS NOT OLD.id OR NEW.workspace_id IS NOT OLD.workspace_id
+        OR NEW.platform IS NOT OLD.platform OR NEW.platform_video_id IS NOT OLD.platform_video_id
+        OR NEW.created_at IS NOT OLD.created_at
+      BEGIN
+        SELECT RAISE(ABORT, 'Trend video identity is immutable');
+      END;
+
+      -- One row per checkpoint bucket and source. bucket_seq is 0 for the
+      -- fixed age buckets, the month number for 'monthly' (ages past 56 days),
+      -- and the UTC day number for 'undated' (no post time known yet).
+      CREATE TABLE trend_metric_snapshots (
+        video_id TEXT NOT NULL REFERENCES trend_videos(id) ON DELETE RESTRICT,
+        checkpoint TEXT NOT NULL CHECK (checkpoint IN (
+          'h0-6', 'h6-24', 'd1-2', 'd2-3', 'd3-7', 'd7-14', 'd14-28', 'd28', 'monthly', 'undated'
+        )),
+        bucket_seq INTEGER NOT NULL DEFAULT 0 CHECK (bucket_seq >= 0),
+        source TEXT NOT NULL,
+        as_of INTEGER NOT NULL,
+        age_ms INTEGER,
+        views INTEGER, likes INTEGER, comments INTEGER, shares INTEGER, saves INTEGER,
+        views_precision TEXT NOT NULL DEFAULT 'exact' CHECK (views_precision IN ('exact', 'rounded')),
+        run_id TEXT REFERENCES runs(id) ON DELETE RESTRICT,
+        PRIMARY KEY (video_id, checkpoint, bucket_seq, source)
+      ) WITHOUT ROWID;
+
+      CREATE TABLE trend_baselines (
+        creator_id TEXT NOT NULL REFERENCES trend_creators(id) ON DELETE RESTRICT,
+        format_key TEXT NOT NULL,
+        metric TEXT NOT NULL,
+        window_k INTEGER NOT NULL,
+        median_log REAL NOT NULL,
+        mad_log REAL NOT NULL,
+        n INTEGER NOT NULL,
+        computed_at INTEGER NOT NULL,
+        PRIMARY KEY (creator_id, format_key, metric)
+      ) WITHOUT ROWID;
+
+      CREATE TABLE trend_cohort_baselines (
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+        cohort_key TEXT NOT NULL,
+        metric TEXT NOT NULL,
+        window_days INTEGER NOT NULL,
+        median_log REAL NOT NULL,
+        mad_log REAL NOT NULL,
+        n INTEGER NOT NULL,
+        computed_at INTEGER NOT NULL,
+        PRIMARY KEY (workspace_id, cohort_key, metric, window_days)
+      ) WITHOUT ROWID;
+
+      CREATE TABLE trend_cohort_labels (
+        video_id TEXT NOT NULL REFERENCES trend_videos(id) ON DELETE RESTRICT,
+        axis TEXT NOT NULL CHECK (axis IN (
+          'niche', 'sub_niche', 'format', 'hook', 'length_band', 'size_band', 'language', 'region', 'audio'
+        )),
+        taxonomy_version INTEGER NOT NULL CHECK (taxonomy_version > 0),
+        method TEXT NOT NULL CHECK (method IN ('rule', 'llm', 'seed', 'manual')),
+        label TEXT NOT NULL,
+        model TEXT,
+        confidence REAL CHECK (confidence IS NULL OR (confidence >= 0 AND confidence <= 1)),
+        run_id TEXT REFERENCES runs(id) ON DELETE RESTRICT,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (video_id, axis, taxonomy_version, method)
+      ) WITHOUT ROWID;
+
+      -- Link to a #557 reference digest: a bundle directory relative to the
+      -- data root, or a Document id. Only the reference is stored here.
+      CREATE TABLE trend_video_digests (
+        video_id TEXT NOT NULL REFERENCES trend_videos(id) ON DELETE RESTRICT,
+        digest_version INTEGER NOT NULL CHECK (digest_version > 0),
+        ref_kind TEXT NOT NULL CHECK (ref_kind IN ('bundle', 'document')),
+        digest_ref TEXT NOT NULL CHECK (
+          length(digest_ref) BETWEEN 1 AND 1024
+          AND substr(digest_ref, 1, 1) <> '/'
+          AND substr(digest_ref, 1, 1) <> char(92)
+          AND digest_ref NOT GLOB '[A-Za-z]:*'
+          AND instr('/' || replace(digest_ref, char(92), '/') || '/', '/../') = 0
+        ),
+        params_json TEXT CHECK (params_json IS NULL OR json_valid(params_json)),
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (video_id, digest_version)
+      ) WITHOUT ROWID;
+
+      CREATE TRIGGER trend_metric_snapshots_no_update
+      BEFORE UPDATE ON trend_metric_snapshots
+      BEGIN
+        SELECT RAISE(ABORT, 'Trend metric snapshots are append-only');
+      END;
+      CREATE TRIGGER trend_metric_snapshots_no_delete
+      BEFORE DELETE ON trend_metric_snapshots
+      BEGIN
+        SELECT RAISE(ABORT, 'Trend metric snapshots are append-only');
+      END;
+      CREATE TRIGGER trend_creator_snapshots_no_update
+      BEFORE UPDATE ON trend_creator_snapshots
+      BEGIN
+        SELECT RAISE(ABORT, 'Trend creator snapshots are append-only');
+      END;
+      CREATE TRIGGER trend_creator_snapshots_no_delete
+      BEFORE DELETE ON trend_creator_snapshots
+      BEGIN
+        SELECT RAISE(ABORT, 'Trend creator snapshots are append-only');
+      END;
+      CREATE TRIGGER trend_cohort_labels_no_update
+      BEFORE UPDATE ON trend_cohort_labels
+      BEGIN
+        SELECT RAISE(ABORT, 'Trend cohort labels are append-only per taxonomy version');
+      END;
+      CREATE TRIGGER trend_cohort_labels_no_delete
+      BEFORE DELETE ON trend_cohort_labels
+      BEGIN
+        SELECT RAISE(ABORT, 'Trend cohort labels are append-only per taxonomy version');
+      END;
+      CREATE TRIGGER trend_video_digests_no_update
+      BEFORE UPDATE ON trend_video_digests
+      BEGIN
+        SELECT RAISE(ABORT, 'Trend video digest links are append-only');
+      END;
     `,
   },
 ];

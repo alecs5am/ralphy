@@ -55,7 +55,7 @@ async function request<T>(url: string, init: RequestInit, fetchImpl: FetchLike):
 /** "user/actor-name" → the path-safe "user~actor-name" form the REST API expects. */
 const actorPath = (id: string) => id.replace(/\//g, "~");
 
-type ApifyRun = { id?: string; status?: string; defaultDatasetId?: string };
+type ApifyRun = { id?: string; status?: string; defaultDatasetId?: string; usageTotalUsd?: number };
 
 const TERMINAL_FAILURES = new Set(["FAILED", "ABORTED", "ABORTING", "TIMED-OUT", "TIMED_OUT"]);
 
@@ -70,12 +70,36 @@ export async function apifyRunActor(opts: {
   pollMaxAttempts?: number;
   fetchImpl?: FetchLike;
 }): Promise<unknown[]> {
+  return (await apifyRunActorDetailed(opts)).items;
+}
+
+export type ApifyRunSummary = { id: string; status: string; usageTotalUsd: number | null };
+
+/**
+ * Same run/poll/fetch cycle, plus Apify's own hard caps on the run (#556):
+ * `maxItems` (pay-per-result actors stop charging past it) and
+ * `maxTotalChargeUsd` (pay-per-event actors stop at the dollar cap). Returns
+ * the run's reported `usageTotalUsd` so callers can record real spend.
+ */
+export async function apifyRunActorDetailed(opts: {
+  actorId: string;
+  input?: unknown;
+  maxItems?: number;
+  maxTotalChargeUsd?: number;
+  pollIntervalMs?: number;
+  pollMaxAttempts?: number;
+  fetchImpl?: FetchLike;
+}): Promise<{ items: unknown[]; run: ApifyRunSummary }> {
   const fetchImpl = opts.fetchImpl ?? (fetch as FetchLike);
   const interval = opts.pollIntervalMs ?? 5_000;
   const max = opts.pollMaxAttempts ?? 120;
+  const query = new URLSearchParams();
+  if (opts.maxItems !== undefined) query.set("maxItems", String(Math.max(1, Math.floor(opts.maxItems))));
+  if (opts.maxTotalChargeUsd !== undefined) query.set("maxTotalChargeUsd", String(Math.max(0, opts.maxTotalChargeUsd)));
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
 
   const submit = await request<{ data?: ApifyRun }>(
-    `${API_BASE}/acts/${actorPath(opts.actorId)}/runs`,
+    `${API_BASE}/acts/${actorPath(opts.actorId)}/runs${suffix}`,
     { method: "POST", body: JSON.stringify(opts.input ?? {}) },
     fetchImpl,
   );
@@ -114,5 +138,12 @@ export async function apifyRunActor(opts: {
     { method: "GET" },
     fetchImpl,
   );
-  return Array.isArray(items) ? items : [];
+  return {
+    items: Array.isArray(items) ? items : [],
+    run: {
+      id: run.id!,
+      status: run.status ?? "SUCCEEDED",
+      usageTotalUsd: typeof run.usageTotalUsd === "number" && Number.isFinite(run.usageTotalUsd) ? run.usageTotalUsd : null,
+    },
+  };
 }

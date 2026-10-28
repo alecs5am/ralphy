@@ -1,0 +1,186 @@
+{
+ "statusCode": 0,
+ "hasMore": true,
+ "itemList": [
+  {
+   "id": "7700000000000000201",
+   "createTime": 1792000000,
+   "desc": "POV: your phone does this #techtips",
+   "textLanguage": "en",
+   "isAd": false,
+   "author": {
+    "id": "7100000000000000001",
+    "uniqueId": "fixture_alpha",
+    "nickname": "Fixture_Alpha",
+    "secUid": "MS4wLjABAAAAfixtureCreatorAlphaSecUid0123456789abcdefghij",
+    "privateAccount": false
+   },
+   "authorStats": {
+    "followerCount": 45000,
+    "videoCount": 120,
+    "heartCount": 500000
+   },
+   "authorStatsV2": {
+    "followerCount": "45000",
+    "videoCount": "120",
+    "heartCount": "500000"
+   },
+   "stats": {
+    "playCount": 820000,
+    "diggCount": 41000,
+    "commentCount": 1640,
+    "shareCount": 2733,
+    "collectCount": 4100
+   },
+   "statsV2": {
+    "playCount": "820000",
+    "diggCount": "41000",
+    "commentCount": "1640",
+    "shareCount": "2733",
+    "collectCount": "4100",
+    "repostCount": "0"
+   },
+   "video": {
+    "duration": 31,
+    "width": 720,
+    "height": 1280
+   },
+   "music": {
+    "id": "7400000000000000001",
+    "title": "original sound - fixture_alpha",
+    "original": true
+   },
+   "challenges": [
+    {
+     "title": "TechTips"
+    },
+    {
+     "title": "AITools"
+    }
+   ],
+   "locationCreated": null,
+   "aigcLabelType": null,
+   "AIGCDescription": ""
+  },
+  {
+   "id": "7700000000000000202",
+   "createTime": 1791996400,
+   "desc": "Why is nobody talking about this setting?",
+   "textLanguage": "en",
+   "isAd": false,
+   "author": {
+    "id": "7100000000000000001",
+    "uniqueId": "fixture_bravo",
+    "nickname": "Fixture_Bravo",
+    "secUid": "MS4wLjABAAAAfixtureCreatorBravoSecUid0123456789abcdefghij",
+    "privateAccount": false
+   },
+   "authorStats": {
+    "followerCount": 1200,
+    "videoCount": 120,
+    "heartCount": 500000
+   },
+   "authorStatsV2": {
+    "followerCount": "1200",
+    "videoCount": "120",
+    "heartCount": "500000"
+   },
+   "stats": {
+    "playCount": 9100,
+    "diggCount": 455,
+    "commentCount": 18,
+    "shareCount": 30,
+    "collectCount": 45
+   },
+   "statsV2": {
+    "playCount": "9100",
+    "diggCount": "455",
+    "commentCount": "18",
+    "shareCount": "30",
+    "collectCount": "45",
+    "repostCount": "0"
+   },
+   "video": {
+    "duration": 31,
+    "width": 720,
+    "height": 1280
+   },
+   "music": {
+    "id": "7400000000000000001",
+    "title": "Fixture Hit Song",
+    "original": false
+   },
+   "challenges": [
+    {
+     "title": "TechTips"
+    },
+    {
+     "title": "AITools"
+    }
+   ],
+   "locationCreated": null,
+   "aigcLabelType": null,
+   "AIGCDescription": ""
+  },
+  {
+   "id": "7700000000000000203",
+   "createTime": 1791992800,
+   "desc": "Sponsored gadget",
+   "textLanguage": "un",
+   "isAd": true,
+   "author": {
+    "id": "7100000000000000001",
+    "uniqueId": "fixture_bravo",
+    "nickname": "Fixture_Bravo",
+    "secUid": "MS4wLjABAAAAfixtureCreatorBravoSecUid0123456789abcdefghij",
+    "privateAccount": false
+   },
+   "authorStats": {
+    "followerCount": 1200,
+    "videoCount": 120,
+    "heartCount": 500000
+   },
+   "authorStatsV2": {
+    "followerCount": "1200",
+    "videoCount": "120",
+    "heartCount": "500000"
+   },
+   "stats": {
+    "playCount": 4400,
+    "diggCount": 220,
+    "commentCount": 8,
+    "shareCount": 14,
+    "collectCount": 22
+   },
+   "statsV2": {
+    "playCount": "4400",
+    "diggCount": "220",
+    "commentCount": "8",
+    "shareCount": "14",
+    "collectCount": "22",
+    "repostCount": "0"
+   },
+   "video": {
+    "duration": 31,
+    "width": 720,
+    "height": 1280
+   },
+   "music": {
+    "id": "7400000000000000001",
+    "title": "original sound - fixture_bravo",
+    "original": true
+   },
+   "challenges": [
+    {
+     "title": "TechTips"
+    },
+    {
+     "title": "AITools"
+    }
+   ],
+   "locationCreated": null,
+   "aigcLabelType": 1,
+   "AIGCDescription": ""
+  }
+ ]
+}

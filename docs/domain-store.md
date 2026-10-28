@@ -40,6 +40,21 @@ is a JSON Document of kind `custom` with slug `decision-ledger-<unit-slug>` in
 the Unit's own scope, so its history is append-only revisions and portable
 export carries it unchanged.
 
+## Trend corpus
+
+The trend corpus (#556, `ralphy trends`) lives in one corpus Workspace and is
+creator-first: `trend_watchlists` seed discovery, `trend_creators` are the unit
+of refresh, and `trend_videos` carry denormalized latest metrics plus Ralphy's
+own outlier fields. `trend_metric_snapshots` and `trend_creator_snapshots` are
+append-only (`WITHOUT ROWID`, update/delete triggers abort); a metric snapshot
+row is keyed by checkpoint bucket (`h0-6` through `d28`, then `monthly`, or
+`undated` per UTC day while no post time is known), so a re-run inside the
+same bucket inserts nothing. `trend_cohort_labels` are append-only per
+`taxonomy_version` and method; `trend_video_digests` stores only a reference
+to a #557 digest bundle (path relative to the data root) or Document id.
+`trend_baselines` and `trend_cohort_baselines` are recomputable caches: they
+are the only `trend_*` tables that portable export leaves out.
+
 ## Bridge
 
 Start the long-lived JSONL bridge against an explicit data root:

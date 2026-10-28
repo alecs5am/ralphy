@@ -655,6 +655,65 @@ why the curve must be refit from longitudinal snapshots.
 - `ref scrape-trends` runs a script through `bunx tsx` and its hashtag path is dead;
   #556 should replace it with Explore/sound seeding plus creator listing.
 
+## Build run (#556)
+
+First end-to-end run of `ralphy trends` on 2026-10-28, niche "AI tools / tech tips",
+free logged-out sources only (no cookies, no provider keys, no paid calls; cost $0),
+same residential connection as the sample, into a scratch data root
+(`.ralphy/cache/trend-corpus-run/`, gitignored) holding one corpus Workspace.
+Two listing workers, 60 videos per creator at ingest, 30 per creator at refresh.
+
+| Step (verb) | Wall | Result |
+|---|---|---|
+| `trends ingest --source tiktok-explore --seed Technology --niche tech-tips` (first pass) | 147 s | Explore session 68 s, but only 63 items: the scroll loop did not reach the feed's end (fixed: scroll the document end too). 59 creators, 57 listed in 78 s, 3,120 videos |
+| same command, after the scroll fix | 270 s | Explore session 68 s: 200 items, 181 authors (142 new). 143 of 144 creators listed in 201 s: 7,595 videos, 1.4 s per creator, 38 videos/s |
+| `trends ingest --source youtube-hashtag` (7 AI tags, `--niche ai-tools`) | 84 s | Hashtag pages 33 s: 100 channel seeds (90 new), 678 Shorts ids without a channel. 70 of 90 channels have a Shorts tab; 3,055 videos in 50 s (0.56 s per channel, 61 videos/s) |
+| `trends ingest --source youtube-hashtag` (techtips, techhacks, `--niche tech-tips`) | 16 s | 4 channel seeds; 127 videos |
+| `trends ingest --source youtube-search` (3 queries) | 59 s | 96 channel seeds (86 new); 60 with Shorts; 2,596 videos in 47 s |
+| `trends refresh --due` right after | 1.8 s | No creator due; nothing listed (one never-listed creator retried, which led to the backoff fix) |
+| `trends refresh --platform tiktok youtube --per-creator 30 --no-discover` (every creator, about an hour after ingest) | 252 s | 199 of 200 TikTok creators in 186 s (0.93 s per creator) and 133 YouTube channels in 66 s (0.49 s per channel): 8,899 videos seen, 22 new uploads detected, 65 new snapshot rows (videos that crossed a checkpoint bucket), 8,834 skipped as already in their bucket |
+
+**Corpus after ingest:** 16,507 videos from 381 creators (TikTok 10,729 videos / 201
+creators; YouTube 5,778 / 180 seeded, 133 with a Shorts tab). 16,707 metric
+snapshot rows, 59,686 cohort labels (rules and seed niche only; the LLM pass was
+off). Ingest wall time 575 s (9.6 minutes) in total. **Blocks hit: 0** (no bot
+check, CAPTCHA, login wall, or empty-body streak on any source). Listing failures:
+1 TikTok creator ("Unable to extract secondary user ID", excluded after retries)
+and 47 YouTube channels without a Shorts tab (excluded on first sight). The store
+file was 48 MB. Scoring all 16.5k videos took 0.6 s; rule labels 0.2 s.
+
+**Scores.** 10,576 of 10,729 TikTok videos scored (the rest are younger than 6 h
+or discovery-only). Of the 7,987 with a non-thin, non-provisional baseline, 23%
+reached 3x their creator's shrunk baseline and 10% reached 10x, the same
+heavy tail as the uncorrected sample (24% and 10%). Labels on mature videos (7
+days or older): breakout 9.5%, outlier 2.0%, strong 10.7%, normal 52%, under 25%.
+The formula's thresholds therefore over-label `breakout`; the recalibration step
+(about 5% `outlier` per platform) is still open. YouTube videos stay **unscored**:
+channel Shorts tabs carry no post time, so without the YouTube Data API connector
+(`YOUTUBE_API_KEY`, not configured here) every YouTube row is `undated` with
+rounded views. Explore localized to the IP's country again (creator region KR;
+of the 209 videos with a language field, ko 75, vi 58, en 40).
+
+**Export.** `workspace.export` of the corpus Workspace (16,529 videos after the refresh, 16,772 snapshots, 59,785 labels, 506 creator snapshots) took 0.65 s and produced a 51.5 MB package; `workspace.import` into a fresh data root took 5.7 s including the staging verification and restored every `trend_*` row except the two baseline caches. The package manifest is JSON capped at 64 MiB, so at this density (about 3.1 KB per video) export stops with an explicit size error at roughly 21k videos; a 100k corpus needs a streamed table format in the portable package (follow-up).
+
+### Projection to 100k+ from the measured rates
+
+| Slice | Work | Measured rate | Projected wall (2 workers, 1 IP) | Cost |
+|---|---|---|---|---|
+| TikTok 50k | ~940 creators at the measured 53 videos per 60-video listing; discovery from ~6-10 Explore or sound sessions (one session gave 181 authors, 22% overlap with the previous one) | 1.4 s per creator, 68 s per Explore session | ~22 min listing + ~7-11 min discovery | $0 |
+| YouTube 35k | ~800 Shorts channels at the measured 44 videos per channel; ~1,100 seeds (70-78% have Shorts) from ~40 hashtag/search queries (14 channels per hashtag page, 32 per query) | 0.56 s per channel, 3.5-4.7 s per query | ~10 min listing + ~3 min discovery | $0; dates and exact stats need the free Data API quota (35k / 50 = 700 units) |
+| Instagram 15k | Apify reel actor by profile (not run) | n/a | Apify run time | ~$34.50 at Starter (the #555 model) |
+| **Initial 100k** | | | **~45 minutes of free listing** plus Apify | **~$37 with Instagram, $0 without** |
+| Daily refresh at 100k | re-list ~940 TikTok + ~800 YouTube creators (latest 30) | 0.93 s per TikTok creator, 0.49 s per YouTube channel | ~21 min per day (~15 min TikTok + ~6.5 min YouTube), in line with the #555 estimate of 12-15 min for TikTok | $0 free path; ~$170-$230 per month with Instagram checkpoints and optional TikTok seeds, $15-$75 without (the #555 model, unchanged: no paid source was exercised) |
+
+The measured free-path rates match the #555 sample (TikTok 38-40 videos/s vs 39;
+YouTube channel tabs 55-61 videos/s vs ~90, slower because the build lists
+newest-first with a 150 ms pause per request), so the #555 cost model stands.
+What the run changes: YouTube needs the Data API connector to be scored at all,
+TikTok English coverage still needs non-geo-localized seeds (paid keyword seeds or
+manual watchlists), and outlier thresholds need recalibration on this
+distribution.
+
 ## Open risks
 
 - **Terms of service.** TikTok's terms ban automated extraction for everyone,

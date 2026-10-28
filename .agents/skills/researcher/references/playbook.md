@@ -33,8 +33,10 @@ ralphy ref blueprint <slug>
 ralphy ref create <url> --type social --name <slug>
 ralphy ref attach <refId> --to <projectId>
 
-# Trends (no API key — Playwright scrapes public hashtag pages, ranks via scoreTikTok)
-ralphy ref scrape-trends --hashtags ai,fitness --limit 15
+# Trends (no API key, logged out): creator-first corpus with creator-relative outlier scores (#556)
+ralphy trends ingest --workspace <ws> --source tiktok-explore --seed Technology --niche tech-tips
+ralphy trends top --workspace <ws> --niche tech-tips --since 14d --by outlier
+# `ralphy ref scrape-trends` is deprecated: its logged-out hashtag path returns 0 videos
 
 # Inspect / debug
 ralphy ref show <id>
@@ -60,7 +62,7 @@ The standard chain is `pull → frames → transcribe → analyze → audio-desc
 | `topic-research` | open question, no URL — "find how X is done" | site-extract (Playwright), transcript (videos) |
 | `website-extraction` | URL — landing / brand / design ref | site-extract |
 | `social-analysis` | URL/handle — IG/TikTok/YT/X video | social-extract + transcript + yt-dlp |
-| `discover-trends` | "what's trending in <hashtag/niche>" | social-extract (scrape-trends + scoreTikTok) |
+| `discover-trends` | "what's trending in <hashtag/niche>" | trend corpus (`ralphy trends ingest` + `trends top`) |
 | `find-viral-moments` | long-form video → 15-60s clips | viral-moments |
 
 ## What I read on start
@@ -77,7 +79,7 @@ The standard chain is `pull → frames → transcribe → analyze → audio-desc
 - **yt-dlp** — download videos (1800+ sites including TikTok, IG, YT, X, Reddit). See [researcher/yt-dlp.md](./yt-dlp.md).
 - **ffmpeg / ffprobe** — keyframes, audio split, trims.
 - **Gemini 2.5 flash via OpenRouter `callLLM()`** — frame + audio analysis. Through **`cli/lib/providers/llm.ts`**, not direct fetch.
-- **`ralphy ref scrape-trends`** — TikTok hashtag scraper (Apify-shape, no key required).
+- **`ralphy trends`** — creator-first trend corpus: TikTok creator listings + Explore, YouTube Shorts hashtag/channel tabs, outlier scores (#556). `ralphy ref scrape-trends` is deprecated.
 - **`ralphy ref create`** — register findings.
 - **`ralphy project log-prompt / log-asset`** — context for the project.
 

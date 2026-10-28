@@ -27,7 +27,22 @@ import { runDeepResearch } from "../lib/research/orchestrator.js";
 import { scrapeProfile } from "../lib/research/scrape-profile-orchestrator.js";
 
 export function researchCmd() {
-  const cmd = new Command("research").description("Topic-level research: aggregate multiple sources into a single report");
+  const cmd = new Command("research").description(
+    "Topic-level research: aggregate multiple sources into a single report. Trend discovery lives in `ralphy trends` (#556); `ralphy ref scrape-trends` is deprecated.",
+  );
+  cmd.addHelpText(
+    "after",
+    [
+      "",
+      "Trend discovery (#556):",
+      "  `ralphy ref scrape-trends` is DEPRECATED: its logged-out TikTok hashtag path returns 0 videos",
+      "  (the hashtag endpoint answers with an empty body). Use the creator-first trend corpus instead:",
+      "    ralphy trends ingest --workspace <ws> --source tiktok-explore --seed Technology --niche tech-tips",
+      "    ralphy trends ingest --workspace <ws> --source youtube-hashtag --seed aitools --niche ai-tools",
+      "    ralphy trends top --workspace <ws> --niche tech-tips --since 14d --by outlier",
+      "",
+    ].join("\n"),
+  );
 
   cmd
     .command("start <topic>")

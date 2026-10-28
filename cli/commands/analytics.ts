@@ -17,6 +17,8 @@ import {
 } from "../lib/analytics/import.js";
 import { DEFAULT_REPORT_OPTIONS, loadOutcomeReport } from "../lib/analytics/report.js";
 import { isOutcomeMetric, OUTCOME_METRICS } from "../lib/analytics/outcomes.js";
+import { trendCohortProvider } from "../lib/trends/cohort-provider.js";
+import { currentCurves } from "../lib/trends/ingest.js";
 
 export function analyticsCmd(): Command {
   const command = new Command("analytics").description(
@@ -150,6 +152,8 @@ export function analyticsCmd(): Command {
     .option("--hit-threshold <value>", "Absolute target on the metric instead of the rolling median")
     .option("--platform <platform>", "Restrict to one platform")
     .option("--no-derive", "Use stored decision ledgers only (skip on-the-fly derivation)")
+    .option("--cohort-workspace <id>", "Trend corpus Workspace (#556) whose creator-listed videos supply cohort baselines")
+    .option("--cohort-niche <niche...>", "Restrict cohort baselines to these corpus niches (e.g. ai-tools tech-tips)")
     .action((opts, child: Command) => {
       if (!isOutcomeMetric(opts.metric)) {
         raiseError("E_FLAG_UNKNOWN", { flag: "metric", value: opts.metric, allowed: OUTCOME_METRICS.join(", ") });
@@ -165,6 +169,15 @@ export function analyticsCmd(): Command {
         ...(opts.hitThreshold !== undefined ? { hitThreshold: nonNegative(opts.hitThreshold, "hit-threshold") } : {}),
         ...(typeof opts.platform === "string" ? { platform: opts.platform } : {}),
         deriveMissing: opts.derive !== false,
+        ...(typeof opts.cohortWorkspace === "string"
+          ? {
+              cohort: trendCohortProvider({
+                workspaceId: opts.cohortWorkspace,
+                ...(Array.isArray(opts.cohortNiche) ? { niches: (opts.cohortNiche as string[]).flatMap((value) => value.split(",")).filter(Boolean) } : {}),
+                curves: currentCurves(opts.cohortWorkspace),
+              }),
+            }
+          : {}),
       }, scope));
     });
 

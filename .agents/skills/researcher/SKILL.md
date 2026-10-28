@@ -71,7 +71,7 @@ The report cites every claim. If the model produces an uncited bullet, the synth
 `.agents/skills/researcher/references/playbook.md` is the tool-deep-dive companion. Read it when:
 
 - The source URL needs a non-standard pull (Playwright for JS-heavy landing pages, manual yt-dlp flags for region-locked content) — see `.agents/skills/researcher/references/yt-dlp.md` and `site-extract.md`.
-- The user asks for trend discovery, not a fixed source list — `discover-trends` sub-task uses `ralphy ref scrape-trends` to find hashtag candidates, then loops them through `add-source`.
+- The user asks for trend discovery, not a fixed source list — the `discover-trends` sub-task uses the trend corpus (`ralphy trends ingest` / `ralphy trends top --by outlier`, #556) to find creator-relative outliers, then loops the chosen videos through `add-source`. `ralphy ref scrape-trends` is deprecated (its logged-out hashtag path returns 0 videos).
 - The user wants viral-moment extraction from a long-form video — that is a different sub-task with its own sub-doc (`viral-moments.md`); the topic-level synthesis here is not the right fit.
 
 This skill is the workflow contract. The playbook is the tool encyclopedia. Don't duplicate; cross-reference.
@@ -80,7 +80,7 @@ This skill is the workflow contract. The playbook is the tool encyclopedia. Don'
 
 1. **Confirm the question.** A topic without a research question produces a vague report. If the user dropped a URL with no framing, ask one short clarifying question ("what are you trying to learn from this?") before starting.
 2. **`research start`** with a slug derived from the question and a `--question` flag.
-3. **For each URL / handle:** `research add-source`. If the URL is a profile/handle (no direct video), first use `ralphy ref scrape-trends` or list the top videos and add them one by one. Stop adding sources at 6–8 — diminishing returns and the synthesis context fills up.
+3. **For each URL / handle:** `research add-source`. If the URL is a profile/handle (no direct video), first list its recent videos (`ralphy trends ingest --source tiktok-creator|youtube-channel --seed <id>` then `ralphy trends creator <handle>`) and add the top ones one by one. Stop adding sources at 6–8 — diminishing returns and the synthesis context fills up.
 4. **`research synthesize`** once all sources reach `analyzed`. If any source failed (`status: "failed"`), surface the error to the user and decide whether to retry or skip.
 5. **Show** the markdown report to the user. Surface the question, the Executive Summary, and 3–5 top findings inline. Point at the file path for the full read.
 6. **Handoff:** the scenarist reads `sources.json` (specifically `keyFindings` per source) when writing the scenario. The art-director reads the `Patterns Across Sources` section when picking prompt seeds and model choices.

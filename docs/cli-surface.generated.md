@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **59**
+Verbs registered: **60**
 
 ## Top-level verbs
 
@@ -2433,7 +2433,9 @@ ____        __      __
 
 Usage: ralphy research [options] [command]
 
-Topic-level research: aggregate multiple sources into a single report
+Topic-level research: aggregate multiple sources into a single report. Trend
+discovery lives in `ralphy trends` (#556); `ralphy ref scrape-trends` is
+deprecated.
 
 Options:
   -h, --help                              display help for command
@@ -2447,6 +2449,71 @@ Commands:
   run [options] <query...>                Deep research: plan → fan-out search → fetch → summarize → cited report
   scrape-profile [options] <profile-url>  Distill one creator's style into a persisted Research Run and report Document
   help [command]                          display help for command
+
+Trend discovery (#556):
+  `ralphy ref scrape-trends` is DEPRECATED: its logged-out TikTok hashtag path returns 0 videos
+  (the hashtag endpoint answers with an empty body). Use the creator-first trend corpus instead:
+    ralphy trends ingest --workspace <ws> --source tiktok-explore --seed Technology --niche tech-tips
+    ralphy trends ingest --workspace <ws> --source youtube-hashtag --seed aitools --niche ai-tools
+    ralphy trends top --workspace <ws> --niche tech-tips --since 14d --by outlier
+```
+
+### `ralphy trends`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy trends [options] [command]
+
+Creator-first trend corpus (#556): ingest free logged-out sources (TikTok
+creator listings + Explore, YouTube Shorts hashtag/channel tabs), refresh by
+checkpoint, score creator-relative outliers, and query top videos. Requires the
+global --workspace <id>.
+
+Options:
+  -h, --help                     display help for command
+
+Commands:
+  ingest [options]               Discover creators from a source, list each
+                                 creator's recent videos, label, and score.
+                                 Idempotent: re-runs upsert on platform ids and
+                                 add no snapshot rows inside the same checkpoint
+                                 bucket.
+  refresh [options]              Re-list creators by tier cadence (hot 6 h,
+                                 active daily, inactive weekly, dormant
+                                 monthly), re-run due watchlists for new
+                                 creators, then label and score. Headless; stops
+                                 a source when its breaker trips.
+  score [options]                Recompute outlier scores, creator baselines,
+                                 and cohort baselines for the corpus Workspace
+  label [options]                Write deterministic cohort labels; with --llm
+                                 also classify format / hook through callLLM()
+                                 (labels below 0.6 confidence stay unknown)
+  top [options]                  Ranked corpus videos: multiplier vs the
+                                 creator's rolling median, composite score,
+                                 label and flags, latest metrics with precision,
+                                 cohort labels, and a digest link when one
+                                 exists
+  creator [options] <ref>        One creator: follower history, cached baselines
+                                 (log scale), counts, and recent videos with
+                                 scores. <ref> is a handle, platform creator id,
+                                 or tcreator id
+  watch                          Discovery seeds (watchlists): Explore
+                                 categories, sounds, hashtags, keywords,
+                                 creators
+  status                         Corpus counts, last run per source, breaker
+                                 state, YouTube API state, and Apify spend
+                                 (today and to date)
+  link-digest [options] <video>  Attach a #557 reference digest to a corpus
+                                 video: a bundle directory (relative to the data
+                                 root) or a Document id
+  help [command]                 display help for command
 ```
 
 ### `ralphy prompts`
