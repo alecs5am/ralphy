@@ -40,6 +40,12 @@ ralphy generate image --project <id> --slot scene-01-bg --prompt "<text>" \
 ralphy generate video --project <id> --slot scene-01-vid --prompt "<motion>" \
   --duration 5 [--image <ref-url>] [--model <id>] [--audio]   # --audio only with veo-3.1
 
+# Several clips: submit them ALL first, then wait once (#575). Waiting on each
+# clip in turn idled 2-3 min per clip in the #562 baseline.
+ralphy generate video --project <id> --slot scene-01-vid ... --queue --queue-tag <id>-clips
+ralphy generate video --project <id> --slot scene-02-vid ... --queue --queue-tag <id>-clips
+ralphy queue list --tag <id>-clips        # poll once per minute, or `queue watch`
+
 # Voiceover via ElevenLabs (eleven_multilingual_v2)
 # Parallel calls targeting the SAME slot are serialized by an in-process file lock
 # (#039) and verified via ffprobe after write — a corrupted 0-duration mp3 is

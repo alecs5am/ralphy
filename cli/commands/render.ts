@@ -31,6 +31,7 @@ import {
 } from "../lib/ffmpeg-recipes.js";
 import { getCommandContext } from "../lib/context-state.js";
 import { runCompositionBuild, videoCompositionForProject } from "../lib/composition-build.js";
+import { renderNextStep } from "../lib/render/next-step.js";
 
 const GRADE_PRESETS: readonly ColorGradePreset[] = [
   "tv-commercial-soft",
@@ -590,6 +591,7 @@ render/final.mp4 (append-only).
           quality: deliverableQuality ?? null,
           social,
           latencyMs: Date.now() - t0,
+          next: renderNextStep(projectId),
         });
         return;
       }
@@ -872,6 +874,7 @@ render/final.mp4 (append-only).
         musicVariants: musicVariants.length > 0 ? musicVariants : undefined,
         social,
         latencyMs: Date.now() - t0,
+        next: renderNextStep(projectId),
       });
     });
 }

@@ -1,6 +1,6 @@
 # Make eval reachable after render and refresh perf targets
 
-> **Status:** todo
+> **Status:** done — 2026-10-28 (render summary carries `next`; art-director documents queued clip submission; perf-targets Validation filled from the #562 baseline)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** medium

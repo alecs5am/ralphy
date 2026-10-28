@@ -63,10 +63,24 @@ If a pattern is consistently overrun, update this file.
 
 ## Validation
 
-Sprint 1.4 baseline (single ai-vegetables video):
-- TBD — fill after the first end-to-end run.
+October 2026 harness baseline (#562, 21 production sessions plus 20 subagents, Oct 17-27; full numbers in [`docs/research/harness-baseline-2026-10.md`](research/harness-baseline-2026-10.md)). Every stage missed its custom-brief budget:
 
-Sprint 4.x baseline (10-batch soviet-nostalgic):
-- TBD — fill after the first batch.
+| Stage | Median observed | Budget (custom) |
+|---|---|---|
+| Brief → scenario | 12.5 min | 5 min |
+| Scenario → assets ready | 27 min | 10 min |
+| Assets → final mp4 | 9 min | 5 min |
+| Total per session | 35 min | 20 min |
+| Per rendered project (3 sessions) | 1 h 25 min | 20 min |
 
-Update this file from `generations.jsonl` actuals once the statistics accumulate.
+| Call | Median observed | P95 observed | Budget median / P95 |
+|---|---|---|---|
+| `ralphy generate image` | 21 s | 55 s | 15 s / 35 s |
+| `ralphy generate video` (Seedance 2.x and Kling mix) | 2 min 43 s | — | 60-90 s |
+| `ralphy render <id>` | 49 s | 2 min 13 s | 30 s / 90 s |
+
+Stage times include in-session iteration with the user, so they are not single-pass latencies. Render took 33% of agent time; eval ran in 1 session. Re-measure with `bun run session:report -- <transcripts> --ralphy-only` after each fix from #572-#575.
+
+Render budget for longer cuts: plan about 3 s of wall time per output second at 1080x1920 until a per-second baseline is measured.
+
+Update this file from `generations.jsonl` actuals and new `session:report` runs as statistics accumulate.
