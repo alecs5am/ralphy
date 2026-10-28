@@ -1,6 +1,6 @@
 # On-demand niche onboarding: topic -> creators -> niche report
 
-> **Status:** in progress — 2026-10-28 (implementation and four niche runs landed in the working tree, uncommitted; fitness run interrupted; see "Resume point (2026-10-28)")
+> **Status:** in progress — 2026-10-28 (checkpoint committed in 9121e3df; fitness run interrupted; see "Resume point (2026-10-28)")
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** high
