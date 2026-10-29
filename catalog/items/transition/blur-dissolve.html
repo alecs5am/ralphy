@@ -1,0 +1,13 @@
+<!-- catalog item: blur-dissolve (transition). Contract: function catalog_blur_dissolve(tl, o)
+     Outgoing defocuses while the incoming fades in from the same defocus and pulls sharp. Params: duration, blur. -->
+<style data-catalog-css></style>
+<template data-catalog-markup></template>
+<script data-catalog-js>
+  function catalog_blur_dissolve(tl, o) {
+    var T = o.at, d = o.duration;
+    tl.fromTo(o.from, { filter: "blur(0px)" }, { filter: "blur(" + o.blur + "px)", duration: d * 0.6, ease: "sine.in" }, T);
+    tl.fromTo(o.to, { opacity: 0, scale: 1.04, filter: "blur(" + o.blur + "px)" },
+      { opacity: 1, scale: 1, filter: "blur(0px)", duration: d * 0.8, ease: "sine.inOut" }, T + d * 0.2);
+    tl.set(o.from, { opacity: 0, filter: "blur(0px)" }, T + d);
+  }
+</script>

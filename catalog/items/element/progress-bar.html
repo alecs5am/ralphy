@@ -1,0 +1,29 @@
+<!-- catalog item: progress-bar (element). Contract: function catalog_progress_bar(tl, o)
+     Track slides in, fill grows to the target with a live percentage readout, a glint passes on completion. Params: percent, label, color, fillDuration. -->
+<style data-catalog-css>
+  .pb-wrap { position: absolute; left: 90px; width: 820px; top: 1140px; }
+  .pb-head { display: flex; justify-content: space-between; align-items: baseline; font-family: "Inter", sans-serif; font-weight: 700; color: #f6f3ec; }
+  .pb-label { font-size: 46px; }
+  .pb-pct { font-family: "Anton", "Impact", sans-serif; font-size: 84px; font-variant-numeric: tabular-nums; }
+  .pb-track { position: relative; margin-top: 16px; height: 44px; border-radius: 22px; background: rgba(246,243,236,0.18); overflow: hidden; }
+  .pb-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; border-radius: 22px; transform-origin: 0% 50%; }
+  .pb-glint { position: absolute; top: 0; bottom: 0; width: 120px; left: -160px; background: rgba(255,255,255,0.55); transform: skewX(-20deg); }
+</style>
+<template data-catalog-markup>
+  <div class="pb-wrap" id="pb-wrap">
+    <div class="pb-head"><span class="pb-label" id="pb-label"></span><span class="pb-pct" id="pb-pct">0%</span></div>
+    <div class="pb-track"><div class="pb-fill" id="pb-fill"></div><div class="pb-glint" id="pb-glint"></div></div>
+  </div>
+</template>
+<script data-catalog-js>
+  function catalog_progress_bar(tl, o) {
+    var T = o.at, pct = document.getElementById("pb-pct"), state = { v: 0 };
+    document.getElementById("pb-label").textContent = o.label;
+    document.getElementById("pb-fill").style.backgroundColor = o.color;
+    pct.style.color = o.color;
+    tl.from("#pb-wrap", { x: -80, opacity: 0, duration: 0.4, ease: "power3.out" }, T);
+    tl.fromTo("#pb-fill", { scaleX: 0 }, { scaleX: o.percent / 100, duration: o.fillDuration, ease: "power2.inOut" }, T + 0.25);
+    tl.to(state, { v: o.percent, duration: o.fillDuration, ease: "power2.inOut", onUpdate: function () { pct.textContent = Math.round(state.v) + "%"; } }, T + 0.25);
+    tl.fromTo("#pb-glint", { x: 0 }, { x: 1100, duration: 0.5, ease: "power1.inOut" }, T + 0.25 + o.fillDuration);
+  }
+</script>

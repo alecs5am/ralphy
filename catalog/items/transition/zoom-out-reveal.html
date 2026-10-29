@@ -1,0 +1,16 @@
+<!-- catalog item: zoom-out-reveal (transition). Contract: function catalog_zoom_out_reveal(tl, o)
+     Outgoing shrinks into a rounded card and flies off; the incoming, already behind it, eases from over-scale to rest. Params: duration, cardScale, radius. -->
+<style data-catalog-css></style>
+<template data-catalog-markup></template>
+<script data-catalog-js>
+  function catalog_zoom_out_reveal(tl, o) {
+    var T = o.at, d = o.duration;
+    // Outgoing must sit above the incoming for this one.
+    tl.set(o.from, { zIndex: 10 }, T);
+    tl.set(o.to, { opacity: 1 }, T);
+    tl.fromTo(o.to, { scale: 1.18 }, { immediateRender: false, scale: 1, duration: d, ease: "power3.out" }, T);
+    tl.to(o.from, { scale: o.cardScale, borderRadius: o.radius, boxShadow: "0 40px 120px rgba(0,0,0,0.45)", duration: d * 0.5, ease: "power3.inOut" }, T);
+    tl.to(o.from, { y: -1500, rotation: -6, duration: d * 0.5, ease: "power3.in" }, T + d * 0.5);
+    tl.set(o.from, { opacity: 0, zIndex: 1, scale: 1, y: 0, rotation: 0, borderRadius: 0, boxShadow: "none" }, T + d);
+  }
+</script>

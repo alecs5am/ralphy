@@ -1,0 +1,28 @@
+<!-- catalog item: underline-draw (element). Contract: function catalog_underline_draw(tl, o)
+     Headline lands, then a hand-drawn stroke draws under the key word like a marker pass. Params: text, word, color, y. -->
+<style data-catalog-css>
+  .ud-line { position: absolute; left: 80px; right: 140px; font-family: "Anton", "Impact", sans-serif; font-size: 128px; line-height: 1.08; color: #f6f3ec; text-transform: uppercase; }
+  .ud-key { position: relative; display: inline-block; }
+  .ud-svg { position: absolute; left: -12px; right: -12px; bottom: -34px; width: calc(100% + 24px); height: 60px; overflow: visible; }
+</style>
+<template data-catalog-markup>
+  <div class="ud-line" id="ud-line"></div>
+</template>
+<script data-catalog-js>
+  function catalog_underline_draw(tl, o) {
+    var T = o.at, line = document.getElementById("ud-line"), text = String(o.text), key = String(o.word);
+    line.style.top = o.y + "px";
+    var idx = text.toLowerCase().indexOf(key.toLowerCase());
+    if (idx < 0) { line.textContent = text; idx = -1; }
+    else {
+      line.appendChild(document.createTextNode(text.slice(0, idx)));
+      var k = document.createElement("span"); k.className = "ud-key"; k.textContent = text.slice(idx, idx + key.length);
+      k.innerHTML += '<svg class="ud-svg" viewBox="0 0 400 60" preserveAspectRatio="none"><path d="M6 38 C 90 22, 190 48, 270 30 S 380 26, 394 34" fill="none" stroke-width="14" stroke-linecap="round"/></svg>';
+      line.appendChild(k);
+      line.appendChild(document.createTextNode(text.slice(idx + key.length)));
+      var p = k.querySelector("path"); p.setAttribute("stroke", o.color);
+      tl.fromTo(p, { strokeDasharray: 460, strokeDashoffset: 460 }, { strokeDashoffset: 0, duration: 0.45, ease: "power2.inOut" }, T + 0.45);
+    }
+    tl.from("#ud-line", { y: 50, opacity: 0, duration: 0.5, ease: "expo.out" }, T);
+  }
+</script>

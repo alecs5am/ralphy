@@ -1,0 +1,32 @@
+<!-- catalog item: ink-bleed (transition). Contract: function catalog_ink_bleed(tl, o)
+     Organic reveal: four feathered radial masks bloom at staggered times and merge into the incoming scene. Params: duration, feather. -->
+<style data-catalog-css>
+  .ib-masked {
+    --ib1: 0%; --ib2: 0%; --ib3: 0%; --ib4: 0%;
+    -webkit-mask-image:
+      radial-gradient(circle at 24% 30%, #000 var(--ib1), rgba(0,0,0,0) calc(var(--ib1) + var(--ib-f, 6%))),
+      radial-gradient(circle at 80% 44%, #000 var(--ib2), rgba(0,0,0,0) calc(var(--ib2) + var(--ib-f, 6%))),
+      radial-gradient(circle at 34% 76%, #000 var(--ib3), rgba(0,0,0,0) calc(var(--ib3) + var(--ib-f, 6%))),
+      radial-gradient(circle at 72% 90%, #000 var(--ib4), rgba(0,0,0,0) calc(var(--ib4) + var(--ib-f, 6%)));
+    mask-image:
+      radial-gradient(circle at 24% 30%, #000 var(--ib1), rgba(0,0,0,0) calc(var(--ib1) + var(--ib-f, 6%))),
+      radial-gradient(circle at 80% 44%, #000 var(--ib2), rgba(0,0,0,0) calc(var(--ib2) + var(--ib-f, 6%))),
+      radial-gradient(circle at 34% 76%, #000 var(--ib3), rgba(0,0,0,0) calc(var(--ib3) + var(--ib-f, 6%))),
+      radial-gradient(circle at 72% 90%, #000 var(--ib4), rgba(0,0,0,0) calc(var(--ib4) + var(--ib-f, 6%)));
+  }
+</style>
+<template data-catalog-markup></template>
+<script data-catalog-js>
+  function catalog_ink_bleed(tl, o) {
+    var T = o.at, d = o.duration, el = document.querySelector(o.to);
+    el.classList.add("ib-masked");
+    el.style.setProperty("--ib-f", o.feather + "%");
+    tl.set(o.to, { opacity: 1 }, T);
+    var grow = d * 0.7;
+    tl.fromTo(o.to, { "--ib1": "0%" }, { "--ib1": "95%", duration: grow, ease: "power2.inOut" }, T);
+    tl.fromTo(o.to, { "--ib2": "0%" }, { "--ib2": "95%", duration: grow, ease: "power2.inOut" }, T + d * 0.1);
+    tl.fromTo(o.to, { "--ib3": "0%" }, { "--ib3": "95%", duration: grow, ease: "power2.inOut" }, T + d * 0.2);
+    tl.fromTo(o.to, { "--ib4": "0%" }, { "--ib4": "95%", duration: grow, ease: "power2.inOut" }, T + d * 0.3);
+    tl.set(o.from, { opacity: 0 }, T + d);
+  }
+</script>

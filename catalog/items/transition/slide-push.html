@@ -1,0 +1,20 @@
+<!-- catalog item: slide-push (transition). Contract: function catalog_slide_push(tl, o)
+     Feed-native push: the incoming shoves the outgoing out of frame, both on one curve. Params: duration, direction. -->
+<style data-catalog-css></style>
+<template data-catalog-markup></template>
+<script data-catalog-js>
+  function catalog_slide_push(tl, o) {
+    var T = o.at, d = o.duration;
+    var axis = (o.direction === "left" || o.direction === "right") ? "x" : "y";
+    var size = axis === "x" ? 1080 : 1920;
+    var sign = (o.direction === "down" || o.direction === "right") ? -1 : 1;
+    var outV = {}, inFrom = {}, inTo = { immediateRender: false, duration: d, ease: "power4.inOut" };
+    outV[axis] = -sign * size; outV.duration = d; outV.ease = "power4.inOut";
+    inFrom[axis] = sign * size; inTo[axis] = 0;
+    tl.to(o.from, outV, T);
+    tl.set(o.to, { opacity: 1 }, T);
+    tl.fromTo(o.to, inFrom, inTo, T);
+    var reset = { opacity: 0 }; reset[axis] = 0;
+    tl.set(o.from, reset, T + d);
+  }
+</script>

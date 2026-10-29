@@ -429,6 +429,59 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
   ],
+  catalog: [
+    {
+      label: "catalog.list",
+      shape: [
+        { id: "zoom-punch", kind: "transition", name: "Zoom punch", energy: "high", moods: ["energetic", "dramatic"], duration: 0.36, sfx: "sfx-swoosh-f5cf2b46", preview: "previews/zoom-punch.mp4" },
+        { id: "luma-dip", kind: "transition", name: "Luma dip", energy: "calm", moods: ["dramatic", "premium"], duration: 0.8, sfx: null, preview: "previews/luma-dip.mp4" },
+      ],
+    },
+    {
+      label: "catalog.show",
+      shape: {
+        id: "whip-pan",
+        kind: "transition",
+        name: "Whip pan",
+        params: [{ id: "duration", type: "number", label: "Duration (s)", default: 0.32, min: 0.18, max: 0.7 }, { id: "direction", type: "enum", label: "Direction", default: "left", options: [{ value: "left", label: "left" }] }],
+        sfx: { id: "sfx-whoosh-b67f6c9f", at: -0.2, volume: 0.85 },
+        ledger: null,
+        fragment: "catalog/items/transition/whip-pan.html",
+        previewPath: ".ralphy/catalog/previews/whip-pan.mp4",
+        previewExists: true,
+        timing: { at: 1.1, total: 2.6 },
+      },
+    },
+    {
+      label: "catalog.sfx.harvest",
+      shape: {
+        dryRun: false,
+        packDir: ".ralphy/catalog/sfx",
+        manifest: ".ralphy/catalog/sfx/manifest.json",
+        scanned: 275,
+        skippedRaw: 40,
+        unique: 206,
+        sha256Duplicates: 32,
+        fingerprintDuplicates: 28,
+        normalized: 206,
+        reused: 0,
+        failed: [{ file: "workspaces/default/projects/demo-001/artifacts/sfx/broken.mp3", error: "ffmpeg decode exit 183" }],
+        byTag: { whoosh: 12, impact: 13, click: 12 },
+      },
+    },
+    {
+      label: "catalog.sfx.list",
+      shape: [{ id: "sfx-whoosh-3feb26b4", tag: "whoosh", durationSec: 0.68, file: ".ralphy/catalog/sfx/whoosh/sfx-whoosh-3feb26b4.mp3", source: "default/demo-001/corporate-whoosh-v3.mp3", duplicates: 1 }],
+    },
+    {
+      label: "catalog.build-previews",
+      shape: { built: ["zoom-punch"], skipped: [], failed: [{ id: "glitch-cut", error: "lint: media_missing_id" }], warnings: [], previewsDir: ".ralphy/catalog/previews", buildDir: ".ralphy/catalog/build" },
+    },
+    {
+      label: "catalog.page",
+      shape: { page: ".ralphy/catalog/index.html", items: 35, previewsPresent: 34, previewsMissing: ["ink-bleed"], sfxPack: { unique: 206, byTag: { whoosh: 12 } } },
+    },
+  ],
   clip: [
     {
       label: "clip.cut",

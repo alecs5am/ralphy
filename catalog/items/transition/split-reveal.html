@@ -1,0 +1,25 @@
+<!-- catalog item: split-reveal (transition). Contract: function catalog_split_reveal(tl, o)
+     Incoming opens from a center seam outward; two accent edges ride the opening while the outgoing sinks back. Params: duration, edgeColor, vertical. -->
+<style data-catalog-css>
+  .sr-edge { position: absolute; opacity: 0; }
+</style>
+<template data-catalog-markup>
+  <div class="sr-edge" id="sr-edge-a"></div><div class="sr-edge" id="sr-edge-b"></div>
+</template>
+<script data-catalog-js>
+  function catalog_split_reveal(tl, o) {
+    var T = o.at, d = o.duration, v = o.vertical;
+    var closed = v ? "inset(0% 50% 0% 50%)" : "inset(50% 0% 50% 0%)";
+    var edge = v ? { top: 0, left: 534, width: 12, height: 1920 } : { left: 0, top: 954, width: 1080, height: 12 };
+    tl.set(["#sr-edge-a", "#sr-edge-b"], Object.assign({ backgroundColor: o.edgeColor, opacity: 1 }, edge), T);
+    tl.set(o.to, { opacity: 1, clipPath: closed }, T);
+    tl.to(o.to, { clipPath: "inset(0% 0% 0% 0%)", duration: d, ease: "expo.inOut" }, T);
+    var spread = v ? 546 : 966;
+    tl.to("#sr-edge-a", v ? { x: -spread, duration: d, ease: "expo.inOut" } : { y: -spread, duration: d, ease: "expo.inOut" }, T);
+    tl.to("#sr-edge-b", v ? { x: spread, duration: d, ease: "expo.inOut" } : { y: spread, duration: d, ease: "expo.inOut" }, T);
+    tl.fromTo(o.from, { filter: "brightness(1)" }, { scale: 0.92, filter: "brightness(0.6)", duration: d, ease: "power2.inOut" }, T);
+    tl.set(o.from, { opacity: 0, scale: 1, filter: "none" }, T + d);
+    tl.set(o.to, { clipPath: "none" }, T + d);
+    tl.set(["#sr-edge-a", "#sr-edge-b"], { opacity: 0 }, T + d);
+  }
+</script>

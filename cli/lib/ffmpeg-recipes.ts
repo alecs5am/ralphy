@@ -1174,6 +1174,37 @@ export async function audioStats(input: AudioStatsInput): Promise<AudioStats> {
   return stats;
 }
 
+// --- Recipe 15b: mono PCM decode (audio fingerprinting, #563) -----------
+//
+// Decodes any audio file to mono signed 16-bit PCM at a low sample rate and
+// returns the samples. Read-only: nothing is written to disk. Used by the SFX
+// pack harvest to build a coarse RMS-envelope fingerprint for dedupe.
+
+export async function decodeMonoPcm(input: { src: string; sampleRate?: number }): Promise<Int16Array> {
+  ensureFfmpeg();
+  const rate = input.sampleRate ?? 8000;
+  return new Promise((resolve, reject) => {
+    const proc = spawn("ffmpeg", [
+      "-hide_banner", "-loglevel", "error",
+      "-i", input.src,
+      "-ac", "1", "-ar", String(rate),
+      "-f", "s16le", "-acodec", "pcm_s16le", "pipe:1",
+    ]);
+    const chunks: Buffer[] = [];
+    let stderr = "";
+    proc.stdout.on("data", (d: Buffer) => chunks.push(d));
+    proc.stderr.on("data", (d) => (stderr += d.toString()));
+    proc.on("close", (code) => {
+      if (code !== 0) return reject(new Error(`ffmpeg decode exit ${code}: ${stderr.slice(0, 300)}`));
+      const buf = Buffer.concat(chunks);
+      const even = buf.byteLength - (buf.byteLength % 2);
+      const copy = new ArrayBuffer(even);
+      new Uint8Array(copy).set(buf.subarray(0, even));
+      resolve(new Int16Array(copy));
+    });
+  });
+}
+
 // --- Recipe 16: letterbox auto-crop (video-composition black-bar heal) --
 //
 // HyperFrames composites each <video> into a sub-region of the frame, baking a

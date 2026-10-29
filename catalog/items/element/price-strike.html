@@ -1,0 +1,28 @@
+<!-- catalog item: price-strike (element). Contract: function catalog_price_strike(tl, o)
+     Old price lands, a strike line slashes through it, the new price slams in and a discount badge spins on. Params: oldPrice, newPrice, badge, color, y. -->
+<style data-catalog-css>
+  .ps-wrap { position: absolute; left: 80px; right: 140px; text-align: center; }
+  .ps-old { position: relative; display: inline-block; font-family: "Anton", "Impact", sans-serif; font-size: 120px; color: rgba(246,243,236,0.7); }
+  .ps-strike { position: absolute; left: -10px; right: -10px; top: 52%; height: 14px; border-radius: 7px; transform-origin: 0% 50%; transform: rotate(-8deg); }
+  .ps-new { display: block; font-family: "Anton", "Impact", sans-serif; font-size: 260px; line-height: 1; margin-top: 10px; }
+  .ps-badge { position: absolute; right: 30px; top: -40px; width: 210px; height: 210px; border-radius: 50%; display: grid; place-items: center; font-family: "Inter", sans-serif; font-weight: 900; font-size: 60px; color: #141414; }
+</style>
+<template data-catalog-markup>
+  <div class="ps-wrap" id="ps-wrap"><div class="ps-old" id="ps-old"><span id="ps-old-txt"></span><span class="ps-strike" id="ps-strike"></span></div><div class="ps-new" id="ps-new"></div><div class="ps-badge" id="ps-badge"></div></div>
+</template>
+<script data-catalog-js>
+  function catalog_price_strike(tl, o) {
+    var T = o.at;
+    document.getElementById("ps-wrap").style.top = o.y + "px";
+    document.getElementById("ps-old-txt").textContent = o.oldPrice;
+    document.getElementById("ps-new").textContent = o.newPrice;
+    document.getElementById("ps-new").style.color = o.color;
+    document.getElementById("ps-strike").style.backgroundColor = o.color;
+    var badge = document.getElementById("ps-badge"); badge.textContent = o.badge; badge.style.backgroundColor = o.color;
+    tl.from("#ps-old", { y: 40, opacity: 0, duration: 0.4, ease: "power3.out" }, T);
+    tl.fromTo("#ps-strike", { scaleX: 0, rotation: -8 }, { scaleX: 1, rotation: -8, duration: 0.28, ease: "power3.in" }, T + 0.45);
+    tl.from("#ps-new", { scale: 2.4, opacity: 0, duration: 0.32, ease: "power4.in" }, T + 0.75);
+    tl.fromTo("#ps-wrap", { y: 0 }, { y: 14, duration: 0.06, ease: "power1.out", yoyo: true, repeat: 3 }, T + 1.07);
+    tl.from("#ps-badge", { scale: 0, rotation: -200, duration: 0.55, ease: "back.out(1.8)" }, T + 1.1);
+  }
+</script>

@@ -1,0 +1,27 @@
+<!-- catalog item: shutter-blinds (transition). Contract: function catalog_shutter_blinds(tl, o)
+     Horizontal slats close top-down over the outgoing, the swap happens fully covered, slats open bottom-up on the incoming. Params: duration, color, slats. -->
+<style data-catalog-css>
+  .sb-slat { position: absolute; left: 0; width: 1080px; transform: scaleY(0); }
+</style>
+<template data-catalog-markup>
+  <div id="sb-wrap"></div>
+</template>
+<script data-catalog-js>
+  function catalog_shutter_blinds(tl, o) {
+    var T = o.at, d = o.duration, n = Math.max(3, Math.round(o.slats)), wrap = document.getElementById("sb-wrap"), h = 1920 / n;
+    for (var i = 0; i < n; i++) {
+      var s = document.createElement("div");
+      s.className = "sb-slat";
+      s.style.top = (i * h - 1) + "px";
+      s.style.height = (h + 2) + "px";
+      s.style.backgroundColor = o.color;
+      wrap.appendChild(s);
+    }
+    var half = d * 0.45, stag = (d * 0.1) / n;
+    tl.fromTo(".sb-slat", { scaleY: 0, transformOrigin: "50% 0%" }, { scaleY: 1, duration: half, ease: "power3.in", stagger: stag }, T);
+    tl.set(o.from, { opacity: 0 }, T + d * 0.55);
+    tl.set(o.to, { opacity: 1 }, T + d * 0.55);
+    tl.set(".sb-slat", { transformOrigin: "50% 100%" }, T + d * 0.55);
+    tl.to(".sb-slat", { scaleY: 0, duration: half, ease: "power3.out", stagger: { each: stag, from: "end" } }, T + d * 0.55);
+  }
+</script>

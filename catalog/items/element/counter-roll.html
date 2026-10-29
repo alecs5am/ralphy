@@ -1,0 +1,22 @@
+<!-- catalog item: counter-roll (element). Contract: function catalog_counter_roll(tl, o)
+     Big tabular number counts up with a decelerating ease, then punches once on arrival. Params: value, prefix, suffix, decimals, label, color, countDuration. -->
+<style data-catalog-css>
+  .cr-wrap { position: absolute; left: 70px; right: 130px; top: 700px; text-align: center; }
+  .cr-num { font-family: "Anton", "Impact", sans-serif; font-size: 230px; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; display: inline-block; }
+  .cr-label { font-family: "Inter", sans-serif; font-weight: 700; font-size: 52px; color: #f6f3ec; margin-top: 18px; letter-spacing: 1px; }
+</style>
+<template data-catalog-markup>
+  <div class="cr-wrap" id="cr-wrap"><div class="cr-num" id="cr-num"></div><div class="cr-label" id="cr-label"></div></div>
+</template>
+<script data-catalog-js>
+  function catalog_counter_roll(tl, o) {
+    var T = o.at, num = document.getElementById("cr-num"), dec = Math.max(0, Math.round(o.decimals));
+    function fmt(v) { var s = v.toFixed(dec); var parts = s.split("."); parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return o.prefix + parts.join(".") + o.suffix; }
+    num.style.color = o.color; num.textContent = fmt(0);
+    document.getElementById("cr-label").textContent = o.label;
+    var state = { v: 0 };
+    tl.from("#cr-wrap", { y: 60, opacity: 0, duration: 0.4, ease: "power3.out" }, T);
+    tl.to(state, { v: o.value, duration: o.countDuration, ease: "power2.out", onUpdate: function () { num.textContent = fmt(state.v); } }, T + 0.1);
+    tl.fromTo("#cr-num", { scale: 1 }, { scale: 1.12, duration: 0.12, ease: "power2.out", yoyo: true, repeat: 1 }, T + 0.1 + o.countDuration);
+  }
+</script>

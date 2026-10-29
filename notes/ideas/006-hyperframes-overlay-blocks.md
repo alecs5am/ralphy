@@ -1,8 +1,10 @@
 # HyperFrames registry blocks for overlay-driven explainers
 
-> **Status:** idea
+> **Status:** folded into #563 (2026-10-30)
 > **Filed:** 2026-05-25
 > **Folder:** ideas
+
+> **Folded.** These overlay blocks are now tracked as motion-catalog elements in [#563](../issues/563-transitions-and-motion-catalog.md) (`catalog/` + `ralphy catalog`). The checkpoint shipped a generic `quote-card`; the rest are in the #563 gaps list. Upstream registry contribution stays optional and goes through `/contribute-catalog` once an item is proven in our own renders.
 
 ## Context
 

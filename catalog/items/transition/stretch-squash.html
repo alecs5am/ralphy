@@ -1,0 +1,22 @@
+<!-- catalog item: stretch-squash (transition). Contract: function catalog_stretch_squash(tl, o)
+     CRT off/on: the outgoing collapses to a bright line, the incoming stretches back out with overshoot. Params: duration, lineColor. -->
+<style data-catalog-css>
+  .ss-line { position: absolute; left: 0; top: 955px; width: 1080px; height: 10px; opacity: 0; }
+</style>
+<template data-catalog-markup>
+  <div class="ss-line" id="ss-line"></div>
+</template>
+<script data-catalog-js>
+  function catalog_stretch_squash(tl, o) {
+    var T = o.at, d = o.duration, h = d * 0.42;
+    tl.set("#ss-line", { backgroundColor: o.lineColor }, T);
+    tl.fromTo(o.from, { filter: "brightness(1)" }, { scaleY: 0.004, scaleX: 1.12, filter: "brightness(2.2)", duration: h, ease: "power4.in" }, T);
+    tl.fromTo("#ss-line", { opacity: 0, scaleX: 1 }, { opacity: 1, duration: h * 0.3, ease: "none" }, T + h * 0.75);
+    tl.to("#ss-line", { scaleX: 0.15, duration: d - 2 * h, ease: "power2.inOut" }, T + h);
+    tl.set(o.from, { opacity: 0, scaleY: 1, scaleX: 1, filter: "none" }, T + h);
+    tl.set("#ss-line", { opacity: 0 }, T + d - h);
+    tl.set(o.to, { opacity: 1 }, T + d - h);
+    tl.fromTo(o.to, { scaleY: 0.004, scaleX: 1.12, filter: "brightness(2.2)" },
+      { immediateRender: false, scaleY: 1, scaleX: 1, filter: "brightness(1)", duration: h, ease: "back.out(1.8)" }, T + d - h);
+  }
+</script>

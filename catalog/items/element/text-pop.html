@@ -1,0 +1,22 @@
+<!-- catalog item: text-pop (element). Contract: function catalog_text_pop(tl, o)
+     Words pop one by one with overshoot and a small seeded tilt; stroke keeps it legible over footage. Params: text, color, stroke, y. -->
+<style data-catalog-css>
+  .tp-line { position: absolute; left: 70px; right: 130px; text-align: center; font-family: "Anton", "Impact", sans-serif; font-size: 150px; line-height: 1.02; text-transform: uppercase; }
+  .tp-word { display: inline-block; margin: 0 14px; paint-order: stroke fill; }
+</style>
+<template data-catalog-markup>
+  <div class="tp-line" id="tp-line"></div>
+</template>
+<script data-catalog-js>
+  function catalog_text_pop(tl, o) {
+    var T = o.at, line = document.getElementById("tp-line"), words = String(o.text).split(/\s+/).filter(Boolean);
+    line.style.top = o.y + "px";
+    words.forEach(function (w, i) {
+      var s = document.createElement("span");
+      s.className = "tp-word"; s.textContent = w;
+      s.style.color = o.color; s.style.webkitTextStroke = o.stroke + "px #111111";
+      line.appendChild(s);
+      tl.from(s, { scale: 0.2, opacity: 0, rotation: i % 2 ? 6 : -6, duration: 0.42, ease: "back.out(2.6)" }, T + i * 0.12);
+    });
+  }
+</script>

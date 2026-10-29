@@ -1,0 +1,23 @@
+<!-- catalog item: mask-wipe (transition). Contract: function catalog_mask_wipe(tl, o)
+     Incoming is revealed through a feathered linear mask driven by a CSS variable. Params: duration, angle, feather. -->
+<style data-catalog-css>
+  .mw-masked {
+    --mw-p: -30%;
+    -webkit-mask-image: linear-gradient(var(--mw-angle, 160deg), #000 calc(var(--mw-p) - var(--mw-f, 18%)), rgba(0,0,0,0) var(--mw-p));
+    mask-image: linear-gradient(var(--mw-angle, 160deg), #000 calc(var(--mw-p) - var(--mw-f, 18%)), rgba(0,0,0,0) var(--mw-p));
+  }
+</style>
+<template data-catalog-markup></template>
+<script data-catalog-js>
+  function catalog_mask_wipe(tl, o) {
+    var T = o.at, d = o.duration, el = document.querySelector(o.to);
+    el.classList.add("mw-masked");
+    el.style.setProperty("--mw-angle", o.angle + "deg");
+    el.style.setProperty("--mw-f", o.feather + "%");
+    tl.set(o.to, { opacity: 1, "--mw-p": "-30%" }, T);
+    tl.to(o.to, { "--mw-p": "140%", duration: d, ease: "power3.inOut" }, T);
+    // Outgoing recedes a touch so the wipe reads as layered, not flat.
+    tl.fromTo(o.from, { filter: "brightness(1)" }, { scale: 0.96, filter: "brightness(0.7)", duration: d, ease: "power2.inOut" }, T);
+    tl.set(o.from, { opacity: 0, scale: 1, filter: "none" }, T + d);
+  }
+</script>

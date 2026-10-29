@@ -1,0 +1,20 @@
+<!-- catalog item: flash-white (transition). Contract: function catalog_flash_white(tl, o)
+     Overexposure: the outgoing blows out, a flash plate peaks on the cut, the incoming exposes down. Params: duration, peak, color. -->
+<style data-catalog-css>
+  .fw-flash { position: absolute; inset: 0; opacity: 0; }
+</style>
+<template data-catalog-markup>
+  <div class="fw-flash" id="fw-flash"></div>
+</template>
+<script data-catalog-js>
+  function catalog_flash_white(tl, o) {
+    var T = o.at, h = o.duration / 2;
+    tl.set("#fw-flash", { backgroundColor: o.color }, T);
+    tl.fromTo(o.from, { filter: "brightness(1)" }, { filter: "brightness(" + o.peak + ")", scale: 1.04, duration: h, ease: "power2.in" }, T);
+    tl.fromTo("#fw-flash", { opacity: 0 }, { opacity: 1, duration: h * 0.7, ease: "power3.in" }, T + h * 0.3);
+    tl.set(o.from, { opacity: 0, filter: "none", scale: 1 }, T + h);
+    tl.set(o.to, { opacity: 1 }, T + h);
+    tl.fromTo(o.to, { filter: "brightness(" + o.peak + ")" }, { immediateRender: false, filter: "brightness(1)", duration: h * 1.3, ease: "power2.out" }, T + h);
+    tl.to("#fw-flash", { opacity: 0, duration: h * 1.2, ease: "power2.out" }, T + h);
+  }
+</script>

@@ -1,0 +1,32 @@
+<!-- catalog item: lower-third (element). Contract: function catalog_lower_third(tl, o)
+     Accent block wipes in, name rises out of a mask, role line slides after; sits above the TikTok bottom UI. Params: name, role, accent, y. -->
+<style data-catalog-css>
+  .lt-wrap { position: absolute; left: 72px; width: 820px; }
+  .lt-block { position: absolute; left: 0; top: 0; width: 18px; height: 100%; transform-origin: 50% 100%; }
+  .lt-panel { position: absolute; left: 0; top: 0; height: 100%; background: rgba(12,14,24,0.82); transform-origin: 0% 50%; }
+  .lt-mask { position: relative; overflow: hidden; margin-left: 48px; }
+  .lt-name { font-family: "Anton", "Impact", sans-serif; font-size: 92px; line-height: 1.05; color: #f6f3ec; text-transform: uppercase; padding-top: 18px; }
+  .lt-role { font-family: "Inter", sans-serif; font-weight: 600; font-size: 38px; line-height: 1.2; padding: 6px 0 22px; }
+</style>
+<template data-catalog-markup>
+  <div class="lt-wrap" id="lt-wrap">
+    <div class="lt-panel" id="lt-panel"></div><div class="lt-block" id="lt-block"></div>
+    <div class="lt-mask"><div class="lt-name" id="lt-name"></div></div>
+    <div class="lt-mask"><div class="lt-role" id="lt-role"></div></div>
+  </div>
+</template>
+<script data-catalog-js>
+  function catalog_lower_third(tl, o) {
+    var T = o.at;
+    document.getElementById("lt-name").textContent = o.name;
+    document.getElementById("lt-role").textContent = o.role;
+    document.getElementById("lt-wrap").style.top = o.y + "px";
+    document.getElementById("lt-block").style.backgroundColor = o.accent;
+    document.getElementById("lt-role").style.color = o.accent;
+    document.getElementById("lt-panel").style.width = "820px";
+    tl.from("#lt-block", { scaleY: 0, duration: 0.3, ease: "expo.out" }, T);
+    tl.from("#lt-panel", { scaleX: 0, duration: 0.5, ease: "power4.out" }, T + 0.08);
+    tl.from("#lt-name", { yPercent: 105, duration: 0.55, ease: "power3.out" }, T + 0.16);
+    tl.from("#lt-role", { xPercent: -30, opacity: 0, duration: 0.45, ease: "power2.out" }, T + 0.32);
+  }
+</script>

@@ -1,0 +1,24 @@
+<!-- catalog item: quote-card (element). Contract: function catalog_quote_card(tl, o)
+     Card rises with a soft shadow, oversized quote mark drops in, text reveals, attribution follows. Params: quote, author, accent, y. -->
+<style data-catalog-css>
+  .qc-card { position: absolute; left: 80px; width: 860px; padding: 70px 64px 56px; border-radius: 36px; background: #f6f3ec; box-shadow: 0 40px 90px rgba(0,0,0,0.35); }
+  .qc-mark { position: absolute; left: 44px; top: -70px; font-family: "Playfair Display", serif; font-weight: 900; font-size: 260px; line-height: 1; }
+  .qc-text { font-family: "Playfair Display", serif; font-weight: 700; font-size: 62px; line-height: 1.22; color: #1a1712; }
+  .qc-author { margin-top: 30px; font-family: "Inter", sans-serif; font-weight: 600; font-size: 38px; color: #6b665d; }
+</style>
+<template data-catalog-markup>
+  <div class="qc-card" id="qc-card"><div class="qc-mark" id="qc-mark">&ldquo;</div><div class="qc-text" id="qc-text"></div><div class="qc-author" id="qc-author"></div></div>
+</template>
+<script data-catalog-js>
+  function catalog_quote_card(tl, o) {
+    var T = o.at;
+    document.getElementById("qc-card").style.top = o.y + "px";
+    document.getElementById("qc-mark").style.color = o.accent;
+    document.getElementById("qc-text").textContent = o.quote;
+    document.getElementById("qc-author").textContent = o.author;
+    tl.from("#qc-card", { y: 160, opacity: 0, rotation: -2, duration: 0.6, ease: "power4.out" }, T);
+    tl.from("#qc-mark", { y: -80, scale: 1.6, opacity: 0, duration: 0.45, ease: "back.out(2)" }, T + 0.25);
+    tl.from("#qc-text", { y: 30, opacity: 0, duration: 0.5, ease: "power2.out" }, T + 0.35);
+    tl.from("#qc-author", { x: -40, opacity: 0, duration: 0.4, ease: "power2.out" }, T + 0.6);
+  }
+</script>

@@ -123,6 +123,7 @@ import { promptsCmd } from "./commands/prompts.js";
 import { storyboardCmd } from "./commands/storyboard.js";
 import { bridgeCmd } from "./commands/bridge.js";
 import { guidelineCmd } from "./commands/guideline.js";
+import { catalogCmd } from "./commands/catalog.js";
 import { benchmarkCmd } from "./commands/benchmark.js";
 import { memoryCmd } from "./commands/memory.js";
 import { lessonsCmd } from "./commands/lessons.js";
@@ -250,7 +251,9 @@ program
         && actionCommand.opts().stdin === true && actionCommand.opts().ping === true;
       /* And `track`: the tracking engine is a per-machine venv and reads only
          the video path it is given (#559). */
-      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || explicitCredentialProbe) {
+      /* And `catalog`: the motion catalog is repo-tracked definitions plus a
+         cross-workspace SFX pack and previews under the data root (#563). */
+      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || sub === "catalog" || explicitCredentialProbe) {
         setDataRoot(identity.dataRoot);
         return true;
       }
@@ -368,6 +371,7 @@ program.addCommand(blueprintCmd());
 program.addCommand(libraryCmd());
 program.addCommand(templateCmd());
 program.addCommand(guidelineCmd());
+program.addCommand(catalogCmd());
 program.addCommand(benchmarkCmd());
 program.addCommand(memoryCmd());
 program.addCommand(lessonsCmd());

@@ -1,0 +1,23 @@
+<!-- catalog item: tag-chips (element). Contract: function catalog_tag_chips(tl, o)
+     Feature chips stack in from the right with a stagger and a soft overshoot. Params: chips (comma-separated), accent, y. -->
+<style data-catalog-css>
+  .tc-wrap { position: absolute; left: 80px; right: 140px; display: flex; flex-direction: column; align-items: flex-start; gap: 22px; }
+  .tc-chip { display: inline-flex; align-items: center; gap: 18px; padding: 20px 34px; border-radius: 999px; background: rgba(246,243,236,0.95); font-family: "Inter", sans-serif; font-weight: 700; font-size: 50px; color: #141414; }
+  .tc-dot { width: 22px; height: 22px; border-radius: 50%; }
+</style>
+<template data-catalog-markup>
+  <div class="tc-wrap" id="tc-wrap"></div>
+</template>
+<script data-catalog-js>
+  function catalog_tag_chips(tl, o) {
+    var T = o.at, wrap = document.getElementById("tc-wrap");
+    wrap.style.top = o.y + "px";
+    String(o.chips).split(",").map(function (x) { return x.trim(); }).filter(Boolean).forEach(function (txt, i) {
+      var c = document.createElement("div"); c.className = "tc-chip";
+      var d = document.createElement("span"); d.className = "tc-dot"; d.style.backgroundColor = o.accent;
+      c.appendChild(d); c.appendChild(document.createTextNode(txt)); wrap.appendChild(c);
+      tl.from(c, { x: 700, opacity: 0, duration: 0.5, ease: "back.out(1.4)" }, T + i * 0.14);
+      tl.from(d, { scale: 0, duration: 0.3, ease: "back.out(3)" }, T + i * 0.14 + 0.3);
+    });
+  }
+</script>

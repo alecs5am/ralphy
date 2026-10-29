@@ -1,0 +1,21 @@
+<!-- catalog item: circle-iris (transition). Contract: function catalog_circle_iris(tl, o)
+     Incoming opens from a point through a circular clip, led by an accent ring. Params: duration, originX, originY, ringColor. -->
+<style data-catalog-css>
+  .ci-ring { position: absolute; width: 200px; height: 200px; margin: -100px 0 0 -100px; border-radius: 50%; border: 14px solid; opacity: 0; }
+</style>
+<template data-catalog-markup>
+  <div class="ci-ring" id="ci-ring"></div>
+</template>
+<script data-catalog-js>
+  function catalog_circle_iris(tl, o) {
+    var T = o.at, d = o.duration, at = o.originX + "% " + o.originY + "%";
+    tl.set("#ci-ring", { left: (o.originX / 100) * 1080, top: (o.originY / 100) * 1920, borderColor: o.ringColor }, T);
+    tl.set(o.to, { opacity: 1, clipPath: "circle(0% at " + at + ")" }, T);
+    tl.to(o.to, { clipPath: "circle(150% at " + at + ")", duration: d, ease: "power3.inOut" }, T);
+    tl.set("#ci-ring", { opacity: 1 }, T);
+    tl.fromTo("#ci-ring", { scale: 0.1 }, { immediateRender: false, scale: 22, duration: d, ease: "power3.inOut" }, T);
+    tl.to("#ci-ring", { opacity: 0, duration: d * 0.3, ease: "power1.out" }, T + d * 0.7);
+    tl.set(o.from, { opacity: 0 }, T + d);
+    tl.set(o.to, { clipPath: "none" }, T + d);
+  }
+</script>

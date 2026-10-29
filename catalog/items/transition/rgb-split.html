@@ -1,0 +1,33 @@
+<!-- catalog item: rgb-split (transition). Contract: function catalog_rgb_split(tl, o)
+     Chromatic aberration: an SVG filter splits R and B channels apart, the cut lands at maximum split, channels re-converge on the incoming. Params: duration, offset. -->
+<style data-catalog-css>
+  .rs-defs { position: absolute; width: 0; height: 0; }
+</style>
+<template data-catalog-markup>
+  <svg class="rs-defs" aria-hidden="true">
+    <filter id="rs-filter" x="-10%" y="0" width="120%" height="100%" color-interpolation-filters="sRGB">
+      <feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r" />
+      <feOffset id="rs-r" in="r" dx="0" dy="0" result="ro" />
+      <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="g" />
+      <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b" />
+      <feOffset id="rs-b" in="b" dx="0" dy="0" result="bo" />
+      <feBlend in="ro" in2="g" mode="screen" result="rg" />
+      <feBlend in="rg" in2="bo" mode="screen" />
+    </filter>
+  </svg>
+</template>
+<script data-catalog-js>
+  function catalog_rgb_split(tl, o) {
+    var T = o.at, h = o.duration / 2;
+    tl.set([o.from, o.to], { filter: "url(#rs-filter)" }, T);
+    tl.fromTo("#rs-r", { attr: { dx: 0 } }, { attr: { dx: o.offset }, duration: h, ease: "power3.in" }, T);
+    tl.fromTo("#rs-b", { attr: { dx: 0 } }, { attr: { dx: -o.offset }, duration: h, ease: "power3.in" }, T);
+    tl.to(o.from, { scale: 1.06, duration: h, ease: "power3.in" }, T);
+    tl.set(o.from, { opacity: 0, scale: 1 }, T + h);
+    tl.set(o.to, { opacity: 1 }, T + h);
+    tl.fromTo(o.to, { scale: 1.06 }, { immediateRender: false, scale: 1, duration: h, ease: "power3.out" }, T + h);
+    tl.to("#rs-r", { attr: { dx: 0 }, duration: h, ease: "power3.out" }, T + h);
+    tl.to("#rs-b", { attr: { dx: 0 }, duration: h, ease: "power3.out" }, T + h);
+    tl.set([o.from, o.to], { filter: "none" }, T + o.duration);
+  }
+</script>

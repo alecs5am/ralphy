@@ -1,0 +1,18 @@
+<!-- catalog item: card-flip (transition). Contract: function catalog_card_flip(tl, o)
+     3D page turn: the outgoing rotates edge-on around Y, the incoming continues the turn from the far side. Params: duration, perspective, axis. -->
+<style data-catalog-css></style>
+<template data-catalog-markup></template>
+<script data-catalog-js>
+  function catalog_card_flip(tl, o) {
+    var T = o.at, h = o.duration / 2, prop = o.axis === "x" ? "rotationX" : "rotationY";
+    tl.set(o.stage, { perspective: o.perspective }, T);
+    var outV = { scale: 0.88, duration: h, ease: "power2.in" }; outV[prop] = 90;
+    var inFrom = { scale: 0.88 }; inFrom[prop] = -90;
+    var inTo = { immediateRender: false, scale: 1, duration: h, ease: "power2.out" }; inTo[prop] = 0;
+    tl.to(o.from, outV, T);
+    var reset = { opacity: 0, scale: 1 }; reset[prop] = 0;
+    tl.set(o.from, reset, T + h);
+    tl.set(o.to, { opacity: 1 }, T + h);
+    tl.fromTo(o.to, inFrom, inTo, T + h);
+  }
+</script>

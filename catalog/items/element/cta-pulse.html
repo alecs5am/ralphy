@@ -1,0 +1,27 @@
+<!-- catalog item: cta-pulse (element). Contract: function catalog_cta_pulse(tl, o)
+     Pill button springs in, a cursor taps it, a ripple ring expands, the button pulses twice. Params: label, color, y. -->
+<style data-catalog-css>
+  .cp-btn { position: absolute; left: 50%; padding: 34px 70px; border-radius: 999px; font-family: "Inter", sans-serif; font-weight: 800; font-size: 56px; color: #141414; white-space: nowrap; }
+  .cp-ring { position: absolute; left: 50%; width: 260px; height: 260px; margin-left: -130px; border-radius: 50%; border: 8px solid; opacity: 0; }
+  .cp-cursor { position: absolute; width: 70px; height: 70px; border-radius: 50%; background: rgba(255,255,255,0.92); border: 6px solid #141414; }
+</style>
+<template data-catalog-markup>
+  <div class="cp-ring" id="cp-ring"></div><div class="cp-btn" id="cp-btn"></div><div class="cp-cursor" id="cp-cursor"></div>
+</template>
+<script data-catalog-js>
+  function catalog_cta_pulse(tl, o) {
+    var T = o.at, btn = document.getElementById("cp-btn");
+    btn.textContent = o.label; btn.style.backgroundColor = o.color; btn.style.top = o.y + "px";
+    var ring = document.getElementById("cp-ring"); ring.style.top = (o.y - 70) + "px"; ring.style.borderColor = o.color;
+    var cur = document.getElementById("cp-cursor"); cur.style.left = "640px"; cur.style.top = (o.y + 40) + "px";
+    gsap.set("#cp-btn", { xPercent: -50 });
+    tl.from("#cp-btn", { scale: 0, duration: 0.5, ease: "back.out(2.2)" }, T);
+    tl.fromTo("#cp-cursor", { x: 220, y: 260, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.45, ease: "power2.out" }, T + 0.35);
+    tl.to("#cp-cursor", { scale: 0.8, duration: 0.08, ease: "power1.in", yoyo: true, repeat: 1 }, T + 0.82);
+    tl.to("#cp-btn", { scale: 0.94, duration: 0.08, ease: "power1.in", yoyo: true, repeat: 1 }, T + 0.82);
+    tl.set("#cp-ring", { opacity: 0.9 }, T + 0.86);
+    tl.fromTo("#cp-ring", { scale: 0.6 }, { immediateRender: false, scale: 2.6, opacity: 0, duration: 0.6, ease: "power2.out" }, T + 0.86);
+    tl.to("#cp-btn", { scale: 1.07, duration: 0.22, ease: "sine.inOut", yoyo: true, repeat: 3 }, T + 1.1);
+    tl.to("#cp-cursor", { x: 160, y: 200, opacity: 0, duration: 0.35, ease: "power2.in" }, T + 1.05);
+  }
+</script>

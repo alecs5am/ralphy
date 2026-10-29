@@ -1,0 +1,14 @@
+<!-- catalog item: luma-dip (transition). Contract: function catalog_luma_dip(tl, o)
+     Luma-style fade: contrast rises while brightness falls, so shadows go first and highlights last; the incoming reverses it. Params: duration, hold. -->
+<style data-catalog-css></style>
+<template data-catalog-markup></template>
+<script data-catalog-js>
+  function catalog_luma_dip(tl, o) {
+    var T = o.at, h = (o.duration - o.hold) / 2;
+    tl.fromTo(o.from, { filter: "brightness(1) contrast(1)" }, { filter: "brightness(0.04) contrast(2.4)", duration: h, ease: "power2.in" }, T);
+    tl.set(o.from, { opacity: 0, filter: "none" }, T + h);
+    tl.set(o.to, { opacity: 1 }, T + h + o.hold);
+    tl.fromTo(o.to, { filter: "brightness(0.04) contrast(2.4)" },
+      { immediateRender: false, filter: "brightness(1) contrast(1)", duration: h, ease: "power2.out" }, T + h + o.hold);
+  }
+</script>

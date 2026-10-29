@@ -1,0 +1,24 @@
+<!-- catalog item: zoom-punch (transition). Contract: function catalog_zoom_punch(tl, o)
+     o.from / o.to: outgoing / incoming scene selectors. o.at: start (s). Params: duration, scale, blur, flash. -->
+<style data-catalog-css>
+  .zp-flash { position: absolute; inset: 0; background: #fff8ec; opacity: 0; pointer-events: none; }
+</style>
+<template data-catalog-markup>
+  <div id="zp-flash" class="zp-flash"></div>
+</template>
+<script data-catalog-js>
+  function catalog_zoom_punch(tl, o) {
+    var T = o.at, h = o.duration / 2;
+    // Outgoing accelerates into the lens: scale + blur peak exactly on the cut.
+    tl.fromTo(o.from, { filter: "blur(0px) brightness(1)" }, { scale: o.scale, filter: "blur(" + o.blur + "px) brightness(1.3)", duration: h, ease: "power4.in" }, T);
+    tl.set(o.from, { opacity: 0, scale: 1, filter: "none" }, T + h);
+    // Incoming starts over-scaled and decelerates to rest (one continuous push).
+    tl.set(o.to, { opacity: 1 }, T + h);
+    tl.fromTo(o.to, { scale: o.scale, filter: "blur(" + o.blur + "px)" },
+      { immediateRender: false, scale: 1, filter: "blur(0px)", duration: h * 1.6, ease: "expo.out" }, T + h);
+    if (o.flash) {
+      tl.fromTo("#zp-flash", { opacity: 0 }, { opacity: 0.55, duration: h * 0.6, ease: "power2.in" }, T + h * 0.4);
+      tl.to("#zp-flash", { opacity: 0, duration: h * 1.2, ease: "power2.out" }, T + h);
+    }
+  }
+</script>

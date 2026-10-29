@@ -1,0 +1,22 @@
+<!-- catalog item: whip-pan (transition). Contract: function catalog_whip_pan(tl, o)
+     Both scenes travel together; a horizontal-only SVG blur fakes the camera smear. Params: duration, blur, direction. -->
+<style data-catalog-css>
+  .wp-defs { position: absolute; width: 0; height: 0; }
+</style>
+<template data-catalog-markup>
+  <svg class="wp-defs" aria-hidden="true"><filter id="wp-blur" x="-25%" y="0" width="150%" height="100%"><feGaussianBlur id="wp-blur-node" stdDeviation="0 0" /></filter></svg>
+</template>
+<script data-catalog-js>
+  function catalog_whip_pan(tl, o) {
+    var T = o.at, d = o.duration, W = (o.direction === "right" ? -1 : 1) * 1080;
+    tl.set([o.from, o.to], { filter: "url(#wp-blur)" }, T);
+    tl.to(o.from, { x: -W, duration: d, ease: "expo.inOut" }, T);
+    tl.set(o.to, { opacity: 1 }, T);
+    tl.fromTo(o.to, { x: W }, { immediateRender: false, x: 0, duration: d, ease: "expo.inOut" }, T);
+    // Smear peaks at mid-travel (max velocity), clears as the incoming frame lands.
+    tl.fromTo("#wp-blur-node", { attr: { stdDeviation: "0 0" } }, { attr: { stdDeviation: o.blur + " 0" }, duration: d / 2, ease: "power2.in" }, T);
+    tl.to("#wp-blur-node", { attr: { stdDeviation: "0 0" }, duration: d / 2, ease: "power2.out" }, T + d / 2);
+    tl.set(o.from, { opacity: 0, x: 0 }, T + d);
+    tl.set([o.from, o.to], { filter: "none" }, T + d);
+  }
+</script>

@@ -1,0 +1,28 @@
+<!-- catalog item: light-leak (transition). Contract: function catalog_light_leak(tl, o)
+     Warm film-style leak: a tint plate plus two oversized radial blooms drift across; the swap hides under peak warmth. Params: duration, warmColor, glowColor. -->
+<style data-catalog-css>
+  .ll-warm { position: absolute; inset: 0; opacity: 0; }
+  .ll-blob { position: absolute; width: 2400px; height: 2400px; border-radius: 50%; opacity: 0; }
+  #ll-1 { left: -1500px; top: -300px; }
+  #ll-2 { left: -1300px; top: 500px; }
+</style>
+<template data-catalog-markup>
+  <div class="ll-warm" id="ll-warm"></div><div class="ll-blob" id="ll-1"></div><div class="ll-blob" id="ll-2"></div>
+</template>
+<script data-catalog-js>
+  function catalog_light_leak(tl, o) {
+    var T = o.at, d = o.duration, cut = T + d * 0.5;
+    function glow(c, a) { var n = parseInt(c.slice(1), 16); return "rgba(" + (n >> 16) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")"; }
+    tl.set("#ll-warm", { backgroundColor: o.warmColor }, T);
+    tl.set(["#ll-1", "#ll-2"], { background: "radial-gradient(circle, " + glow(o.glowColor, 0.95) + " 0%, " + glow(o.glowColor, 0) + " 60%)" }, T);
+    tl.to("#ll-warm", { opacity: 0.45, duration: d * 0.45, ease: "sine.in" }, T);
+    tl.to("#ll-1", { opacity: 0.95, x: 900, duration: d * 0.7, ease: "sine.inOut" }, T);
+    tl.to("#ll-2", { opacity: 0.8, x: 700, duration: d * 0.8, ease: "sine.inOut" }, T + d * 0.1);
+    tl.fromTo(o.from, { filter: "brightness(1) saturate(1)" }, { filter: "brightness(1.35) saturate(1.2)", duration: d * 0.5, ease: "sine.in" }, T);
+    tl.set(o.from, { opacity: 0, filter: "none" }, cut);
+    tl.set(o.to, { opacity: 1 }, cut);
+    tl.fromTo(o.to, { filter: "brightness(1.35) saturate(1.2)" }, { immediateRender: false, filter: "brightness(1) saturate(1)", duration: d * 0.5, ease: "sine.out" }, cut);
+    tl.to("#ll-warm", { opacity: 0, duration: d * 0.5, ease: "sine.out" }, cut);
+    tl.to(["#ll-1", "#ll-2"], { opacity: 0, x: 1500, duration: d * 0.5, ease: "sine.out" }, cut);
+  }
+</script>

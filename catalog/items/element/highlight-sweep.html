@@ -1,0 +1,24 @@
+<!-- catalog item: highlight-sweep (element). Contract: function catalog_highlight_sweep(tl, o)
+     A marker bar sweeps behind the key phrase after the line has landed. Params: before, highlight, after, color, y. -->
+<style data-catalog-css>
+  .hs-line { position: absolute; left: 80px; right: 140px; font-family: "Inter", sans-serif; font-weight: 800; font-size: 82px; line-height: 1.18; color: #f6f3ec; }
+  .hs-mark { position: relative; display: inline-block; color: #141414; padding: 0 10px; }
+  .hs-bar { position: absolute; left: 0; right: 0; top: 8%; bottom: 4%; transform-origin: 0% 50%; z-index: -1; border-radius: 6px; }
+  .hs-text { position: relative; z-index: 1; }
+</style>
+<template data-catalog-markup>
+  <div class="hs-line" id="hs-line"><span id="hs-before"></span> <span class="hs-mark"><span class="hs-bar" id="hs-bar"></span><span class="hs-text" id="hs-hl"></span></span> <span id="hs-after"></span></div>
+</template>
+<script data-catalog-js>
+  function catalog_highlight_sweep(tl, o) {
+    var T = o.at;
+    document.getElementById("hs-before").textContent = o.before;
+    document.getElementById("hs-hl").textContent = o.highlight;
+    document.getElementById("hs-after").textContent = o.after;
+    document.getElementById("hs-line").style.top = o.y + "px";
+    document.getElementById("hs-bar").style.backgroundColor = o.color;
+    tl.from("#hs-line", { y: 40, opacity: 0, duration: 0.45, ease: "power3.out" }, T);
+    tl.from("#hs-bar", { scaleX: 0, duration: 0.5, ease: "power2.inOut" }, T + 0.4);
+    tl.fromTo("#hs-hl", { color: "#f6f3ec" }, { color: "#141414", duration: 0.25, ease: "none" }, T + 0.55);
+  }
+</script>

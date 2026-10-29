@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **62**
+Verbs registered: **63**
 
 ## Top-level verbs
 
@@ -1277,6 +1277,49 @@ Commands:
   use [options] <slug>   Resolve a guideline tag — prints the body + the agent
                          tag for the next prompt
   help [command]         display help for command
+```
+
+### `ralphy catalog`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy catalog [options] [command]
+
+Transitions + motion-elements catalog: 9:16 HyperFrames fragments with params,
+SFX and rendered previews (#563)
+
+Options:
+  -h, --help                display help for command
+
+Commands:
+  list [options]            List catalog items, filtered by facet (AND across
+                            flags)
+  show <id>                 Show one catalog item: params, when to use / not
+                            use, SFX cue, fragment and preview paths
+  sfx                       Shared SFX pack harvested from past projects (copies
+                            only; sources untouched)
+  build-previews [options]  Assemble each item into a standalone 1080x1920
+                            HyperFrames composition and render its preview mp4
+                            (local, free)
+  page                      Write the static catalog page (filters by kind /
+                            mood / energy, playable local previews)
+  help [command]            display help for command
+
+Examples:
+  ralphy catalog list --kind transition --mood energetic
+  ralphy catalog list --kind element --energy calm
+  ralphy catalog show zoom-punch
+  ralphy catalog sfx harvest --dry-run
+  ralphy catalog sfx list --tag whoosh
+  ralphy catalog build-previews --id zoom-punch whip-pan
+  ralphy catalog page
 ```
 
 ### `ralphy benchmark`

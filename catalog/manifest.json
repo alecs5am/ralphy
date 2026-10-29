@@ -1,0 +1,2021 @@
+{
+  "version": 1,
+  "updated": "2026-10-30",
+  "items": [
+    {
+      "id": "zoom-punch",
+      "kind": "transition",
+      "name": "Zoom punch",
+      "summary": "Outgoing rams into the lens under blur; incoming lands over-scaled and settles.",
+      "source": "items/transition/zoom-punch.html",
+      "fn": "catalog_zoom_punch",
+      "duration": 0.36,
+      "cutAt": 0.18,
+      "energy": "high",
+      "moods": [
+        "energetic",
+        "dramatic"
+      ],
+      "tags": [
+        "zoom",
+        "punch-in"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.36,
+          "min": 0.2,
+          "max": 0.8
+        },
+        {
+          "id": "scale",
+          "type": "number",
+          "label": "Peak scale",
+          "default": 1.45,
+          "min": 1.1,
+          "max": 2.5
+        },
+        {
+          "id": "blur",
+          "type": "number",
+          "label": "Peak blur (px)",
+          "default": 18,
+          "min": 0,
+          "max": 40
+        },
+        {
+          "id": "flash",
+          "type": "boolean",
+          "label": "Flash on the cut",
+          "default": true
+        }
+      ],
+      "whenToUse": "Hook-to-body cut, beat drops, the hero claim reveal; any cut that should land like a hit.",
+      "whenNotToUse": "Calm or premium registers, talking-head continuity, more than one in every three or four cuts.",
+      "sfx": {
+        "id": "sfx-swoosh-f5cf2b46",
+        "at": -0.08,
+        "volume": 0.9
+      },
+      "preview": "previews/zoom-punch.mp4",
+      "ledger": null
+    },
+    {
+      "id": "whip-pan",
+      "kind": "transition",
+      "name": "Whip pan",
+      "summary": "Both scenes travel sideways together under a horizontal-only smear, like a fast camera pan.",
+      "source": "items/transition/whip-pan.html",
+      "fn": "catalog_whip_pan",
+      "duration": 0.32,
+      "cutAt": 0.16,
+      "energy": "high",
+      "moods": [
+        "energetic",
+        "editorial"
+      ],
+      "tags": [
+        "pan",
+        "motion-blur"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.32,
+          "min": 0.18,
+          "max": 0.7
+        },
+        {
+          "id": "blur",
+          "type": "number",
+          "label": "Peak horizontal blur",
+          "default": 60,
+          "min": 0,
+          "max": 140
+        },
+        {
+          "id": "direction",
+          "type": "enum",
+          "label": "Direction",
+          "default": "left",
+          "options": [
+            {
+              "value": "left",
+              "label": "left"
+            },
+            {
+              "value": "right",
+              "label": "right"
+            }
+          ]
+        }
+      ],
+      "whenToUse": "Moving between two places, list items, before/after pairs; strong with B-roll that already has lateral motion.",
+      "whenNotToUse": "Text-heavy frames the viewer must read mid-move; vertical-motion footage (use slide-push up instead).",
+      "sfx": {
+        "id": "sfx-whoosh-b67f6c9f",
+        "at": -0.2,
+        "volume": 0.85
+      },
+      "preview": "previews/whip-pan.mp4",
+      "ledger": null
+    },
+    {
+      "id": "blur-dissolve",
+      "kind": "transition",
+      "name": "Blur dissolve",
+      "summary": "Outgoing defocuses while the incoming fades in from the same defocus and pulls sharp.",
+      "source": "items/transition/blur-dissolve.html",
+      "fn": "catalog_blur_dissolve",
+      "duration": 0.7,
+      "cutAt": 0.45,
+      "energy": "calm",
+      "moods": [
+        "premium",
+        "warm",
+        "clean"
+      ],
+      "tags": [
+        "dissolve",
+        "focus"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.7,
+          "min": 0.3,
+          "max": 1.5
+        },
+        {
+          "id": "blur",
+          "type": "number",
+          "label": "Peak blur (px)",
+          "default": 24,
+          "min": 4,
+          "max": 50
+        }
+      ],
+      "whenToUse": "Time passing, mood shifts, wind-down after a climax, luxury and wellness pieces.",
+      "whenNotToUse": "Fast hooks, comedic timing, meme edits; it reads as slow on a 15 s piece.",
+      "sfx": {
+        "id": "sfx-riser-1dc4e7e4",
+        "at": -0.05,
+        "volume": 0.55
+      },
+      "preview": "previews/blur-dissolve.mp4",
+      "ledger": null
+    },
+    {
+      "id": "mask-wipe",
+      "kind": "transition",
+      "name": "Mask wipe",
+      "summary": "Incoming wipes over the outgoing through a feathered diagonal mask while the outgoing recedes.",
+      "source": "items/transition/mask-wipe.html",
+      "fn": "catalog_mask_wipe",
+      "duration": 0.55,
+      "cutAt": 0.4,
+      "energy": "medium",
+      "moods": [
+        "editorial",
+        "clean"
+      ],
+      "tags": [
+        "wipe",
+        "mask"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.55,
+          "min": 0.25,
+          "max": 1.2
+        },
+        {
+          "id": "angle",
+          "type": "number",
+          "label": "Wipe angle (deg)",
+          "default": 160,
+          "min": 0,
+          "max": 360
+        },
+        {
+          "id": "feather",
+          "type": "number",
+          "label": "Edge feather (%)",
+          "default": 18,
+          "min": 2,
+          "max": 40
+        }
+      ],
+      "whenToUse": "Section changes in explainers, product feature to feature, editorial lists.",
+      "whenNotToUse": "Chaotic footage where the soft edge gets lost; back-to-back with another wipe.",
+      "sfx": {
+        "id": "sfx-whoosh-4c5174e7",
+        "at": -0.1,
+        "volume": 0.7
+      },
+      "preview": "previews/mask-wipe.mp4",
+      "ledger": null
+    },
+    {
+      "id": "glitch-cut",
+      "kind": "transition",
+      "name": "Glitch cut",
+      "summary": "Stepped jitter, slice bars and hue hits with a two-flicker swap; deterministic via a seeded PRNG.",
+      "source": "items/transition/glitch-cut.html",
+      "fn": "catalog_glitch_cut",
+      "duration": 0.4,
+      "cutAt": 0.2,
+      "energy": "high",
+      "moods": [
+        "edgy",
+        "tech",
+        "energetic"
+      ],
+      "tags": [
+        "glitch",
+        "digital"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.4,
+          "min": 0.2,
+          "max": 0.9
+        },
+        {
+          "id": "amount",
+          "type": "number",
+          "label": "Jitter (px)",
+          "default": 70,
+          "min": 10,
+          "max": 200
+        },
+        {
+          "id": "seed",
+          "type": "number",
+          "label": "Random seed",
+          "default": 7,
+          "min": 1,
+          "max": 9999
+        },
+        {
+          "id": "barColorA",
+          "type": "color",
+          "label": "Slice color A",
+          "default": "#ff2a6d"
+        },
+        {
+          "id": "barColorB",
+          "type": "color",
+          "label": "Slice color B",
+          "default": "#05d9e8"
+        }
+      ],
+      "whenToUse": "Tech reveals, plot twists, error or hack themes, gaming and music edits.",
+      "whenNotToUse": "Trust-heavy content (finance, health), premium brands, more than twice per video.",
+      "sfx": {
+        "id": "sfx-glitch-33195cdc",
+        "at": -0.02,
+        "volume": 0.7,
+        "trim": 0.5
+      },
+      "preview": "previews/glitch-cut.mp4",
+      "ledger": null
+    },
+    {
+      "id": "flash-white",
+      "kind": "transition",
+      "name": "Flash white",
+      "summary": "Overexposure: the outgoing blows out, a flash plate peaks on the cut, the incoming exposes down.",
+      "source": "items/transition/flash-white.html",
+      "fn": "catalog_flash_white",
+      "duration": 0.4,
+      "cutAt": 0.2,
+      "energy": "high",
+      "moods": [
+        "energetic",
+        "dramatic"
+      ],
+      "tags": [
+        "flash",
+        "light"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.4,
+          "min": 0.2,
+          "max": 0.9
+        },
+        {
+          "id": "peak",
+          "type": "number",
+          "label": "Peak brightness",
+          "default": 3,
+          "min": 1.5,
+          "max": 5
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Flash color",
+          "default": "#fff8ec"
+        }
+      ],
+      "whenToUse": "Beat drops, camera-shutter moments, before/after reveals, the punchline frame.",
+      "whenNotToUse": "Photosensitivity-risk sequences (never chain several within a second), dark moody pieces.",
+      "sfx": {
+        "id": "sfx-impact-1aa30c0d",
+        "at": 0.15,
+        "volume": 0.85
+      },
+      "preview": "previews/flash-white.mp4",
+      "ledger": null
+    },
+    {
+      "id": "luma-dip",
+      "kind": "transition",
+      "name": "Luma dip",
+      "summary": "Shadows crush first and highlights last into black, then the incoming exposes back in the same order.",
+      "source": "items/transition/luma-dip.html",
+      "fn": "catalog_luma_dip",
+      "duration": 0.8,
+      "cutAt": 0.4,
+      "energy": "calm",
+      "moods": [
+        "dramatic",
+        "premium"
+      ],
+      "tags": [
+        "dip",
+        "fade"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.8,
+          "min": 0.4,
+          "max": 2
+        },
+        {
+          "id": "hold",
+          "type": "number",
+          "label": "Black hold (s)",
+          "default": 0.08,
+          "min": 0,
+          "max": 0.6
+        }
+      ],
+      "whenToUse": "Chapter breaks, tension beats, the last cut before the outro, cinematic trailers.",
+      "whenNotToUse": "Upbeat hooks and fast lists; the black hold reads as a drop-off on short feeds.",
+      "sfx": {
+        "id": "sfx-whoosh-9ec11bb5",
+        "at": -0.1,
+        "volume": 0.5,
+        "trim": 1.1
+      },
+      "preview": "previews/luma-dip.mp4",
+      "ledger": null
+    },
+    {
+      "id": "spin-swap",
+      "kind": "transition",
+      "name": "Spin swap",
+      "summary": "Outgoing spins away while scaling up under blur; the incoming spins in from the opposite angle.",
+      "source": "items/transition/spin-swap.html",
+      "fn": "catalog_spin_swap",
+      "duration": 0.5,
+      "cutAt": 0.25,
+      "energy": "high",
+      "moods": [
+        "playful",
+        "energetic"
+      ],
+      "tags": [
+        "spin",
+        "rotate"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.5,
+          "min": 0.25,
+          "max": 1
+        },
+        {
+          "id": "angle",
+          "type": "number",
+          "label": "Spin angle (deg)",
+          "default": 120,
+          "min": 30,
+          "max": 360
+        },
+        {
+          "id": "blur",
+          "type": "number",
+          "label": "Peak blur (px)",
+          "default": 14,
+          "min": 0,
+          "max": 30
+        }
+      ],
+      "whenToUse": "Playful creator edits, product angle changes, music transitions on a snare.",
+      "whenNotToUse": "Corporate or premium registers; footage with a strong horizon that makes viewers dizzy.",
+      "sfx": {
+        "id": "sfx-whoosh-c4ae6124",
+        "at": -0.25,
+        "volume": 0.75
+      },
+      "preview": "previews/spin-swap.mp4",
+      "ledger": null
+    },
+    {
+      "id": "slide-push",
+      "kind": "transition",
+      "name": "Slide push",
+      "summary": "Feed-native push: the incoming shoves the outgoing out of frame on one shared curve.",
+      "source": "items/transition/slide-push.html",
+      "fn": "catalog_slide_push",
+      "duration": 0.45,
+      "cutAt": 0.45,
+      "energy": "medium",
+      "moods": [
+        "clean",
+        "editorial"
+      ],
+      "tags": [
+        "push",
+        "swipe"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.45,
+          "min": 0.2,
+          "max": 1
+        },
+        {
+          "id": "direction",
+          "type": "enum",
+          "label": "Direction",
+          "default": "up",
+          "options": [
+            {
+              "value": "up",
+              "label": "up"
+            },
+            {
+              "value": "down",
+              "label": "down"
+            },
+            {
+              "value": "left",
+              "label": "left"
+            },
+            {
+              "value": "right",
+              "label": "right"
+            }
+          ]
+        }
+      ],
+      "whenToUse": "Next point in a list, swipe-native storytelling, carousels turned into video.",
+      "whenNotToUse": "Emotional peaks (too neutral), the opening cut of a hook.",
+      "sfx": {
+        "id": "sfx-whoosh-3feb26b4",
+        "at": -0.1,
+        "volume": 0.7
+      },
+      "preview": "previews/slide-push.mp4",
+      "ledger": null
+    },
+    {
+      "id": "circle-iris",
+      "kind": "transition",
+      "name": "Circle iris",
+      "summary": "Incoming opens from a point through a circular clip, led by an accent ring.",
+      "source": "items/transition/circle-iris.html",
+      "fn": "catalog_circle_iris",
+      "duration": 0.6,
+      "cutAt": 0.6,
+      "energy": "medium",
+      "moods": [
+        "playful",
+        "retro"
+      ],
+      "tags": [
+        "iris",
+        "reveal",
+        "shape"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.6,
+          "min": 0.3,
+          "max": 1.2
+        },
+        {
+          "id": "originX",
+          "type": "number",
+          "label": "Origin X (%)",
+          "default": 50,
+          "min": 0,
+          "max": 100
+        },
+        {
+          "id": "originY",
+          "type": "number",
+          "label": "Origin Y (%)",
+          "default": 45,
+          "min": 0,
+          "max": 100
+        },
+        {
+          "id": "ringColor",
+          "type": "color",
+          "label": "Ring color",
+          "default": "#ffd166"
+        }
+      ],
+      "whenToUse": "Zooming into a detail (set the origin on it), playful reveals, retro and cartoon edits.",
+      "whenNotToUse": "Serious news or B2B explainers; origins inside the platform UI zones.",
+      "sfx": {
+        "id": "sfx-pop-0d843205",
+        "at": 0,
+        "volume": 0.8
+      },
+      "preview": "previews/circle-iris.mp4",
+      "ledger": null
+    },
+    {
+      "id": "split-reveal",
+      "kind": "transition",
+      "name": "Split reveal",
+      "summary": "Incoming opens from a center seam outward, accent edges ride the opening, outgoing sinks back.",
+      "source": "items/transition/split-reveal.html",
+      "fn": "catalog_split_reveal",
+      "duration": 0.55,
+      "cutAt": 0.55,
+      "energy": "medium",
+      "moods": [
+        "editorial",
+        "dramatic"
+      ],
+      "tags": [
+        "split",
+        "reveal"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.55,
+          "min": 0.3,
+          "max": 1.2
+        },
+        {
+          "id": "edgeColor",
+          "type": "color",
+          "label": "Edge color",
+          "default": "#ffd166"
+        },
+        {
+          "id": "vertical",
+          "type": "boolean",
+          "label": "Open left-right instead of top-bottom",
+          "default": false
+        }
+      ],
+      "whenToUse": "Before/after, comparisons, opening a new topic, title-to-content.",
+      "whenNotToUse": "Two busy frames in a row (the seam gets lost); more than one per minute.",
+      "sfx": {
+        "id": "sfx-impact-d5dba9b3",
+        "at": 0.02,
+        "volume": 0.7
+      },
+      "preview": "previews/split-reveal.mp4",
+      "ledger": null
+    },
+    {
+      "id": "zoom-out-reveal",
+      "kind": "transition",
+      "name": "Zoom-out reveal",
+      "summary": "Outgoing shrinks into a rounded card and flies off; the incoming behind it eases to rest.",
+      "source": "items/transition/zoom-out-reveal.html",
+      "fn": "catalog_zoom_out_reveal",
+      "duration": 0.7,
+      "cutAt": 0.7,
+      "energy": "medium",
+      "moods": [
+        "clean",
+        "tech"
+      ],
+      "tags": [
+        "card",
+        "zoom",
+        "reveal"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.7,
+          "min": 0.4,
+          "max": 1.4
+        },
+        {
+          "id": "cardScale",
+          "type": "number",
+          "label": "Card scale",
+          "default": 0.62,
+          "min": 0.3,
+          "max": 0.9
+        },
+        {
+          "id": "radius",
+          "type": "number",
+          "label": "Card corner radius (px)",
+          "default": 64,
+          "min": 0,
+          "max": 160
+        }
+      ],
+      "whenToUse": "App and UI demos, 'and that was just the start' beats, stepping back to the big picture.",
+      "whenNotToUse": "Live-action continuity cuts; frames whose subject is at the very edge.",
+      "sfx": {
+        "id": "sfx-riser-b06f627e",
+        "at": -0.55,
+        "volume": 0.6
+      },
+      "preview": "previews/zoom-out-reveal.mp4",
+      "ledger": null
+    },
+    {
+      "id": "rgb-split",
+      "kind": "transition",
+      "name": "RGB split",
+      "summary": "Chromatic aberration: R and B channels slide apart, the cut lands at maximum split, channels re-converge.",
+      "source": "items/transition/rgb-split.html",
+      "fn": "catalog_rgb_split",
+      "duration": 0.36,
+      "cutAt": 0.18,
+      "energy": "high",
+      "moods": [
+        "edgy",
+        "tech",
+        "retro"
+      ],
+      "tags": [
+        "chromatic",
+        "glitch"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.36,
+          "min": 0.2,
+          "max": 0.8
+        },
+        {
+          "id": "offset",
+          "type": "number",
+          "label": "Channel offset (px)",
+          "default": 48,
+          "min": 8,
+          "max": 140
+        }
+      ],
+      "whenToUse": "Music edits, gaming, tech drops, a softer alternative to glitch-cut.",
+      "whenNotToUse": "Skin-tone close-ups held long, trust-heavy content.",
+      "sfx": {
+        "id": "sfx-glitch-c09fd811",
+        "at": -0.05,
+        "volume": 0.6,
+        "trim": 0.45
+      },
+      "preview": "previews/rgb-split.mp4",
+      "ledger": null
+    },
+    {
+      "id": "light-leak",
+      "kind": "transition",
+      "name": "Light leak",
+      "summary": "Warm tint plate plus two oversized blooms drift across; the swap hides under peak warmth.",
+      "source": "items/transition/light-leak.html",
+      "fn": "catalog_light_leak",
+      "duration": 0.9,
+      "cutAt": 0.45,
+      "energy": "calm",
+      "moods": [
+        "warm",
+        "retro",
+        "premium"
+      ],
+      "tags": [
+        "light",
+        "film"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.9,
+          "min": 0.5,
+          "max": 1.8
+        },
+        {
+          "id": "warmColor",
+          "type": "color",
+          "label": "Tint color",
+          "default": "#ff9a3c"
+        },
+        {
+          "id": "glowColor",
+          "type": "color",
+          "label": "Bloom color",
+          "default": "#ffe2a8"
+        }
+      ],
+      "whenToUse": "Lifestyle, travel, memories, wedding and family edits, nostalgic hooks.",
+      "whenNotToUse": "Tech and clinical registers, dark horror pieces, fast meme cuts.",
+      "sfx": {
+        "id": "sfx-whoosh-9ec11bb5",
+        "at": 0,
+        "volume": 0.45,
+        "trim": 1.2
+      },
+      "preview": "previews/light-leak.mp4",
+      "ledger": null
+    },
+    {
+      "id": "shutter-blinds",
+      "kind": "transition",
+      "name": "Shutter blinds",
+      "summary": "Slats close top-down over the outgoing, swap fully covered, open bottom-up on the incoming.",
+      "source": "items/transition/shutter-blinds.html",
+      "fn": "catalog_shutter_blinds",
+      "duration": 0.6,
+      "cutAt": 0.33,
+      "energy": "medium",
+      "moods": [
+        "tech",
+        "editorial"
+      ],
+      "tags": [
+        "blinds",
+        "cover"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.6,
+          "min": 0.3,
+          "max": 1.2
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Slat color",
+          "default": "#141414"
+        },
+        {
+          "id": "slats",
+          "type": "number",
+          "label": "Slat count",
+          "default": 8,
+          "min": 3,
+          "max": 16
+        }
+      ],
+      "whenToUse": "Topic changes, data and chapter cards, structured explainers.",
+      "whenNotToUse": "Warm or organic registers; low slat counts look like a loading bug.",
+      "sfx": {
+        "id": "sfx-click-4a3a3a4f",
+        "at": 0.25,
+        "volume": 0.8
+      },
+      "preview": "previews/shutter-blinds.mp4",
+      "ledger": null
+    },
+    {
+      "id": "stretch-squash",
+      "kind": "transition",
+      "name": "Stretch squash",
+      "summary": "CRT off/on: the outgoing collapses to a bright line, the incoming stretches back out with overshoot.",
+      "source": "items/transition/stretch-squash.html",
+      "fn": "catalog_stretch_squash",
+      "duration": 0.55,
+      "cutAt": 0.23,
+      "energy": "high",
+      "moods": [
+        "retro",
+        "playful"
+      ],
+      "tags": [
+        "crt",
+        "squash"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.55,
+          "min": 0.3,
+          "max": 1.2
+        },
+        {
+          "id": "lineColor",
+          "type": "color",
+          "label": "Line color",
+          "default": "#f6f3ec"
+        }
+      ],
+      "whenToUse": "Retro, VHS and arcade edits, comedic 'and then' cuts, channel-change gags.",
+      "whenNotToUse": "Premium brands, emotional beats.",
+      "sfx": {
+        "id": "sfx-glitch-da6b1211",
+        "at": 0,
+        "volume": 0.75
+      },
+      "preview": "previews/stretch-squash.mp4",
+      "ledger": null
+    },
+    {
+      "id": "film-burn",
+      "kind": "transition",
+      "name": "Film burn",
+      "summary": "Amber, orange and red blooms bleed in from one edge with a brightness spike; swap at the hottest frame.",
+      "source": "items/transition/film-burn.html",
+      "fn": "catalog_film_burn",
+      "duration": 0.75,
+      "cutAt": 0.38,
+      "energy": "medium",
+      "moods": [
+        "warm",
+        "retro",
+        "dramatic"
+      ],
+      "tags": [
+        "film",
+        "light"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.75,
+          "min": 0.4,
+          "max": 1.5
+        },
+        {
+          "id": "fromRight",
+          "type": "boolean",
+          "label": "Bleed from the right edge",
+          "default": true
+        }
+      ],
+      "whenToUse": "Vintage, documentary, music-video and travel edits; scene-to-scene in a story.",
+      "whenNotToUse": "UI demos and clean SaaS pieces; repeated use flattens it.",
+      "sfx": {
+        "id": "sfx-whoosh-7d3a2fa9",
+        "at": -0.1,
+        "volume": 0.55,
+        "trim": 0.9
+      },
+      "preview": "previews/film-burn.mp4",
+      "ledger": null
+    },
+    {
+      "id": "block-dissolve",
+      "kind": "transition",
+      "name": "Block dissolve",
+      "summary": "Large blocks in two palette colors pop in a seeded order to cover, then clear in another order.",
+      "source": "items/transition/block-dissolve.html",
+      "fn": "catalog_block_dissolve",
+      "duration": 0.7,
+      "cutAt": 0.35,
+      "energy": "medium",
+      "moods": [
+        "playful",
+        "tech"
+      ],
+      "tags": [
+        "blocks",
+        "cover"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.7,
+          "min": 0.4,
+          "max": 1.4
+        },
+        {
+          "id": "colorA",
+          "type": "color",
+          "label": "Block color A",
+          "default": "#ffd166"
+        },
+        {
+          "id": "colorB",
+          "type": "color",
+          "label": "Block color B",
+          "default": "#141414"
+        },
+        {
+          "id": "cols",
+          "type": "number",
+          "label": "Columns",
+          "default": 6,
+          "min": 3,
+          "max": 12
+        },
+        {
+          "id": "seed",
+          "type": "number",
+          "label": "Random seed",
+          "default": 11,
+          "min": 1,
+          "max": 9999
+        }
+      ],
+      "whenToUse": "Gaming, kids and playful brand edits, data or pixel themes.",
+      "whenNotToUse": "Premium and cinematic registers; small block counts beyond 12 columns read as a cheap grid.",
+      "sfx": {
+        "id": "sfx-click-d257b11e",
+        "at": 0.1,
+        "volume": 0.7
+      },
+      "preview": "previews/block-dissolve.mp4",
+      "ledger": null
+    },
+    {
+      "id": "card-flip",
+      "kind": "transition",
+      "name": "Card flip",
+      "summary": "3D page turn: the outgoing rotates edge-on, the incoming continues the turn from the far side.",
+      "source": "items/transition/card-flip.html",
+      "fn": "catalog_card_flip",
+      "duration": 0.6,
+      "cutAt": 0.3,
+      "energy": "medium",
+      "moods": [
+        "playful",
+        "editorial"
+      ],
+      "tags": [
+        "3d",
+        "flip"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.6,
+          "min": 0.3,
+          "max": 1.2
+        },
+        {
+          "id": "perspective",
+          "type": "number",
+          "label": "Perspective (px)",
+          "default": 1800,
+          "min": 600,
+          "max": 4000
+        },
+        {
+          "id": "axis",
+          "type": "enum",
+          "label": "Rotation axis",
+          "default": "y",
+          "options": [
+            {
+              "value": "y",
+              "label": "y"
+            },
+            {
+              "value": "x",
+              "label": "x"
+            }
+          ]
+        }
+      ],
+      "whenToUse": "Flipping a card or answer (question to answer), myth vs fact, product variants.",
+      "whenNotToUse": "Live-action footage with motion (the flat card exposes it), several flips in a row.",
+      "sfx": {
+        "id": "sfx-swoosh-f5cf2b46",
+        "at": 0.05,
+        "volume": 0.75
+      },
+      "preview": "previews/card-flip.mp4",
+      "ledger": null
+    },
+    {
+      "id": "ink-bleed",
+      "kind": "transition",
+      "name": "Ink bleed",
+      "summary": "Four feathered radial masks bloom at staggered times and merge into the incoming scene.",
+      "source": "items/transition/ink-bleed.html",
+      "fn": "catalog_ink_bleed",
+      "duration": 0.8,
+      "cutAt": 0.8,
+      "energy": "calm",
+      "moods": [
+        "warm",
+        "premium",
+        "playful"
+      ],
+      "tags": [
+        "organic",
+        "reveal",
+        "mask"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.8,
+          "min": 0.4,
+          "max": 1.6
+        },
+        {
+          "id": "feather",
+          "type": "number",
+          "label": "Edge feather (%)",
+          "default": 6,
+          "min": 1,
+          "max": 20
+        }
+      ],
+      "whenToUse": "Art, food, beauty and handmade product edits; soft topic changes.",
+      "whenNotToUse": "Tech and data registers, urgent hooks.",
+      "sfx": {
+        "id": "sfx-whoosh-4c5174e7",
+        "at": 0,
+        "volume": 0.5
+      },
+      "preview": "previews/ink-bleed.mp4",
+      "ledger": null
+    },
+    {
+      "id": "lower-third",
+      "kind": "element",
+      "name": "Lower third",
+      "summary": "Accent block wipes in, the name rises out of a mask, the role slides after.",
+      "source": "items/element/lower-third.html",
+      "fn": "catalog_lower_third",
+      "duration": 0.8,
+      "energy": "medium",
+      "moods": [
+        "editorial",
+        "clean"
+      ],
+      "tags": [
+        "text",
+        "name",
+        "identity"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "name",
+          "type": "string",
+          "label": "Name",
+          "default": "Maya Ortiz"
+        },
+        {
+          "id": "role",
+          "type": "string",
+          "label": "Role",
+          "default": "Founder, Northwind Studio"
+        },
+        {
+          "id": "accent",
+          "type": "color",
+          "label": "Accent color",
+          "default": "#ffd166"
+        },
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Top (px)",
+          "default": 1180,
+          "min": 260,
+          "max": 1380
+        }
+      ],
+      "whenToUse": "Introducing a speaker or expert, interview and podcast clips, testimonials.",
+      "whenNotToUse": "Faceless edits with no person on screen; positions below y 1380 (TikTok UI).",
+      "sfx": {
+        "id": "sfx-whoosh-3feb26b4",
+        "at": -0.05,
+        "volume": 0.45
+      },
+      "preview": "previews/lower-third.mp4",
+      "ledger": null
+    },
+    {
+      "id": "text-pop",
+      "kind": "element",
+      "name": "Text pop",
+      "summary": "Words pop one by one with overshoot and alternating tilt; stroke keeps them legible over footage.",
+      "source": "items/element/text-pop.html",
+      "fn": "catalog_text_pop",
+      "duration": 0.75,
+      "energy": "high",
+      "moods": [
+        "energetic",
+        "playful"
+      ],
+      "tags": [
+        "text",
+        "kinetic",
+        "hook"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "text",
+          "type": "string",
+          "label": "Text",
+          "default": "Stop scrolling"
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Fill color",
+          "default": "#ffd166"
+        },
+        {
+          "id": "stroke",
+          "type": "number",
+          "label": "Stroke (px)",
+          "default": 10,
+          "min": 0,
+          "max": 24
+        },
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Top (px)",
+          "default": 420,
+          "min": 220,
+          "max": 1300
+        }
+      ],
+      "whenToUse": "Hooks in the first second, punchlines, one-to-three-word emphasis.",
+      "whenNotToUse": "Sentences over five words; stacking with captions in the same zone.",
+      "sfx": {
+        "id": "sfx-pop-0d843205",
+        "at": 0.02,
+        "volume": 0.8
+      },
+      "preview": "previews/text-pop.mp4",
+      "ledger": null
+    },
+    {
+      "id": "highlight-sweep",
+      "kind": "element",
+      "name": "Highlight sweep",
+      "summary": "Marker bar sweeps behind the key phrase after the line has landed.",
+      "source": "items/element/highlight-sweep.html",
+      "fn": "catalog_highlight_sweep",
+      "duration": 1.05,
+      "energy": "medium",
+      "moods": [
+        "editorial",
+        "clean"
+      ],
+      "tags": [
+        "text",
+        "emphasis",
+        "marker"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "before",
+          "type": "string",
+          "label": "Text before",
+          "default": "The trick is"
+        },
+        {
+          "id": "highlight",
+          "type": "string",
+          "label": "Highlighted phrase",
+          "default": "fewer cuts"
+        },
+        {
+          "id": "after",
+          "type": "string",
+          "label": "Text after",
+          "default": "not more."
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Marker color",
+          "default": "#ffd166"
+        },
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Top (px)",
+          "default": 760,
+          "min": 220,
+          "max": 1300
+        }
+      ],
+      "whenToUse": "Explainers, key takeaways, quoting a stat or rule, educational content.",
+      "whenNotToUse": "Highlighting more than one phrase per line; low-contrast marker colors.",
+      "sfx": {
+        "id": "sfx-swoosh-f5cf2b46",
+        "at": 0.4,
+        "volume": 0.5
+      },
+      "preview": "previews/highlight-sweep.mp4",
+      "ledger": null
+    },
+    {
+      "id": "arrow-callout",
+      "kind": "element",
+      "name": "Arrow callout",
+      "summary": "Target ring pulses, a hand-drawn arrow draws toward it, the label pops at the tail.",
+      "source": "items/element/arrow-callout.html",
+      "fn": "catalog_arrow_callout",
+      "duration": 1.1,
+      "energy": "medium",
+      "moods": [
+        "playful",
+        "editorial"
+      ],
+      "tags": [
+        "callout",
+        "pointer",
+        "ui"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "label",
+          "type": "string",
+          "label": "Label",
+          "default": "Tap here"
+        },
+        {
+          "id": "targetX",
+          "type": "number",
+          "label": "Target X (px)",
+          "default": 760,
+          "min": 80,
+          "max": 1000
+        },
+        {
+          "id": "targetY",
+          "type": "number",
+          "label": "Target Y (px)",
+          "default": 640,
+          "min": 220,
+          "max": 1400
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Color",
+          "default": "#ffd166"
+        }
+      ],
+      "whenToUse": "Pointing at a UI detail, a product feature, a face in the crowd, a price tag.",
+      "whenNotToUse": "Busy frames with several targets (one arrow per beat); targets inside the platform UI.",
+      "sfx": {
+        "id": "sfx-whoosh-4c5174e7",
+        "at": 0.12,
+        "volume": 0.55
+      },
+      "preview": "previews/arrow-callout.mp4",
+      "ledger": null
+    },
+    {
+      "id": "counter-roll",
+      "kind": "element",
+      "name": "Counter roll",
+      "summary": "Big tabular number counts up with a decelerating ease, then punches once on arrival.",
+      "source": "items/element/counter-roll.html",
+      "fn": "catalog_counter_roll",
+      "duration": 1.6,
+      "energy": "medium",
+      "moods": [
+        "energetic",
+        "tech"
+      ],
+      "tags": [
+        "data",
+        "number",
+        "stat"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "value",
+          "type": "number",
+          "label": "Target value",
+          "default": 12400,
+          "min": 0,
+          "max": 1000000000
+        },
+        {
+          "id": "prefix",
+          "type": "string",
+          "label": "Prefix",
+          "default": "$"
+        },
+        {
+          "id": "suffix",
+          "type": "string",
+          "label": "Suffix",
+          "default": ""
+        },
+        {
+          "id": "decimals",
+          "type": "number",
+          "label": "Decimals",
+          "default": 0,
+          "min": 0,
+          "max": 3
+        },
+        {
+          "id": "label",
+          "type": "string",
+          "label": "Label",
+          "default": "made in the first month"
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Number color",
+          "default": "#ffd166"
+        },
+        {
+          "id": "countDuration",
+          "type": "number",
+          "label": "Count duration (s)",
+          "default": 1.3,
+          "min": 0.4,
+          "max": 4
+        }
+      ],
+      "whenToUse": "Revenue, follower and result stats, proof beats in ads.",
+      "whenNotToUse": "Unverified numbers; counting very small values (a 0 to 3 roll looks broken).",
+      "sfx": {
+        "id": "sfx-click-1a064f21",
+        "at": 1.35,
+        "volume": 0.7
+      },
+      "preview": "previews/counter-roll.mp4",
+      "ledger": null
+    },
+    {
+      "id": "progress-bar",
+      "kind": "element",
+      "name": "Progress bar",
+      "summary": "Track slides in, the fill grows with a live percentage, a glint passes on completion.",
+      "source": "items/element/progress-bar.html",
+      "fn": "catalog_progress_bar",
+      "duration": 1.75,
+      "energy": "medium",
+      "moods": [
+        "tech",
+        "clean"
+      ],
+      "tags": [
+        "data",
+        "progress",
+        "ui"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "percent",
+          "type": "number",
+          "label": "Percent",
+          "default": 87,
+          "min": 0,
+          "max": 100
+        },
+        {
+          "id": "label",
+          "type": "string",
+          "label": "Label",
+          "default": "Battery after 10 hours"
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Fill color",
+          "default": "#7ae582"
+        },
+        {
+          "id": "fillDuration",
+          "type": "number",
+          "label": "Fill duration (s)",
+          "default": 1.2,
+          "min": 0.4,
+          "max": 4
+        }
+      ],
+      "whenToUse": "Progress, battery, completion, survey results, 'loading the reveal' gags.",
+      "whenNotToUse": "Several bars at once without labels; values the viewer cannot verify.",
+      "sfx": {
+        "id": "sfx-riser-1dc4e7e4",
+        "at": 0.3,
+        "volume": 0.5
+      },
+      "preview": "previews/progress-bar.mp4",
+      "ledger": null
+    },
+    {
+      "id": "emoji-burst",
+      "kind": "element",
+      "name": "Emoji burst",
+      "summary": "Particles burst from a point on seeded angles, arc under gravity, spin and fade.",
+      "source": "items/element/emoji-burst.html",
+      "fn": "catalog_emoji_burst",
+      "duration": 1.2,
+      "energy": "high",
+      "moods": [
+        "playful",
+        "energetic"
+      ],
+      "tags": [
+        "particles",
+        "reaction"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "emoji",
+          "type": "string",
+          "label": "Emoji or glyphs",
+          "default": "🔥✨"
+        },
+        {
+          "id": "count",
+          "type": "number",
+          "label": "Particle count",
+          "default": 14,
+          "min": 3,
+          "max": 40
+        },
+        {
+          "id": "originX",
+          "type": "number",
+          "label": "Origin X (px)",
+          "default": 540,
+          "min": 80,
+          "max": 1000
+        },
+        {
+          "id": "originY",
+          "type": "number",
+          "label": "Origin Y (px)",
+          "default": 1100,
+          "min": 220,
+          "max": 1400
+        },
+        {
+          "id": "spread",
+          "type": "number",
+          "label": "Spread (px)",
+          "default": 520,
+          "min": 100,
+          "max": 1000
+        },
+        {
+          "id": "seed",
+          "type": "number",
+          "label": "Random seed",
+          "default": 3,
+          "min": 1,
+          "max": 9999
+        }
+      ],
+      "whenToUse": "Reactions, wins, likes and celebration beats, comedic payoffs.",
+      "whenNotToUse": "Serious topics; emoji the platform renders differently than the render host.",
+      "sfx": {
+        "id": "sfx-pop-0d843205",
+        "at": 0,
+        "volume": 0.75
+      },
+      "preview": "previews/emoji-burst.mp4",
+      "ledger": null
+    },
+    {
+      "id": "subtitle-emphasis",
+      "kind": "element",
+      "name": "Subtitle emphasis",
+      "summary": "A caption line lands, then one word takes the hit: box, color swap and an elastic scale punch.",
+      "source": "items/element/subtitle-emphasis.html",
+      "fn": "catalog_subtitle_emphasis",
+      "duration": 0.95,
+      "energy": "high",
+      "moods": [
+        "energetic",
+        "playful"
+      ],
+      "tags": [
+        "captions",
+        "text",
+        "emphasis"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "words",
+          "type": "string",
+          "label": "Caption words",
+          "default": "this changes everything"
+        },
+        {
+          "id": "emphasisIndex",
+          "type": "number",
+          "label": "Emphasized word index",
+          "default": 1,
+          "min": 0,
+          "max": 8
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Emphasis color",
+          "default": "#ffd166"
+        },
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Top (px)",
+          "default": 1150,
+          "min": 900,
+          "max": 1380
+        }
+      ],
+      "whenToUse": "Talking-head captions, the key word of a hook, meme-style emphasis.",
+      "whenNotToUse": "Emphasizing every line (it stops meaning anything); long caption lines.",
+      "sfx": {
+        "id": "sfx-impact-27a8a7dd",
+        "at": 0.46,
+        "volume": 0.7
+      },
+      "preview": "previews/subtitle-emphasis.mp4",
+      "ledger": null
+    },
+    {
+      "id": "cta-pulse",
+      "kind": "element",
+      "name": "CTA pulse",
+      "summary": "Pill button springs in, a cursor taps it, a ripple expands, the button pulses twice.",
+      "source": "items/element/cta-pulse.html",
+      "fn": "catalog_cta_pulse",
+      "duration": 1.6,
+      "energy": "medium",
+      "moods": [
+        "energetic",
+        "clean"
+      ],
+      "tags": [
+        "cta",
+        "button",
+        "ui"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "label",
+          "type": "string",
+          "label": "Button label",
+          "default": "Follow for part 2"
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Button color",
+          "default": "#ffd166"
+        },
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Top (px)",
+          "default": 1220,
+          "min": 260,
+          "max": 1380
+        }
+      ],
+      "whenToUse": "End cards, follow and link-in-bio asks, app download prompts.",
+      "whenNotToUse": "The first three seconds; more than one CTA per video.",
+      "sfx": {
+        "id": "sfx-click-5c381a04",
+        "at": 0.8,
+        "volume": 0.8
+      },
+      "preview": "previews/cta-pulse.mp4",
+      "ledger": null
+    },
+    {
+      "id": "tag-chips",
+      "kind": "element",
+      "name": "Tag chips",
+      "summary": "Feature chips stack in from the right with a stagger and a soft overshoot.",
+      "source": "items/element/tag-chips.html",
+      "fn": "catalog_tag_chips",
+      "duration": 0.9,
+      "energy": "medium",
+      "moods": [
+        "clean",
+        "tech"
+      ],
+      "tags": [
+        "list",
+        "ui",
+        "features"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "chips",
+          "type": "string",
+          "label": "Chips (comma-separated)",
+          "default": "No watermark, 4K export, Free forever"
+        },
+        {
+          "id": "accent",
+          "type": "color",
+          "label": "Dot color",
+          "default": "#7ae582"
+        },
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Top (px)",
+          "default": 820,
+          "min": 260,
+          "max": 1200
+        }
+      ],
+      "whenToUse": "Feature lists, ingredients, specs, quick benefit stacks in ads.",
+      "whenNotToUse": "More than five chips; long chip text that wraps.",
+      "sfx": {
+        "id": "sfx-click-7256d453",
+        "at": 0.05,
+        "volume": 0.7
+      },
+      "preview": "previews/tag-chips.mp4",
+      "ledger": null
+    },
+    {
+      "id": "checklist-tick",
+      "kind": "element",
+      "name": "Checklist tick",
+      "summary": "Rows land, then each box draws its check in turn and the row dims to done.",
+      "source": "items/element/checklist-tick.html",
+      "fn": "catalog_checklist_tick",
+      "duration": 1.4,
+      "energy": "medium",
+      "moods": [
+        "clean",
+        "editorial"
+      ],
+      "tags": [
+        "list",
+        "checklist"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "items",
+          "type": "string",
+          "label": "Items (pipe-separated)",
+          "default": "Script in 5 minutes | Voice in one take | Cut on the beat"
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Check color",
+          "default": "#7ae582"
+        },
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Top (px)",
+          "default": 760,
+          "min": 260,
+          "max": 1200
+        }
+      ],
+      "whenToUse": "Step lists, routines, requirements, 'what you get' summaries.",
+      "whenNotToUse": "More than five rows; items longer than one line.",
+      "sfx": {
+        "id": "sfx-click-1a064f21",
+        "at": 0.5,
+        "volume": 0.6
+      },
+      "preview": "previews/checklist-tick.mp4",
+      "ledger": null
+    },
+    {
+      "id": "underline-draw",
+      "kind": "element",
+      "name": "Underline draw",
+      "summary": "Headline lands, then a hand-drawn stroke draws under the key word like a marker pass.",
+      "source": "items/element/underline-draw.html",
+      "fn": "catalog_underline_draw",
+      "duration": 0.9,
+      "energy": "medium",
+      "moods": [
+        "editorial",
+        "playful"
+      ],
+      "tags": [
+        "text",
+        "emphasis",
+        "marker"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "text",
+          "type": "string",
+          "label": "Headline",
+          "default": "Nobody tells you this"
+        },
+        {
+          "id": "word",
+          "type": "string",
+          "label": "Word to underline",
+          "default": "Nobody"
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Stroke color",
+          "default": "#ff5d5d"
+        },
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Top (px)",
+          "default": 720,
+          "min": 220,
+          "max": 1300
+        }
+      ],
+      "whenToUse": "Hooks with one loaded word, contrarian claims, education.",
+      "whenNotToUse": "Underlining a word that wraps across lines; several underlines at once.",
+      "sfx": {
+        "id": "sfx-click-7db65609",
+        "at": 0.45,
+        "volume": 0.6,
+        "trim": 0.6
+      },
+      "preview": "previews/underline-draw.mp4",
+      "ledger": null
+    },
+    {
+      "id": "quote-card",
+      "kind": "element",
+      "name": "Quote card",
+      "summary": "Card rises with a soft shadow, an oversized quote mark drops in, text and attribution follow.",
+      "source": "items/element/quote-card.html",
+      "fn": "catalog_quote_card",
+      "duration": 1,
+      "energy": "calm",
+      "moods": [
+        "editorial",
+        "premium"
+      ],
+      "tags": [
+        "quote",
+        "card",
+        "testimonial"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "quote",
+          "type": "string",
+          "label": "Quote",
+          "default": "We cut our edit time in half the first week."
+        },
+        {
+          "id": "author",
+          "type": "string",
+          "label": "Attribution",
+          "default": "Head of Content, Northwind"
+        },
+        {
+          "id": "accent",
+          "type": "color",
+          "label": "Quote mark color",
+          "default": "#f2552c"
+        },
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Top (px)",
+          "default": 640,
+          "min": 260,
+          "max": 1100
+        }
+      ],
+      "whenToUse": "Testimonials, reviews, expert quotes, press mentions.",
+      "whenNotToUse": "Quotes over about 20 words; fake or unattributed quotes.",
+      "sfx": {
+        "id": "sfx-whoosh-b67f6c9f",
+        "at": -0.05,
+        "volume": 0.4
+      },
+      "preview": "previews/quote-card.mp4",
+      "ledger": null
+    },
+    {
+      "id": "price-strike",
+      "kind": "element",
+      "name": "Price strike",
+      "summary": "Old price lands, a strike slashes it, the new price slams in, a discount badge spins on.",
+      "source": "items/element/price-strike.html",
+      "fn": "catalog_price_strike",
+      "duration": 1.65,
+      "energy": "high",
+      "moods": [
+        "energetic",
+        "dramatic"
+      ],
+      "tags": [
+        "price",
+        "offer",
+        "ad"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "oldPrice",
+          "type": "string",
+          "label": "Old price",
+          "default": "$129"
+        },
+        {
+          "id": "newPrice",
+          "type": "string",
+          "label": "New price",
+          "default": "$79"
+        },
+        {
+          "id": "badge",
+          "type": "string",
+          "label": "Badge",
+          "default": "-40%"
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Accent color",
+          "default": "#ffd166"
+        },
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Top (px)",
+          "default": 700,
+          "min": 260,
+          "max": 1100
+        }
+      ],
+      "whenToUse": "Offers, launches, comparison against a competitor price.",
+      "whenNotToUse": "Prices that are not real or current (claims compliance); more than one offer per frame.",
+      "sfx": {
+        "id": "sfx-impact-d5dba9b3",
+        "at": 1.05,
+        "volume": 0.75
+      },
+      "preview": "previews/price-strike.mp4",
+      "ledger": null
+    },
+    {
+      "id": "notification-toast",
+      "kind": "element",
+      "name": "Notification toast",
+      "summary": "Phone-style notification drops from the top with a spring, the icon pops, the body settles.",
+      "source": "items/element/notification-toast.html",
+      "fn": "catalog_notification_toast",
+      "duration": 1,
+      "energy": "medium",
+      "moods": [
+        "tech",
+        "clean"
+      ],
+      "tags": [
+        "ui",
+        "notification",
+        "phone"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "app",
+          "type": "string",
+          "label": "App name",
+          "default": "Northwind"
+        },
+        {
+          "id": "title",
+          "type": "string",
+          "label": "Title",
+          "default": "Your video is ready"
+        },
+        {
+          "id": "body",
+          "type": "string",
+          "label": "Body",
+          "default": "1080x1920, 34 s, captions on"
+        },
+        {
+          "id": "accent",
+          "type": "color",
+          "label": "Icon color",
+          "default": "#f2552c"
+        },
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Top (px)",
+          "default": 300,
+          "min": 220,
+          "max": 900
+        }
+      ],
+      "whenToUse": "App demos, 'you got paid' or 'order shipped' beats, social proof, story setups.",
+      "whenNotToUse": "Imitating a real app's exact notification design or brand; stacking more than three.",
+      "sfx": {
+        "id": "sfx-click-d0feea69",
+        "at": 0.25,
+        "volume": 0.5,
+        "trim": 0.8
+      },
+      "preview": "previews/notification-toast.mp4",
+      "ledger": null
+    }
+  ]
+}

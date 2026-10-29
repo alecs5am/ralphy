@@ -1,0 +1,28 @@
+<!-- catalog item: emoji-burst (element). Contract: function catalog_emoji_burst(tl, o)
+     Particles burst from a point on seeded angles, arc under gravity, spin and fade. Params: emoji, count, originX, originY, spread, seed. -->
+<style data-catalog-css>
+  .eb-p { position: absolute; font-size: 110px; line-height: 1; width: 130px; height: 130px; margin: -65px 0 0 -65px; text-align: center; opacity: 0; }
+</style>
+<template data-catalog-markup>
+  <div id="eb-wrap"></div>
+</template>
+<script data-catalog-js>
+  function catalog_emoji_burst(tl, o) {
+    var s = o.seed >>> 0;
+    function rnd() { s = (s + 0x6d2b79f5) >>> 0; var t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
+    var T = o.at, wrap = document.getElementById("eb-wrap"), n = Math.max(3, Math.round(o.count)), glyphs = Array.from(String(o.emoji));
+    for (var i = 0; i < n; i++) {
+      var p = document.createElement("div");
+      p.className = "eb-p"; p.textContent = glyphs[i % glyphs.length];
+      p.style.left = o.originX + "px"; p.style.top = o.originY + "px";
+      wrap.appendChild(p);
+      var ang = -Math.PI / 2 + (rnd() - 0.5) * Math.PI * 1.4, dist = o.spread * (0.55 + rnd() * 0.6);
+      var dx = Math.cos(ang) * dist, dy = Math.sin(ang) * dist, delay = rnd() * 0.12, sc = 0.6 + rnd() * 0.7;
+      tl.set(p, { opacity: 1 }, T + delay);
+      tl.fromTo(p, { x: 0, y: 0, scale: 0.2, rotation: 0 }, { x: dx, scale: sc, rotation: (rnd() - 0.5) * 120, duration: 1.1, ease: "power2.out" }, T + delay);
+      tl.fromTo(p, { y: 0 }, { y: dy, duration: 0.45, ease: "power3.out" }, T + delay);
+      tl.to(p, { y: dy + 260, duration: 0.65, ease: "power2.in" }, T + delay + 0.45);
+      tl.to(p, { opacity: 0, duration: 0.3, ease: "power1.in" }, T + delay + 0.8);
+    }
+  }
+</script>

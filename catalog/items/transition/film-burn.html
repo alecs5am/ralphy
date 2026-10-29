@@ -1,0 +1,27 @@
+<!-- catalog item: film-burn (transition). Contract: function catalog_film_burn(tl, o)
+     Staggered amber, orange and red blooms bleed in from one edge with a brightness spike; swap under the hottest frame. Params: duration, fromRight. -->
+<style data-catalog-css>
+  .fb-burn { position: absolute; width: 2200px; height: 2200px; border-radius: 50%; opacity: 0; top: -140px; }
+  #fb-a { background: radial-gradient(circle, rgba(255,196,92,1) 0%, rgba(255,196,92,0) 62%); }
+  #fb-b { background: radial-gradient(circle, rgba(255,120,40,0.95) 0%, rgba(255,120,40,0) 60%); top: 600px; }
+  #fb-c { background: radial-gradient(circle, rgba(214,40,32,0.9) 0%, rgba(214,40,32,0) 58%); top: 200px; }
+</style>
+<template data-catalog-markup>
+  <div class="fb-burn" id="fb-a"></div><div class="fb-burn" id="fb-b"></div><div class="fb-burn" id="fb-c"></div>
+</template>
+<script data-catalog-js>
+  function catalog_film_burn(tl, o) {
+    var T = o.at, d = o.duration, sgn = o.fromRight ? 1 : -1, start = o.fromRight ? 900 : -2000, cut = T + d * 0.5;
+    tl.set(".fb-burn", { left: start }, T);
+    tl.to("#fb-a", { opacity: 1, x: -sgn * 700, duration: d * 0.55, ease: "power1.in" }, T);
+    tl.to("#fb-b", { opacity: 1, x: -sgn * 900, duration: d * 0.6, ease: "power1.in" }, T + d * 0.06);
+    tl.to("#fb-c", { opacity: 0.9, x: -sgn * 500, duration: d * 0.55, ease: "power1.in" }, T + d * 0.12);
+    tl.fromTo(o.from, { filter: "brightness(1) sepia(0)" }, { filter: "brightness(1.6) sepia(0.4)", duration: d * 0.5, ease: "power2.in" }, T);
+    tl.set(o.from, { opacity: 0, filter: "none" }, cut);
+    tl.set(o.to, { opacity: 1 }, cut);
+    tl.fromTo(o.to, { filter: "brightness(1.6) sepia(0.4)" }, { immediateRender: false, filter: "brightness(1) sepia(0)", duration: d * 0.5, ease: "power2.out" }, cut);
+    tl.to("#fb-a", { opacity: 0, duration: d * 0.4, ease: "power2.out" }, cut + d * 0.05);
+    tl.to("#fb-b", { opacity: 0, duration: d * 0.4, ease: "power2.out" }, cut + d * 0.1);
+    tl.to("#fb-c", { opacity: 0, duration: d * 0.4, ease: "power2.out" }, cut + d * 0.15);
+  }
+</script>

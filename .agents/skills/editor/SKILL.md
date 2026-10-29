@@ -52,6 +52,10 @@ bunx hyperframes lint    .ralphy/workspaces/<ws>/projects/<id>
 bunx hyperframes inspect .ralphy/workspaces/<ws>/projects/<id>
 bunx hyperframes add <block-slug> .ralphy/workspaces/<ws>/projects/<id>
 
+# Ready transitions, motion elements and SFX (#563) — see references/motion-catalog.md
+ralphy catalog list --kind transition --mood energetic
+ralphy catalog show <item-id>
+
 # Inspect inputs / outputs
 ralphy project show <id> --assets        # asset-manifest before composing
 ralphy project show <id> --status        # what's done / missing
@@ -72,6 +76,7 @@ Extend a toon / painterly clip by anchoring a new `bytedance/seedance-2.0` i2v c
 | [editor/vo-sync.md](./references/vo-sync.md) | Aligned-to-VO cuts — stitch → scribe → slice; reverse-areverse + concat demuxer (AGENTS invariant #16) |
 | [editor/captions.md](./references/captions.md) | Wiring `captions.json` into a caption component; captions-first before writing timing constants |
 | [editor/transitions.md](./references/transitions.md) | Crossfade / push / wipe patterns |
+| [editor/motion-catalog.md](./references/motion-catalog.md) | Pick a ready transition / motion element / SFX: `ralphy catalog list --kind transition --mood energetic` (#563) |
 | [editor/audio-mixing.md](./references/audio-mixing.md) | VO + music + SFX levels, ducking, fades |
 | [editor/green-zone.md](./references/green-zone.md) | Text/overlay placement inside 1080×1920 safe zone |
 | [editor/hard-rules.md](./references/hard-rules.md) | 12-item ffmpeg / cut-discipline checklist for finals |
