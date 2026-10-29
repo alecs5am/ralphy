@@ -1575,6 +1575,31 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
   ],
+  storyboard: [
+    {
+      label: "storyboard.show",
+      shape: {
+        project: "spot-001",
+        aiProduction: true,
+        reason: "AI production: 2 scenario scene(s) will be generated",
+        scenes: 2,
+        approved: 1,
+        pending: 1,
+        rejected: 0,
+        stale: 0,
+        approvedAll: false,
+        estimatedCostUsd: 0.92,
+        sheet: [
+          { scene: "scene-01", state: "approved", seconds: 3, vo: "Stop scrolling.", camera: "selfie 35mm", model: "google/gemini-3-pro-image-preview + kwaivgi/kling-v3.0-pro", costUsd: 0.46, frame: "storyboard-scene-01" },
+          { scene: "scene-02", state: "pending", seconds: 3, vo: "Meet the bottle.", camera: "macro push-in", model: "google/gemini-3-pro-image-preview + kwaivgi/kling-v3.0-pro", costUsd: 0.46, frame: null },
+        ],
+      },
+    },
+    {
+      label: "storyboard.html",
+      shape: { project: "spot-001", path: ".ralphy/workspaces/default/projects/spot-001/storyboard/storyboard.v2.html", version: 2, scenes: 2, approved: 1, pending: 1, rejected: 0, stale: 0 },
+    },
+  ],
   status: [
     { label: "status.report", shape: { version: "0.3.0", workspace: "default", projects: 4, lastRender: "demo-001", keys: { openrouter: true, elevenlabs: false } } },
   ],

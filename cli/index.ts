@@ -119,6 +119,7 @@ import { newCmd } from "./commands/new.js";
 import { cloneCmd } from "./commands/clone.js";
 import { skillCmd } from "./commands/skill.js";
 import { promptsCmd } from "./commands/prompts.js";
+import { storyboardCmd } from "./commands/storyboard.js";
 import { bridgeCmd } from "./commands/bridge.js";
 import { guidelineCmd } from "./commands/guideline.js";
 import { benchmarkCmd } from "./commands/benchmark.js";
@@ -394,6 +395,7 @@ program.addCommand(evalCmd());
 program.addCommand(researchCmd());
 program.addCommand(trendsCmd());
 program.addCommand(promptsCmd());
+program.addCommand(storyboardCmd());
 program.addCommand(bridgeCmd());
 
 program.addHelpText("beforeAll", bannerString());
@@ -567,7 +569,8 @@ function positionalProjectId(command: Command): string | undefined {
   if (
     command.name() === "render" || command.name() === "compose" ||
     (command.parent?.name() === "workspace" && command.name() === "eval") ||
-    (command.parent?.name() === "hyperframes" && command.name() === "save-version")
+    (command.parent?.name() === "hyperframes" && command.name() === "save-version") ||
+    command.parent?.name() === "storyboard"
   ) {
     const value = command.processedArgs[0];
     return typeof value === "string" ? value : undefined;

@@ -353,6 +353,12 @@ export const ERROR_CODES = {
     hint: "Attach a reference image via `ralphy ref add` or pass --no-ref-consent to override.",
     relatedDocs: "AGENTS.md#hard-invariants-apply-across-all-playbooks",
   },
+  E_GATE_STORYBOARD: {
+    class: "gate",
+    message: "Storyboard approval gate refused for {slot}: {detail}",
+    hint: "Show the storyboard (`ralphy storyboard show {project}` or `ralphy storyboard html {project}`), get the user's approval (`ralphy storyboard approve {project} --scene <id>` or `--all`), or override this call with `--no-storyboard-consent \"<reason>\"` (logged to user-prompts.jsonl).",
+    relatedDocs: "docs/playbooks/agent-production-contract.md#storyboard-approval-gate-570",
+  },
   E_PUBLISH_NOT_READY: {
     class: "gate",
     message: "Publish gate refused for {project}/{slug}: readiness verdict is {verdict} — {reason}",

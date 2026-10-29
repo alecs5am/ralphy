@@ -169,6 +169,8 @@ const mediaBridge: MediaWorkbenchBridge = {
     invoke(MEDIA_CHANNELS.loadProjectMediaRevisions, project, artifactId, after)
   ),
   reviewProjectMedia: (project, input) => invoke(MEDIA_CHANNELS.reviewProjectMedia, project, input),
+  loadProjectStoryboard: (project) => invoke(MEDIA_CHANNELS.loadProjectStoryboard, project),
+  reviewProjectStoryboard: (project, input) => invoke(MEDIA_CHANNELS.reviewProjectStoryboard, project, input),
   selectProjectMediaRevision: (project, artifactId, revisionId, expectedSelectedRevisionId) => (
     invoke(
       MEDIA_CHANNELS.selectProjectMediaRevision,

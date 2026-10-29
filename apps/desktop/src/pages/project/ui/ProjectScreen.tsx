@@ -1,6 +1,7 @@
 import { AlertCircle, RefreshCw } from "@/shared/ui/icons";
 import { lazy, Suspense, useEffect, useState, useSyncExternalStore } from "react";
 import { ProjectControls } from "@/widgets/project-header";
+import { StoryboardGallery } from "@/features/storyboard-review";
 import { InstrumentScreenRoot, type InstrumentScreenStateDescriptor } from "@/shared/instrument/screen-state-registry";
 import { ActivityTimeline, activityInstrumentStates } from "./ActivityTimeline";
 import { DocumentsPanel, documentsInstrumentStates } from "./DocumentsPanel";
@@ -30,7 +31,10 @@ function ProjectError({ error, onRetry }: { error: string | null; onRetry(): voi
 
 export function ProjectScreenView({ project, workspaceName = null, rootEpoch = 0, controller, snapshot, targetUnitId, onTargetUnitOpened, scrollMemory = new Map<string, number>(), documentsScrollMemory = scrollMemory, unitsScrollMemory = scrollMemory, activityScrollMemory = scrollMemory, onRequestAgent, onOpenUnit, onOpenCreate }: { project: ProjectSummary; workspaceName?: string | null; rootEpoch?: number; controller: ProjectScreenController; snapshot: ProjectScreenSnapshot; targetUnitId?: string | null; onTargetUnitOpened?(): void; scrollMemory?: Map<string, number>; documentsScrollMemory?: Map<string, number>; unitsScrollMemory?: Map<string, number>; activityScrollMemory?: Map<string, number>; onOpenUnit?(unitId: string): void; onRequestAgent?(request: VideoAgentRequest): void; onOpenCreate?(): void }) {
   const [video, setVideo] = useState<{ unitId: string; title: string } | null>(null);
-  useEffect(() => setVideo(null), [project.workspaceId, project.projectId]);
+  /* The storyboard review (#570) takes the domain body while it is open, the way the video
+     editor takes the screen: it is a review the operator opens, not a tab with a page of its own. */
+  const [storyboardOpen, setStoryboardOpen] = useState(false);
+  useEffect(() => { setVideo(null); setStoryboardOpen(false); }, [project.workspaceId, project.projectId]);
   const state = snapshot.domain;
   const activeTab = snapshot.activeTab;
   const page = state.pages[activeTab];
@@ -51,13 +55,15 @@ export function ProjectScreenView({ project, workspaceName = null, rootEpoch = 0
      there. A second `bg-desk` here repainted the same colour in the desk lens and painted over
      the panel's white card in the chat lens. */
   return <main className="main-region project-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-hidden p-1 type-base text-ink">
-    <ProjectControls title={project.name} activeTab={activeTab} onSelect={selectTab} />
-    <div className={`project-domain-body @container/project-domain w-full min-h-0 flex-1 overflow-hidden${activeTab === "media" ? " is-media flex flex-col" : activeTab === "documents" ? " is-documents pb-6" : activeTab === "units" ? " is-units pb-6" : activeTab === "activity" ? " is-activity pb-6" : ""}`} id={`project-panel-${activeTab}`}>
+    <ProjectControls title={project.name} activeTab={activeTab} onSelect={(tab) => { setStoryboardOpen(false); selectTab(tab); }} onOpenStoryboard={project.projectId ? () => setStoryboardOpen(true) : undefined} />
+    {storyboardOpen && project.projectId
+      ? <div className="project-domain-body is-storyboard flex w-full min-h-0 flex-1 flex-col overflow-hidden" id="project-panel-storyboard"><StoryboardGallery project={{ workspaceId: project.workspaceId, projectId: project.projectId }} onClose={() => setStoryboardOpen(false)} /></div>
+      : <div className={`project-domain-body @container/project-domain w-full min-h-0 flex-1 overflow-hidden${activeTab === "media" ? " is-media flex flex-col" : activeTab === "documents" ? " is-documents pb-6" : activeTab === "units" ? " is-units pb-6" : activeTab === "activity" ? " is-activity pb-6" : ""}`} id={`project-panel-${activeTab}`}>
       {activeTab === "documents" && page && (page.status === "loading" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="loading"><div className={PROJECT_SKELETON} role="status">Loading documents…</div></InstrumentScreenRoot> : page.status === "error" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="error"><ProjectError error={page.error} onRetry={retry} /></InstrumentScreenRoot> : <DocumentsPanel page={page} controller={controller} snapshot={snapshot} scrollMemory={documentsScrollMemory} resetToken={projectScrollToken} />)}
       {activeTab === "media" && page && <MediaPanel page={page} controller={controller} snapshot={snapshot} project={project} workspaceName={workspaceName} rootEpoch={rootEpoch} scrollMemory={scrollMemory} scrollResetToken={mediaScrollToken} onOpenCreate={onOpenCreate} />}
       {activeTab === "units" && page && <PageState descriptor={unitsInstrumentStates} page={page} empty="No units yet." onRetry={retry}><UnitsPanel onOpenUnit={onOpenUnit} onEditVideo={(unitId, title) => setVideo({ unitId, title })} page={page} controller={controller} snapshot={snapshot} targetUnitId={targetUnitId} onTargetUnitOpened={onTargetUnitOpened} scrollMemory={unitsScrollMemory} resetToken={projectScrollToken} /></PageState>}
       {activeTab === "activity" && page && <PageState descriptor={activityInstrumentStates} page={page} empty="No activity yet." onRetry={retry}><ActivityTimeline page={page} controller={controller} scrollMemory={activityScrollMemory} resetToken={projectScrollToken} /></PageState>}
-    </div>
+    </div>}
     <MediaViewer controller={controller} snapshot={snapshot} />
   </main>;
 }

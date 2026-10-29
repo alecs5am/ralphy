@@ -43,6 +43,8 @@ import {
 } from "../media/types";
 import type { RalphySession } from "./session";
 import { saveMediaReview, type DesktopMediaReviewInput } from "./media-review";
+import { loadStoryboard, saveStoryboardReview } from "./storyboard";
+import type { DesktopStoryboardReviewInput } from "./storyboard-types";
 import type {
   ProjectMediaFilter,
   ProjectMediaAction,
@@ -863,6 +865,12 @@ export function registerProjectMediaIpc<Root>({
   handle(MEDIA_CHANNELS.reviewProjectMedia, secured((reader, _root, _assertCurrent, rawProject, rawInput) => (
     reader.reviewMedia(parseProjectMediaIpcProject(rawProject), rawInput as DesktopMediaReviewInput)
   )));
+  handle(MEDIA_CHANNELS.loadProjectStoryboard, secured((reader, _root, _assertCurrent, rawProject) => (
+    reader.loadStoryboard(parseProjectMediaIpcProject(rawProject))
+  )));
+  handle(MEDIA_CHANNELS.reviewProjectStoryboard, secured((reader, _root, _assertCurrent, rawProject, rawInput) => (
+    reader.reviewStoryboard(parseProjectMediaIpcProject(rawProject), rawInput as DesktopStoryboardReviewInput)
+  )));
   handle(MEDIA_CHANNELS.performProjectMediaAction, secured(async (
     reader,
     root,
@@ -1349,6 +1357,14 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
 
     async reviewMedia(project: ProjectRef, input: DesktopMediaReviewInput) {
       return saveMediaReview(request, projectContext(project), input);
+    },
+
+    async loadStoryboard(project: ProjectRef) {
+      return loadStoryboard(request, projectContext(project));
+    },
+
+    async reviewStoryboard(project: ProjectRef, input: DesktopStoryboardReviewInput) {
+      return saveStoryboardReview(request, projectContext(project), input);
     },
 
     async selectMediaRevision(

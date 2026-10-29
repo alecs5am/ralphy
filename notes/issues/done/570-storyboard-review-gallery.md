@@ -1,6 +1,6 @@
 # Storyboard review gallery before paid AI generation
 
-> **Status:** todo
+> **Status:** done — 2026-10-30 (`ralphy storyboard show|approve|reject|comment|html`, desktop gallery under Project details > Storyboard, generation gate E_GATE_STORYBOARD with --no-storyboard-consent; not checked visually in the running app)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** medium

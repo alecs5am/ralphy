@@ -16,6 +16,8 @@
   /* The unit grid: the tile minimum is the only number, so the column count is the grid's own
      decision and the chat rail taking width needs no breakpoint. */
   --project-units-columns: repeat(auto-fill, minmax(268px, 1fr));
+  /* The storyboard review (#570): one card per scene, as many across as the width holds. */
+  --storyboard-grid-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
 
   /* The row shapes this area repeats: a format badge plus copy, or a glyph plus copy. */
   --project-document-row-columns: 34px minmax(0, 1fr);

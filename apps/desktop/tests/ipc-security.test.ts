@@ -627,7 +627,8 @@ describe("Electron IPC security", () => {
     });
 
     expect([...handlers.keys()]).toEqual([
-      "project:media:generation", "project:media:show", "project:media:revisions", "project:media:select", "project:media:review", "project:media:action",
+      "project:media:generation", "project:media:show", "project:media:revisions", "project:media:select", "project:media:review",
+      "project:storyboard:show", "project:storyboard:review", "project:media:action",
       "project:media:import-asset",
       "project:document:create", "project:documents:search",
       "project:composition:show", "project:composition:revision:show", "project:composition:build:show", "project:composition:page",
@@ -638,6 +639,8 @@ describe("Electron IPC security", () => {
     const revisions = handlers.get("project:media:revisions")!;
     const select = handlers.get("project:media:select")!;
     const importAsset = handlers.get("project:media:import-asset")!;
+    const storyboard = handlers.get("project:storyboard:show")!;
+    const storyboardReview = handlers.get("project:storyboard:review")!;
     const trusted = { sender: webContents, senderFrame: mainFrame };
 
     await expect(generation(
@@ -658,6 +661,11 @@ describe("Electron IPC security", () => {
       () => importAsset({ sender: webContents, senderFrame: {} }, { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "artifact-1" }),
       () => importAsset(trusted, { workspaceId: "", projectId: "project-1" }, { type: "artifact", id: "artifact-1" }),
       () => importAsset(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "", extra: true }),
+      /* The storyboard review (#570) is fenced the same way: frame, project, and decision shape. */
+      () => storyboard({ sender: webContents, senderFrame: {} }, { workspaceId: "workspace-1", projectId: "project-1" }),
+      () => storyboard(trusted, { workspaceId: "workspace-1", projectId: "" }),
+      () => storyboardReview(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, { action: "approve", scenes: ["../x"] }),
+      () => storyboardReview(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, { action: "publish", all: true }),
     ]) await expect(call()).resolves.toMatchObject({ ok: false });
     expect(request).not.toHaveBeenCalled();
 

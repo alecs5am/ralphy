@@ -25,6 +25,7 @@ import {
   captionsToDrawtextFilter,
 } from "../lib/captions/helpers.js";
 import { logUserPrompt } from "../lib/gen-log.js";
+import { enforceStoryboardGate, readStoryboardConsent } from "../lib/storyboard/gate.js";
 import { checkSpend, estimatedCallCostUsd } from "../lib/spend.js";
 import {
   findVideoModel,
@@ -410,6 +411,31 @@ function rejectProjectOnlyMode(destination: GenerationDestination, mode: string)
  * when passed and `opts.refConsent = true` (the default-inverted boolean)
  * when omitted. Read through `readRefConsentReason()` to normalize.
  */
+/**
+ * #570: storyboard approval gate. In an AI-production Project, paid image /
+ * video generation for a scene slot waits for the user's storyboard approval.
+ * `--no-storyboard-consent "<reason>"` is the explicit override (logged as
+ * `stage: "no-storyboard-consent"`); dry runs warn and continue.
+ */
+async function maybeStoryboardGate(
+  opts: { dryRun?: unknown; storyboardConsent?: unknown },
+  destination: GenerationDestination,
+  slots: string[],
+  verb: string,
+): Promise<void> {
+  if (destination.kind !== "project") return;
+  await enforceStoryboardGate({
+    project: destination.id,
+    slots,
+    consent: readStoryboardConsent(opts),
+    dryRun: Boolean(opts.dryRun),
+    verb,
+  });
+}
+
+const STORYBOARD_CONSENT_FLAG =
+  "Explicit user override of the storyboard approval gate (#570) for scene slots whose scene is not approved. Logs `stage: \"no-storyboard-consent\"` with the reason to user-prompts.jsonl.";
+
 function readRefConsentReason(opts: { refConsent?: unknown }): string | null {
   const v = opts.refConsent;
   if (typeof v !== "string") return null;
@@ -836,6 +862,7 @@ export function generateCmd() {
     .option("--batch <path>", "Fan out N image gens from a `.jsonl` file (one `{slot, prompt, refs?, model?, negative?}` per line). Respects #007 per-endpoint concurrency; emits per-line progress to stderr and a cost-rollup JSON on stdout. Blank lines + `#` comments ignored. #024")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.png.")
     .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
+    .option("--no-storyboard-consent <reason>", STORYBOARD_CONSENT_FLAG)
     .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff on TLS / ECONNRESET / 5xx / skeleton-null payloads. Use for tests / debugging where you want the first response no matter what.")
     .option("--dry-run", "Print resolved request + cost estimate; do not submit (01.02.05)", false)
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
@@ -869,6 +896,9 @@ Example (register a host-generated image in one call, $0, no provider call):
           verb: "generate image",
         });
       }
+      if (opts.slot && !opts.batch) {
+        await maybeStoryboardGate(opts, destination, [String(opts.slot)], "generate image");
+      }
       await maybeLogNoRefConsent(opts);
       if (opts.queue) rejectProjectOnlyMode(destination, "--queue");
       if (maybeEnqueue(opts, "generate.image", opts.project)) return;
@@ -897,6 +927,7 @@ Example (register a host-generated image in one call, $0, no provider call):
         for (const it of items) {
           if (it.refs) it.refs = it.refs.map((r) => intakePath(r, opts.project, "ref"));
         }
+        await maybeStoryboardGate(opts, destination, items.map((item) => item.slot), "generate image --batch");
         // Inline --ref still flows in as the per-item default when a line omits it.
         const defaultRefs = await readRefsOrFile({
           refs: opts.ref,
@@ -1158,6 +1189,7 @@ Example (register a host-generated image in one call, $0, no provider call):
     .option("--note <note>", "Free-form note appended to every gen-log row in this batch.")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite existing slot files in place. Default: archive existing to <slot>.v{N}.png.")
     .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3).")
+    .option("--no-storyboard-consent <reason>", STORYBOARD_CONSENT_FLAG)
     .option("--no-retry", "Bypass the transient-error retry loop (#005). Applies to every item in the batch.")
     .option("--dry-run", "Print resolved request + cost estimate; do not submit (01.02.05)", false)
     .action(async (opts) => {
@@ -1180,6 +1212,7 @@ Example (register a host-generated image in one call, $0, no provider call):
         });
       }
 
+      await maybeStoryboardGate(opts, { kind: "project", id: opts.project }, items.map((item) => item.slot), "generate image-batch");
       const resolvedModel = resolveModelAlias(opts.model) ?? "google/gemini-3-pro-image-preview";
       const resolvedSize = resolveImageSize({ model: resolvedModel, size: opts.size, aspect: opts.aspect });
       const sharedRefs = await readRefsOrFile({
@@ -1284,11 +1317,13 @@ Example (register a host-generated image in one call, $0, no provider call):
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp4.")
     .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
+    .option("--no-storyboard-consent <reason>", STORYBOARD_CONSENT_FLAG)
     .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff on TLS / ECONNRESET / 5xx / skeleton-null payloads. Wraps the initial videos-submit POST; the poll loop has its own budget.")
     .action(async (opts) => {
       const destination = resolveGenerateDestination(opts, "video");
       await ensureGenerateDestination(destination);
       opts.slot = normalizeSlot(opts.slot);
+      await maybeStoryboardGate(opts, destination, [opts.slot], "generate video");
       await maybeLogNoRefConsent(opts);
       if (opts.queue) rejectProjectOnlyMode(destination, "--queue");
       if (maybeEnqueue(opts, "generate.video", opts.project)) return;

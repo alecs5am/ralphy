@@ -22,6 +22,7 @@ import { readLog, readGenerations, logUserPrompt, logUserAsset, logGeneration, t
 import { transcribe, DEFAULT_MODEL, WHISPER_MODEL, type TranscribeLanguage, type TranscribeBackend } from "../lib/transcribe.js";
 import { scoreScenario, type Scenario } from "../lib/score.js";
 import { buildScorecard } from "../lib/scorecard.js";
+import { evaluateContract } from "../lib/contract.js";
 import { SCORECARD_ARTIFACT } from "../lib/schemas/scorecard.js";
 import { gradeProductionPlan, renderPlanGradeMarkdown } from "../lib/plan/grade.js";
 import { PLAN_GRADE_ARTIFACT } from "../lib/schemas/plan-grade.js";
@@ -207,9 +208,15 @@ export function projectCmd() {
   // human wizard — JSON guidance only.
   cmd
     .command("status <id>")
-    .description("Show database-derived Project stages, bindings, Iteration, and feedback")
-    .action((id: string, _opts, command: Command) => {
+    .description("Show database-derived Project stages, bindings, Iteration, and feedback. --contract (alias --lifecycle): the production-contract ledger (per-phase satisfied/missing, currentPhase/nextPhase/nextStep, stopConditions, polished) plus the storyboard approval state per scene (#406/#414/#570).")
+    .option("--contract", "Emit the production-contract ledger, including the storyboard approval state (#406/#570)")
+    .option("--lifecycle", "Alias of --contract (#414)")
+    .action((id: string, opts: { contract?: boolean; lifecycle?: boolean }, command: Command) => {
       const context = resolveDomainContext(command, id);
+      if (opts.contract || opts.lifecycle) {
+        out(evaluateContract(context.projectId ?? id));
+        return;
+      }
       out(projectStatus(context.workspaceId, context.projectId ?? id));
     });
 

@@ -580,6 +580,10 @@ loadProjectMediaRevisions(
   after?: string | null,
 ): Promise<import("../ralphy/types").Page<import("../ralphy/types").ArtifactRevisionDto>>;
 reviewProjectMedia(project: ProjectReference, input: import("../ralphy/media-review").DesktopMediaReviewInput): Promise<import("../ralphy/types").ArtifactMediaCardDto>;
+/* The storyboard review before paid AI generation (#570): the runtime derives the scenes and
+   records each decision; the gallery draws them and sends approve / reject / comment back. */
+loadProjectStoryboard(project: ProjectReference): Promise<import("../ralphy/storyboard-types").StoryboardDto>;
+reviewProjectStoryboard(project: ProjectReference, input: import("../ralphy/storyboard-types").DesktopStoryboardReviewInput): Promise<import("../ralphy/storyboard-types").StoryboardDto>;
 selectProjectMediaRevision(
   project: ProjectReference,
   artifactId: string,
@@ -741,6 +745,8 @@ export const MEDIA_CHANNELS = {
   loadProjectMediaRevisions: "project:media:revisions",
   selectProjectMediaRevision: "project:media:select",
   reviewProjectMedia: "project:media:review",
+  loadProjectStoryboard: "project:storyboard:show",
+  reviewProjectStoryboard: "project:storyboard:review",
   performProjectMediaAction: "project:media:action",
   importProjectMediaAsset: "project:media:import-asset",
   loadDocumentPreview: "project:document-preview",

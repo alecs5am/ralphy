@@ -1,3 +1,5 @@
+import type { StoryboardDto, StoryboardReviewAction, StoryboardReviewResultDto } from "./storyboard-types";
+
 export const BRIDGE_PROTOCOL_VERSION = 1 as const;
 export const BRIDGE_LIMITS = {
   maxFrameBytes: 1_048_576,
@@ -61,6 +63,8 @@ export const BRIDGE_METHODS = [
   "media.revision.show",
   "media.select",
   "media.review",
+  "storyboard.show",
+  "storyboard.review",
   "evaluation.list",
   "evaluation.show",
   "evaluation.create",
@@ -1103,6 +1107,13 @@ export interface BridgeMethodContract {
     expectedSelectedRevisionId: string | null;
   }, MediaCardDto>;
   "media.review": Contract<MediaReviewParams, MediaReviewResult>;
+  "storyboard.show": Contract<ScopedParams, StoryboardDto>;
+  "storyboard.review": Contract<ScopedParams & {
+    action: StoryboardReviewAction;
+    scenes?: string[];
+    all?: true;
+    comment?: string;
+  }, StoryboardReviewResultDto>;
   "evaluation.list": Contract<ScopedCursorParams & HistoryOrderParams & EvaluationListFilter, Page<EvaluationDto>>;
   "evaluation.show": Contract<IdParams<"evaluationId">, EvaluationDto>;
   "evaluation.create": Contract<ScopedParams & {

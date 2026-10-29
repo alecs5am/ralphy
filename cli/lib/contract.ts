@@ -29,6 +29,12 @@ import { assertCommandProject, getCommandContext } from "./context-state.js";
 import { isModeSupported } from "./content-modes.js";
 import { openDomainDb } from "./store/db.js";
 import { loadWorkspaceEvaluatorsSync } from "./workspace-evaluators.js";
+import {
+  findStoryboardProject,
+  showStoryboard,
+  summarizeStoryboard,
+  type StoryboardStatusSummary,
+} from "./storyboard/index.js";
 
 /** A single phase of the production contract. */
 export interface ContractPhase {
@@ -250,7 +256,8 @@ export interface StopCondition {
     | "estimate-exceeds-target"
     | "user-approval-needed"
     | "native-gate-required"
-    | "stage-gate-unmet";
+    | "stage-gate-unmet"
+    | "storyboard-approval-needed";
   /** The phase id this stop gates (matches a `CONTRACT_PHASES[].id`). */
   phase: string;
   /** Severity: `block` halts progress; `warn` is advisory the agent should surface. */
@@ -313,6 +320,13 @@ export interface ContractEvaluation {
    * publishable while this is false. `null` when no eval has landed yet.
    */
   polished: boolean | null;
+  /**
+   * The storyboard review state (#570): per-scene approval (pending / approved /
+   * rejected / stale) and approve-all, or `null` when the Project has no
+   * scenario scenes to review. Paid scene generation waits for approval in an
+   * AI-production Project (`storyboard-approval-needed` stop).
+   */
+  storyboard: StoryboardStatusSummary | null;
 }
 
 /** Project-relative recommended next step per phase id. */
@@ -530,6 +544,23 @@ export function evaluateContract(projectId: string): ContractEvaluation {
   // ── Stop conditions derived from project state (#414) ───────────────────────
   const stopConditions = deriveStopConditions(project, stages, phases, polished);
 
+  // ── Storyboard review (#570) ────────────────────────────────────────────────
+  const storyboard = storyboardSummary(project);
+  if (
+    storyboard?.aiProduction &&
+    storyboard.scenes > 0 &&
+    !storyboard.approvedAll &&
+    phases.find((p) => p.id === "render")?.present !== true
+  ) {
+    const open = storyboard.perScene.filter((scene) => scene.state !== "approved").map((scene) => `${scene.id} (${scene.state})`);
+    stopConditions.push({
+      id: "storyboard-approval-needed",
+      phase: "assets",
+      severity: "block",
+      detail: `storyboard not approved: ${open.join(", ")}. Show it (\`ralphy storyboard show ${storyboard.project}\`) and get the user's approval (\`ralphy storyboard approve ${storyboard.project} --scene <id>\` or \`--all\`) before paid image/video generation for those scenes.`,
+    });
+  }
+
   return {
     project: projectId,
     kind,
@@ -542,7 +573,19 @@ export function evaluateContract(projectId: string): ContractEvaluation {
     nextStep,
     stopConditions,
     polished,
+    storyboard,
   };
+}
+
+function storyboardSummary(project: ContractProjectRow): StoryboardStatusSummary | null {
+  try {
+    const resolved = findStoryboardProject(project.id, { workspaceId: project.workspaceId });
+    if (!resolved) return null;
+    const view = showStoryboard(resolved);
+    return view.scenes.length > 0 ? summarizeStoryboard(view) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

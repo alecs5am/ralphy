@@ -18,7 +18,7 @@ description: >-
 > 2. **Aspect / platform** — 9:16 TikTok / 16:9 YouTube / 1:1 broadcast realism.
 > 3. **Hard "no"s** — banned words, no-music policy, brand colors.
 > 4. **Format / template fit** — `ralphy template suggest "<brief>" --format <f>` first, craft-overlay skill on top; a style template only on an explicit remix pointer.
-> 5. **Storyboard lock** — `STORYBOARD.md` + `RETENTION_REVIEW.md` ([retention-review.md](./references/retention-review.md)) and an explicit user "go" BEFORE handing to art-director.
+> 5. **Storyboard lock** — `STORYBOARD.md` + `RETENTION_REVIEW.md` ([retention-review.md](./references/retention-review.md)) and an explicit user "go" BEFORE handing to art-director. In AI production the "go" is the per-scene storyboard approval (#570): the user reviews the gallery in the desktop app or `ralphy storyboard html <id>`, and the decision lands via `ralphy storyboard approve <id> --scene <s>` / `--all` (or `reject --comment`). Paid scene image/video generation refuses until then — [`agent-production-contract.md`](../../../docs/playbooks/agent-production-contract.md#storyboard-approval-gate-570).
 >
 > The full intake protocol fires before this playbook: [`.agents/skills/intake/SKILL.md`](../intake/SKILL.md).
 

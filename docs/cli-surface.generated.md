@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **60**
+Verbs registered: **61**
 
 ## Top-level verbs
 
@@ -878,8 +878,13 @@ Commands:
   create [options] [name]       Create a Project
   list [options]                List Projects in a Workspace
   show <id>                     Show a Project
-  status <id>                   Show database-derived Project stages, bindings,
-                                Iteration, and feedback
+  status [options] <id>         Show database-derived Project stages, bindings,
+                                Iteration, and feedback. --contract (alias
+                                --lifecycle): the production-contract ledger
+                                (per-phase satisfied/missing,
+                                currentPhase/nextPhase/nextStep, stopConditions,
+                                polished) plus the storyboard approval state per
+                                scene (#406/#414/#570).
   repair-plan [options] <id>    Build a deterministic eval-to-repair plan
                                 (#409). Reads eval.json (+
                                 eval-deep-vision.json's what_to_redo when
@@ -2592,6 +2597,49 @@ Commands:
   status            Report whether the routing pack is installed, and whether it
                     matches this CLI
   help [command]    display help for command
+```
+
+### `ralphy storyboard`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy storyboard [options] [command]
+
+Review the per-scene storyboard (frame, VO, duration, camera, model, estimated
+cost) and approve it before paid AI image/video generation (#570).
+
+Options:
+  -h, --help                   display help for command
+
+Commands:
+  show <project>               Show the storyboard: per scene the frame, VO
+                               line, duration, camera note, models, estimated
+                               cost and approval state (pending | approved |
+                               rejected | stale). Reads only.
+  approve [options] <project>  Approve storyboard scene(s) — or --all — on their
+                               current content. Unlocks paid image/video
+                               generation for those scenes; logged to
+                               user-prompts.jsonl (stage storyboard-approval).
+  reject [options] <project>   Reject storyboard scene(s) — or --all — with an
+                               optional --comment. Paid generation for rejected
+                               scenes stays refused; logged to
+                               user-prompts.jsonl (stage storyboard-rejection).
+  comment [options] <project>  Comment on storyboard scene(s) without changing
+                               their approval state; logged to
+                               user-prompts.jsonl (stage storyboard-comment).
+  html <project>               Write a self-contained HTML storyboard gallery
+                               (frames inlined) to
+                               <project>/storyboard/storyboard[.vN].html.
+                               Append-only: every run writes a new file version,
+                               never overwrites.
+  help [command]               display help for command
 ```
 
 ### `ralphy bridge`

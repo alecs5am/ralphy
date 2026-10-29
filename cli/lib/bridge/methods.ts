@@ -53,7 +53,15 @@ import {
   type MemoryTier,
   type TierRef,
 } from "../memory/store.js";
+import { DomainError } from "../errors/domain.js";
 import { getMediaCard, listMedia, reviewMedia } from "../store/media.js";
+import {
+  requireStoryboardProject,
+  reviewStoryboard,
+  showStoryboard,
+  StoryboardReviewError,
+  type StoryboardProject,
+} from "../storyboard/index.js";
 import { getArtifactRevision, listArtifactRevisions, selectArtifactRevision } from "../store/artifacts.js";
 import { createEvaluation, getEvaluation, listEvaluations } from "../store/evaluations.js";
 import {
@@ -726,6 +734,43 @@ export function createBridgeMethods(input: {
       tags: value.tags === undefined ? undefined : arrayOfStrings(value.tags, "tags"),
       note: optionalString(value.note),
     });
+  });
+
+  // #570: the storyboard review the desktop gallery draws and decides on.
+  // Scene content is derived from the Project; decisions append a revision to
+  // the Project's storyboard Document and are mirrored into the user-prompt log.
+  add("storyboard.show", "read", (params, methodContext) => {
+    const value = object(params, "storyboard.show");
+    exactKeys(value, ["context"], "storyboard.show");
+    return showStoryboard(storyboardScopeProject(consumerQueryContext(value, methodContext)));
+  });
+  add("storyboard.review", "mutation", async (params, methodContext) => {
+    const value = object(params, "storyboard.review");
+    exactKeys(value, ["context", "action", ...["scenes", "all", "comment"].filter((key) => Object.hasOwn(value, key))], "storyboard.review");
+    const context = consumerQueryContext(value, methodContext);
+    const action = string(value.action, "action");
+    if (action !== "approve" && action !== "reject" && action !== "comment") {
+      throw new Error("storyboard.review action must be approve, reject, or comment");
+    }
+    const all = value.all === undefined ? false : value.all === true;
+    const scenes = value.scenes === undefined ? [] : arrayOfStrings(value.scenes, "scenes");
+    if (all === (scenes.length > 0)) throw new Error("storyboard.review requires exactly one of scenes or all");
+    try {
+      const result = await reviewStoryboard(storyboardScopeProject(context), {
+        action,
+        scenes,
+        all,
+        comment: optionalString(value.comment) ?? null,
+        source: "desktop",
+        authoredBySessionId: context.sessionId ?? null,
+      });
+      return { touched: result.touched, revisionId: result.revisionId, storyboard: result.storyboard };
+    } catch (error) {
+      if (error instanceof StoryboardReviewError) {
+        throw new DomainError("E_VALIDATION_FAILED", undefined, { target: "storyboard.review", detail: error.message });
+      }
+      throw error;
+    }
   });
 
   add("evaluation.list", "read", (params) => {
@@ -1630,6 +1675,13 @@ function consumerQueryContext(
   return context.sessionId !== undefined && methodContext.authority
     ? { ...context, consumerAuthority: methodContext.authority }
     : context;
+}
+
+/** The exact Project a storyboard request is scoped to. */
+function storyboardScopeProject(context: QueryContext): StoryboardProject {
+  const scope = resolveScope(context);
+  if (scope.projectId === null) throw new Error("Storyboard requests require a Project scope");
+  return requireStoryboardProject(scope.projectId, { workspaceId: scope.workspaceId });
 }
 
 function resolveScope(context: QueryContext): { workspaceId: string; projectId: string | null } {

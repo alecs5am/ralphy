@@ -313,11 +313,22 @@ export async function logUserPrompt(
   projectId: string,
   entry: Omit<UserPromptEntry, "timestamp"> & { timestamp?: string }
 ): Promise<void> {
+  await logUserPromptInDir(projectDir(projectId), entry);
+}
+
+/**
+ * {@link logUserPrompt} for a caller that already holds the Project's on-disk
+ * tree (the storyboard review resolves it through the store, #570).
+ */
+export async function logUserPromptInDir(
+  projectTreeDir: string,
+  entry: Omit<UserPromptEntry, "timestamp"> & { timestamp?: string }
+): Promise<void> {
   const full: UserPromptEntry = {
     timestamp: entry.timestamp ?? new Date().toISOString(),
     ...entry,
   };
-  await appendJsonl(path.join(logsDir(projectId), "user-prompts.jsonl"), full);
+  await appendJsonl(path.join(projectTreeDir, "logs", "user-prompts.jsonl"), full);
 }
 
 export async function readLog<T = unknown>(

@@ -25,7 +25,7 @@ Low-quality projects come from agents improvising the workflow: weak brief captu
 | 9 | Preflight council (#415) | `council-preflight.json` | optional | `ralphy project council <id> --phase preflight` reviews the plan BEFORE paid gen |
 | 10 | Scenario quality | `scenario.json` | yes¹ | `scoreScenario` refuse-not-warn |
 | 11 | Prompt drafting | `prompts.json` | yes | `scoreImage` / `scoreVideo` on draft |
-| 12 | Asset generation | `asset-manifest.json` + `artifacts/<kind>/` | yes | per-slot checkpoints; auto-version on regen |
+| 12 | Asset generation | `asset-manifest.json` + `artifacts/<kind>/` | yes | **storyboard approval per scene (#570)**; per-slot checkpoints; auto-version on regen |
 | 13 | Render preflight + render | `render/final.mp4` | yes | `ralphy editor preflight <id>` → `ralphy render <id>` |
 | 14 | Eval (#411) | `eval.json` (+ `eval-report.md`) | yes | `/evaluator`; **native-video gate is the ship gate** |
 | 15 | Repair (#409) | `repair-plan.json` (optional) | — | fixer runs `ralphy project repair-plan <id>` (deterministic, zero model calls), gets approval, then auto-versioned re-rolls |
@@ -114,6 +114,17 @@ Each phase below names: **required artifact(s)**, **allowed skips** (and what co
 - **Gate:** `ralphy project score <id>` / `scoreScenario` — **refuse, not warn** (AGENTS.md invariant #4). Two failures in a row → stop and report concrete options. The thresholds follow the duration tier, and a content mode whose registry entry does not list `scoreScenario` gets the format checks as warnings while the Green Zone check stays hard (#569, [`quality-gate.md`](../../.agents/skills/scenarist/references/quality-gate.md)).
 - **Allowed skip:** `image-pack` projects (no scenario by shape) — `evaluateContract()` relaxes the requirement for them. Freeform single-asset edits also skip.
 - **Stop condition:** scenario fails the gate twice → do NOT proceed to prompts.
+
+### Storyboard approval gate (#570)
+
+- **Rule:** in **AI production**, paid image and video generation for a scene waits for the user's storyboard approval. Edits of raw footage (content modes `personal-clipper` / `podcast-video`, or a scenario / plan that declares `"production": "raw-footage"`) need no approval step. A project without scenario scenes has nothing to review.
+- **The storyboard:** per scene the frame (a cheap still or sketch — the image Artifact `storyboard-<scene-id>` / `<scene-id>-storyboard` / `<scene-id>-sketch`, or a file of that name under `artifacts/images/` or `storyboard/`), the VO line, the duration, the camera note, the chosen image + video model and the estimated cost. Scenes are derived from `scenario.json`, `prompts.json` and the production plan on every read; approvals live in the Project's `storyboard` Document (one immutable JSON revision per decision).
+- **Review surfaces:** the desktop app's storyboard gallery (Project → Storyboard) is the primary one. Without it: `ralphy storyboard show <project>` (JSON; a table on a TTY) or `ralphy storyboard html <project>` (a self-contained HTML gallery under `<project>/storyboard/`, a new file version per run, never overwritten).
+- **Decisions:** `ralphy storyboard approve <project> --scene <id>` (repeatable) or `--all` (approve-all), `ralphy storyboard reject <project> --scene <id> --comment "<why>"`, `ralphy storyboard comment <project> --scene <id> --comment "<note>"`. Record the user's own words in `--comment`. Every decision is logged to `user-prompts.jsonl` (`stage: storyboard-approval | storyboard-rejection | storyboard-comment`).
+- **Pinned to content:** an approval covers the scene as the user saw it (VO, duration, camera, frame). When one of them changes, the scene reads `stale` and needs a fresh approval.
+- **Gate:** `ralphy generate image | image-batch | video` on a scene slot (`scene-NN-…`) of an AI-production project prints a `[warn] storyboard gate` line and refuses with `E_GATE_STORYBOARD` while that scene is pending, rejected or stale. Storyboard frame slots, Workspace destinations, host imports (`--import`) and `--dry-run` never refuse (a dry run still warns).
+- **Allowed skip:** only on the user's explicit say-so — `--no-storyboard-consent "<user's words>"` on the generate call, which logs `stage: "no-storyboard-consent"` to `user-prompts.jsonl`. Never pass it on your own initiative.
+- **Ledger:** `ralphy project status <id> --contract` carries `storyboard` (per-scene state, approve-all) and the `storyboard-approval-needed` stop while scenes are unapproved and no render exists.
 
 ### 11 — Prompt drafting → `prompts.json`
 
@@ -207,7 +218,8 @@ Each phase below names: **required artifact(s)**, **allowed skips** (and what co
 - `nextRecommendedAction` — the first unsatisfied **required** phase's next step (kept for backward compatibility).
 - `currentPhase` — the furthest satisfied phase (deepest trail point), or `null`.
 - `nextPhase` / `nextStep` — the first unsatisfied artifact-bearing phase (the resume cursor) + a one-line instruction.
-- `stopConditions[]` — blocking / advisory conditions derived from project state: `reference-required`, `quality-gate-failed`, `mode-unsupported`, `estimate-exceeds-target`, `user-approval-needed`, `native-gate-required`. Empty when nothing blocks.
+- `stopConditions[]` — blocking / advisory conditions derived from project state: `reference-required`, `quality-gate-failed`, `mode-unsupported`, `estimate-exceeds-target`, `user-approval-needed`, `native-gate-required`, `stage-gate-unmet`, `storyboard-approval-needed` (#570). Empty when nothing blocks.
+- `storyboard` — the storyboard review state (#570): `aiProduction`, per-scene `perScene[].state` (`pending | approved | rejected | stale`) with the latest comment, the counts, and `approvedAll`; `null` when the project has no scenario scenes.
 - `polished` — `true` only when the render passed the **native-video final gate** (`eval.json` → `gate.shipReady === true`) or a logged user-approved bypass; `false` when a render exists but the native gate has not passed; `null` before any eval. A Unit is not polished/publishable while this is not `true` (#411 + #414 Acceptance #3).
 
 Use this to self-check before claiming a project is done, to resume a project mid-flight after a context reset, and (in the content-farm loop #410) to drive the next action without re-reading the whole project tree. It is guidance, not a wizard — it never prompts the user.

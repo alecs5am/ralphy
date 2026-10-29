@@ -43,7 +43,7 @@ const currentCoreCapabilities = [
   "project.status", "project.update", "publication.cancel", "publication.list",
   "publication.lookup", "publication.publish", "publication.reconcile", "publication.recover",
   "publication.refresh", "repair.start", "run.attempts", "run.cancel", "run.list", "run.objects", "run.results", "run.show",
-  "session.end", "session.list", "session.show", "session.start", "system.hello",
+  "session.end", "session.list", "session.show", "session.start", "storyboard.review", "storyboard.show", "system.hello",
   "transcription.start", "transform.start", "unit.create", "unit.items", "unit.list", "unit.presentations",
   "unit.preview", "unit.revise", "unit.revision.show", "unit.revisions", "unit.saveMedia", "unit.select",
   "unit.show", "workspace.account.list", "workspace.account.upsert", "workspace.export",
