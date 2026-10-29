@@ -203,10 +203,17 @@ describe("validateVideoParams · combined errors", () => {
 });
 
 describe("estimateVideoCostUsd", () => {
-  test("returns hand-table per-second × duration", () => {
-    expect(estimateVideoCostUsd("kwaivgi/kling-v3.0-pro", 5)).toBe(0.7);
-    expect(estimateVideoCostUsd("bytedance/seedance-2.0-fast", 10)).toBe(0.5);
-    expect(estimateVideoCostUsd("google/veo-3.1", 8)).toBe(4);
+  test("returns hand-table per-second × duration (2026-10-30 catalog, #568)", () => {
+    expect(estimateVideoCostUsd("kwaivgi/kling-v3.0-pro", 5)).toBe(0.56);
+    expect(estimateVideoCostUsd("bytedance/seedance-2.0-fast", 10)).toBe(1.4);
+    expect(estimateVideoCostUsd("google/veo-3.1", 8)).toBe(1.6);
+  });
+
+  test("uses the audio rate when native audio is generated", () => {
+    expect(estimateVideoCostUsd("google/veo-3.1", 8, true)).toBe(3.2);
+    expect(estimateVideoCostUsd("kwaivgi/kling-v3.0-pro", 5, true)).toBe(0.84);
+    // No separate audio rate recorded: falls back to the silent rate.
+    expect(estimateVideoCostUsd("minimax/hailuo-2.3", 10, true)).toBe(0.817);
   });
 
   test("falls back to 0.14/sec for unknown models", () => {

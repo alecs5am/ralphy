@@ -192,26 +192,35 @@ export function validateVideoParams(
   return findings;
 }
 
-// Per-second cost ballpark (mirrors VIDEO_PRICE_PER_SEC in media.ts).
-// OR's catalog does not expose a clean per-second figure for video models,
-// so this is a hand-maintained table kept in sync with MODELS.md.
-export const VIDEO_PRICE_PER_SEC: Record<string, number> = {
-  "kwaivgi/kling-v3.0-pro": 0.14,
-  "kwaivgi/kling-v3.0-std": 0.07,
-  "kwaivgi/kling-video-o1": 0.14,
-  "google/veo-3.1": 0.5,
-  "google/veo-3.1-fast": 0.25,
-  "google/veo-3.1-lite": 0.15,
-  "openai/sora-2-pro": 0.5,
-  "minimax/hailuo-2.3": 0.1,
-  "alibaba/wan-2.7": 0.1,
-  "alibaba/wan-2.6": 0.1,
-  "bytedance/seedance-2.0": 0.1,
-  "bytedance/seedance-2.0-fast": 0.05,
-  "bytedance/seedance-1-5-pro": 0.1,
+// Per-second cost ballpark: the single table behind dry-run estimates, plan
+// and storyboard costs, and the OpenRouter video billing fallback. OR's
+// catalog does not expose a clean per-second figure for video models, so it
+// is hand-maintained; rechecked against the live catalog and our billing on
+// 2026-10-30 (#568). `audio` is the rate when native audio is generated.
+export const VIDEO_PRICE_PER_SEC: Record<string, { silent: number; audio?: number }> = {
+  "kwaivgi/kling-v3.0-pro": { silent: 0.112, audio: 0.168 },
+  "kwaivgi/kling-v3.0-std": { silent: 0.084, audio: 0.126 },
+  "kwaivgi/kling-video-o1": { silent: 0.112 },
+  "google/veo-3.1": { silent: 0.2, audio: 0.4 },
+  "google/veo-3.1-fast": { silent: 0.1, audio: 0.12 },
+  "google/veo-3.1-lite": { silent: 0.05, audio: 0.08 },
+  "minimax/hailuo-2.3": { silent: 0.0817 },
+  "alibaba/wan-2.7": { silent: 0.1 },
+  "alibaba/wan-2.6": { silent: 0.1 },
+  // Seedance bills per video token; 0.14/s matched our billing on 2026-05-11.
+  "bytedance/seedance-2.0": { silent: 0.14 },
+  "bytedance/seedance-2.0-fast": { silent: 0.14 },
+  "bytedance/seedance-1-5-pro": { silent: 0.1 },
 };
 
-export function estimateVideoCostUsd(modelId: string, durationSec: number): number {
-  const perSec = VIDEO_PRICE_PER_SEC[modelId] ?? 0.14;
-  return Number((perSec * durationSec).toFixed(4));
+const DEFAULT_VIDEO_PRICE_PER_SEC = 0.14;
+
+export function videoPricePerSec(modelId: string, withAudio = false): number {
+  const row = VIDEO_PRICE_PER_SEC[modelId];
+  if (!row) return DEFAULT_VIDEO_PRICE_PER_SEC;
+  return withAudio ? row.audio ?? row.silent : row.silent;
+}
+
+export function estimateVideoCostUsd(modelId: string, durationSec: number, withAudio = false): number {
+  return Number((videoPricePerSec(modelId, withAudio) * durationSec).toFixed(4));
 }

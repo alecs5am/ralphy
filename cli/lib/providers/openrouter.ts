@@ -28,6 +28,7 @@ import {
   usageLogFields,
 } from "./shared.js";
 import { withConcurrency } from "./concurrency.js";
+import { videoPricePerSec } from "../or-catalog.js";
 import type {
   RalphyConnector,
   CallLLMOptions,
@@ -439,24 +440,6 @@ const DEFAULT_VIDEO_MODEL = "kwaivgi/kling-v3.0-pro";
 // 2026-05-11 — see docs/render-test-2026-05-11.md §1.1. OR bills per-clip with
 // a flat per-second rate per model; the per-second math here matches observed
 // billing across duration parameters. Add a row whenever a new model is used.
-const VIDEO_PRICE_PER_SEC: Record<string, number> = {
-  // kling family — both pro and std bill at the same per-second rate on OR
-  "kwaivgi/kling-v3.0-pro": 0.14,
-  "kwaivgi/kling-v3.0-std": 0.14,   // verified 2026-05-11: $0.70 / 5s clip (not "½ of pro" — same rate)
-  "kwaivgi/kling-video-o1": 0.14,
-  // veo family
-  "google/veo-3.1": 0.5,             // full / 4K
-  "google/veo-3.1-fast": 0.14,       // verified 2026-05-11: $1.12 / 8s clip
-  "google/veo-3.1-lite": 0.0875,     // ballpark from MODELS.md; verify in next test-drive
-  // seedance family
-  "bytedance/seedance-2.0": 0.14,        // verified 2026-05-11 — match family rate, not earlier $0.10/s
-  "bytedance/seedance-2.0-fast": 0.14,   // verified 2026-05-11: $0.56 / 4s clip
-  // alibaba wan family — using MODELS.md ballparks, verify on first use
-  "alibaba/wan-2.6": 0.10,
-  "alibaba/wan-2.7": 0.10,
-  // minimax
-  "minimax/hailuo-2.3": 0.10,
-};
 
 // Per-model prompt-length cap. OR returns 400 after a round-trip when exceeded
 // (4× wasted submits in glitter-cream-001 before this preflight landed). Catch
@@ -694,7 +677,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   const buf = Buffer.from(await dl.arrayBuffer());
   await fs.writeFile(dest, buf);
 
-  const pricePerSec = VIDEO_PRICE_PER_SEC[model] ?? 0.14;
+  const pricePerSec = videoPricePerSec(model, input.generateAudio ?? false);
   const result: GenerateResult = {
     url: downloadUrl,
     localPath: dest,
