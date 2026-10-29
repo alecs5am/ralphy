@@ -433,3 +433,16 @@ Prediction ledger: one JSON Document per niche scope (`trend-prediction-ledger-p
 - `demand-signal` is a stub that reports "not collected" until comment samples exist.
 - Contact sheets and subtitles for the contrast set: blocked on the first TikTok download (HTTP 403).
 - Paid placements: the `#ad` reference above shows that sponsored videos need an exclusion rule before they reach the reference list.
+
+## Formats with several top performers (2026-10-30)
+
+Question from the owner: which video format in the psychology EN set has several top performers (different creators, not one creator's luck). Scope: in-sample kept creators, main group, scored TikTok videos only (2,990 judgeable videos; 1,776 EN from 38 creators; YouTube is undated and excluded), sponsored posts excluded. Base rate: 12.8% of EN videos reach 3x their creator's median. Formats were tagged from captions with simple patterns (rule pre-labels for hook type are too coarse: almost every caption is labelled `question`), so these are hypotheses with small samples, to be validated by #578.
+
+| Format (caption pattern) | Videos | Creators | Share at 3x+ | Lift vs base | Creators with a 5x+ video |
+|---|---|---|---|---|---|
+| Overstimulation / emotional dysregulation reframe ("it was not anger, it was overstimulation"; "dysregulation can look like depression") | 72 | 16 | 18% | 1.41 | 4 (170x, 23x, 13x, 12x), all 15-33 s |
+| Reverse frame ("things I would never say", "how to make it worse") | 18 | 11 | 17% | 1.30 | 2 (50x, 40x) |
+| Symptom reframe in general ("looks like", "turns out", "actually") | 72 | 27 | 14% | 1.09 | 3 |
+| Direct question in the caption | 373 | 36 | 12% | 0.92 | 15 (common, not a lift) |
+
+Reading: the strongest repeatable format is a short (15-35 s) reframe of a misread state: the viewer recognises a behaviour they blame themselves for and gets a kinder, more precise name for it. It breaks out for unrelated creators of different sizes. Topic-level lifts (OCD 2.0x, ADHD 1.24x, narcissism 1.17x) are dominated by one or two creators each, so they are topic signals, not formats.
