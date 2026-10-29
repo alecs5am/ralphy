@@ -25,6 +25,14 @@ need: transcribe
   → openai/whisper-1 via cli/lib/transcribe.ts (OpenRouter)
 ```
 
+## Prompt guidelines for the picked model
+
+After picking the model, read the guideline that covers the prompt you are about to write (`ralphy guideline show <slug>`).
+
+| Prompt names | Guideline | What it gives |
+|---|---|---|
+| A camera move or framing in any video prompt (shot size, angle, push-in, pan, orbit, handheld, FPV, multi-shot coverage) | [`camera-language-video`](../../../../guidelines/camera-language-video/guideline.md) | Per-model camera vocabulary for every `MODELS.md` video model, one-move-per-shot phrasing, Hailuo bracket commands, multi-shot syntax per model, anti-patterns. Research pass: every row is `untested` until [`docs/research/camera-language-test-plan.md`](../../../../docs/research/camera-language-test-plan.md) runs. Edit-time moves (punch-in, shake, whip, Ken Burns) are the editor's [`virtual-camera.md`](../../editor/references/virtual-camera.md). |
+
 ## Cost preview
 
 Before a batch — **always** state the estimate out loud:

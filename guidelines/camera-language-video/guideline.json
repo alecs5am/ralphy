@@ -1,0 +1,30 @@
+{
+  "slug": "camera-language-video",
+  "name": "Camera language for video-generation prompts",
+  "tag": "@guideline:camera-language-video",
+  "version": "0.1",
+  "kind": "video-prompt",
+  "tagline": "Per-model camera vocabulary for every video model in MODELS.md: which shot sizes, angles and moves each model is documented to follow, where it breaks, how to phrase one move per shot, and how to write multi-shot coverage. Research pass only: every row is untested in Ralphy until the camera test matrix runs.",
+  "description": "How to write the camera part of a video prompt (text-to-video and image-to-video) so the model executes the intended framing and move. Covers 30 camera moves (locked-off, pan, tilt, push-in, pull-out, zoom, crash zoom, dolly zoom, truck, pedestal, crane, boom to overhead, arc, 360 orbit, tracking, follow, leading, handheld, shaky cam, steadicam, FPV fly-through, aerial drone, whip pan, rack focus, dutch roll, barrel roll, POV, selfie, over-the-shoulder, compound moves) with per-model notes for Kling 3.0 / O1, Veo 3.1, Seedance 2.0 / 1.5, Hailuo 2.3 and Wan 2.6 / 2.7, each labeled documented / community-reported / no info. Adds the Hailuo bracket command syntax, per-model multi-shot coverage phrasing for one scene, and an anti-pattern table. Post-production camera moves live in the editor virtual-camera reference (#567).",
+  "origin": "notes/issues/566 research pass 2026-10-30 (official model docs and community reports; no Ralphy renders yet). Test matrix: docs/research/camera-language-test-plan.md.",
+  "verification": "untested",
+  "scope": ["video", "camera", "i2v", "t2v", "shot-size", "camera-move", "multi-shot"],
+  "models": [
+    "kwaivgi/kling-v3.0-pro",
+    "kwaivgi/kling-v3.0-std",
+    "kwaivgi/kling-video-o1",
+    "fal-ai/kling-video/o3/pro/reference-to-video",
+    "google/veo-3.1",
+    "google/veo-3.1-fast",
+    "google/veo-3.1-lite",
+    "bytedance/seedance-2.0",
+    "bytedance/seedance-2.0-fast",
+    "bytedance/seedance-1-5-pro",
+    "bytedance/seedance-2.0/reference-to-video",
+    "minimax/hailuo-2.3",
+    "alibaba/wan-2.6",
+    "alibaba/wan-2.7"
+  ],
+  "tags": ["camera", "camera-move", "cinematography", "shot-size", "multi-shot", "video", "i2v"],
+  "patterns": ["one-move-per-shot", "camera-sentence-first", "depth-layers-for-parallax", "explicit-locked-off", "hailuo-bracket-commands", "multi-shot-coverage"]
+}

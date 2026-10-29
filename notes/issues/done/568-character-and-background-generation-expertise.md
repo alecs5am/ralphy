@@ -1,6 +1,6 @@
 # Character and background generation expertise
 
-> **Status:** todo
+> **Status:** done — 2026-10-30 (free part: decision table and consistency playbook in the art-director skill from vendor docs and our generation logs; paid matrix planned in docs/research/character-generation-test-plan.md, $31 with contingency, $40 cap, waits for owner approval)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** high

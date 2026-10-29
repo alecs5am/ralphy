@@ -1,6 +1,6 @@
 # Camera language for video-generation prompts
 
-> **Status:** todo
+> **Status:** done — 2026-10-30 (free part: `camera-language-video` guideline, 30 moves with per-model notes, all marked untested; paid test matrix planned in docs/research/camera-language-test-plan.md, $35.58 minimum, waits for owner approval)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** medium
