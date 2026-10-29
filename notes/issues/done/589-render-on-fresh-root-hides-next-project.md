@@ -1,6 +1,6 @@
 # Render on a fresh root hides the next project
 
-> **Status:** todo
+> **Status:** done — 2026-10-30 (root cause: the #575 render next-step and the bare status call opened and created ralphy.db on a tree-only root; read-only and advisory paths no longer initialize the store)
 > **Filed:** 2026-10-30
 > **Folder:** issues
 > **Severity:** medium

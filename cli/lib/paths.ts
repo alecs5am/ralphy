@@ -245,6 +245,33 @@ function readRegistryProjectsSync(): Record<string, any> {
 }
 
 /**
+ * Whether the data root holds Projects but no domain store (#589): a Project
+ * tree under `workspaces/<ws>/projects/` or a legacy registry entry, and no
+ * `ralphy.db`. Opening the ambient store creates `ralphy.db`, and a store
+ * created on such a root is an empty library: scope resolution then rejects
+ * every one of those Projects with "Project not found". Read-only and advisory
+ * paths check this before they open the store (`ralphy setup` refuses such a
+ * root outright; `ralphy migrate domain` imports it).
+ */
+export function holdsProjectsWithoutStore(): boolean {
+  if (existsSync(path.join(ralphDir(), "ralphy.db"))) return false;
+  if (Object.keys(readRegistryProjectsSync()).length > 0) return true;
+  let workspaces: string[];
+  try {
+    workspaces = readdirSync(workspacesDir());
+  } catch {
+    return false;
+  }
+  return workspaces.some((slug) => {
+    try {
+      return readdirSync(path.join(workspacesDir(), slug, "projects")).length > 0;
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
  * Which workspace a project belongs to. Resolution order:
  *   1. registry entry's `workspace` field (absent → "default"), except that a
  *      legacy entry never moves the scoped Project out of the Workspace the

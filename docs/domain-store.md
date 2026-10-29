@@ -176,6 +176,15 @@ legacy registry is read only on a root where no store scope resolves (no
 as `brief` or `refs` that a store Project's metadata does not carry yet. It never
 overrides the store's Workspace for a Project.
 
+Read-only and advisory paths never create `ralphy.db` on a root that holds
+Project trees or registry Projects but no store (#589): the post-render next
+step (`evaluateContract` finds no store Project) falls back to `eval`, and the
+memory digest of the step-0 status call (bare `ralphy`) is empty. A store
+created there would be an empty library, and scope resolution would then
+reject every one of those Projects with "Project not found". Such a root stays
+a legacy root until `ralphy migrate domain` imports it; an empty fresh root is
+still initialized by the status call, as before.
+
 ## Migration safety
 
 The domain migration is resumable and journaled:

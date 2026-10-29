@@ -25,9 +25,10 @@
 //    `nextRecommendedAction` — the gate for those lives in the agent loop, not
 //    the filesystem.
 
+import { existsSync } from "node:fs";
 import { assertCommandProject, getCommandContext } from "./context-state.js";
 import { isModeSupported } from "./content-modes.js";
-import { openDomainDb } from "./store/db.js";
+import { domainDbPath, openDomainDb } from "./store/db.js";
 import { loadWorkspaceEvaluatorsSync } from "./workspace-evaluators.js";
 import {
   findStoryboardProject,
@@ -421,6 +422,11 @@ function stageBindingBelongsToProject(
 }
 
 function resolveContractProject(projectId: string): ContractProjectRow {
+  // A ledger read never initializes a store (#589). Without ralphy.db there is
+  // no store Project to evaluate, and opening the ambient store here would
+  // create an empty library that hides every Project tree on this root from
+  // later commands (the post-render next step runs on legacy render roots).
+  if (!existsSync(domainDbPath())) throw new Error(`Project not found: ${projectId}`);
   const db = openDomainDb();
   const context = getCommandContext();
   const row = context

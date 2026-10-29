@@ -26,7 +26,12 @@
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { workspace as dataRoot, workspaceDir, currentWorkspace } from "../paths.js";
+import {
+  workspace as dataRoot,
+  workspaceDir,
+  currentWorkspace,
+  holdsProjectsWithoutStore,
+} from "../paths.js";
 import { slugify } from "../ids.js";
 import { appendActivity } from "../store/activity.js";
 import { openDomainDb, withImmediateTransaction } from "../store/db.js";
@@ -763,6 +768,10 @@ export function workspaceExists(ws: string): boolean {
 }
 
 function resolveWorkspaceId(value: string, required = true): string | null {
+  // A lookup that may miss (the step-0 status digest, recall, show) does not
+  // create a store over Project trees that predate it (#589): that store would
+  // be an empty library hiding those Projects, and it holds no memory either.
+  if (!required && holdsProjectsWithoutStore()) return null;
   const row = openDomainDb()
     .query<{ id: string }, [string, string, string]>(
       `SELECT id FROM workspaces

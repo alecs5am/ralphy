@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import fs from "node:fs";
+import path from "node:path";
 import { renderNextStep } from "../../cli/lib/render/next-step.js";
 import type { ContractEvaluation, ContractPhaseResult } from "../../cli/lib/contract.js";
+import { closeDomainDb } from "../../cli/lib/store/db.js";
+import { setRoot } from "../../cli/lib/paths.js";
+import { makeTmpRoot } from "../helpers/tmp-root";
 
 function phase(id: string, present: boolean): ContractPhaseResult {
   return { id, label: id, artifact: id, required: true, present, satisfied: present, rationale: "" };
@@ -40,5 +45,21 @@ describe("renderNextStep (#575)", () => {
       throw new Error("no project");
     });
     expect(next.phase).toBe("eval");
+  });
+
+  test("does not initialize a store on a legacy render root (#589)", () => {
+    const tmp = makeTmpRoot("ralphy-next-step-589");
+    try {
+      closeDomainDb();
+      fs.mkdirSync(path.join(tmp.dir, ".ralphy", "workspaces", "default", "projects", "demo-001", "render"), {
+        recursive: true,
+      });
+      expect(renderNextStep("demo-001").phase).toBe("eval");
+      expect(fs.existsSync(path.join(tmp.dir, ".ralphy", "ralphy.db"))).toBe(false);
+    } finally {
+      closeDomainDb();
+      setRoot(path.resolve(import.meta.dir, "..", ".."));
+      tmp.cleanup();
+    }
   });
 });
