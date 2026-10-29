@@ -1,6 +1,6 @@
 # Validate trend-analysis methods on collected data: keep what works, drop the rest
 
-> **Status:** todo (blocked on data: #556 corpus plus about 4-6 weeks of refresh snapshots)
+> **Status:** code ready 2026-10-30; validation blocked on data (about 84 days of prospective refresh with the strict purge)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** high
@@ -55,3 +55,39 @@ The analysis exists to make better content. Methods that do not improve predicti
 - Blocked until #556 has run long enough to have 28-day outcomes for early checkpoints (about 4-6 weeks of refresh on at least one niche); start with the #576 psychology niche if it exists by then.
 - Retention and completion exist only for our own posts (#558); methods that need them are deferred until enough own posts exist (minimum-n rule).
 - Methods list comes from the chat discussion of 2026-10-28; add new candidates here rather than building them first.
+
+## Code ready (2026-10-30)
+
+The harness and every method on trial are built and tested on synthetic data with known answers. Nothing is wired into the #556 / #576 / #577 defaults. Results, the data table, and the minimum history per method are in `docs/research/trend-methods-verdicts.md`.
+
+**How to run** (always on a frozen copy; the loader refuses a database with a live WAL file):
+
+```sh
+sqlite3 .ralphy/cache/trend-corpus-run/ralphy.db ".backup .ralphy/cache/backtest-578/corpus.db"
+bun run scripts/trend-backtest.ts --db .ralphy/cache/backtest-578/corpus.db \
+  --workspace ws_0e31c56b-bcb3-47bd-8b1c-377be28cec40 --json .ralphy/cache/backtest-578/results/<name>.json
+```
+
+- `--tasks` / `--methods` select the work; the baselines (creator multiplier, raw views, views per follower) always run.
+- `--axis format|hook|sound|hashtag` sets the content unit for the spread, transfer, copyability, and bandit tasks.
+- `--retime-backfill [--backdate-followers]` and `--no-purge` give exploratory runs, which are always marked PRELIMINARY.
+- `--synthetic` runs on the seeded synthetic corpus.
+- Every result carries the frozen dataset version (`tbd1-<hash>`).
+- Tests: `tests/unit/trends-backtest.test.ts` (look-ahead guards, version, purged split, bootstrap, end-to-end) and `tests/unit/trends-methods.test.ts` (each method recovers a planted value).
+
+**First run (dataset `tbd1-b198553d66fc98e4`):**
+
+- 1.3 days of history.
+- 888 prospective videos, 16 of them with two early snapshots, none with a 28-day outcome.
+- Every task reports "not enough history".
+- The re-timed backfill gives PRELIMINARY numbers for threshold calibration, baseline accuracy, and hashtag spread. No method beat its baseline there, and none can pass the rule before the strict re-test.
+
+**Data still needed:**
+
+1. About 84 days of daily prospective refresh, with 6-hour refresh for hot creators. That is 56 days without the purge.
+2. YouTube post dates through the Data API connector. About 227k YouTube videos are undated.
+3. Exact follower counts at least daily. Today they are rounded and hours apart.
+4. LLM format labels on the prospective cohort. Rule labels form only one format with 3+ adopters.
+5. Reshoot pairs for near-miss repair. That task is a stub.
+
+Re-test when about 300 breakout-eligible prospective videos per niche have outcomes. That is 2027-01-22 at the earliest.
