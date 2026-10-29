@@ -56,6 +56,11 @@ bunx hyperframes add <block-slug> .ralphy/workspaces/<ws>/projects/<id>
 ralphy catalog list --kind transition --mood energetic
 ralphy catalog show <item-id>
 
+# Alpha cutouts, local and $0 (#560) — see references/keying-and-matting.md
+ralphy matte key <green.mp4|green.png> [--project <id>]   # chroma screen -> VP9-alpha webm / PNG
+ralphy matte subject <clip.mp4> [--model rvm|birefnet]    # no screen -> text-behind-subject cutout
+ralphy matte setup                                        # once per machine, for `matte subject`
+
 # Inspect inputs / outputs
 ralphy project show <id> --assets        # asset-manifest before composing
 ralphy project show <id> --status        # what's done / missing
@@ -79,6 +84,7 @@ Extend a toon / painterly clip by anchoring a new `bytedance/seedance-2.0` i2v c
 | [editor/motion-catalog.md](./references/motion-catalog.md) | Pick a ready transition / motion element / SFX: `ralphy catalog list --kind transition --mood energetic` (#563) |
 | [editor/audio-mixing.md](./references/audio-mixing.md) | VO + music + SFX levels, ducking, fades |
 | [editor/green-zone.md](./references/green-zone.md) | Text/overlay placement inside 1080×1920 safe zone |
+| [editor/keying-and-matting.md](./references/keying-and-matting.md) | Text behind a moving subject, keyed green-screen characters: `ralphy matte subject` / `ralphy matte key` (local, $0) and the three-layer HyperFrames recipe (#560) |
 | [editor/hard-rules.md](./references/hard-rules.md) | 12-item ffmpeg / cut-discipline checklist for finals |
 | [extend-clip.md](./references/extend-clip.md) | Lengthen a stylized clip from its last frame |
 | [pixels-vs-code.md](./references/pixels-vs-code.md) | Full motion-graphics routing table |

@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **63**
+Verbs registered: **64**
 
 ## Top-level verbs
 
@@ -2661,6 +2661,37 @@ Commands:
   helper [options]          Write the HyperFrames runtime (ralphy-track.js:
                             follow + cornerPin) next to a composition
   help [command]            display help for command
+```
+
+### `ralphy matte`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy matte [options] [command]
+
+Local keying and matting with zero provider calls: green/blue-screen keys and
+subject cut-outs as alpha video for HyperFrames.
+
+Options:
+  -h, --help                 display help for command
+
+Commands:
+  setup [options]            Install the pinned local matting engine
+                             (py3.12-onnxruntime1.23.2-numpy2.5.4) and models
+                             with uv; idempotent. `matte key` needs only ffmpeg
+  key [options] <video>      Key a green or blue screen to alpha with a tuned
+                             colour-difference keyer and despill (pure ffmpeg)
+  subject [options] <video>  Cut the subject out of footage without a chroma
+                             screen (local RVM or BiRefNet); alpha video for
+                             text-behind-subject
+  help [command]             display help for command
 ```
 
 ### `ralphy prompts`

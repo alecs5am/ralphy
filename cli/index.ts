@@ -111,6 +111,7 @@ import { evalCmd } from "./commands/eval.js";
 import { researchCmd } from "./commands/research.js";
 import { trendsCmd } from "./commands/trends.js";
 import { trackCmd } from "./commands/track.js";
+import { matteCmd } from "./commands/matte.js";
 import { editorCmd } from "./commands/editor.js";
 import { composeCmd } from "./commands/compose.js";
 import { voiceCmd } from "./commands/voice.js";
@@ -253,7 +254,11 @@ program
          the video path it is given (#559). */
       /* And `catalog`: the motion catalog is repo-tracked definitions plus a
          cross-workspace SFX pack and previews under the data root (#563). */
-      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || sub === "catalog" || explicitCredentialProbe) {
+      /* And `matte` without `--project`: the matting engine is a per-machine
+         venv and reads only the media path it is given (#560). With
+         `--project` it resolves scope like any project verb. */
+      const matteWithoutProject = sub === "matte" && !actionCommand.opts().project;
+      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || sub === "catalog" || matteWithoutProject || explicitCredentialProbe) {
         setDataRoot(identity.dataRoot);
         return true;
       }
@@ -402,6 +407,7 @@ program.addCommand(evalCmd());
 program.addCommand(researchCmd());
 program.addCommand(trendsCmd());
 program.addCommand(trackCmd());
+program.addCommand(matteCmd());
 program.addCommand(promptsCmd());
 program.addCommand(storyboardCmd());
 program.addCommand(bridgeCmd());

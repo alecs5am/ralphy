@@ -20,6 +20,7 @@ import { daemonStatus } from "../lib/jobs/daemon.js";
 import { countByStatus } from "../lib/jobs/db.js";
 import { MIN_BUN_VERSION, supportedBunVersion } from "../lib/bun-runtime.js";
 import { trackEngineStatus, type TrackEngineStatus } from "../lib/track/engine.js";
+import { matteEngineStatus, type MatteEngineStatus } from "../lib/matte/engine.js";
 
 type InstallMode = "binary" | "developer";
 
@@ -46,9 +47,13 @@ type DoctorReport = {
     imagemagick: boolean;
     /** Optional local tracking engine (#559) — info-level only, never a blocker. */
     tracking: boolean;
+    /** Optional local matting engine (#560) — info-level only, never a blocker. */
+    matting: boolean;
   };
   /** Local tracking engine detail (#559): where it lives and how to install it. */
   tracking?: TrackEngineStatus;
+  /** Local matting engine detail (#560): `matte subject` models; `matte key` needs only ffmpeg. */
+  matting?: MatteEngineStatus;
   keys: Record<string, boolean>;
   daemon?: {
     running: boolean;
@@ -128,7 +133,7 @@ export function doctorCmd() {
           repoRoot: installInfo.repoRoot,
           templatesSource: installInfo.mode === "developer" ? "repo" : "bundled",
         },
-        deps: { bun: false, ffmpeg: false, imagemagick: false, tracking: false },
+        deps: { bun: false, ffmpeg: false, imagemagick: false, tracking: false, matting: false },
         keys: {},
         blockers: [],
         warnings: [],
@@ -167,6 +172,14 @@ export function doctorCmd() {
         report.deps.tracking = report.tracking.installed;
       } catch {
         report.deps.tracking = false;
+      }
+      // Local matting engine (#560): OPTIONAL, file checks only, never a
+      // blocker. `ralphy matte setup` installs it; `matte key` needs only ffmpeg.
+      try {
+        report.matting = matteEngineStatus();
+        report.deps.matting = report.matting.installed && report.matting.models.rvm;
+      } catch {
+        report.deps.matting = false;
       }
 
       // Keys
@@ -270,6 +283,12 @@ export function doctorCmd() {
           console.log(`  ${icons.ok} local tracking ${c.muted(`(${report.tracking?.stack ?? "installed"})`)}`);
         } else {
           console.log(`  ${c.muted("·")} ${c.muted(`local tracking (optional — ${report.tracking?.hint ?? "run `ralphy track setup`"})`)}`);
+        }
+        if (report.deps.matting) {
+          const extra = report.matting?.models.birefnet ? ", rvm + birefnet" : ", rvm";
+          console.log(`  ${icons.ok} local matting ${c.muted(`(${report.matting?.stack ?? "installed"}${extra})`)}`);
+        } else {
+          console.log(`  ${c.muted("·")} ${c.muted(`local matting (optional — ${report.matting?.hint ?? "run `ralphy matte setup`"})`)}`);
         }
 
         section("API keys");
