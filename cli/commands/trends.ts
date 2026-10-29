@@ -12,6 +12,8 @@
 //   trends niche init "<topic>" --lang en --seeds-file f   topic -> creators (#576)
 //   trends niche report <niche> [--lang en] [--markdown f] niche report (#576)
 //   trends niche list                                       open niches
+//   trends signals --niche <n> [--lang en] [--type ...]    signal engine (#577)
+//   trends precision --niche <n> [--lang en]                prediction-ledger precision (#577)
 //
 // Every verb takes an explicit global `--workspace <id>` (the corpus
 // Workspace). Free sources run logged out with no cookies; paid Apify sources
@@ -83,7 +85,10 @@ import { DAY_MS, HOUR_MS, MATURITY_PRIORS, SIZE_BANDS, TREND_PLATFORMS, isTrendP
 import { PAID_ACTORS } from "../lib/trends/sources/paid.js";
 import { capturePageXhr, openTiktokProfileSession } from "../lib/trends/sources/tiktok.js";
 import { runYtdlp, ytdlpAvailable } from "../lib/trends/sources/ytdlp.js";
-import { YOUTUBE_API_SOURCE } from "../lib/trends/sources/youtube.js";
+import { YOUTUBE_API_SOURCE, YOUTUBE_WATCH_SOURCE } from "../lib/trends/sources/youtube.js";
+import { buildNicheSignals, buildPrecision, recordPicks, SIGNAL_MIN_N, type HypothesisInput } from "../lib/trends/signal-engine.js";
+import { ATTENTION_TIERS, DEFAULT_TIER_RULES, SIGNAL_TYPES, TIER_CADENCE, attentionTier, isSignalType, type SignalType } from "../lib/trends/signals.js";
+import { creatorAttentionFacts } from "../lib/store/trend-signals.js";
 
 const SCORE_NOTE = "Multipliers, z scores, composites, and labels are Ralphy's own estimates from creator-relative baselines, not platform data.";
 const WATCH_KINDS: readonly WatchlistKind[] = ["hashtag", "keyword", "sound", "explore-category", "creator", "related"];
@@ -384,6 +389,83 @@ export function trendsCmd(): Command {
       }
       const link = linkTrendDigest({ workspaceId, videoId: video.id, refKind: isDocument ? "document" : "bundle", digestRef });
       out({ kind: "trend-digest-link", ...link, createdAt: iso(link.createdAt) });
+    });
+
+  cmd
+    .command("signals")
+    .description("Signal engine (#577): breakout, small-account breakout, early momentum, near-miss (packaging-weak / content-weak), emerging format, and demand signal (not collected yet) for one niche, each with a label and evidence; adaptive widening below K references (the step is recorded per item); attention tiers; scale-up estimate against the own #558 baseline; optional within-creator contrast sets; --record appends the picks with predicted bands to the niche's prediction ledger")
+    .requiredOption("--niche <niche>", "Open niche slug (from trends niche init)")
+    .option("--lang <code>", "Only creators of this language (ISO 639-1)")
+    .option("--platform <platform>", `Only one platform: ${TREND_PLATFORMS.join(" | ")}`)
+    .option("--sub-niche <slug>", "Only one sub-niche (enables the adjacent-sub-niches widening step)")
+    .option("--type <type...>", `Signal types: ${SIGNAL_TYPES.join(" | ")}`)
+    .option("--since <age>", "Listing and base widening window", "30d")
+    .option("--widen-since <age>", "Window of the extend-window widening step", "90d")
+    .option("--k <n>", "Qualifying references wanted before widening stops", "20")
+    .option("--limit <n>", "Rows per signal type", "20")
+    .option("--contrast <n>", "Within-creator contrast sets (signal vs 3 median videos of the same creator) for the top N transferable candidates", "0")
+    .option("--noise-floor <views>", "Override the niche's noise floor for references")
+    .option("--own-workspace <id>", "Workspace whose #558 outcomes form the own baseline (default: the corpus Workspace)")
+    .option("--own-followers <n>", "Own follower count for the reach-per-follower scale-up (#558 stores none)")
+    .option("--record", "Append the picks (widened references + emerging formats) with predicted outcome bands to the prediction ledger Document")
+    .option("--hypotheses <file>", "With --record: JSON [{ videoId | url, why, classification: transferable | creator-bound }] merged into the picks")
+    .action((opts, child: Command) => {
+      const verb = "trends signals";
+      const workspaceId = workspaceOf(child, verb);
+      const found = getNiche({ workspaceId, ref: slugifyNiche(String(opts.niche)) }) ?? getNiche({ workspaceId, ref: String(opts.niche) });
+      if (!found) raiseError("E_NOT_FOUND", { kind: "trend niche", id: String(opts.niche) });
+      const language = languageOf(opts.lang, verb);
+      const types = (opts.type as string[] | undefined)?.flatMap((value) => value.split(",")).map((value) => value.trim()).filter(Boolean);
+      for (const type of types ?? []) if (!isSignalType(type)) raiseError("E_FLAG_UNKNOWN", { flag: "type", value: type, allowed: SIGNAL_TYPES.join(", "), verb });
+      if (opts.hypotheses && !opts.record) raiseError("E_FLAG_MISSING", { flag: "record", verb });
+      const ownWorkspaceId = opts.ownWorkspace ? resolveCommandContext({ dataRoot: ralphDir(), workspaceId: String(opts.ownWorkspace), cwd: process.cwd() }).workspaceId : undefined;
+      const now = Date.now();
+      const scope = { ...(language ? { language } : {}), ...(opts.platform ? { platform: platformOf(opts.platform, verb) } : {}) };
+      const report = buildNicheSignals({
+        niche: found,
+        now,
+        options: {
+          ...scope,
+          ...(opts.subNiche ? { subNiche: String(opts.subNiche) } : {}),
+          ...(types && types.length > 0 ? { types: types as SignalType[] } : {}),
+          sinceDays: durationMs(opts.since, "since", verb) / DAY_MS,
+          widenSinceDays: durationMs(opts.widenSince, "widen-since", verb) / DAY_MS,
+          k: positiveInt(opts.k, "k", verb),
+          limit: positiveInt(opts.limit, "limit", verb),
+          contrast: nonNegativeInt(opts.contrast, "contrast", verb),
+          ...(opts.noiseFloor !== undefined ? { noiseFloorViews: nonNegativeInt(opts.noiseFloor, "noise-floor", verb) } : {}),
+        },
+        ownFollowers: opts.ownFollowers === undefined ? null : positiveInt(opts.ownFollowers, "own-followers", verb),
+        ...(ownWorkspaceId ? { ownWorkspaceId } : {}),
+      });
+      const { _picks: picks, ...printed } = report;
+      let recorded: Record<string, unknown> | null = null;
+      if (opts.record) {
+        const hypotheses = opts.hypotheses ? hypothesesOf(String(opts.hypotheses), verb) : [];
+        recorded = recordPicks({ niche: found, options: scope, picks, hypotheses, now });
+      }
+      out({ ...printed, recorded, scoreNote: SCORE_NOTE });
+    });
+
+  cmd
+    .command("precision")
+    .description("Prediction-ledger precision per signal type (#577): produced picks resolve through #558 outcomes, skipped picks through whether the format kept spreading; \"insufficient data\" below the minimum n (as in #558)")
+    .requiredOption("--niche <niche>", "Open niche slug")
+    .option("--lang <code>", "Ledger scope language (as recorded by trends signals --record)")
+    .option("--platform <platform>", `Ledger scope platform: ${TREND_PLATFORMS.join(" | ")}`)
+    .option("--min-n <n>", "Resolved picks per signal type before a precision is claimed", String(SIGNAL_MIN_N))
+    .action((opts, child: Command) => {
+      const verb = "trends precision";
+      const workspaceId = workspaceOf(child, verb);
+      const found = getNiche({ workspaceId, ref: slugifyNiche(String(opts.niche)) }) ?? getNiche({ workspaceId, ref: String(opts.niche) });
+      if (!found) raiseError("E_NOT_FOUND", { kind: "trend niche", id: String(opts.niche) });
+      const language = languageOf(opts.lang, verb);
+      out(buildPrecision({
+        niche: found,
+        now: Date.now(),
+        options: { ...(language ? { language } : {}), ...(opts.platform ? { platform: platformOf(opts.platform, verb) } : {}) },
+        minN: positiveInt(opts.minN, "min-n", verb),
+      }));
     });
 
   cmd.addCommand(nicheCmd());
@@ -730,6 +812,12 @@ export function statusReport(workspaceId: string, now: number) {
   });
   const dayStart = Math.floor(now / DAY_MS) * DAY_MS;
   const curves = currentCurves(workspaceId);
+  const attention: Record<string, Record<string, number>> = {};
+  for (const facts of creatorAttentionFacts({ workspaceId, now, signalFloor: 2, hotMaxAgeHours: DEFAULT_TIER_RULES.hotMaxAgeHours, ignoreDateSources: [YOUTUBE_WATCH_SOURCE] })) {
+    const row = attention[facts.platform] ?? (attention[facts.platform] = Object.fromEntries(ATTENTION_TIERS.map((tier) => [tier, 0])));
+    const tier = attentionTier(facts, now).tier;
+    row[tier] = (row[tier] ?? 0) + 1;
+  }
   return {
     kind: "trend-status",
     workspaceId,
@@ -740,6 +828,11 @@ export function statusReport(workspaceId: string, now: number) {
     outlierLabels: counts.labels,
     cohortLabels: counts.cohortLabels,
     dueCreators: counts.dueCreators,
+    attentionTiers: {
+      rules: `hot: a video under ${DEFAULT_TIER_RULES.hotMaxAgeHours} h with rising momentum (${TIER_CADENCE.hot}); watched: posted in ${DEFAULT_TIER_RULES.recentDays} d, ${DEFAULT_TIER_RULES.minPosts30}+ posts in 30 d, a breakout or near-miss in 30 d (${TIER_CADENCE.watched}); background: the rest (${TIER_CADENCE.background}); dropped: excluded or no post in ${DEFAULT_TIER_RULES.droppedAfterDays}+ d`,
+      byPlatform: attention,
+      note: "computed on read from posting frequency, recency, and signals, so tiers re-rank after every refresh; refresh scheduling still follows the stored active / inactive / dormant tier",
+    },
     lastRuns: [...lastBySource.values()].map((run) => {
       const response = run.response as { counts?: Record<string, number>; breaker?: { state?: string; reason?: string | null } } | null;
       return {
@@ -785,6 +878,38 @@ function nicheOf(value: unknown, verb: string, workspaceId?: string): string | n
   const open = workspaceId ? openNicheSlugs(workspaceId) : new Set<string>();
   if (typeof value === "string" && open.has(value)) return value;
   raiseError("E_FLAG_UNKNOWN", { flag: "niche", value: String(value), allowed: [...NICHES, ...open].join(", "), verb });
+}
+
+function languageOf(value: unknown, verb: string): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  const language = String(value).toLowerCase();
+  if (!/^[a-z]{2}$/.test(language)) raiseError("E_INPUT_INVALID", { field: "lang", detail: "expected an ISO 639-1 code", verb });
+  return language;
+}
+
+function hypothesesOf(file: string, verb: string): HypothesisInput[] {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(fs.readFileSync(path.resolve(file), "utf8"));
+  } catch (error) {
+    raiseError("E_INPUT_INVALID", { field: "hypotheses", detail: `cannot read JSON: ${(error as Error).message}`, verb });
+  }
+  if (!Array.isArray(raw)) raiseError("E_INPUT_INVALID", { field: "hypotheses", detail: "expected a JSON array", verb });
+  return raw.map((entry, index) => {
+    const record = entry as Record<string, unknown>;
+    const why = typeof record.why === "string" ? record.why.trim() : "";
+    const classification = record.classification;
+    if (!why || (classification !== "transferable" && classification !== "creator-bound")) {
+      raiseError("E_INPUT_INVALID", { field: `hypotheses[${index}]`, detail: "needs why and classification transferable | creator-bound", verb });
+    }
+    if (typeof record.videoId !== "string" && typeof record.url !== "string") raiseError("E_INPUT_INVALID", { field: `hypotheses[${index}]`, detail: "needs videoId or url", verb });
+    return {
+      ...(typeof record.videoId === "string" ? { videoId: record.videoId } : {}),
+      ...(typeof record.url === "string" ? { url: record.url } : {}),
+      why,
+      classification,
+    };
+  });
 }
 
 function platformOf(value: unknown, verb: string): TrendPlatform {

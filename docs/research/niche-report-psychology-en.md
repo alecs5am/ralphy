@@ -360,3 +360,76 @@ What YouTube coverage lacks without the Data API key:
 - Groups below the minimum n (20 videos, 5 creators) show "insufficient data" instead of a claim.
 - Videos come from the backfill cohort (first seen already mature); they set baselines and format distributions, never early-breakout predictions.
 - Only 14 mature videos carry a content-format label (rule pre-labels from titles; the LLM label pass was off), so format rows are thin.
+
+## Signals (#577)
+
+Checkpoint run of the signal engine on 2026-10-29, same scratch corpus and scope as the report above (in-sample kept creators, main and negative groups, anomaly accounts excluded): `ralphy trends signals --niche psychology --lang en --contrast 10 --record`. The default listing window is the last 30 days; the 90-day column is the same run with `--since 90d`. Only TikTok videos are dated and scored, so every signal below is TikTok (47 kept creators, 40 of them in this scope after the language rule). Multipliers, engagement lifts and bands are Ralphy's own estimates, not platform data.
+
+### Counts per signal type
+
+| Signal | Last 30 days | Last 90 days | Detector |
+| --- | --- | --- | --- |
+| breakout | 17 | 30 | #556 percentile label `breakout` or `outlier` (here 27.2x / 11.3x with z >= 2) |
+| small-account-breakout | 6 | 8 | seed / nano / micro creator, multiplier >= 10, views >= 10k, views >= 2x followers |
+| early-momentum | 0 | 0 | not measurable yet: no video in the 90-day pool has two dated snapshots (one listing per creator so far) |
+| near-miss | 48 (29 packaging-weak, 12 content-weak, 7 unclear) | 97 (50 / 27 / 20) | multiplier 2-4x, or 1-2x with an engagement lift >= 0.5; cause from likes / shares / saves per view vs the creator's norm (+-0.3 log units) |
+| emerging-format | 1 | 2 | the same format or hook label at 3x+ for 2+ unrelated creators within 14 days |
+| demand-signal | not collected | not collected | stub: no comment samples are stored for corpus videos |
+
+The one emerging format in the 30-day window is the `question` hook: 7 videos at 3x or more from 5 unrelated creators between 3 and 15 October (thepsychdoctormd, adhddude, carolinemiddelsdorf, anxiety_fitness, childocdtherapist). It is not over-represented (9.0% of question-hook videos reach 3x against 12.6% for the niche) and it is no longer active (last hit 14 days ago), so it reads as a common hook that keeps working, not a rising one. Hook labels are rule pre-labels from titles, so this axis is thin.
+
+### Adaptive widening and attention tiers
+
+K = 20 qualifying references (transferable-candidate signals at or above the 50k-view noise floor). The base step (breakout, small-account breakout, early momentum, last 30 days) gave 12; lowering the threshold to near-miss added 14, so the engine stopped at 26 and recorded `base` or `near-miss-threshold` on each item. For the contrast set below, the engine walked the remaining steps: the 90-day window added one more English creator (`extend-window`) and the Russian side of the niche added the tenth (`other-languages`), because only 9 distinct English creators have a transferable candidate above the noise floor in 90 days.
+
+Attention tiers of the 400 creators in scope: TikTok 16 `watched`, 13 `background`, 11 `dropped` (no post in 60+ days), 0 `hot` (no video has the two snapshots momentum needs); all 360 YouTube channels are `background` with "activity unknown" because their videos carry no post times. Tiers are computed on read in `ralphy trends status` and `trends signals`; refresh scheduling still follows the stored #556 tiers.
+
+### Transferable-candidate references (widened set)
+
+| Step | Signal | Creator | Size | Multiplier | Views | Views / follower | Cause / engagement per view vs norm |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| base | small-account breakout | carolinemiddelsdorf | micro | 373x | 373,100 | 4.5 | |
+| base | small-account breakout | childocdtherapist (4 videos) | micro | 77x / 44x / 32x / 25x | 1.9M / 1.1M / 760k / 599k | 36 / 21 / 15 / 11 | |
+| base | breakout | doctorramani (2) | mid | 133x / 32x | 2.5M / 377k | 7.7 / 1.2 | |
+| base | breakout | drdavidclarke (2) | mid | 59x / 18x | 175k / 72k | 0.43 / 0.17 | |
+| base | breakout | anxiety_fitness | mega | 40x | 859k | 0.80 | |
+| base | breakout | mentalhealness | mega | 19x | 322k | 0.16 | |
+| base | breakout | theworkoutwitch | mega | 15x | 377k | 0.16 | |
+| near-miss-threshold | near-miss | childocdtherapist (4) | micro | 2.7-3.8x | 66k-95k | 1.3-1.8 | 2 unclear, 2 content-weak (0.6x) |
+| near-miss-threshold | near-miss | thepsychdoctormd (3) | mega | 2.2-3.1x | 50k-68k | 0.04-0.05 | packaging-weak (1.4-2.6x) |
+| near-miss-threshold | near-miss | theworkoutwitch (5) | mega | 2.1-3.6x | 52k-90k | 0.02-0.04 | 3 packaging-weak (2.0-3.2x), 2 content-weak (0.6x) |
+| near-miss-threshold | near-miss | mentalhealness, anxiety_fitness | mega | 3.4x, 3.9x | 62k, 87k | 0.03, 0.08 | packaging-weak (1.4x), unclear |
+
+Below the noise floor and therefore not references: drmscoggins (nano, 1.7k followers) at 76x and 33.6k views, the strongest small-account jump in the window, and most near-misses of seed and nano creators (around 1k views). Each near-miss carries its improvement hypothesis in the JSON (`improvement`): packaging-weak keeps the body and reworks the first 1-2 s, first frame, on-screen hook line and caption; content-weak keeps the hook and fixes the payoff.
+
+### Within-creator contrast (top 10)
+
+Each signal video is compared with the 3 videos of the same creator closest to its median (|ln multiplier| smallest, ties broken by distance in time), on metadata (length, posting hour, hook / format label, hashtags), captions, and engagement per view. Free subtitles and #557 contact sheets were planned for these 10 signals and their 30 controls, but the first `yt-dlp` video download returned HTTP 403 from TikTok's video page, so collection stopped there (no retry, no cookies): the hypotheses below rest on metadata and captions only, not on frames or speech. Captions are paraphrased.
+
+| # | Creator (size, step) | Signal vs controls | Hypothesis | Class |
+| --- | --- | --- | --- | --- |
+| 1 | carolinemiddelsdorf (micro, base) | 373x, 5 s vs 10-106 s at 0.9-1.1x | A 5-second single-claim warning about someone else's unhealed trauma, against reflective and part-2 posts; interactions per view far below the creator's norm (no comments), so reach came from replays of a very short loop | transferable (format and length) |
+| 2 | childocdtherapist (micro, base) | 77x, 80 s vs 68-88 s at ~1x | Same face and length; the caption opens on a parent's specific question (why the child's OCD is worse at home) where the controls state general OCD facts; likes per view above the norm, shares and saves below, so the opening did the work | transferable (hook) |
+| 3 | doctorramani (mid, base) | 133x, 57 s vs 78-174 s guest promos | A celebrity release read through the narcissistic-abuse lens while it was news; controls are long guest-conversation promos with lesser-known names | creator-bound (celebrity timing) |
+| 4 | drdavidclarke (mid, base) | 59x vs 64-288 s at ~1x | One concrete domestic scenario (no help with chores or the kids) instead of abstract "here is why narcissists..." explanations; shares per view 3.4x the creator's norm, the send-it-to-someone pattern; length is not the cause | transferable (topic angle) |
+| 5 | anxiety_fitness (mega, base) | 40x, 30 s vs 25-34 s, mostly the same posting hour (11 UTC) | An inverted how-to (how to make a panic attack worse) against the same creator's straight how-to and question hooks; it turns advice into a self-check; likes and shares per view above the norm | transferable (hook) |
+| 6 | mentalhealness (mega, base) | 19x vs same persona at ~1x | The self-identified narcissist persona reacting to a widely known true-crime case in the news; controls use the same persona on lesser-known figures | creator-bound (persona and news) |
+| 7 | theworkoutwitch (mega, base) | 15x, 28 s vs 25-29 s, same caption | Signal and two controls share the same quiz call-to-action caption, length and posting hour, so the difference sits in the opening line or first frame; engagement per view below the norm on all three; the signal uses a borrowed sound. Low confidence: frames not seen | transferable (opening; tentative) |
+| 8 | thepsychdoctormd (mega, near-miss) | 3.1x, 80 s vs 9-14 s clips | Packaging-weak near-miss: a dense summary of an ADHD research review with shares and saves per view about 3.4x the norm; the caption opens as a continuation that assumes context. Remake with the most surprising finding as the first line | transferable (save-worthy summary format) |
+| 9 | anxietyjosh (micro, extend-window) | 66x vs 49-60 s at 0.1-0.5x | The caption starts with #ad (a paid public-service partnership), and interactions per view are 15-40x below the creator's norm: paid distribution, not the format | creator-bound (sponsored) |
+| 10 | fasacasa (micro, Russian side, other-languages) | 273x, 175 s vs 119-139 s at 1.2-1.5x | Posted right after the school-start date with a narcissistic-mother angle, an open question to the audience, and a named music track where the controls use original audio and self-worth affirmations; the reusable unit is the seasonal hook | transferable (calendar hook) |
+
+Seven of ten read as transferable: two hook changes (a specific parent question, an inverted how-to), one topic angle (a concrete everyday scenario), two format choices (a 5-second single claim, a dense saveable summary), one seasonal hook, and one tentative opening change. Three are creator-bound (celebrity timing, persona plus news, a paid placement). The hypotheses and classes are stored on the picks in the prediction ledger and shown by `trends signals` (`why`, `transferable`).
+
+### Scale-up estimate and prediction ledger
+
+Scale-up for every transferable candidate: **no own baseline yet** (#558 has 0 own outcomes on TikTok; 3 are needed, and no own follower count is stored). Each pick still stores its relative band, our post at X^0.25 to X^0.5 times our own median views (for example 4.4x-19.3x for the 373x video, 3.0x-8.8x for 77x), so precision can be checked once outcomes exist; with an own follower count the band is 10-50% of the reference's views per follower times our followers.
+
+Prediction ledger: one JSON Document per niche scope (`trend-prediction-ledger-psychology-en`, kind `custom`, append-only revisions; 3 revisions, 29 picks: the 26 widened references, the 2 extra contrast picks, and the emerging `question` hook). Each pick carries the signal, its widening step, evidence, the own band, a 14-day spread prediction where the video has a format or hook label, and the hypothesis. `ralphy trends precision --niche psychology --lang en` reports "insufficient data" for every signal type: no pick is linked to a produced Unit yet, and the first spread checks resolve 14 days after detection (2026-11-12).
+
+### Not covered yet
+
+- `early-momentum`, near-miss "momentum that stalled", and `hot` tiers need two or more dated snapshots per video; they fill as `trends refresh` runs.
+- `demand-signal` is a stub that reports "not collected" until comment samples exist.
+- Contact sheets and subtitles for the contrast set: blocked on the first TikTok download (HTTP 403).
+- Paid placements: the `#ad` reference above shows that sponsored videos need an exclusion rule before they reach the reference list.

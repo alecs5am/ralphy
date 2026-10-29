@@ -2526,6 +2526,22 @@ Commands:
   link-digest [options] <video>  Attach a #557 reference digest to a corpus
                                  video: a bundle directory (relative to the data
                                  root) or a Document id
+  signals [options]              Signal engine (#577): breakout, small-account
+                                 breakout, early momentum, near-miss
+                                 (packaging-weak / content-weak), emerging
+                                 format, and demand signal (not collected yet)
+                                 for one niche, each with a label and evidence;
+                                 adaptive widening below K references (the step
+                                 is recorded per item); attention tiers;
+                                 scale-up estimate against the own #558
+                                 baseline; optional within-creator contrast
+                                 sets; --record appends the picks with predicted
+                                 bands to the niche's prediction ledger
+  precision [options]            Prediction-ledger precision per signal type
+                                 (#577): produced picks resolve through #558
+                                 outcomes, skipped picks through whether the
+                                 format kept spreading; "insufficient data"
+                                 below the minimum n (as in #558)
   niche                          On-demand niche onboarding (#576): a topic
                                  becomes an open niche with its own sub-niches;
                                  seeds -> snowballed creator discovery on free

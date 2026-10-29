@@ -1,6 +1,6 @@
 # Trend signal engine: watch the best, explain why, predict and check
 
-> **Status:** todo (sequence after #556 and #576)
+> **Status:** in progress — checkpoint landed 2026-10-29 (detectors, tiers, widening, scale-up formula, prediction ledger, `trends signals|precision`, 10 within-creator contrasts for psychology EN, sponsored posts excluded). Open: link picks to produced Units, schedule refresh by attention tier; momentum, hot tier and precision wait for 2+ snapshots and #558 outcomes
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** high
@@ -42,3 +42,19 @@ Competitors show multipliers. Our advantage: early momentum on small accounts, c
 
 - Sequence after #556 (corpus, snapshots, outlier score) and #576 (niche onboarding, copyability). Uses #557 digests and #571 retention review for the "why".
 - Comment samples: free sources first (yt-dlp comment extraction for YouTube; TikTok comments only where logged-out access works); never bypass bot protection.
+
+## Checkpoint (2026-10-29)
+
+**Built.** Pure detectors, tiers, widening, scale-up and ledger math in `cli/lib/trends/signals.ts`; orchestration in `cli/lib/trends/signal-engine.ts`; store reads and the ledger Document in `cli/lib/store/trend-signals.ts` (no migration). Verbs: `ralphy trends signals --niche <n> [--lang] [--platform] [--sub-niche] [--type ...] [--since 30d] [--widen-since 90d] [--k 20] [--contrast N] [--record [--hypotheses f]] [--own-workspace] [--own-followers]` and `ralphy trends precision --niche <n> [--lang] [--min-n 3]`; `trends status` gains `attentionTiers`. Results for psychology EN: `docs/research/niche-report-psychology-en.md`, "Signals (#577)".
+
+**Decisions.**
+
+- Signals are judged only on scored, non-thin, non-provisional videos. `breakout` = the #556 percentile label `breakout` or `outlier`. `small-account-breakout` = seed / nano / micro, multiplier >= 10, views >= 10k, views >= 2x followers. `near-miss` = multiplier 2-4x, or 1-2x with an engagement lift >= 0.5; engagement lift = mean of the stored q for likes, shares, saves (at least two); +-0.3 splits `packaging-weak` / `content-weak` / `unclear`; only packaging-weak near-misses are transfer candidates. `early-momentum` = curve-adjusted growth between the first snapshot (taken within 24 h) and a later one (within 7 d), at least 0.5 above the creator's usual growth (median over its other two-snapshot videos when 3+ exist). `emerging-format` = one signal per format / hook label on its densest 14-day window with 2+ unrelated creators at 3x+ (handles normalized across platforms); lift vs the niche is evidence, not a gate. `demand-signal` is a stub reporting "not collected".
+- Tiers are computed on read: `dropped` (excluded, or no post in 60+ days), `hot` (a video under 72 h with the `rising` flag or an early-momentum signal), `watched` (post in 14 days, 6+ posts in 30 days, a video at 2x+ non-thin in 30 days), else `background` (weekly; monthly when activity is unknown). Watch-page dates (one candidate per YouTube channel) do not count as cadence. Refresh scheduling still follows the stored #556 tiers.
+- References for widening = transferable-candidate signals at or above the niche noise floor (50k). Steps: `base` (breakout, small-account, early momentum; `--since`), `near-miss-threshold`, `extend-window` (`--widen-since`), `adjacent-sub-niches` (only with `--sub-niche`), `other-languages`, `other-platforms` (only with a filter); a step that does not apply is recorded as such. `--contrast N` walks all steps to find N distinct creators.
+- Scale-up: with an own follower count, [0.1, 0.5] x the reference's views per follower x our followers; with 3+ own #558 outcomes on the platform, [X^0.25, X^0.5] x our median views; otherwise "no own baseline yet" plus the relative band (regression to the mean is assumed because references are selected as extremes).
+- Prediction ledger: JSON Document `trend-prediction-ledger-<niche>[-<lang>][-<platform>]`, kind `custom`, one revision per change. Picks = widened references, contrast picks, emerging formats; a recorded band, detection time and evidence are never rewritten, only `why` / `classification` may be filled. Precision per signal type: produced picks resolve through an `outcome` (#558), skipped picks with a label through a 14-day spread check; below 3 resolved picks "insufficient data".
+
+**Runs (scratch corpus).** Psychology EN, last 30 days: breakout 17, small-account 6, near-miss 48 (29 / 12 / 7), emerging 1, early momentum 0 (no two-snapshot videos), demand not collected; widening stopped at `near-miss-threshold` with 26 references; ledger 3 revisions, 29 picks; precision insufficient data. Psychology RU (30 d): breakout 8, small-account 2, near-miss 23, widening reached K only at `other-languages`. AI tools EN: breakout 11, small-account 12, near-miss 38. Personal finance EN: 3 / 2 / 1, K not reached (7). Fitness EN: no signals (9 dated videos in 30 days).
+
+**Blocked / not done.** Contact sheets and subtitles for the contrast set: the first TikTok video download (`yt-dlp`) got HTTP 403, so collection stopped; hypotheses rest on metadata and captions. Early momentum, stalled-momentum near-misses and `hot` need repeated snapshots. No verb links a pick to a produced Unit yet (`decision` / `outcome` stay `pending` / null). Tier-driven refresh budgets are not wired into `trends refresh`. Sponsored (`#ad`) videos reach the reference list; they need an exclusion rule. `docs/cli-surface.generated.md` not regenerated.
