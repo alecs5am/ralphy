@@ -28,6 +28,28 @@ function hasFfmpeg(): boolean {
 
 const HAS_FFMPEG = hasFfmpeg();
 
+// Playwright keeps its browsers under the user's home cache; resolve it from
+// the real HOME before tests swap HOME for a temp dir.
+const PLAYWRIGHT_BROWSERS_PATH =
+  process.env.PLAYWRIGHT_BROWSERS_PATH ??
+  (process.platform === "darwin"
+    ? path.join(os.homedir(), "Library", "Caches", "ms-playwright")
+    : process.platform === "win32"
+      ? path.join(process.env.LOCALAPPDATA ?? os.homedir(), "ms-playwright")
+      : path.join(os.homedir(), ".cache", "ms-playwright"));
+
+/** Child env bound to the temp root: the machine's global config (HOME) and
+ *  RALPHY_PROJECT_DIR cannot point the CLI at another checkout. */
+function isolatedEnv(root: string): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    RALPHY_HOME: root,
+    HOME: root,
+    RALPHY_PROJECT_DIR: "",
+    PLAYWRIGHT_BROWSERS_PATH,
+  };
+}
+
 let tmpRoot: string;
 let greenPng: string;
 let logoSvg: string;
@@ -116,7 +138,7 @@ describe("`ralphy ref rasterize` (#037)", () => {
     const r = spawnSync(
       "bun",
       [CLI, "ref", "rasterize", logoSvg, "--size", "512", "--out", outPng],
-      { encoding: "utf8" },
+      { cwd: tmpRoot, encoding: "utf8", env: isolatedEnv(tmpRoot) },
     );
     if (r.status !== 0) {
       console.error("rasterize stderr:", r.stderr);
@@ -136,7 +158,7 @@ describe("`ralphy ref rasterize` (#037)", () => {
     const r = spawnSync(
       "bun",
       [CLI, "ref", "rasterize", greenPng, "--size", "256", "--out", path.join(tmpRoot, "x.png")],
-      { encoding: "utf8" },
+      { cwd: tmpRoot, encoding: "utf8", env: isolatedEnv(tmpRoot) },
     );
     expect(r.status).not.toBe(0);
     expect((r.stdout + r.stderr).toLowerCase()).toContain("svg");
@@ -154,7 +176,7 @@ describe("`ralphy image cutout --bg chroma` (#037)", () => {
       "bun",
       [CLI, "image", "cutout", "--in", greenPng, "--out", outPng, "--bg", "chroma",
         "--color", "0x00b140", "--project", domain.projectId],
-      { cwd: tmpRoot, encoding: "utf8", env: { ...process.env, RALPHY_HOME: tmpRoot } },
+      { cwd: tmpRoot, encoding: "utf8", env: isolatedEnv(tmpRoot) },
     );
     expect(r.status).toBe(0);
     const stored = artifactRevisionObjectPath(tmpRoot, domain, JSON.parse(r.stdout).revisionId);
@@ -174,7 +196,7 @@ describe("`ralphy image cutout --bg flood` (#037)", () => {
       "bun",
       [CLI, "image", "cutout", "--in", greenPng, "--out", outPng, "--bg", "flood",
         "--tolerance", "16", "--project", domain.projectId],
-      { cwd: tmpRoot, encoding: "utf8", env: { ...process.env, RALPHY_HOME: tmpRoot } },
+      { cwd: tmpRoot, encoding: "utf8", env: isolatedEnv(tmpRoot) },
     );
     if (r.status !== 0) {
       console.error("flood-fill stderr:", r.stderr);
@@ -214,7 +236,7 @@ describe("`ralphy image fit --telegram` (#037)", () => {
       "bun",
       [CLI, "image", "fit", "--in", bigPng, "--out", outPng, "--telegram",
         "--project", domain.projectId],
-      { cwd: tmpRoot, encoding: "utf8", env: { ...process.env, RALPHY_HOME: tmpRoot } },
+      { cwd: tmpRoot, encoding: "utf8", env: isolatedEnv(tmpRoot) },
     );
     expect(r.status).toBe(0);
     const stored = artifactRevisionObjectPath(tmpRoot, domain, JSON.parse(r.stdout).revisionId);

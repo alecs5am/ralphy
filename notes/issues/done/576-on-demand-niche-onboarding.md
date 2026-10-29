@@ -1,6 +1,6 @@
 # On-demand niche onboarding: topic -> creators -> niche report
 
-> **Status:** in progress — 2026-10-28 (checkpoint committed in 9121e3df; fitness run interrupted; see "Resume point (2026-10-28)")
+> **Status:** done — 2026-10-29 (checkpoint: 1,822 kept creators, about 88k videos of kept creators across psychology EN/RU, AI tools, personal finance, fitness; full lint and tests green. Known gaps: YouTube dating needs the Data API key; negative groups fill as 60 days of snapshots accrue; fitness small-account quota short)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** high

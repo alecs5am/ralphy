@@ -854,10 +854,14 @@ videos.
 | psychology | en | 29.6 + 7.3 min | 2 + 1, target reached | 417 | 126 / 129 / 129 / 32 | 47 / 370 | 20,892 (2,737) | 562 / 1,012 / 203 | 145 | 2 (provisional) | 1 (watch page, age gate) |
 | psychology | ru | 30.2 min | 3, growth under 5% | 383 | 235 / 119 / 25 / 4 | 31 / 352 | 18,832 (1,595) | 383 / 820 / 150 | 0 | 0 | 0 |
 | AI tools / tech tips | en | ~14 min discovery + listing (stopped at the checkpoint), 3.6 min sample-first gate | 1, stopped | 400 | 107 / 113 / 112 / 65 | 7 / 393 | 17,836 (420) | 544 / 472 / 202 | 144 | 0 | 0 |
-| personal finance | en | 18.7 min (sample-first) | 2, target reached | 367 | 97 / 131 / 110 / 28 | 6 / 361 | 17,627 (216) | 367 / 535 / 128 | 0 | 0 | 1 (TikTok listing; a private account read as a login wall) |
-| fitness | en | FITNESS_WALL | FITNESS_ROUNDS | FITNESS_KEPT | FITNESS_BANDS | FITNESS_PLATFORMS | FITNESS_VIDEOS | FITNESS_GATE | FITNESS_OOS | FITNESS_NEG | FITNESS_BLOCKS |
+| personal finance | en | 18.7 min (sample-first) | 2, target reached | 340 (338 main + 2 anomaly; re-gated 2026-10-29 with the final gate, was 367) | 97 / 131 / 110 / 28 (before re-gate) | 6 / 361 (before re-gate) | 16,188 (216) | 340 / 805 / 128 | 0 | 0 | 1 (TikTok listing; a private account read as a login wall) |
+| fitness | en | round 0 (interrupted on 2026-10-28) + 2.8 min resume without discovery (2026-10-29) | 1, stopped (no discovery on resume) | 282 | 14 / 71 / 120 / 77 | 1 / 281 | 14,215 (75) | 282 / 301 / 43 | 0 | 0 (needs history) | 1 (YouTube watch page bot check after 15 calls) |
 
 Notes on the runs:
+
+- **Checkpoint totals (2026-10-29):** 1,822 in-sample kept creators and about 88k videos of kept creators across the five niche runs (target was about 100k across niches). YouTube videos stay mostly undated: free watch-page dating hit a bot check after 15 calls on 2026-10-29 and tripped the source for an hour, so AI tools and personal finance got no YouTube dates. Dating at this scale needs the YouTube Data API key (`videos.list`, 50 ids per call, free quota).
+- **Personal finance TikTok trip:** a private TikTok account was read as a login wall and tripped TikTok listing for 60 minutes; that is why fitness listed almost no TikTok creators (1 kept). Private accounts are now per-creator failures, not source blocks.
+- **Fitness skews large:** only 14 kept creators under 10k followers, so the size quota for small accounts is not met; fill it from TikTok seeds once the source is available.
 
 - **Psychology EN** passes the issue's acceptance (150+ relevant creators and
   4,000+ videos): 417 in-sample kept creators with 20,892 videos. Round 0 (40
