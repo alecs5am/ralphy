@@ -13,7 +13,7 @@ Owner-approved design for the trend corpus that feeds #576 (niche reports), #577
 
 Selecting on the outcome is the main trap: analysing only winners shows what winners have, not what separates them from flops.
 
-## Niches (4)
+## Niches (5)
 
 | Niche | Languages | Why |
 |---|---|---|
@@ -21,6 +21,7 @@ Selecting on the outcome is the main trap: analysing only winners shows what win
 | AI tools / tech tips | EN | Fast trends, short half-life; free sample already exists |
 | Personal finance | EN | Talking head, evergreen, high ad value |
 | A visual, low-speech niche (food or fitness; pick by seed yield) | EN | Checks that methods do not depend on transcripts |
+| Investing and venture capital (a16z-style: VC, startups and founders, AI and tech theses, company breakdowns, markets, macro) | EN | Added 2026-10-30 on owner request: content demand for this theme in the library; distinct from personal finance basics |
 
 ## Creators: 300-500 per niche
 
