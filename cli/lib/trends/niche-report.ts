@@ -19,6 +19,8 @@ import {
 import { DAY_MS, HOUR_MS, SIZE_BANDS, median, type TrendPlatform } from "./math.js";
 import { QUOTA_BANDS, SMALL_SIZE_BANDS, quotaBandFor, quotaStatus, rankCopyability, type CopyCandidate } from "./niche.js";
 import { YOUTUBE_WATCH_SOURCE } from "./sources/youtube.js";
+import { collectSeries, labeledSeriesRows, renderFormatsAndSeriesMarkdown, seriesRow, stemCell } from "./series-report.js";
+import { formatStats } from "./series.js";
 
 export const NICHE_REPORT_MIN_N = 20;
 export const NICHE_REPORT_MIN_CREATORS = 5;
@@ -261,6 +263,24 @@ export function buildNicheReport(input: { niche: NicheDto; options?: Partial<Nic
     hooks: labelTable(mature, "hook", overallHitRate, options.minN),
   };
 
+  // 4b. Formats and series (#588): numbered series of one channel vs its
+  // unmarked videos, with frame-read visual format labels where present.
+  const seriesScan = collectSeries({ niches: [niche], now, options: { ...(options.language ? { language: options.language } : {}), ...(options.platform ? { platform: options.platform } : {}) } });
+  const freshSeries = seriesScan.items.filter((item) => item.freshness === "fresh");
+  const seriesPrimary = seriesScan.items.filter((item) => item.series.primary);
+  const labeledSeries = seriesScan.items.filter((item) => item.label !== null);
+  const formatsAndSeries = {
+    basis: "kept main-group channels (in-sample and out-of-sample); a series is 3+ parts with a part / episode / day / #N marker sharing a caption stem (or every marked video of the channel when no stem repeats); lift = series median views / the channel's unmarked median views; a series is a reference only with a part posted within 90 days (stale and freshness-unknown series are counted, not listed); visual formats are vision-agent labels from contact sheets (ralphy trends series --digest, ralphy trends formats label)",
+    channelsWithSeries: seriesScan.channels.get(niche.slug)?.withSeries ?? 0,
+    series: seriesScan.items.length,
+    primaryAtLeast1_5x: seriesPrimary.filter((item) => (item.series.lift ?? 0) >= 1.5).length,
+    primaryAtLeast2x: seriesPrimary.filter((item) => (item.series.lift ?? 0) >= 2).length,
+    freshness: { fresh: freshSeries.length, stale: seriesScan.items.filter((item) => item.freshness === "stale").length, unknown: seriesScan.items.filter((item) => item.freshness === "unknown").length },
+    topSeries: freshSeries.slice(0, options.top).map((item, index) => seriesRow(item, index + 1, now)),
+    labeledSeries: labeledSeries.filter((item) => item.freshness === "fresh").map((item, index) => seriesRow(item, index + 1, now)),
+    formats: formatStats(labeledSeriesRows(seriesScan.items)),
+  };
+
   // 5. Cadence and length of creators who grow (breakout proxy until follower history exists)
   const historyDays = (() => {
     let max = 0;
@@ -407,6 +427,7 @@ export function buildNicheReport(input: { niche: NicheDto; options?: Partial<Nic
     whatToCopy,
     topOutliers,
     formats,
+    formatsAndSeries,
     growth,
     subNicheGaps,
     entryFormats,
@@ -485,6 +506,15 @@ export function renderNicheReportMarkdown(report: NicheReport, options: { title?
   const statRows = (rows: typeof f.formats) => rows.map((row) => [row.label, row.n, row.creators, row.medianMultiplier, row.hitRate, row.lift, row.verdict]);
   lines.push("### Formats", "", table(["Format", "n", "Creators", "Median X", "Hit rate", "Lift", "Verdict"], statRows(f.formats)));
   lines.push("### Hook types", "", table(["Hook", "n", "Creators", "Median X", "Hit rate", "Lift", "Verdict"], statRows(f.hooks)));
+
+  const fs = report.formatsAndSeries;
+  lines.push("## Formats and series", "", `${fs.basis}. ${fs.series} series on ${fs.channelsWithSeries} channels (fresh ${fs.freshness.fresh}, stale ${fs.freshness.stale}, freshness unknown ${fs.freshness.unknown}); ${fs.primaryAtLeast1_5x} channels' main series reach 1.5x and ${fs.primaryAtLeast2x} reach 2x.`, "");
+  lines.push("### Fresh series by lift", "");
+  lines.push(table(
+    ["#", "Channel", "Stem", "Parts", "Median views (series vs other)", "Lift", "Posted (age d)", "Visual format", "Newest part"],
+    fs.topSeries.map((row) => [row.rank, `${row.platform}:@${String(row.channel).replace(/^@/, "")}`, stemCell(row.stem), row.parts, `${cell(row.seriesMedianViews)} vs ${cell(row.otherMedianViews)}`, row.lift === null ? null : `${row.lift}x`, row.postedAt ? `${row.postedAt.slice(0, 10)} (${row.ageDays})` : "undated", row.visualFormat ? `${row.visualFormat.format} (${row.visualFormat.confidence})` : null, row.newestPart?.url ?? row.bestPart?.url ?? null]),
+  ));
+  lines.push(renderFormatsAndSeriesMarkdown({ labeledSeries: fs.labeledSeries, stats: fs.formats, heading: "Visual formats", level: 3 }));
 
   lines.push("## Cadence and length of creators who grow", "", `${report.growth.basis}.`, "");
   lines.push(table(["Group", "Creators", "Median posts / week", "Median length (s)", "Verdict"], report.growth.rows.map((row) => [row.group, row.creators, row.medianPostsPerWeek, row.medianDurationSec, row.verdict])));

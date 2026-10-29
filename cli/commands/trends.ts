@@ -16,6 +16,8 @@
 //   trends precision --niche <n> [--lang en]                prediction-ledger precision (#577)
 //   trends pick link <pick-key> --unit <unit>               a pick was produced as a Unit (#577)
 //   trends pick skip <pick-key> --reason <text>             a pick was skipped (#577)
+//   trends series --niche <n> [--digest <k>]               numbered series + their lift (#588)
+//   trends formats label --from <worksheet.json>           import vision-agent format labels (#588)
 //
 // Every verb takes an explicit global `--workspace <id>` (the corpus
 // Workspace). Free sources run logged out with no cookies; paid Apify sources
@@ -28,7 +30,7 @@ import path from "node:path";
 import { resolveCommandContext } from "../lib/context.js";
 import { raiseError } from "../lib/errors/index.js";
 import { out } from "../lib/output.js";
-import { ralphDir } from "../lib/paths.js";
+import { digestCacheDir, ralphDir } from "../lib/paths.js";
 import { apifyAvailable, apifyRunActorDetailed } from "../lib/providers/apify.js";
 import { youtubeAnalyticsAvailable, youtubeVideoDetails } from "../lib/providers/youtube-analytics.js";
 import { callLLM } from "../lib/providers/llm.js";
@@ -53,7 +55,7 @@ import {
   type WatchlistKind,
 } from "../lib/store/trends.js";
 import { BREAKER_COOLDOWN_MS, openTrip } from "../lib/trends/breaker.js";
-import { getNiche, listNiches, loadNicheMembers, openNicheSlugs, saveNicheReportDocument } from "../lib/store/trend-niches.js";
+import { getNiche, listNiches, loadNicheMembers, openNicheSlugs, saveNicheReportDocument, type NicheDto } from "../lib/store/trend-niches.js";
 import {
   DEFAULT_NICHE_SETTINGS,
   defaultNicheSeedFile,
@@ -64,7 +66,7 @@ import {
   slugifyNiche,
   type NicheSeedFile,
 } from "../lib/trends/niche.js";
-import { nicheInit, type NicheInitSummary } from "../lib/trends/niche-onboard.js";
+import { nicheInit, youtubeWatchPass, type NicheInitSummary } from "../lib/trends/niche-onboard.js";
 import { buildNicheReport, renderNicheReportMarkdown } from "../lib/trends/niche-report.js";
 import { DEFAULT_LABEL_PERCENTILES, parseLabelPercentiles, type LabelPolicy } from "../lib/trends/thresholds.js";
 import { LLM_LABEL_MODEL } from "../lib/trends/cohorts.js";
@@ -93,6 +95,11 @@ import { YOUTUBE_API_SOURCE, YOUTUBE_WATCH_SOURCE } from "../lib/trends/sources/
 import { buildNicheSignals, buildPrecision, linkPickToUnit, recordPicks, skipPick, SIGNAL_MIN_N, type HypothesisInput, type PickScope } from "../lib/trends/signal-engine.js";
 import { ATTENTION_TIERS, DEFAULT_TIER_RULES, SIGNAL_TYPES, TIER_CADENCE, attentionTier, isSignalType, type SignalType } from "../lib/trends/signals.js";
 import { creatorAttentionFacts } from "../lib/store/trend-signals.js";
+import { appendVisualFormatLabels, trendVideoRefs } from "../lib/store/trend-formats.js";
+import { buildSeriesReport, digestTopSeries, renderSeriesMarkdown, DEFAULT_SERIES_REPORT_OPTIONS, type SeriesDigestDeps } from "../lib/trends/series-report.js";
+import { parseLabelWorksheet, VISUAL_FORMATS, type VisualFormatLabel } from "../lib/trends/series.js";
+import { buildDigest, createVersionedDir, metricsFromYtDlpMeta } from "../lib/ref-digest.js";
+import { pullReference } from "../lib/research.js";
 
 const SCORE_NOTE = "Multipliers, z scores, composites, and labels are Ralphy's own estimates from creator-relative baselines, not platform data.";
 const WATCH_KINDS: readonly WatchlistKind[] = ["hashtag", "keyword", "sound", "explore-category", "creator", "related"];
@@ -473,6 +480,127 @@ export function trendsCmd(): Command {
         options: { ...(language ? { language } : {}), ...(opts.platform ? { platform: platformOf(opts.platform, verb) } : {}) },
         minN: positiveInt(opts.minN, "min-n", verb),
       }));
+    });
+
+  cmd
+    .command("series")
+    .description("Numbered series (#588): group each kept main-group channel's videos into series by part / episode / day / week / #N / N-of-M markers in captions (English and Russian) and a 3-word stem, and compare the series median views with the channel's unmarked videos (lift; multiplier lift where both sides are dated and scored). Visual format labels from trends formats label join each series; --digest <k> builds free contact sheets (1 frame per second, 16 tiles) of the best part of the top-k series and writes a labeling worksheet for the agent's own vision")
+    .requiredOption("--niche <niche...>", "Open niche slug(s), comma-separated or repeated; all = every open niche")
+    .option("--lang <code>", "Only creators of this language (ISO 639-1)")
+    .option("--platform <platform>", `Only one platform: ${TREND_PLATFORMS.join(" | ")}`)
+    .option("--min-parts <n>", "Parts a series needs", String(DEFAULT_SERIES_REPORT_OPTIONS.minParts))
+    .option("--min-other <n>", "Unmarked videos a channel needs for its baseline", String(DEFAULT_SERIES_REPORT_OPTIONS.minOther))
+    .option("--stem-words <n>", "Words in a series stem", String(DEFAULT_SERIES_REPORT_OPTIONS.stemWords))
+    .option("--min-median-views <n>", "Hide series whose median views sit below this floor", String(DEFAULT_SERIES_REPORT_OPTIONS.minMedianViews))
+    .option("--limit <n>", "Rows in the series list", String(DEFAULT_SERIES_REPORT_OPTIONS.limit))
+    .option("--fresh-days <n>", "A series is a reference only when a part was posted within this many days", String(DEFAULT_SERIES_REPORT_OPTIONS.freshDays))
+    .option("--fresh-only", "List only fresh series (references)")
+    .option("--digest <k>", "Date the newest part of freshness-unknown YouTube series through the watch page (free, stops on the first bot check), then digest the newest part of the top-k fresh series (free yt-dlp path, no cookies, a block stops that platform) and write a labeling worksheet")
+    .option("--date-budget <n>", "With --digest: watch-page calls to date newest parts (0 = off)", "60")
+    .option("--digest-every <sec>", "Digest cadence in seconds", "1")
+    .option("--digest-tiles <n>", "Tiles per contact sheet", "16")
+    .option("--digest-max-sheets <n>", "Sheets per digest (longer videos are evenly subsampled)", "2")
+    .option("--worksheet <path>", "Worksheet path (default: <data root>/cache/trend-formats/worksheet-<niches>-<time>.json)")
+    .option("--markdown <path>", "Also write the series report as a new markdown file (an existing file is never overwritten)")
+    .option("--quiet-progress", "Suppress digest progress events on stderr")
+    .action(async (opts, child: Command) => {
+      const verb = "trends series";
+      const workspaceId = workspaceOf(child, verb);
+      const niches = nichesOf(opts.niche as string[], workspaceId, verb);
+      const language = languageOf(opts.lang, verb);
+      const now = Date.now();
+      const reportOptions = {
+        ...(language ? { language } : {}),
+        ...(opts.platform ? { platform: platformOf(opts.platform, verb) } : {}),
+        minParts: positiveInt(opts.minParts, "min-parts", verb),
+        minOther: positiveInt(opts.minOther, "min-other", verb),
+        stemWords: positiveInt(opts.stemWords, "stem-words", verb),
+        minMedianViews: nonNegativeInt(opts.minMedianViews, "min-median-views", verb),
+        limit: positiveInt(opts.limit, "limit", verb),
+        freshDays: positiveInt(opts.freshDays, "fresh-days", verb),
+        freshOnly: opts.freshOnly === true,
+      };
+      let report = buildSeriesReport({ niches, now, options: reportOptions });
+      const outputs: Record<string, string> = {};
+      let worksheet: Record<string, unknown> | null = null;
+      let dating: Record<string, unknown> | null = null;
+      if (opts.digest !== undefined) {
+        if (!ytdlpAvailable()) raiseError("E_DEP_MISSING", { dep: "yt-dlp" });
+        const k = positiveInt(opts.digest, "digest", verb);
+        const dateBudget = nonNegativeInt(opts.dateBudget, "date-budget", verb);
+        const floor = (item: (typeof report._items)[number]) => (item.series.seriesMedianViews ?? 0) >= report.settings.minMedianViews;
+        // Freshness first: date the newest part of undated YouTube series, in lift order.
+        const toDate = [...new Set(report._items.filter((item) => floor(item) && item.freshness === "unknown" && item.platform === "youtube" && item.newest && item.newest.postedAt === null).map((item) => item.newest!.platformVideoId))].slice(0, dateBudget);
+        if (toDate.length > 0) {
+          const pass = await youtubeWatchPass({ workspaceId, videoIds: toDate, deps: liveDeps({ quietProgress: true, youtubeApi: false }), budget: dateBudget });
+          dating = { source: pass.source, runId: pass.runId, requested: toDate.length, requests: pass.requests, dated: pass.counts.dated ?? 0, failed: pass.counts.failed ?? 0, breaker: pass.breaker.state, breakerReason: pass.breaker.reason, notes: pass.notes };
+          report = buildSeriesReport({ niches, now, options: reportOptions });
+        }
+        const fresh = report._items.filter((item) => floor(item) && item.freshness === "fresh");
+        const sheet = await digestTopSeries({
+          items: fresh,
+          k,
+          cacheDir: digestCacheDir(),
+          everySec: positiveNumber(opts.digestEvery, "digest-every", verb),
+          tilesPerSheet: positiveInt(opts.digestTiles, "digest-tiles", verb),
+          maxSheets: positiveInt(opts.digestMaxSheets, "digest-max-sheets", verb),
+          now,
+          deps: seriesDigestDeps(workspaceId),
+          ...(opts.quietProgress ? {} : { log: (event: Record<string, unknown>) => process.stderr.write(`[series-digest] ${JSON.stringify(event)}\n`) }),
+        });
+        const file = path.resolve(String(opts.worksheet ?? path.join(ralphDir(), "cache", "trend-formats", `worksheet-${niches.map((niche) => niche.slug).join("+")}-${now}.json`)));
+        if (fs.existsSync(file)) raiseError("E_INPUT_INVALID", { field: "worksheet", detail: `${file} exists; worksheets are never overwritten, pass a new path`, verb });
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, `${JSON.stringify(sheet, null, 2)}\n`);
+        outputs.worksheet = file;
+        const count = (status: string) => sheet.items.filter((item) => item.status === status).length;
+        worksheet = { file, items: sheet.items.length, ok: count("ok"), reused: count("reused"), failed: count("failed"), blocked: count("blocked"), notRun: count("not-run"), stopped: sheet.stopped, freshCandidates: fresh.length, next: `look at each item's sheets, fill format + confidence + notes, then: ralphy trends formats label --from ${file}` };
+      }
+      const { _items: _unused, ...printed } = report;
+      if (opts.markdown) {
+        const file = path.resolve(String(opts.markdown));
+        if (fs.existsSync(file)) raiseError("E_INPUT_INVALID", { field: "markdown", detail: `${file} exists; the series report never overwrites a file, pass a new path`, verb });
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, renderSeriesMarkdown(report));
+        outputs.markdown = file;
+      }
+      out({ ...printed, dating, worksheet, outputs, scoreNote: SCORE_NOTE });
+    });
+
+  const formats = cmd.command("formats").description("Visual format labels (#588): a fixed taxonomy read from contact sheets by the agent's own vision (method vision-agent), stored with confidence in one append-only label Document per niche");
+  formats
+    .command("label")
+    .description(`Import visual format labels the agent wrote into a worksheet from trends series --digest (or a JSON array of { videoId, format, confidence, niche?, notes? }). Formats: ${VISUAL_FORMATS.join(", ")}. Items without a format are skipped; an unknown format or a confidence outside 0..1 rejects the whole file. Each niche gets one new revision of its label Document`)
+    .requiredOption("--from <file>", "Worksheet or label JSON")
+    .option("--niche <niche>", "Niche for items that do not name one")
+    .action((opts, child: Command) => {
+      const verb = "trends formats label";
+      const workspaceId = workspaceOf(child, verb);
+      let raw: unknown;
+      try {
+        raw = JSON.parse(fs.readFileSync(path.resolve(String(opts.from)), "utf8"));
+      } catch (error) {
+        raiseError("E_INPUT_INVALID", { field: "from", detail: `cannot read JSON: ${(error as Error).message}`, verb });
+      }
+      const now = Date.now();
+      const parsed = parseLabelWorksheet(raw, now);
+      if (parsed.errors.length > 0) raiseError("E_INPUT_INVALID", { field: "from", detail: parsed.errors.slice(0, 10).join("; "), verb });
+      const fallback = opts.niche ? nichesOf([String(opts.niche)], workspaceId, verb)[0]!.slug : null;
+      const open = new Set(listNiches({ workspaceId }).map((niche) => niche.slug));
+      const refs = trendVideoRefs({ workspaceId, videoIds: parsed.labels.map((label) => label.videoId) });
+      const missing = parsed.labels.filter((label) => !refs.has(label.videoId)).map((label) => label.videoId);
+      if (missing.length > 0) raiseError("E_NOT_FOUND", { kind: "trend video", id: missing.slice(0, 5).join(", ") });
+      const byNiche = new Map<string, VisualFormatLabel[]>();
+      for (const label of parsed.labels) {
+        const niche = label.niche ?? fallback;
+        if (!niche) raiseError("E_FLAG_MISSING", { flag: "niche", verb });
+        if (!open.has(niche)) raiseError("E_NOT_FOUND", { kind: "trend niche", id: niche });
+        (byNiche.get(niche) ?? byNiche.set(niche, []).get(niche)!).push({ ...label, niche, url: label.url ?? refs.get(label.videoId)!.url });
+      }
+      const written = [...byNiche.entries()].map(([niche, labels]) => ({ niche, labels: labels.length, ...appendVisualFormatLabels({ workspaceId, niche, labels, now }) }));
+      const counts: Record<string, number> = {};
+      for (const label of parsed.labels) counts[label.format] = (counts[label.format] ?? 0) + 1;
+      out({ kind: "trend-format-labels", method: "vision-agent", labels: parsed.labels.length, skipped: parsed.skipped, byFormat: counts, written, next: "ralphy trends series --niche <n> shows the labels per series and the format-level stats" });
     });
 
   cmd.addCommand(nicheCmd());
@@ -944,6 +1072,58 @@ function languageOf(value: unknown, verb: string): string | undefined {
   const language = String(value).toLowerCase();
   if (!/^[a-z]{2}$/.test(language)) raiseError("E_INPUT_INVALID", { field: "lang", detail: "expected an ISO 639-1 code", verb });
   return language;
+}
+
+/** Open niches named by `--niche` (repeated or comma-separated; `all` = every open niche). */
+function nichesOf(values: readonly string[], workspaceId: string, verb: string): NicheDto[] {
+  const refs = values.flatMap((value) => String(value).split(",")).map((value) => value.trim()).filter(Boolean);
+  if (refs.length === 0) raiseError("E_FLAG_MISSING", { flag: "niche", verb });
+  if (refs.includes("all")) return listNiches({ workspaceId });
+  const out: NicheDto[] = [];
+  for (const ref of refs) {
+    const found = getNiche({ workspaceId, ref: slugifyNiche(ref) }) ?? getNiche({ workspaceId, ref });
+    if (!found) raiseError("E_NOT_FOUND", { kind: "trend niche", id: ref });
+    if (!out.some((niche) => niche.id === found.id)) out.push(found);
+  }
+  return out;
+}
+
+function positiveNumber(value: unknown, field: string, verb: string): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) raiseError("E_INPUT_INVALID", { field, detail: "expected a positive number", verb });
+  return parsed;
+}
+
+/** Live digest deps for trends series --digest: the free yt-dlp pull and the local #557 digest builder. */
+function seriesDigestDeps(workspaceId: string): SeriesDigestDeps {
+  return {
+    pull: async ({ url, slug, outputDir }) => {
+      const pulled = await pullReference({ url, slug, outputDir, noAudioExtract: true });
+      return { ...(pulled.videoPath ? { videoPath: pulled.videoPath } : {}), meta: pulled.meta };
+    },
+    digest: async ({ videoPath, bundleDir, url, everySec, tilesPerSheet, maxSheets, meta }) => {
+      const result = await buildDigest({
+        videoPath,
+        bundleDir,
+        preallocated: true,
+        input: url,
+        url,
+        mode: "fixed",
+        everySec,
+        tilesPerSheet,
+        maxSheets,
+        transcript: { skipped: "series digests read frames only (no transcription)" },
+        metrics: metricsFromYtDlpMeta(meta),
+      });
+      return { bundleDir: result.bundleDir, sheets: result.digest.sheets.map((sheet) => path.join(result.bundleDir, sheet.file)) };
+    },
+    allocate: (base) => createVersionedDir(base),
+    link: ({ videoId, bundleDir, params }) => {
+      const relative = path.relative(path.resolve(ralphDir()), path.resolve(bundleDir));
+      if (relative.startsWith("..") || path.isAbsolute(relative) || relative === "") return;
+      linkTrendDigest({ workspaceId, videoId, refKind: "bundle", digestRef: relative.split(path.sep).join("/"), params });
+    },
+  };
 }
 
 function hypothesesOf(file: string, verb: string): HypothesisInput[] {

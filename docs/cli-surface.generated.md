@@ -2596,6 +2596,23 @@ Commands:
                                  outcomes, skipped picks through whether the
                                  format kept spreading; "insufficient data"
                                  below the minimum n (as in #558)
+  series [options]               Numbered series (#588): group each kept
+                                 main-group channel's videos into series by part
+                                 / episode / day / week / #N / N-of-M markers in
+                                 captions (English and Russian) and a 3-word
+                                 stem, and compare the series median views with
+                                 the channel's unmarked videos (lift; multiplier
+                                 lift where both sides are dated and scored).
+                                 Visual format labels from trends formats label
+                                 join each series; --digest <k> builds free
+                                 contact sheets (1 frame per second, 16 tiles)
+                                 of the best part of the top-k series and writes
+                                 a labeling worksheet for the agent's own vision
+  formats                        Visual format labels (#588): a fixed taxonomy
+                                 read from contact sheets by the agent's own
+                                 vision (method vision-agent), stored with
+                                 confidence in one append-only label Document
+                                 per niche
   niche                          On-demand niche onboarding (#576): a topic
                                  becomes an open niche with its own sub-niches;
                                  seeds -> snowballed creator discovery on free

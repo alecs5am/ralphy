@@ -1,0 +1,3236 @@
+[
+  {
+    "niche": "ai-tools-tech-tips",
+    "channel": "@JeffSu",
+    "platform": "youtube",
+    "videos": [
+      {
+        "id": "v1",
+        "text": "Microsoft’s plan to win the AI race, explained",
+        "views": 36000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v2",
+        "text": "Give your AI perfect memory in 3 steps",
+        "views": 17000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v3",
+        "text": "Google I/O 2026: 3 things you need to know",
+        "views": 52000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v4",
+        "text": "Claude Cowork setup: the only 2 files you need",
+        "views": 48000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v5",
+        "text": "Most AI agents are fake (here's a 10-second test)",
+        "views": 35000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v6",
+        "text": "Stop perfecting your prompt. Do this instead",
+        "views": 38000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v7",
+        "text": "Most people get these 3 AI terms wrong",
+        "views": 24000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v8",
+        "text": "#claude Chat vs. Cowork: Biggest 3 differences",
+        "views": 49000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v9",
+        "text": "Claude Cowork: The #1 Thing To Know",
+        "views": 155000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v10",
+        "text": "This NotebookLM feature cuts my workload by 50%",
+        "views": 49000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v11",
+        "text": "NotebookLM is now bigger than Gemini",
+        "views": 144000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v12",
+        "text": "When to use #ChatGPT, #Gemini, and #Claude",
+        "views": 231000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v13",
+        "text": "The 30-second fix for #AI on mobile",
+        "views": 81000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v14",
+        "text": "Activate ChatGPT with iPhone’s Action Button",
+        "views": 28000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v15",
+        "text": "Midjourney vs. Google's Nano Banana",
+        "views": 27000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v16",
+        "text": "AI Tip for iPhone Users",
+        "views": 21000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v17",
+        "text": "learning ai from strangers on the internet",
+        "views": 26000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v18",
+        "text": "Google AI Features Nobody Knows About",
+        "views": 44000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v19",
+        "text": "Here’s how to code…without coding",
+        "views": 36000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v20",
+        "text": "Why I Want My AI to Hallucinate",
+        "views": 25000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v21",
+        "text": "#AI tip for Job Seekers",
+        "views": 28000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v22",
+        "text": "don’t use #ai for everything",
+        "views": 22000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v23",
+        "text": "My favorite @Google Gemini tip",
+        "views": 36000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v24",
+        "text": "Which ChatGPT model should you use?",
+        "views": 25000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v25",
+        "text": "my top 3 #chatgpt commands",
+        "views": 23000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v26",
+        "text": "Feeling behind with AI",
+        "views": 18000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v27",
+        "text": "my last day at google (leaked footage)",
+        "views": 26000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v28",
+        "text": "The Problem with Learning #AI",
+        "views": 39000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v29",
+        "text": "Second Brain, #Simplified",
+        "views": 15000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v30",
+        "text": "How working at Google is really like 🙃",
+        "views": 23000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v31",
+        "text": "AI Agents explained in 3 steps",
+        "views": 874000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v32",
+        "text": "Why @Google Tasks gets so much hate",
+        "views": 155000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v33",
+        "text": "Here's my favorite #claude feature",
+        "views": 20000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v34",
+        "text": "Always always always #negotiate your salary!",
+        "views": 13000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v35",
+        "text": "Stop #spam texts on your iPhone",
+        "views": 19000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v36",
+        "text": "My Daily Morning Routine",
+        "views": 100000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v37",
+        "text": "There are 3 types of #ai tools",
+        "views": 12000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v38",
+        "text": "Underrated Feature in Outlook and Gmail",
+        "views": 20000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v39",
+        "text": "#LinkedIn Headline for Job Seekers",
+        "views": 33000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v40",
+        "text": "Productivity for Normal People  #productivity",
+        "views": 15000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v41",
+        "text": "Easy Design Tip for non-Creative Professionals",
+        "views": 6500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v42",
+        "text": "Golden Rule for Task Management #productivity",
+        "views": 296000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v43",
+        "text": "Search #googledrive like a pro!",
+        "views": 9700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v44",
+        "text": "Windows users can use CTRL 😇",
+        "views": 12000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v45",
+        "text": "Formatting tip for #googleslides",
+        "views": 9600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v46",
+        "text": "Crazy #Gmail tip",
+        "views": 11000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v47",
+        "text": "3 Keyboard Shortcuts for #googleworkspace",
+        "views": 6800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v48",
+        "text": "#productivity tip for #googleslides",
+        "views": 7400,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v49",
+        "text": "Game-Changing #gmail tip for #productivity",
+        "views": 8800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v50",
+        "text": "The #1 Prompting Tip for Productivity #chatgpt #googlegemini",
+        "views": 104000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v51",
+        "text": "8 Lessons from 8 Years at @Google (Part 2) #careertips",
+        "views": 29000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v52",
+        "text": "8 Lessons from 8 Years at @google (Part 1)",
+        "views": 13000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v53",
+        "text": "📈 The BEST charts to use in #presentations",
+        "views": 7800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v54",
+        "text": "#Presentation mistake to avoid!",
+        "views": 9600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v55",
+        "text": "#tedtalk vs workplace #presentations",
+        "views": 11000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v56",
+        "text": "Strategy Manager teaches #slidewriting #managementconsulting",
+        "views": 13000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v57",
+        "text": "Google’s advice for #jobseekers #applicants",
+        "views": 26000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v58",
+        "text": "3 #LinkedIn tips for Job Seekers!",
+        "views": 10000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v59",
+        "text": "AI Tip No-one told you about @Google #googlechrome #googlegemini",
+        "views": 24000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v60",
+        "text": "When NOT to use #ChatGPT",
+        "views": 13000,
+        "multiplier": null,
+        "postedAt": null
+      }
+    ]
+  },
+  {
+    "niche": "ai-tools-tech-tips",
+    "channel": "@HotshotTek",
+    "platform": "youtube",
+    "videos": [
+      {
+        "id": "v1",
+        "text": "What's New on iOS 27.2 Beta 4!",
+        "views": 4100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v2",
+        "text": "YouTube on Apple CarPlay?!",
+        "views": 2200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v3",
+        "text": "YOUR PHONE IS NOW A STEAM DECK?!",
+        "views": 8200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v4",
+        "text": "iOS 27 Beta 3 - Here's Whats New",
+        "views": 4800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v5",
+        "text": "Apple Watch Series 11 VS Apple Watch SE 3 battery test. #applewatchseries11 #applewatchse3￼",
+        "views": 27000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v6",
+        "text": "Series 11 Apple Watch 46mm vs 42mm series 11 battery life #applewatchseries11 #42mmvs46mm ￼",
+        "views": 51000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v7",
+        "text": "Apple Watch Series 11 versus Samsung Galaxy classic 8 #applewatch #applewatchseries11 #galaxy8￼",
+        "views": 8300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v8",
+        "text": "Apple Watch Ultra 3 battery life test versus galaxy watch ultra #applewatch #smartwatch #battery￼",
+        "views": 10000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v9",
+        "text": "MCHOSE x Unbox Therapy - UT98 Mechanical Keyboard",
+        "views": 6700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v10",
+        "text": "#batterylife #galaxywatch8 #galaxywatch8classic  #applewatchseries10battery #applewatch",
+        "views": 38000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v11",
+        "text": "Costco new MSI Gaming PC with RTX 5080 and AMD #costco #costcofinds #rtx5080 #amd9900x #costcobuys",
+        "views": 8100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v12",
+        "text": "A black Friday sale that’s coming #costco #costcogamingpc #gamingpccostco #costcofinds #costcoshop",
+        "views": 3900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v13",
+        "text": "GameCube start up on the Switch2 #nintendo #switch2 #nintendoswitch #gamecube #tipsandtricks",
+        "views": 20000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v14",
+        "text": "Ios26 new improved live listening and ringtone making #ios26 #iphone #newfeatures #technews",
+        "views": 11000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v15",
+        "text": "Watchos26 new gesture coming soon #applewatch #ios26 #smartwatch #technews",
+        "views": 6200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v16",
+        "text": "Apple CarPlay maps pinch and zoom #ios26 #carplay #applemaps #iphone",
+        "views": 15000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v17",
+        "text": "How to activate G wagon headlight water jets #g580 #mercedes #benz #gwagon #ev￼",
+        "views": 11000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v18",
+        "text": "Mercedes-Benz G580 G wagon door technology #gwagon #mercedes #g580 #benz #suv",
+        "views": 6600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v19",
+        "text": "How to charge a GWagon G580 at Tesla #tesla #gwagon #g580 #benz #suv",
+        "views": 4100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v20",
+        "text": "G580 Fog lights a stranded in the UK #automobile #luxury #luxurycars #luxuriouscars #luxurymotors",
+        "views": 23000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v21",
+        "text": "CarPlay Apple Music app update #ios26 #ios26carplay #carplayfeatures",
+        "views": 20000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v22",
+        "text": "G-wagon g580 interesting features #amg #gwagon #g580 #supercar",
+        "views": 14000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v23",
+        "text": "Apple TV new karaoke mode #appletv #appletvsing #karaoke #ios26",
+        "views": 20000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v24",
+        "text": "Watchos26 new control center improvements #watchos26 #applewatch #ios26 #wwdc25 #apple",
+        "views": 18000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v25",
+        "text": "CarPlay now has widgets support #carplay #carplayhiddenfeature #ios26 #iphone17 #carplayultra",
+        "views": 14000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v26",
+        "text": "New AirPods Feature #airpod #airpodsupdate #newiphoneupdate #airpodspro3 #ios26",
+        "views": 2800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v27",
+        "text": "Upload video soon #mercedes #amg #g580 #ev #4x4",
+        "views": 1900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v28",
+        "text": "Best iPad accessories everyone needs #ipad #ipadhdmi #ipadmini #ipadpro",
+        "views": 5400,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v29",
+        "text": "CarPlay stop auto playing music #carplay #apple #iphone #tricks￼",
+        "views": 74000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v30",
+        "text": "Each iPad corner features  #ipadpro #ipadmini #ipad #ipadtips",
+        "views": 14000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v31",
+        "text": "Ipad mini 7 vs iPad mini 6 battery test #apple #appleipadmini7 #ipadmini6 #ipad #ipadmini #ipadpro",
+        "views": 87000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v32",
+        "text": "iPad Mini 7 vs iPad mini 6 #ipadmini7 #apple #ipadmini6 #ipad #jellyscreen",
+        "views": 199000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v33",
+        "text": "#applewatchultra2 #samsunggalaxywatchultra #galaxywatchultra #applewatch #smartwatch",
+        "views": 7400,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v34",
+        "text": "Apple Watch Ultra 2 vs series 10 #applewatch #applewatchseries10 #applewatchultra2 #apple",
+        "views": 193000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v35",
+        "text": "Apple watch series 10 46mm vs 42mm #smartwatch #apple #applewatch #applewatchseries10 #batterylife",
+        "views": 413000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v36",
+        "text": "Samsung Galaxy Watch Ultra vs Apple Watch SE 2 #vs #applewatch #samsung #samsunggalaxywatchultra",
+        "views": 8400,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v37",
+        "text": "Some people thought there’s no plastic on the Galaxy Ultra #applewatch #galaxywatch￼",
+        "views": 79000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v38",
+        "text": "Samsung Galaxy watch ultra ￼vs Fire 🔥#samsung #galaxywatchultra #applewatchultra #apple #applewatch",
+        "views": 6000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v39",
+        "text": "Samsung galaxy ultra vs Apple Watch Ultra 2 battery test #applewatch #samsunggalaxywatchultra",
+        "views": 65000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v40",
+        "text": "iPhone 15 maps tricks #iphone #apple #ios17 #tipsandtricks #ipl2024",
+        "views": 1800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v41",
+        "text": "iPhone Hidden Features #apple #ios17 #iphone #tips #tricks",
+        "views": 5300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v42",
+        "text": "Carplay maximize size feature. #ford #carplay #apple #stereo #mustang ￼",
+        "views": 1600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v43",
+        "text": "Carplay Crossfade how to enable. #apple #applecarplay #carplay #car #stereo",
+        "views": 34000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v44",
+        "text": "Awesome Apple Watch accessories #apple #applewatch #applewatchultra #smartwatch #best",
+        "views": 10000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v45",
+        "text": "Apple Watch Ultra 2 apps #applewatch #applewatchultra2 #apple #applewatchapps #apps",
+        "views": 23000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v46",
+        "text": "Apple Watch Ultra 2 hidden feature #apple #applewatchultra #applewatchhacks #applewatchultra2",
+        "views": 587000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v47",
+        "text": "Apple Watch Apps PT #3 #AppleWatch #applewatchultra #apps",
+        "views": 1500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v48",
+        "text": "Apple Watch apps #apple #applewatch #applewatchultra #apps",
+        "views": 4800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v49",
+        "text": "Quest 3 Golf VR setup #metaquest3 #quest3 #vrgaming",
+        "views": 5500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v50",
+        "text": "Quest 3 Controller vr shooter grips #quest3 #vrgaming #metaquest3",
+        "views": 15000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v51",
+        "text": "@ford f-150  #ford #f150 #f150lightning#electrictrucks #sema #semasmc #semagarage #trucks #cars #fyp",
+        "views": 1800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v52",
+        "text": "Better than Apple Vision 🤔 AR Glasses are better. #applevisonpro #quest3 #xreal #smartglasses #ar",
+        "views": 1900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v53",
+        "text": "Quest 3 pass through vs Apple Vision Pro #apple #applevisionpro #quest3 #metaquest3",
+        "views": 4300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v54",
+        "text": "2024 KIA EV9 Features! #kiaev9 #ev9gtline #ev",
+        "views": 1400,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v55",
+        "text": "Ray Ban SmartGLasses with Ai  #Mete #raybanmeta #rayban #smartglasses #aiglasses",
+        "views": 37000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v56",
+        "text": "Apple Vision Pro vs Quest 3  #Quest3 #applevisionpro #apple #meta",
+        "views": 7900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v57",
+        "text": "Playing Forza in AVP #applevisonpro #apple #ford #raptor",
+        "views": 2700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v58",
+        "text": "2024 is weird #applevisionpro #apple #public #raptor #ford",
+        "views": 3600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v59",
+        "text": "Sorry, love your content Casey, but I need to correct this. #apple #applevisionpro #applevr",
+        "views": 3900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v60",
+        "text": "Apple Vision Pro not so good.  #visionpro #vr #greenscreen #apple",
+        "views": 43000,
+        "multiplier": null,
+        "postedAt": null
+      }
+    ]
+  },
+  {
+    "niche": "fitness",
+    "channel": "@HybridCalisthenics",
+    "platform": "youtube",
+    "videos": [
+      {
+        "id": "v1",
+        "text": "Are you training the muscle(s) you want?",
+        "views": 41000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v2",
+        "text": "This habit helps you get back into fitness",
+        "views": 24000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v3",
+        "text": "What's the best way to learn an exercise? (part 1)",
+        "views": 40000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v4",
+        "text": "Working Out But Reps Not Going Up?",
+        "views": 38000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v5",
+        "text": "Breathing is my favorite stretch",
+        "views": 44000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v6",
+        "text": "How to customize your fitness routine?",
+        "views": 35000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v7",
+        "text": "Loincloths are peak attire",
+        "views": 84000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v8",
+        "text": "can you work out at home without a pullup bar?",
+        "views": 72000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v9",
+        "text": "this gym is playground themed - part 2",
+        "views": 526000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v10",
+        "text": "this changed how I learn skills",
+        "views": 36000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v11",
+        "text": "this helped me get things done",
+        "views": 38000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v12",
+        "text": "this felt great on my wrists",
+        "views": 114000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v13",
+        "text": "Build your pushing strength from home",
+        "views": 28000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v14",
+        "text": "Stuck on the same reps?",
+        "views": 30000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v15",
+        "text": "Are you actually training to \"failure\"?",
+        "views": 132000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v16",
+        "text": "Get stronger at the bottom of your squat",
+        "views": 51000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v17",
+        "text": "How to train your whole body at home",
+        "views": 49000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v18",
+        "text": "Fitness motivation got easier for me after this",
+        "views": 48000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v19",
+        "text": "This exercise helps you carry things",
+        "views": 71000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v20",
+        "text": "Are chair rows good?",
+        "views": 67000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v21",
+        "text": "Can you get a workout in 10 minutes?",
+        "views": 53000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v22",
+        "text": "How I'd Start Fitness",
+        "views": 50000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v23",
+        "text": "Trying to Get Your First Pushup?",
+        "views": 32000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v24",
+        "text": "Knees Stopping You From Doing Squats?",
+        "views": 68000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v25",
+        "text": "Standing All Day? Try This",
+        "views": 63000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v26",
+        "text": "How to Get Up Stairs Easier",
+        "views": 98000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v27",
+        "text": "How to Get Stronger at Pushups (without just doing more)",
+        "views": 79000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v28",
+        "text": "How unstable should your pushups be?",
+        "views": 81000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v29",
+        "text": "What is the strongest muscle?",
+        "views": 648000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v30",
+        "text": "What happens if you stop working out for a month?",
+        "views": 65000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v31",
+        "text": "How to Get Your First Pullup",
+        "views": 141000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v32",
+        "text": "Are Pullups ACTUALLY Harder Than Pushups?",
+        "views": 44000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v33",
+        "text": "Lower reps for \"strength\" keep some people stuck",
+        "views": 72000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v34",
+        "text": "Are slow reps better?",
+        "views": 93000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v35",
+        "text": "Have Trouble Holding on to the Pullup Bar? Try This",
+        "views": 51000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v36",
+        "text": "Which Wild Pullup Bar is Best?  Part 2",
+        "views": 490000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v37",
+        "text": "Pushing with Shoulders vs Pushing with Chest",
+        "views": 99000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v38",
+        "text": "Bored with Your Workout? 2 Options",
+        "views": 22000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v39",
+        "text": "I Tried Spiderman's Workout (in 100°F Heat)",
+        "views": 843000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v40",
+        "text": "Getting back into working out?",
+        "views": 64000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v41",
+        "text": "30 days to get better at pushups?",
+        "views": 95000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v42",
+        "text": "What to Expect When You're Expecting (to Work Out)",
+        "views": 40000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v43",
+        "text": "Why We Cheat on Workouts",
+        "views": 76000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v44",
+        "text": "they finally did it",
+        "views": 935000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v45",
+        "text": "Explaining Fitness in 3 Words",
+        "views": 40000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v46",
+        "text": "This Pushup was Easier on Grass",
+        "views": 98000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v47",
+        "text": "Which Random Pullup Bar is Best?",
+        "views": 1300000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v48",
+        "text": "Benefits of Walking After Meals",
+        "views": 59000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v49",
+        "text": "What's the Best Sitting Posture?",
+        "views": 278000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v50",
+        "text": "best way to place hands during pushups",
+        "views": 63000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v51",
+        "text": "how thick is too thick? (pullup bars)",
+        "views": 512000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v52",
+        "text": "trying sledgehammer training (not the one where you pound things)",
+        "views": 82000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v53",
+        "text": "2 ways to make progress",
+        "views": 54000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v54",
+        "text": "\"what workout schedule should I use?\"",
+        "views": 36000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v55",
+        "text": "can you find your weak link?",
+        "views": 56000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v56",
+        "text": "work a lot but don't seem fit?",
+        "views": 460000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v57",
+        "text": "how heavy are your pushups?",
+        "views": 202000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v58",
+        "text": "this gym looks very playground themed",
+        "views": 4700000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v59",
+        "text": "this made me reconsider my life",
+        "views": 55000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v60",
+        "text": "pushups hurt wrists? - take 3",
+        "views": 88000,
+        "multiplier": null,
+        "postedAt": null
+      }
+    ]
+  },
+  {
+    "niche": "fitness",
+    "channel": "@naomikong",
+    "platform": "youtube",
+    "videos": [
+      {
+        "id": "v1",
+        "text": "🩶HOW TO USE THE LATERAL RAISE MACHINE🩶 #howtousegymequipment #beginnerfitness #exercisetips",
+        "views": 17000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v2",
+        "text": "✖️HOW TO USE THE CHEST PRESS MACHINE✖️ #howtousegymequipment #beginnerfitness #exercisetips",
+        "views": 5900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v3",
+        "text": "✖️HOW TO USE THE ASSISTED PULL UP/TRICEPS DIPS MACHINE✖️ #howtousegymequipment #gymtutorial",
+        "views": 6700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v4",
+        "text": "✅Your entire week of workouts delivered #fullweekofworkouts #workoutplan #fitnessroutine",
+        "views": 5500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v5",
+        "text": "💚Waiting for Monday is just your brain stalling #midweekmotivation #workoutroutine #gymfitness",
+        "views": 5800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v6",
+        "text": "Which 1️⃣ power move will you be doing this weekend?💪🏼#fitnessroutine #workoutplan #gymmotivation",
+        "views": 8000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v7",
+        "text": "✖️HOW TO USE THE SEATED ROW MACHINE | STEP BY STEP GUIDE✖️ #howtousegymequipment #gymtutorial",
+        "views": 6100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v8",
+        "text": "🤎FULL WEEK OF WORKOUTS | INTERMEDIATE-ADVANCED 🤎 #weekofworkouts #workoutplan #weightlifting",
+        "views": 5600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v9",
+        "text": "🫣What to Do When You Don’t Feel Like Working Out #gymmotivation #disciplineovermotivation",
+        "views": 7000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v10",
+        "text": "🤍TRAIN. BUILD. NAVIGATE. SUCCEED—WITH EASE #fitnessroutine #workoutplan #fitnessapp  #naomikong",
+        "views": 3300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v11",
+        "text": "💫This Fitness App Plans Everything for You #trainwithease #workoutplan #fitnessprogram",
+        "views": 4500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v12",
+        "text": "👣It All Adds Up  #smallsteps #fitnessjourney #progressmindset",
+        "views": 10000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v13",
+        "text": "🤎Don’t Blink—You Might Finally Stop Starting Over. Are You In?? #newyear2026 #sustainablefitness",
+        "views": 4600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v14",
+        "text": "The 1️⃣ Thing Your Fitness Routine DOES NOT Need #fitnessjourney #sustainablefitness #wellnesstips",
+        "views": 8100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v15",
+        "text": "🚫What I’m NOT Doing This Year… #fitnessroutine #newyearmindset #clarityandfocus #healthandwellness",
+        "views": 9200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v16",
+        "text": "🤍Stop waiting to feel beautiful #healingjourney #selflove #healthandwellness",
+        "views": 4900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v17",
+        "text": "😥Movement I Turn to When My Mind Feels Heavy… #fitnessjourney #healthandwellness #workoutroutine",
+        "views": 7200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v18",
+        "text": "🙅🏻‍♀️You don’t need to push harder—you need a plan that supports you better.",
+        "views": 6200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v19",
+        "text": "🏋🏻‍♀️From the Gym → to the Boardroom📈 #MasterClassPartner",
+        "views": 2600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v20",
+        "text": "🫶🏼For the overthinker who never feels like she’s doing enough #healingera #softseason #reminder",
+        "views": 5900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v21",
+        "text": "✖️Progress Doesn’t Only Start on Mondays✖️ #bounceback #midweekmotivation #finishstrong",
+        "views": 10000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v22",
+        "text": "🖤LEVEL UP YOUR LIFTING GAME🖤 #exerciseform #breathingtechniques #weightlifting",
+        "views": 9900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v23",
+        "text": "3️⃣Mistakes to Avoid When Doing This Back Exercise🚫 #weightlifting #exercisetips #backexercise",
+        "views": 5100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v24",
+        "text": "🙅🏻‍♀️Stop stressing about step 100 when step 1 still needs you. One day at a time. 💪🏼",
+        "views": 5700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v25",
+        "text": "✖️HOW TO: TRICEPS PUSHDOWNS✖️ #armworkout #weightlifting #exercisetips",
+        "views": 8100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v26",
+        "text": "🏃🏻‍♀️‍➡️Getting Back On Track #progressnotperfection #fitnessjourney #weeklyreset",
+        "views": 10000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v27",
+        "text": "❌4 BACK EXERCISES YOU’RE DOING WRONG❌ #workouttips #weightlifting #backdayworkout",
+        "views": 7300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v28",
+        "text": "😤Here’s how to end your week strong💪🏼 #fitnessroutine #fitgirlguide #weekendreset",
+        "views": 4800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v29",
+        "text": "💥WHY THE BARBELL HURTS YOUR NECK💥 #workouttips #weightlifting #gymworkouts",
+        "views": 7100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v30",
+        "text": "💨HOW TO BREATHE DURING YOUR WORKOUTS | #exercisetips #workoutinspiration #weightlifting",
+        "views": 6600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v31",
+        "text": "🏃🏻‍♀️Just cause you didn’t start on Monday ≠ you have to wait til next Monday 😤👏🏼  #getitdone",
+        "views": 8800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v32",
+        "text": "✖️HOW TO: WIDE-GRIP LAT PULLDOWN✖️ #beginnerfitness #strengthtraining #exercisetips",
+        "views": 31000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v33",
+        "text": "🖤A letter to my younger self… #fitnessjourney #selfloveandhealing #healthandwellness",
+        "views": 8500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v34",
+        "text": "🫣POV: It’s April & you haven’t started working on your fitness resolutions yet.. #healthandwellness",
+        "views": 8600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v35",
+        "text": "❎WHERE TO START | Working Out After a Break💪🏼 #workouttips #workoutguide #healthandwellness",
+        "views": 12000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v36",
+        "text": "💙BEGINNER UPPER BODY💪🏼 #beginnerworkout #gymworkouts #upperbodyworkout",
+        "views": 28000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v37",
+        "text": "🙅🏻‍♀️Never forget this on your fitness journey… #workoutmotivation #beginnerfitness #reminder",
+        "views": 16000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v38",
+        "text": "💚HOW TO USE A BENCH💚 #howtousegymequipment #gymtutorial #beginnergymtips",
+        "views": 15000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v39",
+        "text": "❤️‍🩹Why You’re Stuck In Your Fitness Journey #remindertoself #healthandwellness #fitnessjourney",
+        "views": 7400,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v40",
+        "text": "✖️How to Use a Squat Rack Pt 1✖️ #howtousegymequipment #beginnerfitness #gymtutorial",
+        "views": 144000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v41",
+        "text": "All Because of Weightlifting… #fitnessjourney #fitnesstransformation #healthandwellness",
+        "views": 7700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v42",
+        "text": "Drop a 💪🏼 if you’re in!!  #winterarc #mealplan #workoutplan #fitnessroutine",
+        "views": 5900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v43",
+        "text": "🏃🏻‍♀️‍➡️How to Get Back on Track After Taking a Break✨ #mondaymindset #fittips #healthandwellness",
+        "views": 8300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v44",
+        "text": "✨Calling all my shy girls who wanna start the gym but are feeling anxious… #beginnergymguide",
+        "views": 10000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v45",
+        "text": "💫How to SLAY the last 3 months of the year👏🏼 #workoutmotivation #dailyreminder #fitnessjourney",
+        "views": 7800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v46",
+        "text": "🖤BEGINNER FULL BODY WORKOUT🖤 (Full breakdown in my most recent “Week of Workouts” video.)",
+        "views": 1000000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v47",
+        "text": "❎BEGINNER’S GUIDE | HOW TO USE A TREADMILL PT 1❎ #beginnerfitness #beginnerworkout",
+        "views": 304000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v48",
+        "text": "3️⃣Easy Steps to Create Your Own Workouts (Beginner Edition) #beginnerworkout #workouttips",
+        "views": 20000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v49",
+        "text": "‼️Do THIS Exercise for Stronger Deadlifts #deadlift #strengthtraining #weightlifting",
+        "views": 6900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v50",
+        "text": "🤔How Much Weight Should You Be Using During Your Workouts?? #beginnerworkout #workouttips #fittips",
+        "views": 9900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v51",
+        "text": "🥲🫶🏼My Fav Part About Coaching… #nasmcpt #healthandwellnesscoach #fitnesscoach",
+        "views": 5900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v52",
+        "text": "🤯Are You Skipping This Step in Your Training?? #strengthtraining #weightlifting #exercisetips",
+        "views": 8100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v53",
+        "text": "🔥Underrated Way to Burn More Calories Without Working Out #funworkout #easyexercise #calorieburn",
+        "views": 9700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v54",
+        "text": "🍑My Current Fav Glute Exercise🍑 #bootyworkout #glutesworkout #glutexercises",
+        "views": 5100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v55",
+        "text": "🔥No Gym Needed | Burn Calories From Home Pt 1 #easyexercise #funworkout #burncalories",
+        "views": 3900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v56",
+        "text": "💙A Typical Day In My Life as a Content Creator & Personal Trainer  #dailyvlog #contentcreator",
+        "views": 3400,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v57",
+        "text": "💪🏼Stronger with YOU by my side. We are 500K strong. Thank you. Love you guys sm. ❤️🙏🏼🫶🏼",
+        "views": 2500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v58",
+        "text": "🙏🏼Change does not need to be drastic to be significant #fitnessjourney #dailyreminder #stepbystep",
+        "views": 7500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v59",
+        "text": "🥲Don’t overlook all the progress you have made #fitnessjourney #dailyreminder #encouragement",
+        "views": 4400,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v60",
+        "text": "👏🏼Work smarter, not harder, besties #workouttips #exercisetips #rdls",
+        "views": 12000,
+        "multiplier": null,
+        "postedAt": null
+      }
+    ]
+  },
+  {
+    "niche": "investing-vc",
+    "channel": "@MarketPowerYT",
+    "platform": "youtube",
+    "videos": [
+      {
+        "id": "v1",
+        "text": "Economic puzzles",
+        "views": 73000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v2",
+        "text": "Harry Potter economics",
+        "views": 3700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v3",
+        "text": "Would it fool you?",
+        "views": 30000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v4",
+        "text": "Marvel economics (part 1)",
+        "views": 42000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v5",
+        "text": "Harry Potter economics (part 4)",
+        "views": 150000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v6",
+        "text": "The true story of the Boston Tea Party",
+        "views": 7600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v7",
+        "text": "Disney economics (part 1)",
+        "views": 3700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v8",
+        "text": "Why do countries do this?",
+        "views": 316000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v9",
+        "text": "Phineas and Ferb economics (part 1)",
+        "views": 32000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v10",
+        "text": "Harry Potter economics (part 3)",
+        "views": 1000000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v11",
+        "text": "You can't unsee it",
+        "views": 57000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v12",
+        "text": "Harry Potter economics (part 2)",
+        "views": 3300000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v13",
+        "text": "The last one is sneaky",
+        "views": 82000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v14",
+        "text": "Bluey economics (part 4)",
+        "views": 32000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v15",
+        "text": "Underrated economics books (part 4)",
+        "views": 1100000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v16",
+        "text": "Harry Potter Economics (part 1)",
+        "views": 2100000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v17",
+        "text": "Bluey Economics (part 3)",
+        "views": 42000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v18",
+        "text": "Underrated economics books (part 3)",
+        "views": 5600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v19",
+        "text": "Bluey Economics (part 2)",
+        "views": 8800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v20",
+        "text": "Underrated economics books (part 2)",
+        "views": 19000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v21",
+        "text": "Bluey Economics (part 1)",
+        "views": 4500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v22",
+        "text": "Underrated economics books (part 1)",
+        "views": 30000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v23",
+        "text": "Why didn't Harry think of this? #booktok #harrypotter #economics",
+        "views": 14000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v24",
+        "text": "Winning MrBeast's Secret Chocolate Prize",
+        "views": 8100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v25",
+        "text": "My chocolate video beat MrBeast's",
+        "views": 92000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v26",
+        "text": "Do you love Star Wars this much?",
+        "views": 6600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v27",
+        "text": "Winning a Feastable Prize from MrBeast",
+        "views": 6800000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v28",
+        "text": "This one will change how you see the world #booktok #economics",
+        "views": 20000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v29",
+        "text": "What hyperinflation really looks like",
+        "views": 27000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v30",
+        "text": "Only the rich can solve this puzzle #shorts",
+        "views": 3500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v31",
+        "text": "You missed this in Encanto #shorts",
+        "views": 25000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v32",
+        "text": "The Worst Scene from Don't Look Up #shorts",
+        "views": 174000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v33",
+        "text": "Gamestop, but it's 1907",
+        "views": 6300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v34",
+        "text": "Mobile Phones Changed Kerala's Economy in 6 Weeks",
+        "views": 5500,
+        "multiplier": null,
+        "postedAt": null
+      }
+    ]
+  },
+  {
+    "niche": "personal-finance",
+    "channel": "@StrategicWealthDesigners",
+    "platform": "youtube",
+    "videos": [
+      {
+        "id": "v1",
+        "text": "Roth IRAs: Tax-Free Money for Your Future",
+        "views": 2000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v2",
+        "text": "Cryptocurrency: The Vegas Gamble of Investing",
+        "views": 809,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v3",
+        "text": "Turning Recession into Opportunity: Smart Investing Tips for Young Peopl",
+        "views": 967,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v4",
+        "text": "Turning Recession into Opportunity: Smart Investing Tips for Young People",
+        "views": 787,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v5",
+        "text": "Recession and Retirement: Protect Your Future",
+        "views": 761,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v6",
+        "text": "Long-Term Wealth: Stocks vs. Real Estate",
+        "views": 900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v7",
+        "text": "Emergency Fund or Retirement? Here's What You Should Prioritize!",
+        "views": 1200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v8",
+        "text": "Real Estate vs. Market Investing: Which is Right for Your Retirement? 🏡📈",
+        "views": 9500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v9",
+        "text": "Mutual Funds, ETFs, and Index Funds Explained: What’s the Difference?",
+        "views": 36000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v10",
+        "text": "Why Investing in Startups Isn't Just About Big Ideas—It's About Real Demand!",
+        "views": 1400,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v11",
+        "text": "High-Risk Startup or Steady Giant: Which Would You Choose?",
+        "views": 798,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v12",
+        "text": "Stocks or Index Funds? VP Jordan's Take on Smart Investing!",
+        "views": 3900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v13",
+        "text": "Catch this insight - Be the Index vs. Beat the Index!",
+        "views": 1600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v14",
+        "text": "The After-Death Celebrity Effect: How Value Increases Over Time",
+        "views": 1800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v15",
+        "text": "Michael Jackson & Life Insurance: The Untold Angle",
+        "views": 6700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v16",
+        "text": "Star Financial Fixes: Nicolas Cage's Tax-Free State Escape",
+        "views": 1900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v17",
+        "text": "Debt After Death: Michael Jackson",
+        "views": 818000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v18",
+        "text": "Protecting your assets before marriage?",
+        "views": 5800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v19",
+        "text": "Does Bankruptcy help out higher or lower profile people more?",
+        "views": 5600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v20",
+        "text": "Pay off your 3% mortgage and live debt-free in retirement or pay mortgage off as slowly as possible?",
+        "views": 83000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v21",
+        "text": "Star Financial Fixes: Nicolas Cage",
+        "views": 35000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v22",
+        "text": "Contribute to a Roth IRA OR a Traditional IRA?",
+        "views": 3200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v23",
+        "text": "Pensions + 401(k)s = Financial Power 💪💼",
+        "views": 1200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v24",
+        "text": "Luxurious Mortgage or Modest Freedom?",
+        "views": 3600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v25",
+        "text": "Would you rather have a high paying job that you hate OR have a low paying job that you love?",
+        "views": 1800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v26",
+        "text": "Debit cards OR credit cards?",
+        "views": 2500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v27",
+        "text": "Six figure salary OR 100 Acres of Land?",
+        "views": 1500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v28",
+        "text": "Prioritize your 401(k) or your IRA?",
+        "views": 471,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v29",
+        "text": "Pay off debt? Or invest that money?",
+        "views": 12000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v30",
+        "text": "What's the the most financially responsible you've done?",
+        "views": 587,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v31",
+        "text": "If society collapses, is saving for retirement even worth it?",
+        "views": 735,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v32",
+        "text": "Should you invest in gold and precious metals?",
+        "views": 1900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v33",
+        "text": "Mental health during a bear market?",
+        "views": 704,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v34",
+        "text": "How much should be in your emergency fund?",
+        "views": 1400,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v35",
+        "text": "What is the #1 rule in the stock market?",
+        "views": 789,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v36",
+        "text": "Debunking Money Myths: Gold is the safest investment",
+        "views": 684,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v37",
+        "text": "Debunking Money Myths: Saving Money in your 20's",
+        "views": 1900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v38",
+        "text": "Are all investments risky?",
+        "views": 511,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v39",
+        "text": "What's the best way to get out of debt?",
+        "views": 1000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v40",
+        "text": "What's the perfect age to start thinking about retirement?",
+        "views": 1200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v41",
+        "text": "Where do you get YOUR financial news and updates?",
+        "views": 3900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v42",
+        "text": "How do grandmas always have money, but they don't have a job",
+        "views": 1800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v43",
+        "text": "Where you can put your money without the government touching it",
+        "views": 2200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v44",
+        "text": "Is this the best financial advice you'll get for free?",
+        "views": 1800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v45",
+        "text": "If you're broke, don't have kids",
+        "views": 1300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v46",
+        "text": "Don't hire a financial advisor unless they are a specific type of advisor",
+        "views": 2600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v47",
+        "text": "Are 401(k) and IRA's terrible retirement plans?",
+        "views": 5600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v48",
+        "text": "Marry a man who isn't financially stable?",
+        "views": 14000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v49",
+        "text": "What is Bull Market and a Bear Market?",
+        "views": 5500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v50",
+        "text": "Financial Advisor Reacts to Movies: Limitless",
+        "views": 3200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v51",
+        "text": "Financial Advisor Reacts To Movies: Limitless",
+        "views": 16000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v52",
+        "text": "Financial Advisor Reacts To Movies: The Big Short",
+        "views": 3700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v53",
+        "text": "How much money do you need to retire?",
+        "views": 52000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v54",
+        "text": "Financial Advisor Reacts to Movies: Wall Street 2 - Money Never Sleeps",
+        "views": 6100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v55",
+        "text": "What do you think of when you hear the word \"Retirement?\"",
+        "views": 625,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v56",
+        "text": "How Well Do YOU Save Money?",
+        "views": 714,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v57",
+        "text": "Debunking Money Myths: Having Money To Invest",
+        "views": 334,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v58",
+        "text": "Financial Advisor Reacts To Movies: The Big Short (Part 2)",
+        "views": 17000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v59",
+        "text": "Financial Advisor Reacts To Movies: The Big Short (Part 1)",
+        "views": 22000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v60",
+        "text": "Financial Advisor Reacts To Movies: Date Night (part 2)",
+        "views": 1500,
+        "multiplier": null,
+        "postedAt": null
+      }
+    ]
+  },
+  {
+    "niche": "psychology",
+    "channel": "@brandonclearminds",
+    "platform": "youtube",
+    "videos": [
+      {
+        "id": "v1",
+        "text": "They all do this! #narcissist",
+        "views": 77975,
+        "multiplier": 0.1915,
+        "postedAt": 1784131234000
+      },
+      {
+        "id": "v2",
+        "text": "If I could only warn you about three things, these would be it. 🫶🏼❤️‍🩹 #narcissist",
+        "views": 3000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v3",
+        "text": "Accountability can be the difference between a healthy relationship and an abusive one!",
+        "views": 1700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v4",
+        "text": "Put yourself first because they will!",
+        "views": 1700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v5",
+        "text": "You deserve better, you know you do. 🫶🏼 #narcissisticabuse",
+        "views": 1700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v6",
+        "text": "Now you know. 🫶🏼❤️‍🩹 #narcissist",
+        "views": 2400,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v7",
+        "text": "Breaking the Trauma Bond. 🫶🏼❤️‍🩹 #traumabond",
+        "views": 3200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v8",
+        "text": "Narcissists when they are drunk! #narcissist",
+        "views": 3900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v9",
+        "text": "When you do, your life will get easier 🫶🏼 #narcissist",
+        "views": 2200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v10",
+        "text": "If you feel like you can’t afford to leave then Finacial abuse is the problem. ❤️‍🩹 #financialabuse",
+        "views": 2600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v11",
+        "text": "How to know if someone is right for you. #narcissists #relationshiptherapy",
+        "views": 3300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v12",
+        "text": "Narcissistic parents and their ridiculous power trips. #narcissist #narcissisticparent",
+        "views": 1100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v13",
+        "text": "4 Ways Narcissistic Parents Think #narcissist",
+        "views": 3300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v14",
+        "text": "When a man leaves a women! #divorce #narcissist #financialabuse",
+        "views": 3300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v15",
+        "text": "They resent people for healing. ❤️‍🩹 #narcissist",
+        "views": 4800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v16",
+        "text": "This annoys some men when I say this, but it’s true. ❤️‍🩹",
+        "views": 6800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v17",
+        "text": "Why is it so hard to move on from a Narcissist? #narcissist",
+        "views": 5200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v18",
+        "text": "The single most dangerous thing you can let a Narcissist does to you! #narcissist",
+        "views": 9500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v19",
+        "text": "EPISODE 4 - I’m a Narcissist - How I treat my wife on holiday! #narcissist",
+        "views": 13000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v20",
+        "text": "Know this when it comes to Narcissists! #narcissist",
+        "views": 4100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v21",
+        "text": "This could just change your life forever! #overexplaining #narcissist",
+        "views": 15000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v22",
+        "text": "Why people leave Narcissists. #narcissist",
+        "views": 24000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v23",
+        "text": "They only care about one thing! #narcissist",
+        "views": 21000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v24",
+        "text": "EPISODE 3 Of I’m a narcissist. Here’s what I’m really thinking when my wife tells me she’s leaving…",
+        "views": 14000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v25",
+        "text": "EPISODE 2 I’m a narcissist. Here’s what I’m really thinking when my wife starts therapy… #narcissist",
+        "views": 7900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v26",
+        "text": "EPISODE 1 of I’m a narcissist. Here’s what I’m really thinking when my wife finally stops texting me",
+        "views": 23000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v27",
+        "text": "Narcissist shares internal thoughts on  how he ACTUALLY feels about his wife! #narcissist",
+        "views": 57000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v28",
+        "text": "They can not answer it! #narcissist #narcissism",
+        "views": 26000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v29",
+        "text": "How financial abuse ends 😔",
+        "views": 4000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v30",
+        "text": "Don’t Worry About Your Narcissistic Ex Anymore.",
+        "views": 3500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v31",
+        "text": "This in my opinion is one of the cruelest things you can do. 😔❤️‍🩹",
+        "views": 38000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v32",
+        "text": "If your feeling exhausted then that’s normal. ❤️‍🩹",
+        "views": 3200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v33",
+        "text": "A little reminder that things will get better. 🫶🏼 #narcisist",
+        "views": 3200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v34",
+        "text": "I love it when a plan comes together. ❤️‍🩹🫶🏼",
+        "views": 8600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v35",
+        "text": "My Top 5 Narcissistic Acts caught on camera 😔❤️‍🩹",
+        "views": 8100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v36",
+        "text": "More people need to understand that this is not right. And things need to change. 🫶🏼",
+        "views": 3600,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v37",
+        "text": "Financial abuse is controlling someone through fear, dependency and survival. ❤️‍🩹",
+        "views": 3800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v38",
+        "text": "Leaving a Narcissist is easy when you shift your priorities. ❤️‍🩹",
+        "views": 3700,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v39",
+        "text": "Financial abuse is more common than you probably think! 😔❤️‍🩹",
+        "views": 3200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v40",
+        "text": "Financial Abuse is the most common type of abuse in 2026 ❤️‍🩹",
+        "views": 2400,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v41",
+        "text": "Expecting a woman to sacrifice her career, then saying she contributed nothing after. ❤️‍🩹",
+        "views": 1800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v42",
+        "text": "Narcissists Want One Type Of Person Most",
+        "views": 6200,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v43",
+        "text": "Why Women Fall for Narcissistic Toxic Men",
+        "views": 3100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v44",
+        "text": "How to Hurt a Narcissist in 47 Seconds",
+        "views": 4100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v45",
+        "text": "A Conversation with a Narcissist can look like this. ❤️‍🩹",
+        "views": 17000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v46",
+        "text": "2 People Leave a Narcissist differently #narcissist",
+        "views": 6300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v47",
+        "text": "The Narcissists Trap: AVOID!",
+        "views": 3300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v48",
+        "text": "Why your Sibling sides with your Narcissist Parent #narcissism",
+        "views": 3100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v49",
+        "text": "Being watched by a Narc?",
+        "views": 1800,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v50",
+        "text": "Why the Narcissist targeted you.",
+        "views": 3300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v51",
+        "text": "The Narcissist Picked you! It wasn’t an accident. ❤️‍🩹",
+        "views": 2300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v52",
+        "text": "The Narcissist’s Main Weapon: And How to Destroy It! #narcissist #narcissism",
+        "views": 6500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v53",
+        "text": "Narcissists search for strong people. #narcissist",
+        "views": 3300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v54",
+        "text": "Being Stoic is a Narcissists worst nightmare. ❤️‍🩹#narcissist #narcissism",
+        "views": 2500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v55",
+        "text": "From my latest video about being Stoic around Narcissists. ❤️‍🩹",
+        "views": 2300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v56",
+        "text": "The only boundary a Narcissistic spouse will listen to! #narcissisticabuse #narcissism",
+        "views": 4100,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v57",
+        "text": "5 Things all Narcissists do after a Breakup #narcissist #narcissism #breakup",
+        "views": 3900,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v58",
+        "text": "5 Signs you are in a Silent Divorce #relationships #divorce",
+        "views": 2400,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v59",
+        "text": "5 Signs a Narcissist is Cheating on you #narcissism #narcissist",
+        "views": 2300,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v60",
+        "text": "A huge Narcissistic Red Flag 🚩",
+        "views": 3300,
+        "multiplier": null,
+        "postedAt": null
+      }
+    ]
+  },
+  {
+    "niche": "psychology",
+    "channel": "@lifeactuator",
+    "platform": "youtube",
+    "videos": [
+      {
+        "id": "v1",
+        "text": "Things people with ADHD do despite knowing better. Part 65 #adhd",
+        "views": 2132710,
+        "multiplier": 8.4871,
+        "postedAt": 1792786638000
+      },
+      {
+        "id": "v2",
+        "text": "Hello brains! Despite knowing better. Part 64 (feat. @HowtoADHD ) #adhd",
+        "views": 41000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v3",
+        "text": "Things people with ADHD do more often. Part 28 (feat. @ADHD_Chatter_Podcast ) #adhd",
+        "views": 43000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v4",
+        "text": "Part 61. Sound like you? Book a free call with me! #adhd",
+        "views": 29000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v5",
+        "text": "Things people with ADHD do despite knowing better. Part 64 #adhd",
+        "views": 46000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v6",
+        "text": "Things people with ADHD have a hard time explaining. Part 60 #adhd",
+        "views": 647000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v7",
+        "text": "Things people with ADHD do despite knowing better. Part 63 #adhd",
+        "views": 140000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v8",
+        "text": "Things that make ADHD worse. Part 7",
+        "views": 39000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v9",
+        "text": "If the world was made for ADHD. Part 31 (feat. Loop Earplugs) #adhd #loopearplugs",
+        "views": 30000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v10",
+        "text": "With ADHD Without ADHD. Part 36 #adhd",
+        "views": 45000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v11",
+        "text": "With ADHD without ADHD. Part 35 #adhd",
+        "views": 456000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v12",
+        "text": "With ADHD without ADHD. Part 34 #adhd",
+        "views": 211000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v13",
+        "text": "Things people with ADHD do despite knowing better. Part 62 #adhd",
+        "views": 566000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v14",
+        "text": "With ADHD without ADHD. Part 33 #adhd",
+        "views": 66000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v15",
+        "text": "If the world was made for ADHD. Part 30 #adhd",
+        "views": 1900000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v16",
+        "text": "Things people with ADHD have a hard time explaining. Part 59 #adhd",
+        "views": 180000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v17",
+        "text": "Part 58. Join my live group coaching cohort! Book a 1:1 discovery call from my bio today! #adhd",
+        "views": 30000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v18",
+        "text": "Things people with ADHD do more often. Part 27 (feat. Skylight) code: ERICW30 for $30 off your order",
+        "views": 29000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v19",
+        "text": "With ADHD Without ADHD. Part 32 #adhd",
+        "views": 651000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v20",
+        "text": "Was That Today? Episode 3 (Eric's baldness)",
+        "views": 14000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v21",
+        "text": "Was That Today? Episode 3 (internal classroom turmoil) #adhd",
+        "views": 11000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v22",
+        "text": "With ADHD Without ADHD. Part 31 #adhd",
+        "views": 51000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v23",
+        "text": "Episode 2 out now! ADHD, Meat Showers, and Sensory Icks - Was That Today? Podcast #adhd",
+        "views": 13000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v24",
+        "text": "Things people with ADHD do more often. Part 26 #adhd",
+        "views": 46000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v25",
+        "text": "With ADHD Without ADHD. Part 30 #adhd",
+        "views": 547000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v26",
+        "text": "Was That Today? Episode 4: “Eric is the epitome of laziness” #adhd",
+        "views": 20000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v27",
+        "text": "Was That Today? Episode 1: Getting to the bottom of snake phobias",
+        "views": 12000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v28",
+        "text": "Things people with ADHD hard a time explaining. Part 57 #adhd",
+        "views": 51000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v29",
+        "text": "Was That Today? Episode 3: Mental health providers and ADHD #adhd",
+        "views": 16000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v30",
+        "text": "With ADHD Without ADHD. Part 30 (feat. Headway) #adhd #headway",
+        "views": 32000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v31",
+        "text": "Was That Today? Podcast: Ant Brains",
+        "views": 12000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v32",
+        "text": "Things people with ADHD have a hard time explaining. Part 56 #adhd",
+        "views": 469000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v33",
+        "text": "Things people with ADHD do more often. Part 25 #adhd",
+        "views": 100000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v34",
+        "text": "Things people with ADHD do more often. Part 24 #adhd",
+        "views": 60000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v35",
+        "text": "Get your Impulse control under control - ADHD Superhero Blueprint #adhd",
+        "views": 17000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v36",
+        "text": "People with ADHD do more often. ft. Skylight Calendar. Code LIFEACTUATOR40 for $40 off your purchase",
+        "views": 18000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v37",
+        "text": "ADHD convos podcast preview episode 0 #adhd",
+        "views": 9500,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v38",
+        "text": "Things people with ADHD do more often. Part 23 #adhd",
+        "views": 48000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v39",
+        "text": "What ADHD feels like. 44 (sign up for my ADHD Superhero Blueprint today!) #adhd",
+        "views": 28000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v40",
+        "text": "If you have ADHD, you have ED #adhd",
+        "views": 22000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v41",
+        "text": "ADHD in the Workplace 9. Stop struggling with the “blah blah blah” and use the Plaud Notepin S #adhd",
+        "views": 19000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v42",
+        "text": "Things people with ADHD have a hard time explaining. Part 55 #adhd",
+        "views": 170000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v43",
+        "text": "Things people with ADHD have a hard time explaining. Part 54 #adhd",
+        "views": 1000000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v44",
+        "text": "Things people with ADHD do more often. Part 21 #adhd",
+        "views": 164000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v45",
+        "text": "Things people with ADHD do more often. Part 20 #adhd",
+        "views": 130000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v46",
+        "text": "ADHD tip while I cook an egg: Bracketing (supports self-monitoring) #adhd",
+        "views": 47000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v47",
+        "text": "Things people with ADHD do more often. Part 19 #adhd",
+        "views": 76000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v48",
+        "text": "ADHD Social Challenges. Part 1 #adhd",
+        "views": 45000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v49",
+        "text": "With ADHD without ADHD. Part 29 #adhd",
+        "views": 495000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v50",
+        "text": "Things people with ADHD do more often. Part 19 #adhd",
+        "views": 29000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v51",
+        "text": "Things people with ADHD do more often. Part 19 #adhd",
+        "views": 27000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v52",
+        "text": "Things people with ADHD have a hard time explaining. Part 53 #adhd",
+        "views": 70000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v53",
+        "text": "Get the ADHD Superhero Blueprint now! #adhd",
+        "views": 15000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v54",
+        "text": "What ADHD feels like. Part 43 #adhd",
+        "views": 27000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v55",
+        "text": "With ADHD without ADHD. Part 29 #adhd",
+        "views": 57000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v56",
+        "text": "“That’s not ADHD. That’s laziness”",
+        "views": 24000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v57",
+        "text": "The ADHD Superhero Blueprint is available now! Hope to see you there. #adhd",
+        "views": 15000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v58",
+        "text": "The ADHD Superhero Blueprint is FINALLY here! #adhd",
+        "views": 21000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v59",
+        "text": "ADHD “street smarts” explained. #adhd",
+        "views": 16000,
+        "multiplier": null,
+        "postedAt": null
+      },
+      {
+        "id": "v60",
+        "text": "If you’re smart but FEEL stupid… stay tuned #adhd",
+        "views": 43000,
+        "multiplier": null,
+        "postedAt": null
+      }
+    ]
+  }
+]

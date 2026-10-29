@@ -218,7 +218,7 @@ describe("niche report", () => {
     const niche = getNiche({ workspaceId, ref: "psychology" })!;
     const report = buildNicheReport({ niche, now: clock.now, options: { language: "en" } });
     expect(Object.keys(report)).toEqual([
-      "kind", "niche", "scope", "generatedAt", "settings", "coverage", "whatToCopy", "topOutliers", "formats", "growth",
+      "kind", "niche", "scope", "generatedAt", "settings", "coverage", "whatToCopy", "topOutliers", "formats", "formatsAndSeries", "growth",
       "subNicheGaps", "entryFormats", "negativeGroup", "anomalies", "digests", "youtube", "notes",
     ]);
     expect(report.coverage.creators.kept).toBe(5);
@@ -229,7 +229,7 @@ describe("niche report", () => {
     expect(report.youtube.lacks.length).toBeGreaterThan(0);
     expect(report.whatToCopy.items.every((item) => typeof item.components.sizeWeight === "number")).toBe(true);
     const markdown = renderNicheReportMarkdown(report);
-    for (const heading of ["## Coverage", "## What to copy (copyability ranking)", "## Top outliers", "## Winning formats and hook types", "## Cadence and length of creators who grow", "## Sub-niche saturation vs demand", "## Entry formats for a new account", "## Negative control group", "## Digests for the top references", "## YouTube coverage"]) {
+    for (const heading of ["## Coverage", "## What to copy (copyability ranking)", "## Top outliers", "## Winning formats and hook types", "## Formats and series", "## Cadence and length of creators who grow", "## Sub-niche saturation vs demand", "## Entry formats for a new account", "## Negative control group", "## Digests for the top references", "## YouTube coverage"]) {
       expect(markdown).toContain(heading);
     }
     expect(markdown).not.toContain("someone@example.com");

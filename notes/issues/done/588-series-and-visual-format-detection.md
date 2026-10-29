@@ -1,6 +1,6 @@
 # Series and visual format detection in the trend engine
 
-> **Status:** todo
+> **Status:** done — 2026-10-30 (checkpoint: `trends series` and `trends formats label`, EN/RU part markers, series lift vs channel, 90-day freshness on the newest part, 11-format visual taxonomy labeled from contact sheets by the agent; 15 fresh series labeled; open: series as a signal type, first-frame title markers, rating and date false positives)
 > **Filed:** 2026-10-30
 > **Folder:** issues
 > **Severity:** high

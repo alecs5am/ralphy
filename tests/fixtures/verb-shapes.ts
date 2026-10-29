@@ -1596,6 +1596,62 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         { slug: "psychology", topic: "psychology", languages: "en,ru", platforms: "tiktok,youtube", subNiches: 8, seedSource: "file", kept: 300, dropped: 800, undetermined: 100, candidates: 0, updatedAt: "2026-10-28T10:00:00.000Z" },
       ],
     },
+    {
+      label: "trends.series",
+      shape: {
+        kind: "trend-series",
+        niches: ["psychology"],
+        scope: { language: "en", platform: null },
+        generatedAt: "2026-10-30T10:00:00.000Z",
+        settings: { minParts: 3, minOther: 5, stemWords: 3, minMedianViews: 0, limit: 30 },
+        method: "part / episode / day / #N markers grouped by a 3-word stem",
+        coverage: {
+          channels: 923,
+          channelsWithSeries: 76,
+          series: 109,
+          shown: 1,
+          primary: { series: 76, atLeast1_5x: 13, atLeast2x: 6 },
+          byNiche: [{ niche: "psychology", channels: 923, withMarkers: 178, withSeries: 76, thinBaseline: 2, series: 109, primaryAtLeast1_5x: 13, primaryAtLeast2x: 6, labeled: 1 }],
+        },
+        series: [
+          {
+            rank: 1, niche: "psychology", platform: "youtube", channel: "@calm.mind", language: "en", followers: 120000, sizeBand: "mid", stem: "things people with", grouping: "stem", primary: true,
+            parts: 22, partNumbers: [19, 20, 21], markerKinds: ["part"], other: 13, seriesMedianViews: 88000, otherMedianViews: 19000, lift: 4.63, multiplierLift: null, datedParts: 1, datedOther: 0,
+            bestPart: { url: "https://www.youtube.com/shorts/aaaaaaaaaaa", views: 2132710, videoId: "tvideo_00000000-0000-4000-8000-000000000588" },
+            visualFormat: { format: "text-over-action", confidence: 0.85, method: "vision-agent" },
+            seriesKey: "tcreator_00000000-0000-4000-8000-000000000588:things people with",
+          },
+          {
+            rank: 2, niche: "psychology", platform: "tiktok", channel: "calm.night", language: "en", followers: null, sizeBand: null, stem: "", grouping: "numbered-set", primary: true,
+            parts: 3, partNumbers: [1, 2, 3], markerKinds: ["part", "number"], other: 40, seriesMedianViews: null, otherMedianViews: 3000, lift: null, multiplierLift: null, datedParts: 0, datedOther: 0,
+            bestPart: null, visualFormat: null, seriesKey: "tcreator_00000000-0000-4000-8000-000000000589:#numbered",
+          },
+        ],
+        formats: {
+          taxonomyVersion: 1,
+          method: "vision-agent",
+          labeledSeries: 1,
+          rows: [{ niche: "psychology", format: "text-over-action", series: 1, channels: 1, medianLift: 4.63, bestExample: { channel: "@calm.mind", lift: 4.63, parts: 22, url: "https://www.youtube.com/shorts/aaaaaaaaaaa" } }],
+          howTo: "ralphy trends series --niche <n> --digest <k>",
+        },
+        notes: ["Lifts are Ralphy's own estimates"],
+        worksheet: { file: "/tmp/worksheet.json", items: 1, ok: 1, reused: 0, failed: 0, blocked: 0, notRun: 0, stopped: null, next: "ralphy trends formats label --from /tmp/worksheet.json" },
+        outputs: { worksheet: "/tmp/worksheet.json" },
+        scoreNote: "Ralphy's own estimates",
+      },
+    },
+    {
+      label: "trends.formats-label",
+      shape: {
+        kind: "trend-format-labels",
+        method: "vision-agent",
+        labels: 2,
+        skipped: 1,
+        byFormat: { "text-over-action": 1, "podcast-clip": 1 },
+        written: [{ niche: "psychology", labels: 2, written: true, documentId: "doc_00000000-0000-4000-8000-000000000588", revisionId: "drev_00000000-0000-4000-8000-000000000588", revisions: 1, added: 2, updated: 0, unchanged: 0 }],
+        next: "ralphy trends series --niche <n> shows the labels per series",
+      },
+    },
   ],
   setup: [
     {
