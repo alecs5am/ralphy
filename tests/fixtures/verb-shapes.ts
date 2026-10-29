@@ -1603,6 +1603,48 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
   status: [
     { label: "status.report", shape: { version: "0.3.0", workspace: "default", projects: 4, lastRender: "demo-001", keys: { openrouter: true, elevenlabs: false } } },
   ],
+  track: [
+    {
+      label: "track.point",
+      shape: {
+        kind: "point",
+        method: "klt",
+        out: "/clips/shot.track-point.json",
+        versioned: false,
+        loader: null,
+        loaderName: null,
+        video: "/clips/shot.mp4",
+        at: 0,
+        to: null,
+        keyframes: 180,
+        tracked: 172,
+        lost: 8,
+        meanConfidence: 0.91,
+        firstLostAt: 4.2,
+        providerCalls: 0,
+      },
+    },
+    {
+      label: "track.setup",
+      shape: {
+        installed: true,
+        stack: "py3.12-opencv5.0.0.93-mediapipe1.2.0",
+        dir: "/home/u/.ralphy/tools/tracking/py3.12-opencv5.0.0.93-mediapipe1.2.0",
+        python: "/home/u/.ralphy/tools/tracking/py3.12-opencv5.0.0.93-mediapipe1.2.0/venv/bin/python",
+        faceModel: true,
+        steps: [
+          { step: "venv", ok: true },
+          { step: "packages", ok: true },
+          { step: "face-model", ok: true },
+          { step: "probe", ok: true, detail: "{\"opencv\":\"5.0.0\"}" },
+        ],
+      },
+    },
+    {
+      label: "track.helper",
+      shape: { out: "/p/ralphy-track.js", unchanged: false, versioned: false, usage: "<script src=\"ralphy-track.js\"></script>" },
+    },
+  ],
   template: [
     {
       label: "template.list",

@@ -1,6 +1,6 @@
 # Object localisation verb + OSS vision-model bench
 
-> **Status:** idea
+> **Status:** idea (local bounding-box half folded into `notes/issues/559-local-tracking-and-object-replacement.md`, 2026-10-30)
 > **Filed:** 2026-05-24
 > **Folder:** ideas
 

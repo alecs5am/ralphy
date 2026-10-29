@@ -76,6 +76,30 @@ function sourceFiles(): string[] {
   return out;
 }
 
+// Keyless, SHA-256-pinned static model files are not provider API calls. Each
+// entry is path-exact AND URL-exact: the file may carry exactly this URL and
+// no other host of the same family (#559: the local face-tracking model,
+// downloaded once by `ralphy track setup` and verified before use).
+const STATIC_ASSET_URLS: Array<{ file: string; url: string }> = [
+  {
+    file: path.join("cli", "lib", "track", "engine.ts"),
+    url: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+  },
+];
+
+function withoutStaticAssetUrls(rel: string, src: string): string {
+  let out = src;
+  for (const a of STATIC_ASSET_URLS) if (a.file === rel) out = out.split(a.url).join("");
+  return out;
+}
+
+test("static asset URL exemptions are keyless and still present", () => {
+  for (const a of STATIC_ASSET_URLS) {
+    expect(a.url).not.toMatch(/[?&](key|token|access_token)=/i);
+    expect(fs.readFileSync(path.join(REPO, a.file), "utf8")).toContain(a.url);
+  }
+});
+
 describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit provider hosts", () => {
   // Post-#402 the invariant is "only registered provider connectors may hold
   // keys / hit provider hosts; no ad-hoc curl". FAL_KEY + the fal.run/fal.ai
@@ -263,7 +287,7 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
       for (const f of sourceFiles()) {
         const rel = path.relative(REPO, f);
         if (rel === file) continue;
-        if (hostRe.test(fs.readFileSync(f, "utf8"))) offenders.push(rel);
+        if (hostRe.test(withoutStaticAssetUrls(rel, fs.readFileSync(f, "utf8")))) offenders.push(rel);
       }
       expect(offenders).toEqual([]);
     });

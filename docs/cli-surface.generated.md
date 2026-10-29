@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **61**
+Verbs registered: **62**
 
 ## Top-level verbs
 
@@ -2567,6 +2567,40 @@ Commands:
                                  spreading). Pick keys are the pickKey of each
                                  signal after trends signals --record.
   help [command]                 display help for command
+```
+
+### `ralphy track`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy track [options] [command]
+
+Local motion tracking with zero provider calls: point, planar (corner pin), and
+face tracks as JSON keyframes for HyperFrames.
+
+Options:
+  -h, --help                display help for command
+
+Commands:
+  setup [options]           Install the pinned local tracking engine
+                            (py3.12-opencv5.0.0.93-mediapipe1.2.0) with uv;
+                            idempotent
+  point [options] <video>   Track a point (feature region) forward from --at;
+                            keyframes carry x, y, box
+  planar [options] <video>  Track a planar region (screen, sign, label) as a
+                            corner pin; keyframes carry four corners
+  face [options] <video>    Track one face box forward from --at with a local
+                            detector
+  helper [options]          Write the HyperFrames runtime (ralphy-track.js:
+                            follow + cornerPin) next to a composition
+  help [command]            display help for command
 ```
 
 ### `ralphy prompts`

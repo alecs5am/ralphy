@@ -19,6 +19,7 @@ import { checkForUpdate, type InstallMode as UpdateInstallMode } from "../lib/up
 import { daemonStatus } from "../lib/jobs/daemon.js";
 import { countByStatus } from "../lib/jobs/db.js";
 import { MIN_BUN_VERSION, supportedBunVersion } from "../lib/bun-runtime.js";
+import { trackEngineStatus, type TrackEngineStatus } from "../lib/track/engine.js";
 
 type InstallMode = "binary" | "developer";
 
@@ -43,7 +44,11 @@ type DoctorReport = {
     ffmpeg: boolean;
     /** Optional dependency (#101) — info-level only, never a blocker. */
     imagemagick: boolean;
+    /** Optional local tracking engine (#559) — info-level only, never a blocker. */
+    tracking: boolean;
   };
+  /** Local tracking engine detail (#559): where it lives and how to install it. */
+  tracking?: TrackEngineStatus;
   keys: Record<string, boolean>;
   daemon?: {
     running: boolean;
@@ -123,7 +128,7 @@ export function doctorCmd() {
           repoRoot: installInfo.repoRoot,
           templatesSource: installInfo.mode === "developer" ? "repo" : "bundled",
         },
-        deps: { bun: false, ffmpeg: false, imagemagick: false },
+        deps: { bun: false, ffmpeg: false, imagemagick: false, tracking: false },
         keys: {},
         blockers: [],
         warnings: [],
@@ -155,6 +160,14 @@ export function doctorCmd() {
       // never a warning. IM7 ships `magick`, IM6 ships `convert`.
       report.deps.imagemagick =
         (await bin("magick", "-version")) || (await bin("convert", "-version"));
+      // Local tracking engine (#559): OPTIONAL, file checks only (no Python
+      // start), never a blocker. `ralphy track setup` installs it.
+      try {
+        report.tracking = trackEngineStatus();
+        report.deps.tracking = report.tracking.installed;
+      } catch {
+        report.deps.tracking = false;
+      }
 
       // Keys
       for (const cap of CAPABILITIES) {
@@ -252,6 +265,11 @@ export function doctorCmd() {
           console.log(`  ${icons.ok} imagemagick`);
         } else {
           console.log(`  ${c.muted("·")} ${c.muted("imagemagick (optional — enables faster still ops)")}`);
+        }
+        if (report.deps.tracking) {
+          console.log(`  ${icons.ok} local tracking ${c.muted(`(${report.tracking?.stack ?? "installed"})`)}`);
+        } else {
+          console.log(`  ${c.muted("·")} ${c.muted(`local tracking (optional — ${report.tracking?.hint ?? "run `ralphy track setup`"})`)}`);
         }
 
         section("API keys");

@@ -110,6 +110,7 @@ import { bannerCmd } from "./commands/banner.js";
 import { evalCmd } from "./commands/eval.js";
 import { researchCmd } from "./commands/research.js";
 import { trendsCmd } from "./commands/trends.js";
+import { trackCmd } from "./commands/track.js";
 import { editorCmd } from "./commands/editor.js";
 import { composeCmd } from "./commands/compose.js";
 import { voiceCmd } from "./commands/voice.js";
@@ -247,7 +248,9 @@ program
       // An explicit stdin credential probe does not select or mutate a workspace.
       const explicitCredentialProbe = sub === "provider" && actionCommand.name() === "test"
         && actionCommand.opts().stdin === true && actionCommand.opts().ping === true;
-      if (sub === "prompts" || sub === "skill" || sub === "models" || explicitCredentialProbe) {
+      /* And `track`: the tracking engine is a per-machine venv and reads only
+         the video path it is given (#559). */
+      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || explicitCredentialProbe) {
         setDataRoot(identity.dataRoot);
         return true;
       }
@@ -394,6 +397,7 @@ program.addCommand(bannerCmd());
 program.addCommand(evalCmd());
 program.addCommand(researchCmd());
 program.addCommand(trendsCmd());
+program.addCommand(trackCmd());
 program.addCommand(promptsCmd());
 program.addCommand(storyboardCmd());
 program.addCommand(bridgeCmd());
