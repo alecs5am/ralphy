@@ -21,6 +21,8 @@ description: >-
 >
 > **Photoreal humans:** read [`photoreal-humans.md`](./references/photoreal-humans.md) first (still-photo register, not TV-commercial).
 >
+> **Recurring character, photo clone, stylized cast, location that must hold, or an edit of an approved image:** read [`characters-and-backgrounds.md`](./references/characters-and-backgrounds.md). It has the goal-to-model decision table, the one-shot identity path, the cross-shot consistency playbook, and the refusal map.
+>
 > **Aesthetic-lock checkpoint (HARD gate, before anchor fan-out):** after plate + character masters are approved, name the register in one phrase, run the [`character-fit.md`](./references/character-fit.md) check, write the aesthetic-lock string into `STORYBOARD.md`, and surface one cover per register. **Refuse to fan out scene anchors until the cover is approved.** Unsure of the register → `ralphy ref pull <url> --frames` and READ the frames.
 >
 > **Model drift:** **one retry max** on a missed kling / seedance prompt, then redesign the scene ([`regeneration.md`](./references/regeneration.md)).
@@ -87,6 +89,7 @@ If you reach for a backend that isn't covered (e.g. lipsync, image editing, talk
 |---|---|
 | [art-director/location-plate.md](./references/location-plate.md) | Multi-scene-same-room project — generate one wide `location-master-plate` anchor BEFORE any character / scene anchor; ≥3 angles per recurring subject on ≥25-scene projects |
 | [art-director/photoreal-humans.md](./references/photoreal-humans.md) | Photoreal human characters — still-photo register (Sony A7 IV + Sigma + Kodak Portra 400), 5-cue checklist, anti-AI-slop block, wider register taxonomy |
+| [art-director/characters-and-backgrounds.md](./references/characters-and-backgrounds.md) | Recurring characters and locations. Covers which model for photoreal, photo-clone, cartoon, comic, anime, 3D or PS1 work; identity packs and ref roles; first frames; edit drift; avatar platforms; refusal map. Each row is labeled documented, observed or untested (#568). |
 | [art-director/character-fit.md](./references/character-fit.md) | Clean brand mascot paired with a gritty register (punk / acid / horror / xerox) — three choices: reinterpret-in-medium, distressed variant, or shift register. Decide at cover-first checkpoint |
 | [art-director/green-screen-character.md](./references/green-screen-character.md) | Character or prop generated on flat chroma green for keying: prompt rules (flat #00B140, even light, no green spill on the subject), then `ralphy matte key` (local, $0) (#560) |
 | [art-director/prompt-style.md](./references/prompt-style.md) | Authoring prompts — register-first axis, 4-layer structure, slot-specific rules |

@@ -16,6 +16,8 @@ Each model section below carries a one-line snapshot from the per-model matrix (
 
 > **Pricing reality check (2026-05-11):** OpenRouter bills video generation **per-clip flat**. The duration parameter sets the clip length and the billed cost ≈ rate × duration. A `✓` in the rate column means we verified the rate against actual OR billing on 2026-05-11 (see `docs/render-test-2026-05-11.md` §1.1). Earlier docs claimed half-price std and per-second steps that didn't match observation; those have been corrected here and in `cli/lib/providers/media.ts:VIDEO_PRICE_PER_SEC`. Models without `✓` are ballparks from the OR catalog. Verify on first use and add `✓` once confirmed.
 
+> **Catalog recheck (2026-10-30, #568):** the live OR catalog now lists lower per-second prices than the 2026-05-11 figures: `kwaivgi/kling-v3.0-pro` $0.112/s silent / $0.168/s with audio (matches our billing: a 6 s silent clip logged $0.672 on 2026-10-09), `kwaivgi/kling-v3.0-std` $0.084 / $0.126, `kwaivgi/kling-video-o1` $0.112, `google/veo-3.1` $0.20 / $0.40 (4K $0.40 / $0.60), `google/veo-3.1-fast` $0.10 / $0.12 (4K $0.25 / $0.30), `google/veo-3.1-lite` $0.05 / $0.08, `minimax/hailuo-2.3` $0.0817. Seedance is billed per video token. The hand-maintained estimate tables (`VIDEO_PRICE_PER_SEC` in `cli/lib/providers/openrouter.ts` and `cli/lib/or-catalog.ts`) still carry the older numbers, so `--dry-run` and `ralphy models show` over-estimate these models until they are synced.
+
 3. **OR's per-clip billing** is fixed (e.g., a 5s kling-pro clip is ~$0.70 regardless of "duration in body" precision). The per-second figures above are therefore ballparks; pre-flight `--dry-run` to see the estimate before submitting.
 
 ### When to pick which
@@ -23,9 +25,9 @@ Each model section below carries a one-line snapshot from the per-model matrix (
 | You need | Pick |
 |---|---|
 | **Default narrative i2v**, character consistency, hold a keyframe | `kwaivgi/kling-v3.0-pro` |
-| **Cheap batch** (≥10 clips) where keyframe drift is acceptable | `kwaivgi/kling-v3.0-std` (NOTE: same per-second price as pro on OR — go to `veo-3.1-lite` for the real cheap-batch tier) |
+| **Cheap batch** (≥10 clips) where keyframe drift is acceptable | `kwaivgi/kling-v3.0-std` ($0.084/s silent vs pro $0.112/s on the 2026-10-30 catalog; `veo-3.1-lite` at $0.05/s is cheaper still for non-photoreal-human work) |
 | **Talking-head / face / lip-sync style** | `google/veo-3.1` (model-native audio with `--audio` works in EN; **off for RU/UA** — only Chinese + English are clean) |
-| **4K** mastered hero piece | `google/veo-3.1-fast` (only model in catalog with 4K) |
+| **4K** mastered hero piece | `google/veo-3.1-fast` (4K is also listed for `google/veo-3.1` and `bytedance/seedance-2.0` on the 2026-10-30 catalog) |
 | **Sharp physics motion** (parkour, sports, falling) | `bytedance/seedance-2.0` (also the only path to 21:9 cinema aspect) |
 | **3:4 / 4:3 portrait magazine** | `alibaba/wan-2.7` (only model with these in stock) |
 | **Cheapest viable** | `bytedance/seedance-2.0-fast` |
@@ -36,11 +38,11 @@ Apply these before drafting a `ralphy generate video` prompt. They short-circuit
 
 - **Hyper-motion** (explosions, runway-sprint, coin-arcs, particle bursts, sports collisions, parkour, falling) → `bytedance/seedance-2.0`. Kling reads these as narrative beats and softens the physics. **Caveat:** seedance's privacy filter rejects photoreal-human i2v anchors — only use seedance hyper-motion on cartoon / non-human / landscape / hands / abstract subjects.
 - **Talking-head, photoreal humans, slow narrative, lip-sync** → `kwaivgi/kling-v3.0-pro`. Multi-frame works post-2026-05-19. `--audio` for EN VO only.
-- **4K hero piece** → `google/veo-3.1-fast` (the only catalog entry with 4K).
+- **4K hero piece** → `google/veo-3.1-fast` (cheapest 4K; `google/veo-3.1` and `bytedance/seedance-2.0` also list 4K as of 2026-10-30).
 - **3:4 / 4:3 portrait magazine aspect** → `alibaba/wan-2.7` (only model with these in stock).
 - **Cinema 21:9** → `bytedance/seedance-2.0` (only model with 21:9 in stock).
 - **Photoreal humans + body-horror anchor** → `kwaivgi/kling-v3.0-pro` only. Seedance rejects the anchor, veo rejects both prompt and anchor (video lessons 6 + 11).
-- **Cheapest acceptable batch** → `google/veo-3.1-lite` (~$0.09/s) for non-photoreal-human work; otherwise `kwaivgi/kling-v3.0-std` (same rate as pro but worse keyframe holds).
+- **Cheapest acceptable batch** → `google/veo-3.1-lite` ($0.05/s silent) for non-photoreal-human work; otherwise `kwaivgi/kling-v3.0-std` ($0.084/s silent, cheaper than pro but worse keyframe holds).
 
 ### Language and `--audio`
 
@@ -99,7 +101,7 @@ with `cost_usd`.
 
 ## `kwaivgi/kling-v3.0-pro`
 
-Snapshot: durations 3-15 s · 720p · 9:16, 16:9, 1:1 · first + last frame anchors · $0.14/s billed ✓.
+Snapshot: durations 3-15 s · 720p · 9:16, 16:9, 1:1 · first + last frame anchors · $0.112/s silent, $0.168/s with audio (catalog 2026-10-30; was $0.14/s billed ✓ on 2026-05-11).
 
 ### Failure modes
 
@@ -121,15 +123,15 @@ Append-only. Each row is a quirk that has already cost ≥1 re-roll across sessi
 
 ## `kwaivgi/kling-v3.0-std`
 
-Snapshot: durations 3-15 s · 720p · 9:16, 16:9, 1:1 · first + last frame anchors · $0.14/s billed ✓ (not ½ pro — same rate).
+Snapshot: durations 3-15 s · 720p · 9:16, 16:9, 1:1 · first + last frame anchors · $0.084/s silent, $0.126/s with audio (catalog 2026-10-30; it billed the same as pro on 2026-05-11).
 
 ## `kwaivgi/kling-video-o1`
 
-Snapshot: durations 5, 10 s · 720p · 9:16, 16:9, 1:1 · first + last frame anchors · ~$0.14/s.
+Snapshot: durations 5, 10 s · 720p · 9:16, 16:9, 1:1 · first + last frame anchors · $0.112/s (catalog 2026-10-30).
 
 ## `google/veo-3.1`
 
-Snapshot: durations 4, 6, 8 s · 720p, 1080p · 9:16, 16:9 · first + last frame anchors · ~$0.50/s.
+Snapshot: durations 4, 6, 8 s · 720p, 1080p, 4K · 9:16, 16:9 · first + last frame anchors · $0.20/s silent, $0.40/s with audio; 4K $0.40 / $0.60 (catalog 2026-10-30). Reference-image mode (up to 3 subject images) returns 8 s only on Vertex; OR does not expose clip extension.
 
 ### Failure modes
 
@@ -144,19 +146,19 @@ Snapshot: durations 4, 6, 8 s · 720p, 1080p · 9:16, 16:9 · first + last frame
 
 ## `google/veo-3.1-fast`
 
-Snapshot: durations 4, 6, 8 s · 720p, 1080p, 4K · 9:16, 16:9 · first + last frame anchors · $0.14/s billed ✓ (was ~$0.25 — wrong).
+Snapshot: durations 4, 6, 8 s · 720p, 1080p, 4K · 9:16, 16:9 · first + last frame anchors · $0.10/s silent, $0.12/s with audio; 4K $0.25 / $0.30 (catalog 2026-10-30; was $0.14/s billed ✓ on 2026-05-11).
 
 ## `google/veo-3.1-lite`
 
-Snapshot: durations 4, 6, 8 s · 720p, 1080p · 9:16, 16:9 · first + last frame anchors · ~$0.09/s.
+Snapshot: durations 4, 6, 8 s · 720p, 1080p · 9:16, 16:9 · first + last frame anchors · $0.05/s silent, $0.08/s with audio (catalog 2026-10-30).
 
 ## `openai/sora-2-pro`
 
-Snapshot: durations, resolutions, aspects, and frame anchors are model-dependent (check `ralphy models show openai/sora-2-pro`) · ~$0.50/s.
+**Retired.** OpenAI shut down the Sora 2 models and the Videos API on 2026-09-24 with no one-to-one replacement (OpenAI video-generation guide; link in `.agents/skills/art-director/references/characters-and-backgrounds.md` → Sources), and the OR video catalog no longer lists any OpenAI model (checked 2026-10-30). Do not route work here; the row stays so `ralphy models show` answers with this note.
 
 ## `minimax/hailuo-2.3`
 
-Snapshot: durations 6, 10 s · 1080p · **16:9 only** · first frame only · ~$0.10/s.
+Snapshot: durations 6, 10 s · 1080p · **16:9 only** · first frame only · $0.0817/s (catalog 2026-10-30).
 
 ## `alibaba/wan-2.6`
 

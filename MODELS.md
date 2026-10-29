@@ -4,7 +4,7 @@ A short, opinionated list of the models we actually use. **Two API keys only:** 
 
 This file is the **index**: one row per model with its role and price. Per-model detail (capabilities, limits, quirks, lessons) lives in [`docs/models/`](docs/models/image.md), one file per kind, and `ralphy models show <id>` prints it one model at a time.
 
-> **Last reviewed: 2026-05-08.** If this file is older than 30 days, recheck OpenRouter — model versions change without notice. The catalog is the source of truth for video parameters; pull it with `ralphy models list` (24h cached).
+> **Last reviewed: 2026-05-08** (video prices, 4K availability and the Sora retirement rechecked against the OpenRouter catalog on 2026-10-30, #568). If this file is older than 30 days, recheck OpenRouter — model versions change without notice. The catalog is the source of truth for video parameters; pull it with `ralphy models list` (24h cached).
 
 ## How to use this file
 
@@ -32,14 +32,14 @@ Detail: [`docs/models/video.md`](docs/models/video.md). Prices are per second of
 
 | Model | Role | Price |
 |---|---|---|
-| `kwaivgi/kling-v3.0-pro` | **Default narrative i2v** — character consistency, keyframe hold, photoreal humans, lip-sync, photoreal + body-horror | $0.14/s ✓ |
-| `kwaivgi/kling-v3.0-std` | Cheap batch where keyframe drift is acceptable (same rate as pro on OR) | $0.14/s ✓ |
-| `kwaivgi/kling-video-o1` | Kling tier with 5 / 10 s clips only | ~$0.14/s |
-| `google/veo-3.1` | Talking-head / face / EN on-camera dialogue with `--audio` (8 s cap) | ~$0.50/s |
-| `google/veo-3.1-fast` | 4K mastered hero piece (only 4K model in the catalog) | $0.14/s ✓ |
-| `google/veo-3.1-lite` | Cheapest acceptable batch for non-photoreal-human work | ~$0.09/s |
-| `openai/sora-2-pro` | Catalog entry; parameters are model-dependent | ~$0.50/s |
-| `minimax/hailuo-2.3` | 1080p, 16:9 only, first-frame anchor only | ~$0.10/s |
+| `kwaivgi/kling-v3.0-pro` | **Default narrative i2v** — character consistency, keyframe hold, photoreal humans, lip-sync, photoreal + body-horror | $0.112/s silent, $0.168/s audio ✓ (OR catalog + billing, 2026-10) |
+| `kwaivgi/kling-v3.0-std` | Cheap batch where keyframe drift is acceptable (cheaper than pro on OR since 2026-10) | $0.084/s silent, $0.126/s audio (OR catalog 2026-10-30) |
+| `kwaivgi/kling-video-o1` | Kling tier with 5 / 10 s clips only | $0.112/s (OR catalog 2026-10-30) |
+| `google/veo-3.1` | Talking-head / face / EN on-camera dialogue with `--audio` (8 s cap) | $0.20/s silent, $0.40/s audio (OR catalog 2026-10-30) |
+| `google/veo-3.1-fast` | 4K mastered hero piece (4K also on `veo-3.1` and `seedance-2.0` as of 2026-10-30) | $0.10/s silent, $0.12/s audio; 4K $0.25 / $0.30 (OR catalog 2026-10-30) |
+| `google/veo-3.1-lite` | Cheapest acceptable batch for non-photoreal-human work | $0.05/s silent, $0.08/s audio (OR catalog 2026-10-30) |
+| `openai/sora-2-pro` | **Retired** — OpenAI shut the Sora 2 API down on 2026-09-24; absent from the OR catalog (2026-10-30). Do not call | — |
+| `minimax/hailuo-2.3` | 1080p, 16:9 only, first-frame anchor only | $0.0817/s (OR catalog 2026-10-30) |
 | `alibaba/wan-2.6` | 5 / 10 s, first-frame anchor only | ~$0.10/s |
 | `alibaba/wan-2.7` | 3:4 / 4:3 portrait magazine aspects (only model with them) | ~$0.10/s |
 | `bytedance/seedance-2.0` | Hyper-motion physics, 21:9 cinema, first + last frame anchoring, multi-ref R2V; non-photoreal subjects only | $0.14/s ✓ |
