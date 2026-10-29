@@ -20,7 +20,14 @@ import path from "node:path";
 import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { c, isPrettyMode } from "../lib/ui.js";
-import { ARTIFACT_KINDS, artifactKindDir, DEFAULT_WORKSPACE, projectDir } from "../lib/paths.js";
+import {
+  ARTIFACT_KINDS,
+  artifactKindDir,
+  DEFAULT_WORKSPACE,
+  holdsProjectsWithoutStore,
+  projectDir,
+  ralphDir,
+} from "../lib/paths.js";
 import { getCommandContext } from "../lib/context-state.js";
 import { createProject, createWorkspace, getWorkspaceByReference } from "../lib/store/scopes.js";
 import type { JsonValue } from "../lib/store/types.js";
@@ -99,6 +106,19 @@ export function newCmd(): Command {
         "Equivalent to `ralphy project create` but with positional brief + auto-defaulted --name (issue #031).",
     )
     .action(async (briefTokens: string[] = [], opts) => {
+      // #591: on a root that holds Project trees (or registry Projects) but no
+      // domain store, creating the Project below would create an empty store,
+      // and scope resolution would then reject every existing tree with
+      // "Project not found". Refuse, as `ralphy setup` does on such a root.
+      if (getCommandContext() === null && holdsProjectsWithoutStore()) {
+        const dataRoot = ralphDir();
+        process.stderr.write(
+          `ralphy: ${dataRoot} holds Project trees but no domain store (ralphy.db); \`ralphy new\` ` +
+            `will not create an empty store that hides them. Import them with the domain migration ` +
+            `first: start with \`ralphy migrate audit --source ${dataRoot}\` (docs/domain-store.md#migration-safety).\n`,
+        );
+        raiseError("E_MIGRATION_INCOMPLETE");
+      }
       const brief = briefTokens.join(" ").trim();
       const id = (opts.id as string | undefined) ?? (brief ? slugify(brief) : autoId());
       const name = (opts.name as string | undefined) ?? titleCaseFromId(id);

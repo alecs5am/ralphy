@@ -71,13 +71,15 @@ export function composeCmd(): Command {
       const query = context.kind === "session" ? { sessionId: context.sessionId } : {
         workspaceId: context.workspaceId, ...(context.projectId ? { projectId: context.projectId } : {}),
       };
-      const composition = videoCompositionForProject(query, projectId);
+      // The scope resolved the positional id or slug; the store takes the id (#591).
+      const scopedProjectId = context.projectId ?? projectId;
+      const composition = videoCompositionForProject(query, scopedProjectId);
       if (!composition.latestRevisionId) throw new Error(`Composition has no revision: ${composition.id}`);
       if (opts.dryRun) {
         out({
           dryRun: true,
           engine: "composition",
-          projectId,
+          projectId: scopedProjectId,
           compositionId: composition.id,
           revisionId: composition.latestRevisionId,
           profile: { name: opts.profile },

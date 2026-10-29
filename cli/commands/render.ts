@@ -30,7 +30,11 @@ import {
   type ColorGradePreset,
 } from "../lib/ffmpeg-recipes.js";
 import { getCommandContext } from "../lib/context-state.js";
-import { runCompositionBuild, videoCompositionForProject } from "../lib/composition-build.js";
+import { runCompositionBuild } from "../lib/composition-build.js";
+import { renderCompositionForProject, type RenderComposition } from "../lib/project-tree-composition.js";
+import { findCompatibilityProject } from "../lib/project-lookup.js";
+import { getComposition } from "../lib/store/compositions.js";
+import type { QueryContext } from "../lib/store/scope-context.js";
 import { renderNextStep } from "../lib/render/next-step.js";
 
 const GRADE_PRESETS: readonly ColorGradePreset[] = [
@@ -74,6 +78,13 @@ async function runLoudnorm(src: string, dst: string): Promise<{ exitCode: number
     proc.stderr.on("data", (c) => (stderr += c.toString()));
     proc.on("close", (code) => resolve({ exitCode: code ?? 1, stderr }));
   });
+}
+
+/** `--composition <id>` on a store root: that Composition's latest revision. */
+async function explicitComposition(context: QueryContext, compositionId: string): Promise<RenderComposition> {
+  const latestRevisionId = getComposition({ context, compositionId }).latestRevisionId;
+  if (!latestRevisionId) throw new Error(`Composition has no revision: ${compositionId}`);
+  return { compositionId, revisionId: latestRevisionId, projectTree: null };
 }
 
 async function fileSize(p: string): Promise<number> {
@@ -281,26 +292,39 @@ render/final.mp4 (append-only).
           workspaceId: domainContext.workspaceId,
           ...(domainContext.projectId ? { projectId: domainContext.projectId } : {}),
         };
-        const composition = opts.composition
-          ? { id: opts.composition, latestRevisionId: null as string | null }
-          : videoCompositionForProject(query, projectId);
-        const latestRevisionId = composition.latestRevisionId ??
-          (await import("../lib/store/compositions.js")).getComposition({ context: query, compositionId: composition.id }).latestRevisionId;
-        if (!latestRevisionId) throw new Error(`Composition has no revision: ${composition.id}`);
+        // The scope resolved the positional reference (id or slug) to the
+        // store Project; store queries take its id, never the slug (#591).
+        const scopedProjectId = domainContext.projectId ?? projectId;
+        const resolved = opts.composition
+          ? await explicitComposition(query, opts.composition)
+          : await renderCompositionForProject({
+              context: query,
+              workspaceId: domainContext.workspaceId,
+              projectId: scopedProjectId,
+              treeDir: (await findCompatibilityProject(projectId))?.dir ?? null,
+              reference: projectId,
+              verb: "render",
+              dryRun: Boolean(opts.dryRun),
+              ...(domainContext.kind === "session" ? { authoredBySessionId: domainContext.sessionId } : {}),
+            });
         if (opts.dryRun) {
           out({
             dryRun: true,
             engine: "composition",
-            projectId,
-            compositionId: composition.id,
-            revisionId: latestRevisionId,
+            projectId: scopedProjectId,
+            compositionId: resolved.compositionId,
+            revisionId: resolved.revisionId,
             profile,
+            ...(resolved.projectTree ? { projectTree: resolved.projectTree } : {}),
           });
           return;
         }
+        if (resolved.compositionId === null || resolved.revisionId === null) {
+          throw new Error(`Composition has no revision for Project: ${scopedProjectId}`);
+        }
         out(await runCompositionBuild({
-          compositionId: composition.id,
-          revisionId: latestRevisionId,
+          compositionId: resolved.compositionId,
+          revisionId: resolved.revisionId,
           profile,
           ...(domainContext.kind === "session" ? { authoredBySessionId: domainContext.sessionId } : {}),
         }));

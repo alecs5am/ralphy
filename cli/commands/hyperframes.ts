@@ -32,6 +32,8 @@ import {
 import { resolveSnapshotTimestamps } from "../lib/render/storyboard-beats.js";
 import { getCommandContext } from "../lib/context-state.js";
 import { reviseCompositionCheckout, runCompositionBuild, videoCompositionForProject } from "../lib/composition-build.js";
+import { renderCompositionForProject } from "../lib/project-tree-composition.js";
+import { findCompatibilityProject } from "../lib/project-lookup.js";
 
 // ──────────────────────────────────────────────────────────────────────────
 // helpers
@@ -358,11 +360,23 @@ Examples:
         const query = context.kind === "session" ? { sessionId: context.sessionId } : {
           workspaceId: context.workspaceId, ...(context.projectId ? { projectId: context.projectId } : {}),
         };
-        const composition = videoCompositionForProject(query, projectId);
-        if (!composition.latestRevisionId) throw new Error(`Composition has no revision: ${composition.id}`);
+        // Same Composition as `ralphy render`: the resolved store Project id,
+        // recorded from its HyperFrames tree when it has none yet (#591).
+        const resolved = await renderCompositionForProject({
+          context: query,
+          workspaceId: context.workspaceId,
+          projectId: context.projectId ?? projectId,
+          treeDir: (await findCompatibilityProject(projectId))?.dir ?? null,
+          reference: projectId,
+          verb: "hyperframes render",
+          ...(context.kind === "session" ? { authoredBySessionId: context.sessionId } : {}),
+        });
+        if (resolved.compositionId === null || resolved.revisionId === null) {
+          throw new Error(`Composition has no revision for Project: ${context.projectId ?? projectId}`);
+        }
         out(await runCompositionBuild({
-          compositionId: composition.id,
-          revisionId: composition.latestRevisionId,
+          compositionId: resolved.compositionId,
+          revisionId: resolved.revisionId,
           profile: {
             name: "hyperframes-render",
             fps: typeof opts.fps === "string" ? Number(opts.fps) : null,
@@ -468,7 +482,8 @@ Examples:
       const query = context.kind === "session" ? { sessionId: context.sessionId } : {
         workspaceId: context.workspaceId, ...(context.projectId ? { projectId: context.projectId } : {}),
       };
-      const composition = videoCompositionForProject(query, projectId);
+      // The scope resolved the positional id or slug; the store takes the id (#591).
+      const composition = videoCompositionForProject(query, context.projectId ?? projectId);
       out(await reviseCompositionCheckout({
         compositionId: composition.id,
         expectedLatestRevisionId: composition.latestRevisionId,
