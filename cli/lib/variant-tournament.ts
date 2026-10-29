@@ -22,16 +22,27 @@
 //   • MODEL-ASSISTED mode  — `modelAssistedScorer(deps)`: wraps the native-video
 //     eval for video candidates and `scoreImage` for stills. Both are injected
 //     so fixtures need no paid generation / network.
+//
+// ORIGINALITY GATE (#561): each candidate may carry the substantive axes it
+// changed and an optional cosmetic last layer (cli/lib/variant-planner.ts).
+// After ranking, best first, a candidate whose declared changes are cosmetic
+// only, or whose injected `siblingCheck` reads likely-duplicate against a
+// higher-ranked emitted sibling, is REFUSED: it stays in `ranked` / `losers`
+// (and on disk) but is not emitted. A refusal can be overridden per variant
+// with a reason the verb logs. The champion is the best emitted candidate.
 
 import path from "node:path";
 import {
   VariantMatrixSchema,
   TournamentResultSchema,
+  type SiblingComparison,
   type VariantMatrix,
+  type VariantRefusal,
   type TournamentEntry,
   type TournamentLoser,
   type TournamentResult,
 } from "./schemas/variant-matrix.js";
+import { classifyAxis, uniquenessOf, type PlannedVariant } from "./variant-planner.js";
 
 // ─── Candidate + scorer types ────────────────────────────────────────────────
 
@@ -49,7 +60,30 @@ export interface TournamentCandidate {
   prompt?: string;
   /** USD already spent producing this variant (from the gen-log / manifest). */
   cost?: number;
+  /** #561: substantive axes this variant changed (planner / scenario). */
+  changedAxes?: string[];
+  /** #561: cosmetic last layer applied on top (never counted as uniqueness). */
+  cosmeticLayer?: string[];
 }
+
+/**
+ * #561: what the sibling originality gate reports for one candidate against
+ * one higher-ranked sibling. The verb wires `ralphy unit originality`'s local
+ * fingerprint comparison; tests inject canned outcomes.
+ */
+export interface SiblingCheckOutcome {
+  verdict: "likely-duplicate" | "similar" | "original";
+  visual: number | null;
+  audio: number | null;
+  script: number | null;
+  reasons: string;
+}
+
+/** Returns the comparison, `{ error }` when media cannot be read, or null to skip. */
+export type SiblingCheckFn = (
+  candidate: TournamentCandidate,
+  sibling: TournamentCandidate,
+) => Promise<SiblingCheckOutcome | { error: string } | null>;
 
 /** What a scorer returns for one candidate. Higher `score` is better. */
 export interface ScoreOutcome {
@@ -86,6 +120,8 @@ export interface MatrixSpec {
   /** The batch / base project the matrix plans variants for. */
   baseId: string;
   axes: MatrixSpecAxis[];
+  /** #561: planned variants from `planVariants()` (substantive axes per variant). */
+  variants?: PlannedVariant[];
 }
 
 /**
@@ -104,6 +140,7 @@ export function buildVariantMatrix(spec: MatrixSpec): VariantMatrix {
       hypothesis: a.hypothesis ?? "",
       slots,
       expectedCostUsd,
+      kind: classifyAxis(a.axis),
     };
   });
   const totalExpectedCostUsd = Number(
@@ -115,6 +152,7 @@ export function buildVariantMatrix(spec: MatrixSpec): VariantMatrix {
     generatedAt: new Date().toISOString(),
     axes,
     totalExpectedCostUsd,
+    variants: spec.variants ?? [],
   });
 }
 
@@ -129,6 +167,14 @@ export interface RunTournamentInput {
   scoreFn: ScoreFn;
   /** Which mode the wired scorer is — recorded on the result for provenance. */
   scorer?: "manual" | "model-assisted";
+  /**
+   * #561: sibling originality gate. When wired, each candidate (best first) is
+   * compared with every higher-ranked EMITTED sibling; a likely-duplicate is
+   * refused (kept on disk, never shipped as a separate piece).
+   */
+  siblingCheck?: SiblingCheckFn;
+  /** #561: variantId → the user's reason for emitting a refused variant anyway. */
+  allowDuplicates?: Record<string, string>;
 }
 
 /**
@@ -139,7 +185,9 @@ export interface RunTournamentInput {
  */
 export async function runTournament(input: RunTournamentInput): Promise<TournamentResult> {
   const scored: TournamentEntry[] = [];
+  const byId = new Map<string, TournamentCandidate>();
   for (const c of input.candidates) {
+    byId.set(c.variantId, c);
     const outcome = await input.scoreFn(c);
     scored.push({
       variantId: c.variantId,
@@ -148,6 +196,8 @@ export async function runTournament(input: RunTournamentInput): Promise<Tourname
       score: outcome.score,
       reasons: outcome.reasons ?? [],
       cost: c.cost ?? 0,
+      changedAxes: c.changedAxes ?? [],
+      cosmeticLayer: c.cosmeticLayer ?? [],
     });
   }
 
@@ -155,16 +205,81 @@ export async function runTournament(input: RunTournamentInput): Promise<Tourname
   scored.sort((a, b) => b.score - a.score || a.variantId.localeCompare(b.variantId, "en"));
   const ranked = scored.map((e, i) => ({ ...e, rank: i + 1 }));
 
-  const champion = ranked.length > 0 ? ranked[0]! : null;
+  // #561 originality gate, best first: a variant is emitted only when it
+  // changes something substantive (when its changes are known) and does not
+  // read as a likely duplicate of a higher-ranked emitted sibling.
+  const emitted: TournamentEntry[] = [];
+  const refused: VariantRefusal[] = [];
+  const overrides: VariantRefusal[] = [];
+  const comparisons: SiblingComparison[] = [];
+  const unchecked: Array<{ variantId: string; reason: string }> = [];
+  const allow = input.allowDuplicates ?? {};
+  for (const entry of ranked) {
+    const candidate = byId.get(entry.variantId)!;
+    let refusal: VariantRefusal | null = null;
+    const declared = [...(candidate.changedAxes ?? []), ...(candidate.cosmeticLayer ?? [])];
+    if (declared.length > 0) {
+      const summary = uniquenessOf(declared);
+      if (summary.substantive.length === 0 && summary.cosmetic.length > 0) {
+        refusal = {
+          variantId: entry.variantId,
+          reason: "cosmetic-only",
+          sibling: null,
+          detail: `only cosmetic changes (${summary.cosmetic.join(", ")}); cosmetic transforms never count as uniqueness`,
+          overrideReason: null,
+        };
+      }
+    }
+    if (!refusal && input.siblingCheck) {
+      for (const kept of emitted) {
+        const outcome = await input.siblingCheck(candidate, byId.get(kept.variantId)!);
+        if (outcome === null) continue;
+        if ("error" in outcome) {
+          if (!unchecked.some((u) => u.variantId === entry.variantId)) unchecked.push({ variantId: entry.variantId, reason: outcome.error });
+          break;
+        }
+        comparisons.push({ variantId: entry.variantId, sibling: kept.variantId, ...outcome });
+        if (outcome.verdict === "likely-duplicate") {
+          refusal = {
+            variantId: entry.variantId,
+            reason: "duplicate-of-sibling",
+            sibling: kept.variantId,
+            detail: outcome.reasons,
+            overrideReason: null,
+          };
+          break;
+        }
+      }
+    }
+    if (!refusal) {
+      emitted.push(entry);
+    } else if (allow[entry.variantId]) {
+      overrides.push({ ...refusal, overrideReason: allow[entry.variantId]! });
+      emitted.push(entry);
+    } else {
+      refused.push(refusal);
+    }
+  }
+
+  // The champion is the best EMITTED variant; with no gate wired that is
+  // always ranked[0] (the #421 behaviour).
+  const champion = emitted.length > 0 ? emitted[0]! : null;
+  const refusedById = new Map(refused.map((r) => [r.variantId, r]));
 
   // Every non-champion is a preserved loser with a rationale relative to the
   // champion. Deterministic, no model call — the score gap IS the rationale.
-  const losers: TournamentLoser[] = ranked.slice(1).map((e) => ({
-    ...e,
-    rationale: champion
-      ? `Lost to ${champion.variantId} (score ${e.score} vs ${champion.score}). Preserved on disk for future prompts/postmortems.`
-      : "Preserved on disk for future prompts/postmortems.",
-  }));
+  const losers: TournamentLoser[] = ranked
+    .filter((e) => e.variantId !== champion?.variantId)
+    .map((e) => {
+      const refusal = refusedById.get(e.variantId);
+      const base = champion
+        ? `Lost to ${champion.variantId} (score ${e.score} vs ${champion.score}).`
+        : "No emitted champion.";
+      const why = refusal
+        ? ` Refused (${refusal.reason}${refusal.sibling ? ` of ${refusal.sibling}` : ""}).`
+        : "";
+      return { ...e, rationale: `${base}${why} Preserved on disk for future prompts/postmortems.` };
+    });
 
   const byVariant = ranked.map((e) => ({ variantId: e.variantId, cost: e.cost }));
   const totalUsd = Number(byVariant.reduce((s, e) => s + e.cost, 0).toFixed(2));
@@ -177,6 +292,10 @@ export async function runTournament(input: RunTournamentInput): Promise<Tourname
     ranked,
     champion,
     losers,
+    emitted: emitted.map((e) => e.variantId),
+    refused,
+    overrides,
+    originality: { checked: Boolean(input.siblingCheck), comparisons, unchecked },
     cost: { totalUsd, byVariant },
   });
 }

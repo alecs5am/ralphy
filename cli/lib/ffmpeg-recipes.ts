@@ -1180,13 +1180,16 @@ export async function audioStats(input: AudioStatsInput): Promise<AudioStats> {
 // returns the samples. Read-only: nothing is written to disk. Used by the SFX
 // pack harvest to build a coarse RMS-envelope fingerprint for dedupe.
 
-export async function decodeMonoPcm(input: { src: string; sampleRate?: number }): Promise<Int16Array> {
+export async function decodeMonoPcm(input: { src: string; sampleRate?: number; maxSec?: number }): Promise<Int16Array> {
   ensureFfmpeg();
   const rate = input.sampleRate ?? 8000;
+  // Optional cap on decoded seconds (the originality check, #561, bounds cost).
+  const limit = input.maxSec && input.maxSec > 0 ? ["-t", String(input.maxSec)] : [];
   return new Promise((resolve, reject) => {
     const proc = spawn("ffmpeg", [
       "-hide_banner", "-loglevel", "error",
       "-i", input.src,
+      ...limit,
       "-ac", "1", "-ar", String(rate),
       "-f", "s16le", "-acodec", "pcm_s16le", "pipe:1",
     ]);

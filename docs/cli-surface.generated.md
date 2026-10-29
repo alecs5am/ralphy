@@ -1089,35 +1089,48 @@ Usage: ralphy unit [options] [command]
 Manage immutable publishable Units and platform presentations
 
 Options:
-  -h, --help                  display help for command
+  -h, --help                    display help for command
 
 Commands:
-  create [options]            Create a Unit identity and its first sealed
-                              revision
-  source [options] <id>       Link an exact original revision without adding a
-                              variant
-  list [options]              List Units in the explicit scope
-  show [options] <id>         Show a Unit and one exact sealed revision graph
-  revise [options] <id>       Append a sealed Unit revision
-  select [options] <id>       Select one sealed Unit revision independently of
-                              latest
-  add [options] <id>          Append one exact item by creating a new sealed
-                              revision
-  caption [options] <id>      Append immutable platform caption history in a new
-                              Unit revision
-  preview [options] <id>      Resolve one platform preview from an exact Unit
-                              revision
-  decisions [options] <unit>  Show or record a Unit's decision ledger (the
-                              choices that produced it: format, template, style,
-                              content_mode, hook_type, angle, structure,
-                              scene_count, transitions, motion_elements,
-                              caption_preset, layout, aspect, models,
-                              duration_sec, length_band, variant_axis). Derived
-                              from the plan, scenario, prompts, asset manifest,
-                              gen-log, unit manifest, and composition; --set
-                              adds manual entries. Read-only unless --derive /
-                              --set / --unset.
-  help [command]              display help for command
+  create [options]              Create a Unit identity and its first sealed
+                                revision
+  source [options] <id>         Link an exact original revision without adding a
+                                variant
+  list [options]                List Units in the explicit scope
+  show [options] <id>           Show a Unit and one exact sealed revision graph
+  revise [options] <id>         Append a sealed Unit revision
+  select [options] <id>         Select one sealed Unit revision independently of
+                                latest
+  add [options] <id>            Append one exact item by creating a new sealed
+                                revision
+  caption [options] <id>        Append immutable platform caption history in a
+                                new Unit revision
+  preview [options] <id>        Resolve one platform preview from an exact Unit
+                                revision
+  decisions [options] <unit>    Show or record a Unit's decision ledger (the
+                                choices that produced it: format, template,
+                                style, content_mode, hook_type, angle,
+                                structure, scene_count, transitions,
+                                motion_elements, caption_preset, layout, aspect,
+                                models, duration_sec, length_band, variant_axis,
+                                changed_axes, cosmetic_layer). Derived from the
+                                plan, scenario, prompts, asset manifest,
+                                gen-log, unit manifest, and composition; --set
+                                adds manual entries. Read-only unless --derive /
+                                --set / --unset.
+  originality [options] <unit>  Check whether a Unit (or a media / script file)
+                                would read as a duplicate or reused content
+                                against the Workspace's other Units, its linked
+                                source, and its Project's artifacts/refs/
+                                (#561). Local only, no provider calls:
+                                perceptual frame hashes (pHash + dHash,
+                                mirror-tested), an audio fingerprint, and script
+                                3-gram similarity. Prints a score per axis
+                                (visual, audio, script) and an overall
+                                likely-duplicate | similar | original verdict;
+                                thresholds in docs/research/originality.md.
+                                Read-only.
+  help [command]                display help for command
 ```
 
 ### `ralphy blueprint`
@@ -1628,39 +1641,60 @@ Usage: ralphy batch [options] [command]
 Manage batch operations
 
 Options:
-  -h, --help                 display help for command
+  -h, --help                    display help for command
 
 Commands:
-  create [options]           Create a batch
-  list                       List all batches
-  show <id>                  Show batch details
-  status <id>                Show batch status
-  review <id>                Deterministic triage over a batch's member projects
-                             (#410). Rolls up winners (ship-ready, #411),
-                             failures (failed eval), a cost roll-up (sum of
-                             per-project generations.jsonl cost_usd), style
-                             drift (eval style.*/brief.* findings vs the shared
-                             style lock), repeated model failures (the same
-                             model/error recurring across ≥2 items), and
-                             recommended repairs (the #409 owner buckets). Makes
-                             ZERO model calls — pure aggregation over existing
-                             artifacts. JSON output.
-  tournament [options] <id>  Rank a batch's variant projects, pick a champion,
-                             and preserve the losers with rationale (#421).
-                             Model-assisted by default (scoreImage for still
-                             variants, scoreVideo for clip variants); --manual
-                             <scores.json> for the cheap no-model mode. Writes
-                             tournament.json. NEVER deletes a losing variant
-                             (append-only #14).
-  delete [options] <id>      Delete a batch
-  submit [options]           Submit a batch of jobs to the local daemon with
-                             symbolic dependencies. Use this for the 'N
-                             generations + 1 render' pattern.
-  vary [options]             Create N project variants from a base project
-                             differing on one axis (hook / body / cta /
-                             persona). Use this for A/B testing the hook without
-                             re-running the rest of the pipeline.
-  help [command]             display help for command
+  create [options]              Create a batch
+  list                          List all batches
+  show <id>                     Show batch details
+  status <id>                   Show batch status
+  review <id>                   Deterministic triage over a batch's member
+                                projects (#410). Rolls up winners (ship-ready,
+                                #411), failures (failed eval), a cost roll-up
+                                (sum of per-project generations.jsonl cost_usd),
+                                style drift (eval style.*/brief.* findings vs
+                                the shared style lock), repeated model failures
+                                (the same model/error recurring across ≥2
+                                items), and recommended repairs (the #409 owner
+                                buckets). Makes ZERO model calls — pure
+                                aggregation over existing artifacts. JSON
+                                output.
+  tournament [options] <id>     Rank a batch's variant projects, pick a
+                                champion, and preserve the losers with rationale
+                                (#421). Model-assisted by default (scoreImage
+                                for still variants, scoreVideo for clip
+                                variants); --manual <scores.json> for the cheap
+                                no-model mode. A local originality gate (#561)
+                                refuses a variant that reads as a likely
+                                duplicate of a higher-ranked sibling or changes
+                                only cosmetics; --allow-duplicate
+                                <variantId>=<reason> overrides with a logged
+                                reason. Records each variant's changed axes in
+                                its Unit's decision ledger. Writes
+                                tournament.json. NEVER deletes a losing or
+                                refused variant (append-only #14).
+  plan-variants [options] <id>  Plan N genuinely different variants for a batch
+                                (#561): each variant changes a distinct set of
+                                substantive axes (hook-rewrite,
+                                structure-reorder, vo-rerecord, broll-swap,
+                                layout-swap, format-swap, pacing,
+                                script-rewrite, cta-rewrite, persona-swap) that
+                                alters the pictures and at least one more
+                                channel; cosmetic transforms (mirror, speed,
+                                color-grade, crop, trim, noise, border, pitch,
+                                reencode, watermark) are an optional last layer
+                                that never counts as uniqueness. Writes
+                                variant-matrix.json, read by batch tournament.
+                                Pure, no model calls.
+  delete [options] <id>         Delete a batch
+  submit [options]              Submit a batch of jobs to the local daemon with
+                                symbolic dependencies. Use this for the 'N
+                                generations + 1 render' pattern.
+  vary [options]                Create N project variants from a base project
+                                differing on one axis (hook / body / cta /
+                                persona). Use this for A/B testing the hook
+                                without re-running the rest of the pipeline.
+  help [command]                display help for command
 ```
 
 ### `ralphy asset`

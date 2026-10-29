@@ -22,8 +22,19 @@ import {
   kindForMedia,
   type TournamentCandidate,
 } from "../lib/variant-tournament.js";
-import { TOURNAMENT_RESULT_FILENAME } from "../lib/schemas/variant-matrix.js";
+import {
+  TOURNAMENT_RESULT_FILENAME,
+  VARIANT_MATRIX_FILENAME,
+  parseVariantMatrix,
+  type PlannedVariantRecord,
+} from "../lib/schemas/variant-matrix.js";
 import { scoreImage, scoreVideo } from "../lib/quality.js";
+import { buildVariantMatrix } from "../lib/variant-tournament.js";
+import { planVariants, VariantPlanError, VARY_AXIS_MAP, COSMETIC_TRANSFORMS, SUBSTANTIVE_AXES } from "../lib/variant-planner.js";
+import { fingerprintSiblingCheck } from "../lib/originality/sibling-gate.js";
+import { logUserPromptInDir } from "../lib/gen-log.js";
+import { getCommandContext } from "../lib/context-state.js";
+import { recordVariantDecisions } from "../lib/variant-ledger.js";
 
 /** Read + JSON.parse a file, or null on any failure. */
 async function safeReadJson<T = unknown>(fp: string): Promise<T | null> {
@@ -69,9 +80,13 @@ async function resolveCandidate(pid: string): Promise<TournamentCandidate | null
     /* unreadable gen-log → 0 cost */
   }
 
+  // #561: the variant's recorded changes (written by `batch vary` / the plan).
+  const scenario = await safeReadJson<Record<string, unknown>>(path.join(pdir, "scenario.json"));
+  const changes = scenarioChanges(scenario);
+
   const renderRel = path.join("render", "final.mp4");
   if (existsSync(path.join(pdir, renderRel))) {
-    return { variantId: pid, mediaPath: path.join(pdir, renderRel), kind: "video", cost: Number(cost.toFixed(2)), prompt };
+    return { variantId: pid, mediaPath: path.join(pdir, renderRel), kind: "video", cost: Number(cost.toFixed(2)), prompt, ...changes };
   }
 
   // Image-pack fallback: the first promoted asset-manifest slot path.
@@ -81,9 +96,56 @@ async function resolveCandidate(pid: string): Promise<TournamentCandidate | null
   const firstSlot = manifest?.slots ? Object.values(manifest.slots).find((s) => s.path) : undefined;
   if (firstSlot?.path) {
     const abs = path.isAbsolute(firstSlot.path) ? firstSlot.path : path.join(pdir, firstSlot.path);
-    return { variantId: pid, mediaPath: abs, kind: kindForMedia(abs), cost: Number(cost.toFixed(2)), prompt };
+    return { variantId: pid, mediaPath: abs, kind: kindForMedia(abs), cost: Number(cost.toFixed(2)), prompt, ...changes };
   }
   return null;
+}
+
+/** String labels from a scenario field (array or comma list). */
+function labelsOf(value: unknown): string[] {
+  if (typeof value === "string") return value.split(",").map((v) => v.trim()).filter(Boolean);
+  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+  return [];
+}
+
+/**
+ * #561: the substantive / cosmetic changes a variant scenario records:
+ * `variant_changed_axes` + `variant_cosmetic_layer` (the plan), else the
+ * legacy single `variant_axis` from `batch vary` mapped onto the taxonomy.
+ */
+function scenarioChanges(scenario: Record<string, unknown> | null): { changedAxes?: string[]; cosmeticLayer?: string[] } {
+  if (!scenario) return {};
+  const changed = labelsOf(scenario.variant_changed_axes);
+  const legacy = typeof scenario.variant_axis === "string" ? VARY_AXIS_MAP[scenario.variant_axis] ?? scenario.variant_axis : null;
+  const changedAxes = changed.length > 0 ? changed : legacy ? [legacy] : [];
+  const cosmeticLayer = labelsOf(scenario.variant_cosmetic_layer);
+  return {
+    ...(changedAxes.length > 0 ? { changedAxes } : {}),
+    ...(cosmeticLayer.length > 0 ? { cosmeticLayer } : {}),
+  };
+}
+
+/** Parse repeatable `--allow-duplicate <variantId>=<reason>` values. */
+function parseAllowDuplicates(values: string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const raw of values) {
+    const index = raw.indexOf("=");
+    const id = index > 0 ? raw.slice(0, index).trim() : "";
+    const reason = index > 0 ? raw.slice(index + 1).trim() : "";
+    if (!id || !reason) {
+      raiseError("E_INPUT_INVALID", { field: "allow-duplicate", detail: `expected <variantId>=<reason> (got "${raw}")` });
+    }
+    out[id] = reason;
+  }
+  return out;
+}
+
+function collectValues(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
+function csv(value: string | undefined): string[] {
+  return (value ?? "").split(",").map((v) => v.trim()).filter(Boolean);
 }
 
 export function batchCmd() {
@@ -246,23 +308,45 @@ export function batchCmd() {
   //     visual review — ZERO model calls.
   // Writes `<batch>/tournament.json` (the durable champion + loser record) and
   // prints the ranked result + champion + cost rollup. Never deletes a loser.
+  // #561: before ranking is final, the sibling ORIGINALITY gate runs (local
+  // fingerprints, no provider call): best first, a variant that reads as a
+  // likely duplicate of a higher-ranked emitted sibling — or that only carries
+  // cosmetic changes — is REFUSED (kept on disk, never emitted). Override one
+  // with `--allow-duplicate <variantId>=<reason>`, logged to that variant's
+  // user-prompts.jsonl as `stage: "duplicate-override"`. Each variant's changed
+  // axes (variant-matrix.json / scenario.json) ride on its entry and are
+  // recorded in its Unit's decision ledger when the Unit exists (#558).
   cmd
     .command("tournament <id>")
     .description(
-      "Rank a batch's variant projects, pick a champion, and preserve the losers with rationale (#421). Model-assisted by default (scoreImage for still variants, scoreVideo for clip variants); --manual <scores.json> for the cheap no-model mode. Writes tournament.json. NEVER deletes a losing variant (append-only #14).",
+      "Rank a batch's variant projects, pick a champion, and preserve the losers with rationale (#421). Model-assisted by default (scoreImage for still variants, scoreVideo for clip variants); --manual <scores.json> for the cheap no-model mode. A local originality gate (#561) refuses a variant that reads as a likely duplicate of a higher-ranked sibling or changes only cosmetics; --allow-duplicate <variantId>=<reason> overrides with a logged reason. Records each variant's changed axes in its Unit's decision ledger. Writes tournament.json. NEVER deletes a losing or refused variant (append-only #14).",
     )
     .option("--manual <file>", "JSON map of variantId → score (or { score, reasons }) for the cheap no-model mode")
-    .action(async (id: string, opts: { manual?: string }) => {
+    .option("--no-originality-gate", "Skip the sibling originality gate (cosmetic-only plans are still refused)")
+    .option("--allow-duplicate <variantId=reason>", "Emit a refused variant anyway; the reason is logged (repeatable)", collectValues, [])
+    .action(async (id: string, opts: { manual?: string; originalityGate?: boolean; allowDuplicate?: string[] }) => {
       const dir = path.join(batchesDir(), id);
       const state = await safeReadJson<{ projects?: unknown[] }>(path.join(dir, "state.json"));
       const config = await safeReadJson<{ name?: string }>(path.join(dir, "batch-config.json"));
       if (!state && !config) {
         raiseError("E_NOT_FOUND", { kind: "Batch", id });
       }
+      const allowDuplicates = parseAllowDuplicates(opts.allowDuplicate ?? []);
 
       const projectIds = Array.from(
         new Set((state?.projects ?? []).map(projectIdOf).filter((p): p is string => !!p)),
       ).sort((a, b) => a.localeCompare(b, "en"));
+
+      // #561: the planned changes per variant, when `batch plan-variants` ran.
+      const matrixRaw = await safeReadJson<unknown>(path.join(dir, VARIANT_MATRIX_FILENAME));
+      const planned = new Map<string, PlannedVariantRecord>();
+      if (matrixRaw) {
+        try {
+          for (const v of parseVariantMatrix(matrixRaw).variants) planned.set(v.variantId, v);
+        } catch {
+          /* a malformed matrix is not evidence; scenario.json still applies */
+        }
+      }
 
       // Resolve a scorable candidate per variant project (render/final.mp4 →
       // image-pack fallback). Variants with neither are skipped from the pool.
@@ -270,7 +354,13 @@ export function batchCmd() {
       for (const pid of projectIds) {
         if (!existsSync(projectDir(pid))) continue;
         const cand = await resolveCandidate(pid);
-        if (cand) candidates.push(cand);
+        if (!cand) continue;
+        const plan = planned.get(pid);
+        if (plan) {
+          cand.changedAxes = plan.changedAxes;
+          cand.cosmeticLayer = plan.cosmeticLayer;
+        }
+        candidates.push(cand);
       }
 
       // Wire the scorer: --manual → caller-supplied map (no model call); else
@@ -293,24 +383,121 @@ export function batchCmd() {
         });
       }
 
-      const result = await runTournament({ baseId: id, candidates, scoreFn, scorer });
+      const result = await runTournament({
+        baseId: id,
+        candidates,
+        scoreFn,
+        scorer,
+        ...(opts.originalityGate === false ? {} : { siblingCheck: fingerprintSiblingCheck() }),
+        allowDuplicates,
+      });
+
+      // Log every override with its reason (the explicit-consent record).
+      for (const override of result.overrides) {
+        const pdir = projectDir(override.variantId);
+        if (!existsSync(pdir)) continue;
+        await logUserPromptInDir(pdir, {
+          text: override.overrideReason ?? "",
+          stage: "duplicate-override",
+          note: `batch ${id}: emitted despite ${override.reason}${override.sibling ? ` of ${override.sibling}` : ""}`,
+        });
+      }
 
       // Persist the durable champion + loser record. Fresh write — append-only
       // re-runs land in tournament.v2.json is out of scope; this is the latest
       // verdict, the per-variant artifacts stay untouched on disk.
       await fs.writeFile(path.join(dir, TOURNAMENT_RESULT_FILENAME), JSON.stringify(result, null, 2) + "\n");
 
+      // #558 + #561: record each variant's changed axes on its Unit's ledger.
+      const ledger = recordVariantDecisions(getCommandContext(), result.ranked);
+
       ok(
         result.champion
-          ? `Champion: ${result.champion.variantId} (score ${result.champion.score}); ${result.losers.length} loser(s) preserved on disk ($${result.cost.totalUsd.toFixed(2)} spent)`
+          ? `Champion: ${result.champion.variantId} (score ${result.champion.score}); ${result.losers.length} loser(s) preserved on disk; ${result.refused.length} refused by the originality gate ($${result.cost.totalUsd.toFixed(2)} spent)`
           : `No scorable variants found for ${id}`,
       );
-      out(result);
+      out({ ...result, ledger });
     })
     .addHelpText("after", `
 Examples:
   $ ralphy batch tournament farm-001
   $ ralphy batch tournament farm-001 --manual scores.json
+  $ ralphy batch tournament farm-001 --manual scores.json --allow-duplicate farm-001-v3="A/B test of the music bed only; only the winner ships"
+`);
+
+  // ── plan-variants (#561 — substantive variant planner) ──────────────────────
+  // Plans N variants whose differences are SUBSTANTIVE (hook rewrite, structure
+  // reorder, VO re-record, B-roll swap, layout / format swap, pacing, script /
+  // CTA / persona), with an optional cosmetic last layer that is recorded but
+  // never counted. Pure + deterministic; writes <batch>/variant-matrix.json
+  // (a prior matrix is preserved as variant-matrix.v<N>.json with --replace).
+  cmd
+    .command("plan-variants <id>")
+    .description(
+      `Plan N genuinely different variants for a batch (#561): each variant changes a distinct set of substantive axes (${SUBSTANTIVE_AXES.map((a) => a.axis).join(", ")}) that alters the pictures and at least one more channel; cosmetic transforms (${COSMETIC_TRANSFORMS.map((t) => t.transform).join(", ")}) are an optional last layer that never counts as uniqueness. Writes variant-matrix.json, read by batch tournament. Pure, no model calls.`,
+    )
+    .requiredOption("--count <n>", "Number of variants", (v) => parseInt(v, 10))
+    .option("--axes <list>", "Comma list of substantive axes to draw from (default: all)")
+    .option("--min-axes <n>", "Minimum substantive axes per variant", (v) => parseInt(v, 10), 2)
+    .option("--cosmetic <list>", "Optional cosmetic last layer for every variant (recorded, never counted)")
+    .option("--base <project-id>", "Base project the variants derive from (names the variant ids)")
+    .option("--replace", "Replace an existing variant-matrix.json (the prior copy is kept as variant-matrix.v<N>.json)")
+    .option("--dry-run", "Print the plan without writing")
+    .action(async (id: string, opts: { count: number; axes?: string; minAxes: number; cosmetic?: string; base?: string; replace?: boolean; dryRun?: boolean }) => {
+      const dir = path.join(batchesDir(), id);
+      let variants;
+      try {
+        variants = planVariants({
+          baseId: opts.base ?? id,
+          count: opts.count,
+          axes: csv(opts.axes),
+          minAxes: opts.minAxes,
+          cosmetic: csv(opts.cosmetic),
+        });
+      } catch (e) {
+        if (e instanceof VariantPlanError) raiseError("E_INPUT_INVALID", { field: "plan-variants", detail: e.message });
+        throw e;
+      }
+      const axisSlots = new Map<string, string[]>();
+      for (const v of variants) {
+        for (const axis of v.changedAxes) axisSlots.set(axis, [...(axisSlots.get(axis) ?? []), v.variantId]);
+      }
+      const matrix = buildVariantMatrix({
+        baseId: opts.base ?? id,
+        axes: [...axisSlots].map(([axis, slots]) => ({ axis, slots })),
+        variants,
+      });
+      const file = path.join(dir, VARIANT_MATRIX_FILENAME);
+      let preserved: string | null = null;
+      if (!opts.dryRun) {
+        if (!existsSync(dir)) raiseError("E_NOT_FOUND", { kind: "Batch", id });
+        if (existsSync(file)) {
+          if (!opts.replace) raiseError("E_ALREADY_EXISTS", { kind: "Variant matrix", id: file });
+          let n = 1;
+          while (existsSync(path.join(dir, `variant-matrix.v${n}.json`))) n += 1;
+          preserved = path.join(dir, `variant-matrix.v${n}.json`);
+          await fs.copyFile(file, preserved);
+        }
+        await fs.writeFile(file, JSON.stringify(matrix, null, 2) + "\n");
+      }
+      ok(`${opts.dryRun ? "Planned" : "Wrote"} ${variants.length} substantive variant(s) for ${id}`);
+      out({
+        batch: id,
+        written: opts.dryRun ? null : file,
+        preserved,
+        variants: variants.map((v) => ({
+          variantId: v.variantId,
+          changedAxes: v.changedAxes,
+          channels: v.channels,
+          cosmeticLayer: v.cosmeticLayer,
+        })),
+        note: "Cosmetic layers are recorded but never counted as uniqueness. Record each variant's plan in its scenario.json as variant_changed_axes / variant_cosmetic_layer; batch tournament re-checks the rendered siblings.",
+      });
+    })
+    .addHelpText("after", `
+Examples:
+  $ ralphy batch plan-variants farm-001 --count 4 --dry-run
+  $ ralphy batch plan-variants farm-001 --count 3 --axes hook,broll,vo,reorder --cosmetic color-grade
 `);
 
   cmd
@@ -447,6 +634,8 @@ Examples:
         }
         variantScenario.variant_of = opts.base;
         variantScenario.variant_axis = axis;
+        // #561: the substantive axis this variant changes (decision ledger + gate).
+        variantScenario.variant_changed_axes = [VARY_AXIS_MAP[axis] ?? axis];
         await fs.writeFile(path.join(p.dir, "scenario.json"), JSON.stringify(variantScenario, null, 2) + "\n");
         await addEntity("projects", p.id, {
           name: p.id,

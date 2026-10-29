@@ -62,6 +62,10 @@ export const LEDGER_FIELDS = [
   { key: "duration_sec", type: "number" },
   { key: "length_band", type: "label" },
   { key: "variant_axis", type: "label" },
+  // #561: every substantive axis a variant changed, and the cosmetic last
+  // layer (recorded so results can be attributed, never counted as uniqueness).
+  { key: "changed_axes", type: "multi" },
+  { key: "cosmetic_layer", type: "multi" },
 ] as const;
 
 export type LedgerFieldKey = (typeof LEDGER_FIELDS)[number]["key"];
@@ -312,6 +316,27 @@ export function deriveDecisions(sources: LedgerSources): DerivedDecisions {
     [scenario?.variantAxis, `${origin("scenario")}#variantAxis`],
     [manifest?.variant_axis, `${origin("unitManifest")}#variant_axis`],
   ]);
+  const variant = asRecord(scenario?.variant);
+  for (const [key, candidates] of [
+    ["changed_axes", [
+      [scenario?.variant_changed_axes, `${origin("scenario")}#variant_changed_axes`],
+      [variant?.changedAxes, `${origin("scenario")}#variant.changedAxes`],
+      [manifest?.variant_changed_axes, `${origin("unitManifest")}#variant_changed_axes`],
+    ]],
+    ["cosmetic_layer", [
+      [scenario?.variant_cosmetic_layer, `${origin("scenario")}#variant_cosmetic_layer`],
+      [variant?.cosmeticLayer, `${origin("scenario")}#variant.cosmeticLayer`],
+      [manifest?.variant_cosmetic_layer, `${origin("unitManifest")}#variant_cosmetic_layer`],
+    ]],
+  ] as Array<[string, Array<[unknown, string]>]>) {
+    for (const [value, source] of candidates) {
+      const labels = [...new Set(labelList(value))].sort();
+      if (labels.length > 0) {
+        out[key] = { value: labels, source };
+        break;
+      }
+    }
+  }
   return out;
 }
 

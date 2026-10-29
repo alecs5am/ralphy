@@ -305,6 +305,43 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         cost: { totalUsd: 1.2, byVariant: [{ variantId: "bed-a-001", cost: 0.6 }, { variantId: "bed-b-001", cost: 0.6 }] },
       },
     },
+    // #561: the tournament with the sibling originality gate and ledger rows.
+    {
+      label: "batch.tournament.originality",
+      shape: {
+        baseId: "farm-001",
+        scorer: "manual",
+        champion: { variantId: "farm-v1", score: 90, axis: "", rank: 1, changedAxes: ["broll-swap", "vo-rerecord"], cosmeticLayer: [] },
+        ranked: [
+          { variantId: "farm-v1", score: 90, rank: 1, changedAxes: ["broll-swap", "vo-rerecord"], cosmeticLayer: [] },
+          { variantId: "farm-v2", score: 85, rank: 2, changedAxes: ["layout-swap", "script-rewrite"], cosmeticLayer: ["mirror"] },
+        ],
+        losers: [{ variantId: "farm-v2", score: 85, rationale: "Lost to farm-v1 (score 85 vs 90). Refused (duplicate-of-sibling of farm-v1)." }],
+        emitted: ["farm-v1"],
+        refused: [{ variantId: "farm-v2", reason: "duplicate-of-sibling", sibling: "farm-v1", detail: "visual 100%: the same footage in the same order (mirrored)", overrideReason: null }],
+        overrides: [],
+        originality: {
+          checked: true,
+          comparisons: [{ variantId: "farm-v2", sibling: "farm-v1", verdict: "likely-duplicate", visual: 1, audio: 1, script: null, reasons: "visual 100%" }],
+          unchecked: [],
+        },
+        cost: { totalUsd: 0, byVariant: [{ variantId: "farm-v1", cost: 0 }, { variantId: "farm-v2", cost: 0 }] },
+        ledger: [{ variantId: "farm-v1", unit: "farm-v1-final", written: true, note: "decision ledger updated" }, { variantId: "farm-v2", unit: null, written: false, note: "no Unit for this variant yet" }],
+      },
+    },
+    {
+      label: "batch.plan-variants",
+      shape: {
+        batch: "farm-001",
+        written: ".ralphy/workspaces/default/batches/farm-001/variant-matrix.json",
+        preserved: null,
+        variants: [
+          { variantId: "farm-v1", changedAxes: ["structure-reorder", "vo-rerecord"], channels: ["visual", "audio", "script"], cosmeticLayer: ["color-grade"] },
+          { variantId: "farm-v2", changedAxes: ["broll-swap", "format-swap"], channels: ["visual", "audio", "script"], cosmeticLayer: ["color-grade"] },
+        ],
+        note: "Cosmetic layers are recorded but never counted as uniqueness.",
+      },
+    },
   ],
   blueprint: [
     {
@@ -1944,6 +1981,31 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         derivedFrom: ["store:unit", "project:scenario.json"],
         staleKeys: [],
         projectDirectory: null,
+      },
+    },
+    // #561 duplicate-risk check: per-axis similarity and the overall verdict.
+    {
+      label: "unit.originality",
+      shape: {
+        subject: { ref: "cut-b", label: "cut-b", kind: "video", path: "/data/objects/ab/cd", durationSec: 6.7, frames: 13, audio: true, script: null },
+        verdict: "likely-duplicate",
+        nearest: { ref: "cut-a", label: "cut-a", origin: "workspace-unit", verdict: "likely-duplicate", visual: 1, footage: 1, sequence: 1, mirrored: false, audio: 0.02, script: null, hook: null, reasons: "visual 100%: the same footage in the same order" },
+        comparisons: [
+          { ref: "cut-a", label: "cut-a", origin: "workspace-unit", verdict: "likely-duplicate", visual: 1, footage: 1, sequence: 1, mirrored: false, audio: 0.02, script: null, hook: null, reasons: "visual 100%: the same footage in the same order" },
+          { ref: "recut", label: "recut", origin: "workspace-unit", verdict: "similar", visual: 0.75, footage: 1, sequence: 0.5, mirrored: false, audio: 0, script: 0.71, hook: 0, reasons: "visual 75%: footage reused with re-edits" },
+          { ref: "refs/source.mp4", label: "source.mp4", origin: "project-refs", verdict: "original", visual: 0, footage: 0, sequence: 0, mirrored: false, audio: null, script: null, hook: null, reasons: "no axis above its similar threshold" },
+        ],
+        skipped: [{ ref: "draft-1", reason: "Unit has no sealed revision yet" }],
+        thresholds: {
+          frame: { low: 0.7, high: 0.85 },
+          audioBer: { match: 0.2, none: 0.35 },
+          reorderWeight: 0.5,
+          visual: { duplicate: 0.85, similar: 0.5 },
+          audio: { duplicate: 0.85, similar: 0.5 },
+          script: { duplicate: 0.9, similar: 0.6 },
+        },
+        engines: { visual: "phash64+dhash64 over 32x32 luma, <=2 fps, mirror-tested", audio: "band-energy-difference 32-bit", script: "word 3-gram containment" },
+        next: "Do not publish as a new piece. Change substance.",
       },
     },
     {

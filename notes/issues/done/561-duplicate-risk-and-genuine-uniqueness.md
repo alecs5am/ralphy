@@ -1,6 +1,6 @@
 # Duplicate-risk awareness and genuine uniqueness for variants
 
-> **Status:** todo
+> **Status:** done — 2026-10-30 (checkpoint: `ralphy unit originality` with local frame hash, audio fingerprint and script similarity; `batch plan-variants` plans substantive axes; the tournament refuses cosmetic-only and likely-duplicate siblings; open: calibration on real footage, fingerprint cache, publish-time check)
 > **Filed:** 2026-10-28
 > **Folder:** issues
 > **Severity:** medium
@@ -25,3 +25,18 @@ The owner wants the agent to know when what it makes would count as a duplicate 
 ## Notes
 
 - Scoped to real uniqueness, not to a filter stack whose only purpose is to slip the same video past duplicate detection.
+
+## Checkpoint (2026-10-30)
+
+Landed:
+
+- `docs/research/originality.md`: TikTok, Instagram, Facebook, and YouTube originality rules, public matching methods (PDQ, TMK+PDQF, vPDQ, Content ID, learned copy detection, audio fingerprints), documented versus folklore, the substantive-versus-cosmetic table, thresholds, and synthetic calibration.
+- `ralphy unit originality <unit|file> [--against ...]`: local pHash + dHash frames (mirror-tested), a band-energy audio fingerprint, and script 3-gram similarity against the Workspace's other Units, the linked source, and `artifacts/refs/`; per-axis scores and a `likely-duplicate | similar | original` verdict (`cli/lib/originality/`).
+- `ralphy batch plan-variants`: substantive-only variant planner, cosmetic transforms as a recorded last layer (`cli/lib/variant-planner.ts`).
+- `ralphy batch tournament`: sibling originality gate (refuses likely duplicates and cosmetic-only variants; `--allow-duplicate <id>=<reason>` logged as `duplicate-override`), changed axes on every entry and in the Unit decision ledger (`changed_axes`, `cosmetic_layer`).
+
+Open:
+
+- Calibrate thresholds on real Workspace renders (talking-head pairs, same-product shots); synthetic only so far.
+- Fingerprint cache keyed by object digest; optional Chromaprint engine when `fpcalc` is present.
+- Wire the check into the publish path (`social-publish`) and the producer / art-director playbooks.

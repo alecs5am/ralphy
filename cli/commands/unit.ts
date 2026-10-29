@@ -41,6 +41,20 @@ import {
   type ManualDecisions,
 } from "../lib/analytics/ledger.js";
 import { MetricParseError } from "../lib/analytics/metric-parse.js";
+import { runOriginalityCheck } from "../lib/originality/check.js";
+import {
+  pathTarget,
+  locationTarget,
+  projectRefTargets,
+  resolveAgainst,
+  sourceLinkTarget,
+  workspaceUnitTargets,
+  type OriginalityTarget,
+  type SkippedTarget,
+} from "../lib/originality/targets.js";
+import { textFromFileContent } from "../lib/originality/script-similarity.js";
+import fs from "node:fs";
+import path from "node:path";
 
 type ResolvedContext = ReturnType<typeof resolveCommandContext>;
 
@@ -448,7 +462,95 @@ export function unitCmd(): Command {
       });
     });
 
+  // ── originality (#561) ────────────────────────────────────────────────────
+  // Duplicate-risk check before render or publish: local perceptual frame
+  // hashes, an audio fingerprint, and script similarity against the
+  // Workspace's earlier Units and the reference source. Read-only.
+  command
+    .command("originality <unit>")
+    .description(
+      "Check whether a Unit (or a media / script file) would read as a duplicate or reused content against the Workspace's other Units, its linked source, and its Project's artifacts/refs/ (#561). Local only, no provider calls: perceptual frame hashes (pHash + dHash, mirror-tested), an audio fingerprint, and script 3-gram similarity. Prints a score per axis (visual, audio, script) and an overall likely-duplicate | similar | original verdict; thresholds in docs/research/originality.md. Read-only.",
+    )
+    .option("--against <ref>", "Compare against a Unit, a Project (all its Units), a media file, or a directory of media (repeatable; replaces the default set)", collect, [])
+    .option("--limit <count>", "Maximum Workspace Units compared in the default set", parseCount, 50)
+    .option("--script <file>", "Script or transcript for the subject (.txt, .md, .srt, .vtt, .json); overrides sidecars and Unit documents")
+    .action(async (ref: string, opts, child: Command) => {
+      const against = opts.against as string[];
+      const subjectIsFile = fs.existsSync(ref) && fs.statSync(ref).isFile();
+      let context: QueryContext | null = null;
+      try {
+        context = queryContext(resolve(child));
+      } catch (error) {
+        // Plain files compare without a store; a Unit reference needs one.
+        if (!subjectIsFile || against.length === 0) throw error;
+      }
+      const skipped: SkippedTarget[] = [];
+      const targets: OriginalityTarget[] = [];
+      let subject: OriginalityTarget;
+      const exclude = new Set<string>();
+      let subjectLocation: ReturnType<typeof resolveUnitReference> | null = null;
+      if (subjectIsFile) {
+        subject = pathTarget(ref, "subject");
+      } else {
+        subjectLocation = resolveUnitReference(context!, ref);
+        const resolved = locationTarget(context!, subjectLocation, "subject");
+        if ("reason" in resolved) {
+          raiseError("E_INPUT_INVALID", { field: "unit", detail: `${ref}: ${resolved.reason}` });
+        }
+        subject = resolved;
+        exclude.add(subjectLocation.unitId);
+      }
+      if (opts.script) {
+        if (!fs.existsSync(opts.script)) raiseError("E_FILE_UNREADABLE", { path: opts.script });
+        const text = textFromFileContent(fs.readFileSync(opts.script, "utf8"), path.extname(opts.script));
+        subject = { ...subject, script: text || null, scriptSource: `file:${path.basename(opts.script)}` };
+      }
+      if (against.length > 0) {
+        for (const value of against) {
+          const resolved = resolveAgainst(value, context, exclude);
+          targets.push(...resolved.targets);
+          skipped.push(...resolved.skipped);
+        }
+      } else if (context) {
+        const workspaceId = subjectLocation?.workspaceId ?? workspaceOf(child);
+        if (subjectLocation) {
+          const source = sourceLinkTarget(context, subjectLocation);
+          if (source && "reason" in source) skipped.push(source);
+          else if (source) targets.push(source);
+          targets.push(...projectRefTargets(subjectLocation));
+        }
+        if (workspaceId) {
+          const workspace = workspaceUnitTargets(context, workspaceId, exclude, opts.limit);
+          targets.push(...workspace.targets);
+          skipped.push(...workspace.skipped);
+        }
+      }
+      try {
+        out(await runOriginalityCheck({ subject, targets, skipped }));
+      } catch (error) {
+        raiseError("E_FILE_UNREADABLE", { path: subject.path ?? ref, detail: (error as Error).message.slice(0, 300) });
+      }
+    })
+    .addHelpText("after", `
+Verdicts:
+  likely-duplicate  same footage in the same order (mirror / speed / grade / crop / trim still match),
+                    or the same soundtrack over reused footage
+  similar           footage, soundtrack, or script reused with real edits (re-cut, new VO, new order)
+  original          nothing above the similar thresholds
+
+Examples:
+  $ ralphy unit originality spring-hero --workspace kettle-brand
+  $ ralphy unit originality spring-hero --against spring-hero-v1 --against ./refs/source.mp4
+  $ ralphy unit originality render/final.mp4 --against ./earlier-cuts/
+`);
+
   return command;
+}
+
+/** The Workspace ID of the resolved command scope (null for a Session). */
+function workspaceOf(child: Command): string | null {
+  const context = resolve(child);
+  return context.kind === "session" ? null : context.workspaceId;
 }
 
 function collect(value: string, previous: string[]): string[] {

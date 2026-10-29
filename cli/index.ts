@@ -262,7 +262,12 @@ program
       /* And `editor lint-safe-zones <dir>` on a composition directory rather
          than a project id: it reads only that path (#564). */
       const safeZonesOnPath = sub === "editor" && actionCommand.name() === "lint-safe-zones" && isDirectoryArg(actionCommand.args[0]);
-      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || sub === "catalog" || matteWithoutProject || safeZonesOnPath || explicitCredentialProbe) {
+      /* And `unit originality <file>` when every `--against` is a file or a
+         directory: it fingerprints only those paths (#561). */
+      const originalityOnPaths = sub === "unit" && actionCommand.name() === "originality" && isPathArg(actionCommand.args[0])
+        && Array.isArray(actionCommand.opts().against) && actionCommand.opts().against.length > 0
+        && (actionCommand.opts().against as unknown[]).every(isPathArg);
+      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || sub === "catalog" || matteWithoutProject || safeZonesOnPath || originalityOnPaths || explicitCredentialProbe) {
         setDataRoot(identity.dataRoot);
         return true;
       }
@@ -587,6 +592,16 @@ function isDirectoryArg(arg: unknown): boolean {
   if (typeof arg !== "string" || arg.length === 0) return false;
   try {
     return statSync(arg).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function isPathArg(arg: unknown): boolean {
+  if (typeof arg !== "string" || arg.length === 0) return false;
+  try {
+    statSync(arg);
+    return true;
   } catch {
     return false;
   }

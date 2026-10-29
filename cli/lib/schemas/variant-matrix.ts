@@ -42,8 +42,27 @@ export const VariantAxisSchema = z.object({
   slots: z.array(z.string().min(1)).default([]),
   /** Estimated USD to generate every slot on this axis. */
   expectedCostUsd: z.number().nonnegative().default(0),
+  /**
+   * #561: whether the axis changes substance (counts toward uniqueness), is a
+   * cosmetic transform (never counts), or is not in the planner taxonomy.
+   */
+  kind: z.enum(["substantive", "cosmetic", "unknown"]).optional(),
 });
 export type VariantAxis = z.infer<typeof VariantAxisSchema>;
+
+/**
+ * #561: one planned variant — the substantive axes it changes (what #558
+ * attributes outcomes to), the optional cosmetic last layer (recorded, never
+ * counted), and the fingerprint channels the change moves.
+ */
+export const PlannedVariantSchema = z.object({
+  variantId: z.string().min(1),
+  changedAxes: z.array(z.string().min(1)).default([]),
+  cosmeticLayer: z.array(z.string().min(1)).default([]),
+  channels: z.array(z.enum(["visual", "audio", "script"])).default([]),
+  hypothesis: z.string().default(""),
+});
+export type PlannedVariantRecord = z.infer<typeof PlannedVariantSchema>;
 
 export const VariantMatrixSchema = z.object({
   /** Schema version — bump when a field becomes required. */
@@ -56,8 +75,13 @@ export const VariantMatrixSchema = z.object({
   axes: z.array(VariantAxisSchema).default([]),
   /** Rolled-up expected USD across every axis (sum of `axes[].expectedCostUsd`). */
   totalExpectedCostUsd: z.number().nonnegative().default(0),
+  /** #561: the planned variants (substantive axes per variant). */
+  variants: z.array(PlannedVariantSchema).default([]),
 });
 export type VariantMatrix = z.infer<typeof VariantMatrixSchema>;
+
+/** The durable filename the planned matrix is persisted to. */
+export const VARIANT_MATRIX_FILENAME = "variant-matrix.json" as const;
 
 // ─── TournamentResult (the outcome) ─────────────────────────────────────────────
 
@@ -82,8 +106,37 @@ export const TournamentEntrySchema = z.object({
   cost: z.number().nonnegative().default(0),
   /** 1-based rank (1 = champion). Filled by the runner. */
   rank: z.number().int().positive().optional(),
+  /** #561: substantive axes this variant changed (from the plan / scenario). */
+  changedAxes: z.array(z.string()).default([]),
+  /** #561: cosmetic last layer (recorded, never counted as uniqueness). */
+  cosmeticLayer: z.array(z.string()).default([]),
 });
 export type TournamentEntry = z.infer<typeof TournamentEntrySchema>;
+
+/** #561: a sibling comparison the originality gate ran. */
+export const SiblingComparisonSchema = z.object({
+  variantId: z.string(),
+  sibling: z.string(),
+  verdict: z.enum(["likely-duplicate", "similar", "original"]),
+  visual: z.number().nullable().default(null),
+  audio: z.number().nullable().default(null),
+  script: z.number().nullable().default(null),
+  reasons: z.string().default(""),
+});
+export type SiblingComparison = z.infer<typeof SiblingComparisonSchema>;
+
+/** #561: a variant the gate refused to emit (or emitted under a logged override). */
+export const VariantRefusalSchema = z.object({
+  variantId: z.string(),
+  /** duplicate-of-sibling: measured similarity over the threshold; cosmetic-only: no substantive change planned. */
+  reason: z.enum(["duplicate-of-sibling", "cosmetic-only"]),
+  /** The higher-ranked sibling it duplicates, when the reason is a duplicate. */
+  sibling: z.string().nullable().default(null),
+  detail: z.string().default(""),
+  /** The user's logged override reason, when the refusal was overridden. */
+  overrideReason: z.string().nullable().default(null),
+});
+export type VariantRefusal = z.infer<typeof VariantRefusalSchema>;
 
 /** A preserved loser carries the same entry shape + the reason it lost. */
 export const TournamentLoserSchema = TournamentEntrySchema.extend({
@@ -110,6 +163,22 @@ export const TournamentResultSchema = z.object({
    * deleted from disk — this list mirrors what stays in `artifacts/`.
    */
   losers: z.array(TournamentLoserSchema).default([]),
+  /** #561: variants cleared to ship as distinct pieces, best first. */
+  emitted: z.array(z.string()).default([]),
+  /** #561: variants refused (never deleted; they stay on disk as data). */
+  refused: z.array(VariantRefusalSchema).default([]),
+  /** #561: refusals the user overrode with a logged reason (still emitted). */
+  overrides: z.array(VariantRefusalSchema).default([]),
+  /** #561: the sibling originality gate. */
+  originality: z
+    .object({
+      /** False when no sibling comparator was wired (--no-originality-gate or no media). */
+      checked: z.boolean().default(false),
+      comparisons: z.array(SiblingComparisonSchema).default([]),
+      /** Variants whose media could not be fingerprinted. */
+      unchecked: z.array(z.object({ variantId: z.string(), reason: z.string() })).default([]),
+    })
+    .default({ checked: false, comparisons: [], unchecked: [] }),
   /** Cost roll-up across every candidate. */
   cost: z
     .object({
