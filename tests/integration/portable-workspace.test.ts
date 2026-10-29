@@ -13,7 +13,7 @@ import { replaceProjectDocumentBinding, replaceBuildDocumentBinding } from "../.
 import { startAgentSession } from "../../cli/lib/store/sessions.js";
 import { ingestObject } from "../../cli/lib/store/objects.js";
 import { getObjectRow, resolveObjectPath } from "../../cli/lib/store/internal-objects.js";
-import { readPortableArchive, type PortableManifest } from "../../cli/lib/store/internal-portable-files.js";
+import { loadPortableTables, readPortableArchive, type PortableManifestV2 } from "../../cli/lib/store/internal-portable-files.js";
 import { reviseCompositionCheckout } from "../../cli/lib/composition-build.js";
 import { startRun, finishRun, recordRunObject } from "../../cli/lib/store/runs.js";
 import { verifyDomainStore } from "../../cli/lib/store/verify.js";
@@ -69,10 +69,16 @@ async function graph() {
   const publication = recordPublication({ presentationId: presentation.id, socialAccountId: account.id, submissionRunId: publicationRun.id, rail: "postiz", idempotencyKey: "source-publication" });
   return { workspace, project, object, artifact, composition, compositionRevision, document, revision, unit, unitRevision, publication, account, diagnostic };
 }
-async function rewriteArchive(source: string, mutate: (manifest: PortableManifest, entries: Record<string, Blob | string>) => void): Promise<string> {
-  const { manifest, files } = await readPortableArchive(source);
+/** Rewrites a package as an inline version 2 archive so a mutation can target any table or file. */
+async function rewriteArchive(source: string, mutate: (manifest: PortableManifestV2, entries: Record<string, Blob | string>) => void): Promise<string> {
+  const archive = await readPortableArchive(source);
   const entries: Record<string, Blob | string> = {};
-  for (const [name, file] of files) entries[name] = new Blob([await file.arrayBuffer()]);
+  let manifest: PortableManifestV2;
+  try {
+    const { workspaceId, schemaVersion, files } = archive.manifest;
+    manifest = { version: 2, schemaVersion, workspaceId, tables: loadPortableTables(archive, true), files };
+    for (const file of files) entries[file.entry] = new Blob([new Uint8Array(archive.reader.read(file.entry))]);
+  } finally { archive.reader.close(); }
   mutate(manifest, entries);
   entries["manifest.json"] = JSON.stringify(manifest);
   const target = path.join(tmp.dir, `modified-${crypto.randomUUID()}.workspace.tar`);
@@ -165,7 +171,9 @@ describe("portable Workspace package", () => {
     write("secrets/config.json", '{"api_key":"configured-secret-never-export"}');
     const exported = await exportWorkspacePackage({ workspaceId: source.workspace.id });
     const archive = await readPortableArchive(objectPath(exported.packageObjectId));
-    expect(JSON.stringify(archive.manifest)).not.toContain("secret-never-export");
+    archive.reader.close();
+    // Rows travel in chunks (#584): check every byte of the package, not only the manifest.
+    expect(fs.readFileSync(objectPath(exported.packageObjectId)).toString("latin1")).not.toContain("secret-never-export");
     expect(archive.manifest.files.some((file) => file.path.includes("secrets"))).toBe(false);
     const archivePath = path.join(tmp.dir, "transfer.workspace.tar");
     fs.copyFileSync(objectPath(exported.packageObjectId), archivePath);
@@ -228,7 +236,7 @@ describe("portable Workspace package", () => {
     const exported = await exportWorkspacePackage({ workspaceId: source.workspace.id });
     const original = objectPath(exported.packageObjectId);
     const before = openDomainDb().query("SELECT id FROM workspaces ORDER BY id").all();
-    const mutations: Array<(manifest: PortableManifest, entries: Record<string, Blob | string>) => void> = [
+    const mutations: Array<(manifest: PortableManifestV2, entries: Record<string, Blob | string>) => void> = [
       (manifest) => { manifest.files[0].path = "../escaped-file"; },
       (manifest, entries) => { entries[manifest.files[0].entry] = "x".repeat(manifest.files[0].bytes); },
       (manifest) => { manifest.tables.consumer_principals = []; },
@@ -288,8 +296,7 @@ describe("portable Workspace package", () => {
     db.prepare("UPDATE jobs SET log_path = ? WHERE id = ?").run("job-logs/worker.log", job);
     db.prepare("INSERT INTO job_artifacts (job_id,kind,path,bytes,sha256) VALUES (?,?,?,?,?)").run(job, "text", path.relative(path.join(tmp.dir, ".ralphy"), output), 13, hash("worker output"));
     const exported = await exportWorkspacePackage({ workspaceId: workspace.id });
-    const archive = await readPortableArchive(objectPath(exported.packageObjectId));
-    expect(JSON.stringify(archive.manifest)).not.toContain("test-secret-never-export");
+    expect(fs.readFileSync(objectPath(exported.packageObjectId)).toString("latin1")).not.toContain("test-secret-never-export");
     const imported = await importWorkspacePackage({ packageObjectId: exported.packageObjectId, idempotencyKey: "memory-jobs", limit: 100 });
     const mapped = (type: string, id: string) => imported.entityMapPage.items.find((item) => item.oldType === type && item.oldId === id)!.newId;
     expect(db.query("SELECT status FROM jobs WHERE id = ?").get(mapped("job", String(job)))).toEqual({ status: "cancelled" });

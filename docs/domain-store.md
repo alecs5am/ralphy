@@ -104,7 +104,7 @@ missing.
 
 ## Portable packages
 
-`workspace.export({workspaceId})` creates a version 2, uncompressed `.workspace.tar`
+`workspace.export({workspaceId})` creates a version 3, uncompressed `.workspace.tar`
 package as a durable Object and returns its Run ID, Object ID, entity counts, and
 file count. Transfer covers the entire workspace: projects, documents and all
 revisions, media bytes, compositions and builds, units and captions, publishing
@@ -132,7 +132,27 @@ File retries are identified by the complete archive hash and idempotency key.
 No temporary placeholder workspace or source credential configuration is created.
 Archives currently support up to 1 GiB; oversized archives fail explicitly rather
 than dropping files. Version 1 packages contained incomplete metadata and cannot
-restore a workspace; export the original workspace again to obtain version 2.
+restore a workspace; export the original workspace again.
+
+Version 3 (#584) streams table rows. Every table is written as chunked NDJSON
+entries (`rows/<n>`, at most 10,000 rows or about 8 MiB each): the first line
+names the table and its columns, and each further line is one row as a JSON
+array. `manifest.json` lists each chunk's table, row count, byte size, and
+SHA-256 beside the file list, so its size follows the chunk count, not the row
+count (the 64 MiB manifest cap stopped version 2 at about 21k trend videos).
+The `trend_*` tables are spooled from one read snapshot straight into the
+archive and imported one verified chunk at a time: a first pass collects their
+old ids, then each chunk is sanitized, remapped, and inserted into the staging
+store, and after verification the rows are copied into the store in SQL.
+Other tables are still loaded whole because their import fix-ups span tables.
+Version 2 packages (inline tables in the manifest) of the same schema version
+still import. Measured on a copy of the #556 scratch corpus (234k videos, 236k
+metric snapshots, 426k cohort labels, 7.6k creators): export 9 s, 274 MB
+package, 309 MiB peak RSS; import into an empty library 26 s, about 1.2 GiB
+peak RSS at commit (2.2 GiB process maximum including collector slack). Import
+memory is dominated by the identity map (one old-to-new pair per entity with an
+`id`, about 130 MB live for that corpus), the import receipt that keeps the
+complete paged entity mapping, and SQLite and collector working memory.
 
 Configured credentials, credential references, and consumer authentication are
 excluded. Recognizable credentials in saved transcript/tool text and metadata

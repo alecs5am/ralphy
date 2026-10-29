@@ -469,7 +469,8 @@ function scanTextPayloads(
           ? `SELECT * FROM "${table}"`
           : `SELECT rowid AS __rowid, * FROM "${table}"`,
       )
-      .all();
+      // Iterate: the #584 trend tables can hold hundreds of thousands of rows.
+      .iterate();
     let position = 0;
     for (const row of rows) {
       position += 1;

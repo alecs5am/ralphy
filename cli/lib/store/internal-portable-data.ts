@@ -73,6 +73,13 @@ export const PORTABLE_TABLES: Table[] = [
   { name: "trend_niche_members", type: "trend_niche_member", owner: ["niche_id", "trend_niches"] },
 ];
 export type PortableTables = Record<string, PortableRecord[]>;
+/**
+ * #584: tables whose rows are streamed chunk by chunk on export and import
+ * instead of being held in memory. They are the trend corpus tables, which
+ * grow with scraping, have no cross-table import fix-ups, and own their rows
+ * through a workspace-scoped parent inside this set.
+ */
+export const STREAMED_TABLES: ReadonlySet<string> = new Set(PORTABLE_TABLES.filter(({ name }) => name.startsWith("trend_")).map(({ name }) => name));
 export type PortableMapping = { oldType: string; oldId: string; newType: string; newId: string };
 const domainId = /\b[a-z][a-z0-9]*_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/g;
 export const hash = (data: string | Uint8Array) => createHash("sha256").update(data).digest("hex");
@@ -94,15 +101,16 @@ export function redactPortableValue(value: unknown): unknown {
 }
 
 export function normalizePortableTables(tables: PortableTables): PortableTables {
-  const normalized = Object.fromEntries(PORTABLE_TABLES.map(({ name }) => [name, tables[name].map((row) => sanitizeRecord(name, row))]));
+  const normalized = Object.fromEntries(PORTABLE_TABLES.map(({ name }) => [name, (tables[name] ?? []).map((row) => sanitizeRecord(name, row))]));
   normalized.settings = normalized.settings.filter((row) => !sensitive.test(String(row.key)));
   freezeOperations(normalized);
   return normalized;
 }
 
-export function readPortableTables(db: Database, workspaceId: string, projectId: string | null): PortableTables {
+export function readPortableTables(db: Database, workspaceId: string, projectId: string | null, skip: ReadonlySet<string> = new Set()): PortableTables {
   const tables: PortableTables = {};
   for (const table of PORTABLE_TABLES) {
+    if (skip.has(table.name)) continue;
     const columns = db.query<{ name: string }, []>(`PRAGMA table_info(${quoted(table.name)})`).all();
     let rows: PortableRecord[];
     if (table.name === "workspaces") rows = db.query<PortableRecord, [string]>("SELECT * FROM workspaces WHERE id = ?").all(workspaceId);
@@ -135,6 +143,20 @@ export function readPortableTables(db: Database, workspaceId: string, projectId:
   return tables;
 }
 
+/** Streams one workspace's sanitized rows of a streamed table without materializing the table. */
+export function* iteratePortableRows(db: Database, workspaceId: string, name: string): Generator<PortableRecord> {
+  const table = PORTABLE_TABLES.find((entry) => entry.name === name);
+  if (!table || !STREAMED_TABLES.has(name)) throw new Error(`Portable table ${name} is not streamed`);
+  let sql: string;
+  if (table.workspace) sql = `SELECT * FROM ${quoted(name)} WHERE workspace_id = ?`;
+  else {
+    const [column, owner] = table.owner!;
+    if (!PORTABLE_TABLES.find((entry) => entry.name === owner)?.workspace) throw new Error(`Streamed portable table ${name} needs a workspace-scoped owner`);
+    sql = `SELECT * FROM ${quoted(name)} WHERE ${quoted(column)} IN (SELECT id FROM ${quoted(owner)} WHERE workspace_id = ?)`;
+  }
+  for (const row of db.query<PortableRecord, [string]>(sql).iterate(workspaceId)) yield sanitizeRecord(name, row);
+}
+
 function freezeOperations(tables: PortableTables): void {
   const now = Date.now();
   const draftRuns = new Set(tables.publications.filter((row) => row.state === "draft").map((row) => row.submission_run_id));
@@ -158,7 +180,7 @@ function freezeOperations(tables: PortableTables): void {
   }
 }
 
-function sanitizeRecord(table: string, source: PortableRecord): PortableRecord {
+export function sanitizeRecord(table: string, source: PortableRecord): PortableRecord {
   const row = { ...source };
   for (const [key, value] of Object.entries(row)) {
     if (typeof value !== "string") continue;
@@ -183,15 +205,18 @@ function sanitizeRecord(table: string, source: PortableRecord): PortableRecord {
   return row;
 }
 
-export function remapPortableTables(db: Database, source: PortableTables, options: { workspaceSlug?: string; workspaceName?: string }) {
+/**
+ * Assigns new identities for every portable entity and remaps the in-memory
+ * tables. `streamedIds` carries the old identities of streamed tables, whose
+ * rows are remapped later batch by batch through `remapRows`.
+ */
+export function remapPortableTables(db: Database, source: PortableTables, options: { workspaceSlug?: string; workspaceName?: string }, streamedIds: ReadonlyMap<string, ReadonlyArray<string | number | null>> = new Map()) {
   const ids = new Map<string, string>();
   const byTable = new Map<string, Map<string | number, string | number>>();
   const mapping: PortableMapping[] = [];
   for (const table of PORTABLE_TABLES) {
     const entries = new Map<string | number, string | number>();
-    for (const row of source[table.name]) {
-      if (!Object.hasOwn(row, "id")) continue;
-      const oldId = row.id;
+    const assign = (oldId: string | number | null | undefined) => {
       if (oldId === null || (typeof oldId !== "string" && typeof oldId !== "number") || entries.has(oldId)) throw new Error("Invalid or duplicate portable identity");
       if (table.prefix ? typeof oldId !== "string" || !new RegExp(`^${table.prefix}_[A-Za-z0-9_-]{1,128}$`).test(oldId)
         : typeof oldId !== "number" || !Number.isSafeInteger(oldId) || oldId <= 0) throw new Error("Invalid portable entity identity");
@@ -203,43 +228,48 @@ export function remapPortableTables(db: Database, source: PortableTables, option
         ids.set(oldId, String(newId));
       }
       mapping.push({ oldType: table.type, oldId: String(oldId), newType: table.type, newId: String(newId) });
-    }
+    };
+    for (const row of source[table.name] ?? []) if (Object.hasOwn(row, "id")) assign(row.id);
+    for (const oldId of streamedIds.get(table.name) ?? []) assign(oldId);
     byTable.set(table.name, entries);
   }
   const remapText = (text: string) => ids.get(text) ?? text.replace(domainId, (id) => ids.get(id) ?? id);
   const remapValue = (value: unknown): unknown => typeof value === "string" ? remapText(value)
     : Array.isArray(value) ? value.map(remapValue)
       : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, remapValue(item)])) : value;
+  const foreignKeyCache = new Map<string, Array<{ table: string; from: string }>>();
+  const remapRow = (name: string, input: PortableRecord): PortableRecord => {
+    let foreignKeys = foreignKeyCache.get(name);
+    if (!foreignKeys) foreignKeyCache.set(name, foreignKeys = db.query<{ table: string; from: string }, []>(`PRAGMA foreign_key_list(${quoted(name)})`).all());
+    const row = Object.fromEntries(Object.entries(input).map(([key, value]) => [key, typeof value === "string"
+      ? key.endsWith("_json") ? JSON.stringify(remapValue(JSON.parse(value))) : remapText(value) : value])) as PortableRecord;
+    if (Object.hasOwn(input, "id")) row.id = byTable.get(name)!.get(input.id!)!;
+    for (const foreign of foreignKeys) {
+      const old = input[foreign.from];
+      if (old === null || old === undefined) continue;
+      const id = byTable.get(foreign.table)?.get(old);
+      // Agent turns use their run ID as the primary key.
+      const target = foreign.table === "agent_turns" ? byTable.get("runs")?.get(old) : id;
+      if (target === undefined) throw new Error(`Portable ${name}.${foreign.from} references an entity outside the package`);
+      row[foreign.from] = target;
+    }
+    if (name === "activity_events" && input.entity_type === "job") {
+      const id = byTable.get("jobs")!.get(Number(input.entity_id));
+      if (id !== undefined) row.entity_id = String(id);
+    }
+    if (name === "publications") row.idempotency_key = `portable-${randomUUID()}`;
+    if (name === "jobs") row.depends_on = JSON.stringify((JSON.parse(String(input.depends_on)) as number[]).map((id) => byTable.get("jobs")!.get(id)).filter((id) => id !== undefined));
+    if (name === "objects") {
+      row.bucket = row.project_id ? `buckets/${row.workspace_id}/projects/${row.project_id}` : `buckets/${row.workspace_id}/shared`;
+      row.key = remapText(String(input.key));
+    }
+    if (name === "document_revisions") row.content_sha256 = hash(String(row.body));
+    return row;
+  };
+  /** Sanitizes and remaps one batch of a streamed table. */
+  const remapRows = (name: string, rows: PortableRecord[]) => rows.map((row) => remapRow(name, sanitizeRecord(name, row)));
   const tables: PortableTables = {};
-  for (const table of PORTABLE_TABLES) {
-    const foreignKeys = db.query<{ table: string; from: string }, []>(`PRAGMA foreign_key_list(${quoted(table.name)})`).all();
-    tables[table.name] = source[table.name].map((input) => {
-      const row = Object.fromEntries(Object.entries(input).map(([key, value]) => [key, typeof value === "string"
-        ? key.endsWith("_json") ? JSON.stringify(remapValue(JSON.parse(value))) : remapText(value) : value])) as PortableRecord;
-      if (Object.hasOwn(input, "id")) row.id = byTable.get(table.name)!.get(input.id!)!;
-      for (const foreign of foreignKeys) {
-        const old = input[foreign.from];
-        if (old === null || old === undefined) continue;
-        const id = byTable.get(foreign.table)?.get(old);
-        // Agent turns use their run ID as the primary key.
-        const target = foreign.table === "agent_turns" ? byTable.get("runs")?.get(old) : id;
-        if (target === undefined) throw new Error(`Portable ${table.name}.${foreign.from} references an entity outside the package`);
-        row[foreign.from] = target;
-      }
-      if (table.name === "activity_events" && input.entity_type === "job") {
-        const id = byTable.get("jobs")!.get(Number(input.entity_id));
-        if (id !== undefined) row.entity_id = String(id);
-      }
-      if (table.name === "publications") row.idempotency_key = `portable-${randomUUID()}`;
-      if (table.name === "jobs") row.depends_on = JSON.stringify((JSON.parse(String(input.depends_on)) as number[]).map((id) => byTable.get("jobs")!.get(id)).filter((id) => id !== undefined));
-      if (table.name === "objects") {
-        row.bucket = row.project_id ? `buckets/${row.workspace_id}/projects/${row.project_id}` : `buckets/${row.workspace_id}/shared`;
-        row.key = remapText(String(input.key));
-      }
-      if (table.name === "document_revisions") row.content_sha256 = hash(String(row.body));
-      return row;
-    });
-  }
+  for (const table of PORTABLE_TABLES) tables[table.name] = (source[table.name] ?? []).map((input) => remapRow(table.name, input));
   const workspace = tables.workspaces[0];
   workspace.slug = options.workspaceSlug ?? `${workspace.slug}-imported-${randomUUID().slice(0, 8)}`;
   workspace.name = options.workspaceName ?? `${workspace.name} (imported)`;
@@ -258,24 +288,56 @@ export function remapPortableTables(db: Database, source: PortableTables, option
       })),
     } as Parameters<typeof compositionManifestSha256>[0]);
   }
-  return { tables, mapping, ids, remapText, workspaceId: String(workspace.id) };
+  return { tables, mapping, ids, remapText, remapRows, workspaceId: String(workspace.id) };
 }
 
 /** Restore a verified snapshot atomically; historical terminal states cannot be replayed as live writes. */
 export function insertPortableTables(db: Database, tables: PortableTables): void {
+  const inserter = beginPortableInsert(db);
+  for (const { name } of PORTABLE_TABLES) inserter.insert(name, tables[name] ?? []);
+  inserter.finish();
+}
+
+/**
+ * Opens a portable restore inside the caller's transaction: guards are lifted
+ * and foreign keys deferred until `finish`, so batches may arrive in any order.
+ */
+export function beginPortableInsert(db: Database) {
   const names = new Set(PORTABLE_TABLES.map(({ name }) => name));
   const triggers = db.query<{ name: string; tbl_name: string; sql: string }, []>("SELECT name, tbl_name, sql FROM sqlite_master WHERE type = 'trigger'").all().filter((trigger) => names.has(trigger.tbl_name));
   db.exec("PRAGMA defer_foreign_keys = ON");
   for (const trigger of triggers) db.exec(`DROP TRIGGER ${quoted(trigger.name)}`);
-  for (const { name } of PORTABLE_TABLES) {
-    const columns = db.query<{ name: string }, []>(`PRAGMA table_info(${quoted(name)})`).all().map(({ name }) => name);
-    for (const row of tables[name]) {
-      if (Object.keys(row).some((key) => !columns.includes(key))) throw new Error(`Unknown portable ${name} field`);
-      const keys = Object.keys(row);
-      db.prepare(`INSERT INTO ${quoted(name)} (${keys.map(quoted).join(",")}) VALUES (${keys.map(() => "?").join(",")})`).run(...keys.map((key) => row[key]));
-    }
-  }
-  for (const row of tables.document_revisions) db.prepare("INSERT INTO document_revisions_fts (revision_id,title,body) VALUES (?,?,?)").run(row.id, row.title, row.body);
-  for (const trigger of triggers) db.exec(trigger.sql);
-  if (db.query("PRAGMA foreign_key_check").all().length) throw new Error("Portable package contains broken references");
+  const columnCache = new Map<string, string[]>();
+  const columnsOf = (name: string) => {
+    let columns = columnCache.get(name);
+    if (!columns) columnCache.set(name, columns = db.query<{ name: string }, []>(`PRAGMA table_info(${quoted(name)})`).all().map(({ name }) => name));
+    return columns;
+  };
+  const statements = new Map<string, ReturnType<Database["prepare"]>>();
+  const fts = db.prepare("INSERT INTO document_revisions_fts (revision_id,title,body) VALUES (?,?,?)");
+  return {
+    insert(name: string, rows: PortableRecord[]): void {
+      if (!names.has(name)) throw new Error(`Unknown portable table ${name}`);
+      const columns = new Set(columnsOf(name));
+      for (const row of rows) {
+        const keys = Object.keys(row);
+        if (keys.some((key) => !columns.has(key))) throw new Error(`Unknown portable ${name} field`);
+        const signature = `${name}|${keys.join(",")}`;
+        let statement = statements.get(signature);
+        if (!statement) statements.set(signature, statement = db.prepare(`INSERT INTO ${quoted(name)} (${keys.map(quoted).join(",")}) VALUES (${keys.map(() => "?").join(",")})`));
+        statement.run(...keys.map((key) => row[key]));
+        if (name === "document_revisions") fts.run(row.id, row.title, row.body);
+      }
+    },
+    /** Copies a whole table that was already restored and verified in an attached staging store. */
+    copyFrom(schema: string, name: string): void {
+      if (!names.has(name) || !STREAMED_TABLES.has(name) || !/^[a-z_]+$/.test(schema)) throw new Error(`Portable table ${name} cannot be copied`);
+      const columns = columnsOf(name).map(quoted).join(",");
+      db.exec(`INSERT INTO main.${quoted(name)} (${columns}) SELECT ${columns} FROM ${schema}.${quoted(name)}`);
+    },
+    finish(): void {
+      for (const trigger of triggers) db.exec(trigger.sql);
+      if (db.query("PRAGMA foreign_key_check").all().length) throw new Error("Portable package contains broken references");
+    },
+  };
 }

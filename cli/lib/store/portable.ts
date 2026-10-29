@@ -1,21 +1,22 @@
 import { Database } from "bun:sqlite";
 import fs from "node:fs/promises";
-import { constants } from "node:fs";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { ingestObjectRow, getObjectRow, resolveObjectPath, ensureSafeStoreDirectory, hashSafeStoreFile, promoteStagedFile } from "./internal-objects.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { ralphDir } from "../paths.js";
 import { startRun, finishRun } from "./runs.js";
 import { applyMigrations } from "./schema.js";
 import { verifyDomainStore } from "./verify.js";
-import { hash, PORTABLE_TABLES, readPortableTables, normalizePortableTables, remapPortableTables, insertPortableTables, type PortableMapping } from "./internal-portable-data.js";
-import { MAX_ARCHIVE_BYTES, createPortableArchive, readPortableArchive, stagePortableFiles, safeRelative } from "./internal-portable-files.js";
+import { PORTABLE_TABLES, STREAMED_TABLES, beginPortableInsert, iteratePortableRows, readPortableTables, normalizePortableTables, remapPortableTables, type PortableMapping, type PortableRecord } from "./internal-portable-data.js";
+import { PORTABLE_PACKAGE_VERSION, createPortableArchive, loadPortableTables, portableRowBatches, readPortableArchive, stagePortableFiles, safeRelative, type PortableArchive } from "./internal-portable-files.js";
+import { PortableArchiveWriter, copyPortableUpload } from "./internal-portable-archive.js";
 import type { JsonValue } from "./types.js";
 
 export type PortableExportResult = {
   runId: string;
   packageObjectId: string;
-  manifestSummary: { version: 2; workspaceId: string; entityCounts: Record<string, number>; fileCount: number };
+  manifestSummary: { version: typeof PORTABLE_PACKAGE_VERSION; workspaceId: string; entityCounts: Record<string, number>; fileCount: number };
 };
 export type PortablePage<T> = { items: T[]; nextCursor: string | null };
 export type PortableImportResult = {
@@ -37,25 +38,39 @@ type ImportReceipt = { workspaceId: string; mapping: PortableMapping[]; relinks:
 export async function exportWorkspacePackage(input: { workspaceId: string; projectId?: string | null }): Promise<PortableExportResult> {
   if (input.projectId != null) throw new Error("Portable transfer requires the entire workspace to preserve shared references and drafts. Omit projectId.");
   const db = openDomainDb();
-  const tables = db.transaction(() => readPortableTables(db, input.workspaceId, input.projectId ?? null)).deferred();
-  const run = startRun({ workspaceId: input.workspaceId, projectId: input.projectId ?? null, kind: "workspace.export", label: "Portable Workspace export", metadata: { version: 2 } });
   const root = path.resolve(ralphDir());
-  const file = path.join(root, "exports", `${run.id}.workspace.tar`);
+  await ensureSafeStoreDirectory(root, path.join(root, "exports"));
+  const file = path.join(root, "exports", `${randomUUID()}.workspace.tar`);
+  const writer = PortableArchiveWriter.create(file);
   try {
-    await ensureSafeStoreDirectory(root, path.dirname(file));
-    const manifest = await createPortableArchive(db, root, file, tables);
-    const object = await ingestObjectRow({
-      scope: { workspaceId: input.workspaceId }, sourcePath: file,
-      originalName: `${run.id}.workspace.tar`, mime: "application/vnd.ralphy.workspace+tar", storageClass: "durable",
-    });
-    finishRun(run.id, { state: "succeeded" });
-    const entityCounts = Object.fromEntries(PORTABLE_TABLES.map(({ name, type }) => [type, tables[name].length]));
-    entityCounts.socialAccount = tables.social_accounts.length;
-    return { runId: run.id, packageObjectId: object.id, manifestSummary: { version: 2, workspaceId: manifest.workspaceId, entityCounts, fileCount: manifest.files.length } };
-  } catch (error) {
-    finishRun(run.id, { state: "failed", error });
-    throw error;
-  } finally { await fs.rm(file, { force: true }); }
+    // One read snapshot: in-memory tables are loaded and streamed tables are
+    // spooled into row chunks (#584) before any file is copied.
+    const { tables, streamed } = db.transaction(() => {
+      const tables = readPortableTables(db, input.workspaceId, null, STREAMED_TABLES);
+      const streamed: Record<string, number> = {};
+      for (const name of STREAMED_TABLES) streamed[name] = writer.writeRows(name, iteratePortableRows(db, input.workspaceId, name));
+      return { tables, streamed };
+    }).deferred();
+    const run = startRun({ workspaceId: input.workspaceId, kind: "workspace.export", label: "Portable Workspace export", metadata: { version: PORTABLE_PACKAGE_VERSION } });
+    try {
+      const manifest = await createPortableArchive(db, root, writer, tables);
+      writer.close();
+      const object = await ingestObjectRow({
+        scope: { workspaceId: input.workspaceId }, sourcePath: file,
+        originalName: `${run.id}.workspace.tar`, mime: "application/vnd.ralphy.workspace+tar", storageClass: "durable",
+      });
+      finishRun(run.id, { state: "succeeded" });
+      const entityCounts = Object.fromEntries(PORTABLE_TABLES.map(({ name, type }) => [type, streamed[name] ?? tables[name].length]));
+      entityCounts.socialAccount = tables.social_accounts.length;
+      return { runId: run.id, packageObjectId: object.id, manifestSummary: { version: PORTABLE_PACKAGE_VERSION, workspaceId: manifest.workspaceId, entityCounts, fileCount: manifest.files.length } };
+    } catch (error) {
+      finishRun(run.id, { state: "failed", error });
+      throw error;
+    }
+  } finally {
+    writer.close();
+    await fs.rm(file, { force: true });
+  }
 }
 
 export async function importWorkspacePackage(input: ImportInput): Promise<PortableImportResult> {
@@ -76,36 +91,61 @@ export async function importWorkspacePackage(input: ImportInput): Promise<Portab
 /** File import also works before the first workspace exists; paths never enter the domain store. */
 export async function importWorkspaceArchiveFile(input: Omit<ImportInput, "packageObjectId"> & { filePath: string }): Promise<PortableImportResult> {
   validateImportInput(input);
-  const source = await fs.open(path.resolve(input.filePath), constants.O_RDONLY | constants.O_NOFOLLOW);
-  let bytes: Buffer;
+  const root = path.resolve(ralphDir());
+  await ensureSafeStoreDirectory(root, path.join(root, "tmp"));
+  // A private copy keeps memory bounded and the bytes stable while they are read.
+  const copy = path.join(root, "tmp", `portable-upload-${randomUUID()}.tar`);
   try {
-    const stat = await source.stat();
-    if (!stat.isFile() || stat.size > MAX_ARCHIVE_BYTES) throw new Error("Choose a regular portable package of up to 1 GiB");
-    bytes = await source.readFile();
-    if (bytes.length !== stat.size) throw new Error("Portable package changed while it was being read");
-  } finally { await source.close(); }
-  const options = { ...input, packageObjectId: `file-sha256:${hash(bytes)}` };
-  const existing = importReceipt(openDomainDb(), options);
-  if (existing) return resultPage(existing, options);
-  return importArchive(options, await readPortableArchive(bytes), null);
+    const digest = await copyPortableUpload(path.resolve(input.filePath), copy);
+    const options = { ...input, packageObjectId: `file-sha256:${digest.sha256}` };
+    const existing = importReceipt(openDomainDb(), options);
+    if (existing) return resultPage(existing, options);
+    return await importArchive(options, await readPortableArchive(copy), null);
+  } finally { await fs.rm(copy, { force: true }); }
 }
 
-async function importArchive(input: ImportInput, archive: Awaited<ReturnType<typeof readPortableArchive>>, ownerWorkspaceId: string | null): Promise<PortableImportResult> {
+async function importArchive(input: ImportInput, archive: PortableArchive, ownerWorkspaceId: string | null): Promise<PortableImportResult> {
+  try { return await importOpenArchive(input, archive, ownerWorkspaceId); } finally { archive.reader.close(); }
+}
+
+/** Old identities of streamed rows, collected in a first pass so every table remaps against one identity map. */
+function streamedIdentities(archive: PortableArchive): Map<string, Array<string | number | null>> {
+  const ids = new Map<string, Array<string | number | null>>();
+  for (const name of STREAMED_TABLES) {
+    const list: Array<string | number | null> = [];
+    for (const batch of portableRowBatches(archive, name)) for (const row of batch) if (Object.hasOwn(row, "id")) list.push(row.id);
+    ids.set(name, list);
+  }
+  return ids;
+}
+
+async function importOpenArchive(input: ImportInput, archive: PortableArchive, ownerWorkspaceId: string | null): Promise<PortableImportResult> {
   const db = openDomainDb();
   const root = path.resolve(ralphDir());
-  const prepared = remapPortableTables(db, normalizePortableTables(archive.manifest.tables), input);
+  const source = loadPortableTables(archive);
+  const socialAccounts = source.social_accounts;
+  const prepared = remapPortableTables(db, normalizePortableTables(source), input, streamedIdentities(archive));
   await ensureSafeStoreDirectory(root, path.join(root, "tmp"));
   const stage = await fs.mkdtemp(path.join(root, "tmp", "portable-"));
   const run = startRun({ workspaceId: ownerWorkspaceId, kind: ownerWorkspaceId ? "workspace.import" : "migration", label: "Portable Workspace import", metadata: { version: 2, operation: "workspace.import", packageObjectId: input.packageObjectId, idempotencyKey: input.idempotencyKey } });
   const promoted: string[] = [];
   let committed = false;
   try {
-    const paths = await stagePortableFiles({ stage, destination: root, ...archive, ...prepared });
-    const stageDb = new Database(path.join(stage, "ralphy.db"), { create: true });
+    const paths = await stagePortableFiles({ stage, destination: root, archive, ...prepared });
+    const stagePath = path.join(stage, "ralphy.db");
+    const stageDb = new Database(stagePath, { create: true });
     try {
       stageDb.exec("PRAGMA foreign_keys = ON");
       applyMigrations(stageDb);
-      stageDb.transaction(() => insertPortableTables(stageDb, prepared.tables)).immediate();
+      stageDb.transaction(() => {
+        const inserter = beginPortableInsert(stageDb);
+        for (const { name } of PORTABLE_TABLES) {
+          if (!STREAMED_TABLES.has(name)) inserter.insert(name, prepared.tables[name]);
+          // Streamed rows are sanitized, remapped, and restored one chunk at a time.
+          else for (const batch of portableRowBatches(archive, name)) inserter.insert(name, prepared.remapRows(name, batch as PortableRecord[]));
+        }
+        inserter.finish();
+      }).immediate();
     } finally { stageDb.close(); }
     const report = verifyDomainStore({ dataRoot: stage, hashObjects: true });
     const issues = Object.entries(report).filter(([key, value]) => Array.isArray(value)
@@ -116,21 +156,32 @@ async function importArchive(input: ImportInput, archive: Awaited<ReturnType<typ
       const digest = await hashSafeStoreFile(stage, source);
       if (await promoteStagedFile(root, source, target, digest)) promoted.push(target);
     }
-    const relinks = archive.manifest.tables.social_accounts.map((account) => ({
+    const relinks = socialAccounts.map((account) => ({
       oldId: String(account.id), newId: prepared.ids.get(String(account.id))!, platform: String(account.platform),
       provider: String(account.platform), handle: typeof account.username === "string" ? account.username : null,
     }));
     const receipt = { workspaceId: prepared.workspaceId, mapping: prepared.mapping, relinks };
-    const result = withImmediateTransaction((db) => {
-      const replay = importReceipt(db, input);
-      if (replay) { finishRun(run.id, { state: "cancelled" }); return resultPage(replay, input); }
-      insertPortableTables(db, prepared.tables);
-      db.prepare("UPDATE runs SET metadata_json = ? WHERE id = ?").run(JSON.stringify({
-        version: 2, operation: "workspace.import", packageObjectId: input.packageObjectId, idempotencyKey: input.idempotencyKey, ...receipt,
-      } satisfies JsonValue), run.id);
-      finishRun(run.id, { state: "succeeded" });
-      return resultPage(receipt, input);
-    });
+    // Streamed tables were verified in the staging store; copy them across in SQL
+    // instead of re-reading the package. ATTACH is not allowed inside a transaction.
+    db.prepare("ATTACH DATABASE ? AS portable_stage").run(stagePath);
+    let result: PortableImportResult;
+    try {
+      result = withImmediateTransaction((db) => {
+        const replay = importReceipt(db, input);
+        if (replay) { finishRun(run.id, { state: "cancelled" }); return resultPage(replay, input); }
+        const inserter = beginPortableInsert(db);
+        for (const { name } of PORTABLE_TABLES) {
+          if (STREAMED_TABLES.has(name)) inserter.copyFrom("portable_stage", name);
+          else inserter.insert(name, prepared.tables[name]);
+        }
+        inserter.finish();
+        db.prepare("UPDATE runs SET metadata_json = ? WHERE id = ?").run(JSON.stringify({
+          version: 2, operation: "workspace.import", packageObjectId: input.packageObjectId, idempotencyKey: input.idempotencyKey, ...receipt,
+        } satisfies JsonValue), run.id);
+        finishRun(run.id, { state: "succeeded" });
+        return resultPage(receipt, input);
+      });
+    } finally { db.exec("DETACH DATABASE portable_stage"); }
     committed = result.workspaceId === prepared.workspaceId;
     return result;
   } catch (error) {

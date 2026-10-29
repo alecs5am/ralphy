@@ -4,43 +4,53 @@ import fs from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import { assertSafeStorePath, getObjectRow, hashSafeStoreFile, resolveObjectPath, writeExclusiveStoreTemp } from "./internal-objects.js";
-import { hash, PORTABLE_TABLES, redactPortableValue, type PortableTables } from "./internal-portable-data.js";
+import { hash, PORTABLE_TABLES, redactPortableValue, STREAMED_TABLES, type PortableRecord, type PortableTables } from "./internal-portable-data.js";
+import { MAX_ARCHIVE_BYTES, MAX_CHUNK_BYTES, MAX_MANIFEST_BYTES, PortableArchiveReader, type PortableArchiveWriter, type PortableRowChunk } from "./internal-portable-archive.js";
 import { SCHEMA_VERSION } from "./schema.js";
 
+export { MAX_ARCHIVE_BYTES } from "./internal-portable-archive.js";
 export type PortableFile = { entry: string; kind: "object" | "run" | "job_artifact" | "job_log" | "desktop" | "composition_checkout"; id: string; path: string; bytes: number; sha256: string };
-export type PortableManifest = { version: 2; schemaVersion: number; workspaceId: string; tables: PortableTables; files: PortableFile[] };
+/** Version 2 packages (before #584) carry every table inline in the manifest. */
+export type PortableManifestV2 = { version: 2; schemaVersion: number; workspaceId: string; tables: PortableTables; files: PortableFile[] };
+/** Version 3 packages (#584) carry rows in hashed NDJSON chunks listed by `rows`. */
+export type PortableManifestV3 = { version: 3; schemaVersion: number; workspaceId: string; rows: PortableRowChunk[]; files: PortableFile[] };
+export type PortableManifest = PortableManifestV2 | PortableManifestV3;
+export type PortableArchive = { manifest: PortableManifest; reader: PortableArchiveReader };
+export const PORTABLE_PACKAGE_VERSION = 3;
 const ROOT_MARKER = "ralphy-portable-root:";
-export const MAX_ARCHIVE_BYTES = 1024 ** 3;
-const MAX_MANIFEST_BYTES = 64 * 1024 ** 2;
 
-export async function createPortableArchive(db: Database, root: string, output: string, tables: PortableTables): Promise<PortableManifest> {
+/**
+ * Completes a version 3 package whose streamed-table chunks the caller already
+ * wrote: files are copied block by block with their digests checked, then the
+ * in-memory tables (mutated by the file pass) and the manifest are written.
+ */
+export async function createPortableArchive(db: Database, root: string, writer: PortableArchiveWriter, tables: PortableTables): Promise<PortableManifestV3> {
   const workspaceId = String(tables.workspaces[0].id);
-  const manifest: PortableManifest = { version: 2, schemaVersion: SCHEMA_VERSION, workspaceId, tables, files: [] };
-  const entries: Record<string, Blob | string> = {};
+  const manifest: PortableManifestV3 = { version: 3, schemaVersion: SCHEMA_VERSION, workspaceId, rows: writer.rows, files: [] };
   const sourceRoots = [...new Set([await fs.realpath(root), root])].sort((a, b) => b.length - a.length);
+  let fileBytes = 0;
   const add = async (kind: PortableFile["kind"], id: string, relative: string, json = false) => {
     const source = safeRelative(root, relative);
     await assertSafeStorePath(root, source);
     const checked = await hashSafeStoreFile(root, source);
     const entry = `files/${manifest.files.length}`;
-    if (checked.bytes + manifest.files.reduce((total, file) => total + file.bytes, 0) > MAX_ARCHIVE_BYTES) throw new Error("Portable packages currently support up to 1 GiB of workspace data");
-    // Bun 1.3 treats file-backed Blobs as empty archive entries; materialize the bytes first.
+    if (checked.bytes + fileBytes > MAX_ARCHIVE_BYTES) throw new Error("Portable packages currently support up to 1 GiB of workspace data");
     const handle = await fs.open(source, constants.O_RDONLY | constants.O_NOFOLLOW);
-    let payload: Buffer;
-    try { payload = await handle.readFile(); } finally { await handle.close(); }
-    await assertSafeStorePath(root, source);
-    if (payload.length !== checked.bytes || hash(payload) !== checked.sha256) throw new Error("Workspace file changed during export; retry when writes finish");
-    let content: Blob = new Blob([new Uint8Array(payload)]);
     let digest = checked;
-    if (json) {
-      const raw = payload.toString("utf8");
-      if (!Buffer.from(raw).equals(payload)) throw new Error("Workspace draft JSON must be valid UTF-8");
-      // Invalid saved drafts must not quietly disappear from an export.
-      const portable = sourceRoots.reduce((text, sourceRoot) => text.replaceAll(sourceRoot, ROOT_MARKER), JSON.stringify(redactPortableValue(JSON.parse(raw))));
-      content = new Blob([portable]);
-      digest = { bytes: content.size, sha256: hash(portable) };
-    }
-    entries[entry] = content;
+    try {
+      await assertSafeStorePath(root, source);
+      if (json) {
+        const payload = await handle.readFile();
+        if (payload.length !== checked.bytes || hash(payload) !== checked.sha256) throw new Error("Workspace file changed during export; retry when writes finish");
+        const raw = payload.toString("utf8");
+        if (!Buffer.from(raw).equals(payload)) throw new Error("Workspace draft JSON must be valid UTF-8");
+        // Invalid saved drafts must not quietly disappear from an export.
+        const portable = Buffer.from(sourceRoots.reduce((text, sourceRoot) => text.replaceAll(sourceRoot, ROOT_MARKER), JSON.stringify(redactPortableValue(JSON.parse(raw)))));
+        writer.entry(entry, portable);
+        digest = { bytes: portable.length, sha256: hash(portable) };
+      } else if (await writer.file(entry, handle, checked.bytes) !== checked.sha256) throw new Error("Workspace file changed during export; retry when writes finish");
+    } finally { await handle.close(); }
+    fileBytes += digest.bytes;
     manifest.files.push({ entry, kind, id, path: relative, ...digest });
   };
   for (const row of tables.objects) {
@@ -94,63 +104,94 @@ export async function createPortableArchive(db: Database, root: string, output: 
   await tree(`media-library/canvases/${workspaceId}`);
   await tree(`media-library/video-workspaces/${workspaceId}`);
   await tree(`media-library/agent-chats/${hash(JSON.stringify(workspaceId))}.json`);
-  const raw = JSON.stringify(manifest);
-  if (Buffer.byteLength(raw) > MAX_MANIFEST_BYTES || manifest.files.reduce((total, file) => total + file.bytes, Buffer.byteLength(raw)) > MAX_ARCHIVE_BYTES) throw new Error("This workspace exceeds the portable package size limit");
-  entries["manifest.json"] = raw;
-  // Uncompressed tar keeps file sizes inspectable before allocating decompressed content.
-  await Bun.Archive.write(output, entries);
-  await fs.chmod(output, 0o600);
-  if ((await fs.stat(output)).size > MAX_ARCHIVE_BYTES) throw new Error("Portable packages currently support archives up to 1 GiB");
+  for (const { name } of PORTABLE_TABLES) if (!STREAMED_TABLES.has(name)) writer.writeRows(name, tables[name]);
+  // Uncompressed tar keeps entry sizes inspectable before any content is read.
+  writer.finish(JSON.stringify(manifest));
   return manifest;
 }
 
-export async function readPortableArchive(source: string | Uint8Array): Promise<{ manifest: PortableManifest; files: Map<string, File> }> {
-  const file = typeof source === "string" ? Bun.file(source) : new Blob([new Uint8Array(source)]);
-  if (file.size > MAX_ARCHIVE_BYTES) throw new Error("Portable package exceeds the size limit");
-  const prefix = new Uint8Array(await file.slice(0, 512).arrayBuffer());
-  if (prefix[0] === 123 || prefix[0] === 91) throw new Error("Version 1 exports contain only incomplete metadata. Export the original workspace again with this version of Ralphy.");
-  if (prefix[0] === 31 && prefix[1] === 139) throw new Error("Compressed portable packages are not supported");
-  if (new TextDecoder().decode(prefix.slice(257, 262)) !== "ustar") throw new Error("Choose an uncompressed Ralphy workspace archive");
-  const files = await new Bun.Archive(await file.arrayBuffer()).files();
-  const manifestFile = files.get("manifest.json");
-  if (!manifestFile || manifestFile.size > MAX_MANIFEST_BYTES) throw new Error("Portable manifest is missing or too large");
-  const manifest = JSON.parse(await manifestFile.text()) as PortableManifest;
-  if (!manifest || manifest.version !== 2 || manifest.schemaVersion !== SCHEMA_VERSION || typeof manifest.workspaceId !== "string"
-    || !/^ws_[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(manifest.workspaceId) || !manifest.tables || typeof manifest.tables !== "object" || !Array.isArray(manifest.files)) throw new Error("Portable manifest version or schema is unsupported");
-  const allowed = new Set(PORTABLE_TABLES.map(({ name }) => name));
-  if (Object.keys(manifest.tables).some((name) => !allowed.has(name))) throw new Error("Portable manifest contains unknown data tables");
+/** Indexes a package on disk and validates its manifest; row chunks are read and verified only when consumed. */
+export async function readPortableArchive(source: string): Promise<PortableArchive> {
+  const reader = PortableArchiveReader.open(source);
+  try {
+    const manifestSize = reader.size("manifest.json");
+    if (manifestSize === null || manifestSize > MAX_MANIFEST_BYTES) throw new Error("Portable manifest is missing or too large");
+    const manifest = JSON.parse(reader.read("manifest.json").toString("utf8")) as PortableManifest;
+    if (!manifest || (manifest.version !== 2 && manifest.version !== 3) || manifest.schemaVersion !== SCHEMA_VERSION || typeof manifest.workspaceId !== "string"
+      || !/^ws_[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(manifest.workspaceId) || !Array.isArray(manifest.files)
+      || (manifest.version === 2 ? !manifest.tables || typeof manifest.tables !== "object" : !Array.isArray(manifest.rows))) throw new Error("Portable manifest version or schema is unsupported");
+    const allowed = new Set(PORTABLE_TABLES.map(({ name }) => name));
+    const seen = new Set<string>();
+    if (manifest.version === 2) {
+      if (Object.keys(manifest.tables).some((name) => !allowed.has(name))) throw new Error("Portable manifest contains unknown data tables");
+      for (const { name } of PORTABLE_TABLES) {
+        const rows = manifest.tables[name];
+        if (!Array.isArray(rows) || rows.some((row) => !row || typeof row !== "object" || Array.isArray(row)
+          || Object.values(row).some((value) => value !== null && typeof value !== "string" && (typeof value !== "number" || !Number.isFinite(value))))) throw new Error(`Invalid portable ${name} records`);
+      }
+      if (manifest.tables.workspaces.length !== 1 || manifest.tables.workspaces[0].id !== manifest.workspaceId) throw new Error("Portable package must contain exactly one workspace");
+    } else {
+      for (const chunk of manifest.rows) {
+        if (!chunk || typeof chunk.entry !== "string" || !/^rows\/\d+$/.test(chunk.entry) || seen.has(chunk.entry)) throw new Error("Invalid portable row manifest");
+        if (typeof chunk.table !== "string" || !allowed.has(chunk.table)) throw new Error("Portable manifest contains unknown data tables");
+        if (!Number.isSafeInteger(chunk.rows) || chunk.rows < 1 || !Number.isSafeInteger(chunk.bytes) || chunk.bytes < 1 || chunk.bytes > MAX_CHUNK_BYTES
+          || typeof chunk.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(chunk.sha256) || reader.size(chunk.entry) !== chunk.bytes) throw new Error(`Invalid portable ${chunk.table} row chunk`);
+        seen.add(chunk.entry);
+      }
+    }
+    let bytes = manifestSize;
+    for (const item of manifest.files) {
+      if (!item || !/^files\/\d+$/.test(item.entry) || seen.has(item.entry) || !["object", "run", "job_artifact", "job_log", "desktop", "composition_checkout"].includes(item.kind)
+        || typeof item.id !== "string" || typeof item.path !== "string" || !Number.isSafeInteger(item.bytes) || item.bytes < 0
+        || !/^[a-f0-9]{64}$/.test(item.sha256)) throw new Error("Invalid portable file manifest");
+      safeRelative("/portable", item.path);
+      const size = reader.size(item.entry);
+      if (size !== item.bytes) throw new Error(`Portable file size does not match its manifest (${item.entry}: ${size ?? "missing"} / ${item.bytes})`);
+      bytes += item.bytes;
+      if (bytes > MAX_ARCHIVE_BYTES) throw new Error("Portable contents exceed the size limit");
+      seen.add(item.entry);
+    }
+    if (reader.entries.size !== seen.size + 1 || [...reader.entries.keys()].some((name) => name !== "manifest.json" && !seen.has(name))) throw new Error("Portable package contains unexpected files");
+    return { manifest, reader };
+  } catch (error) {
+    reader.close();
+    throw error;
+  }
+}
+
+/** Yields a table's rows one verified chunk at a time (a version 2 table is one inline batch). */
+export function* portableRowBatches(archive: PortableArchive, table: string): Generator<PortableRecord[]> {
+  const { manifest } = archive;
+  if (manifest.version === 2) {
+    if (manifest.tables[table]?.length) yield manifest.tables[table];
+    return;
+  }
+  for (const chunk of manifest.rows) if (chunk.table === table) yield archive.reader.readRows(chunk);
+}
+
+/** Loads the in-memory (non-streamed) tables, or every table when `includeStreamed` is set. */
+export function loadPortableTables(archive: PortableArchive, includeStreamed = false): PortableTables {
+  const tables: PortableTables = {};
   for (const { name } of PORTABLE_TABLES) {
-    const rows = manifest.tables[name];
-    if (!Array.isArray(rows) || rows.some((row) => !row || typeof row !== "object" || Array.isArray(row)
-      || Object.values(row).some((value) => value !== null && typeof value !== "string" && (typeof value !== "number" || !Number.isFinite(value))))) throw new Error(`Invalid portable ${name} records`);
+    if (!includeStreamed && STREAMED_TABLES.has(name)) continue;
+    const rows: PortableRecord[] = [];
+    for (const batch of portableRowBatches(archive, name)) for (const row of batch) rows.push(row);
+    tables[name] = rows;
   }
-  if (manifest.tables.workspaces.length !== 1 || manifest.tables.workspaces[0].id !== manifest.workspaceId) throw new Error("Portable package must contain exactly one workspace");
-  const seen = new Set<string>();
-  let bytes = manifestFile.size;
-  for (const item of manifest.files) {
-    if (!item || !/^files\/\d+$/.test(item.entry) || seen.has(item.entry) || !["object", "run", "job_artifact", "job_log", "desktop", "composition_checkout"].includes(item.kind)
-      || typeof item.id !== "string" || typeof item.path !== "string" || !Number.isSafeInteger(item.bytes) || item.bytes < 0
-      || !/^[a-f0-9]{64}$/.test(item.sha256)) throw new Error("Invalid portable file manifest");
-    safeRelative("/portable", item.path);
-    const content = files.get(item.entry);
-    if (!content || content.size !== item.bytes) throw new Error(`Portable file size does not match its manifest (${item.entry}: ${content?.size ?? "missing"} / ${item.bytes})`);
-    bytes += item.bytes;
-    if (bytes > MAX_ARCHIVE_BYTES) throw new Error("Portable contents exceed the size limit");
-    seen.add(item.entry);
-  }
-  if (files.size !== seen.size + 1 || [...files.keys()].some((name) => name !== "manifest.json" && !seen.has(name))) throw new Error("Portable package contains unexpected files");
-  return { manifest, files };
+  if (tables.workspaces.length !== 1 || tables.workspaces[0].id !== archive.manifest.workspaceId) throw new Error("Portable package must contain exactly one workspace");
+  return tables;
 }
 
 export async function stagePortableFiles(input: {
-  stage: string; destination: string; manifest: PortableManifest; files: Map<string, File>;
+  stage: string; destination: string; archive: PortableArchive;
   tables: PortableTables; ids: Map<string, string>; workspaceId: string; remapText(text: string): string;
 }): Promise<string[]> {
   const paths: string[] = [];
   const copied = new Set<string>();
   const checkouts = new Set<string>();
-  for (const file of input.manifest.files) {
-    const content = new Uint8Array(await input.files.get(file.entry)!.arrayBuffer());
+  const { manifest } = input.archive;
+  for (const file of manifest.files) {
+    const content: Uint8Array = input.archive.reader.read(file.entry);
     if (hash(content) !== file.sha256) throw new Error("Portable file checksum does not match its manifest");
     let relative: string;
     let output = content;
@@ -175,7 +216,7 @@ export async function stagePortableFiles(input: {
       relative = `tmp/${revisionId}/checkout/${file.path.slice(`tmp/${file.id}/checkout/`.length)}`;
       checkouts.add(revisionId);
     } else {
-      const oldWorkspace = input.manifest.workspaceId;
+      const oldWorkspace = manifest.workspaceId;
       const oldChat = `media-library/agent-chats/${hash(JSON.stringify(oldWorkspace))}.json`;
       if (file.path === oldChat) relative = `media-library/agent-chats/${hash(JSON.stringify(input.workspaceId))}.json`;
       else if (file.path.startsWith(`media-library/canvases/${oldWorkspace}/`) || file.path.startsWith(`media-library/video-workspaces/${oldWorkspace}/`)) relative = input.remapText(file.path);
