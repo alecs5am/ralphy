@@ -14,6 +14,7 @@
 import { finishRun, finishRunAttempt, startRun, startRunAttempt } from "../store/runs.js";
 import type { JsonValue } from "../store/types.js";
 import {
+  REFRESH_CADENCE_HOURS,
   dueCreators,
   dueWatchlists,
   insertTrendLabels,
@@ -53,6 +54,8 @@ import {
 import { cohortStats, creatorBaselineRows, scoreCreator, type VideoScore } from "./score.js";
 import { CALIBRATION_MATURE_HOURS, DEFAULT_LABEL_POLICY, calibrateLabelThresholds, labelWithThresholds, type LabelPolicy, type LabelThresholds } from "./thresholds.js";
 import { nicheLabelOverrides, openNicheSlugs } from "../store/trend-niches.js";
+import { creatorAttentionFacts } from "../store/trend-signals.js";
+import { ATTENTION_REFRESH_HOURS, DEFAULT_SIGNAL_OPTIONS, DEFAULT_TIER_RULES, attentionTier, dueByAttentionTier, type AttentionTier } from "./signals.js";
 import {
   EXPLORE_XHR,
   SOUND_XHR,
@@ -72,6 +75,7 @@ import {
   YOUTUBE_HASHTAG_SOURCE,
   YOUTUBE_LISTING_SOURCE,
   YOUTUBE_SEARCH_SOURCE,
+  YOUTUBE_WATCH_SOURCE,
   discoverYoutubeHashtag,
   discoverYoutubeSearch,
   listYoutubeChannelShorts,
@@ -554,6 +558,8 @@ export async function listingPass(input: {
   budget: number;
   kind: "trend.list" | "trend.snapshot";
   deps: TrendDeps;
+  /** Refresh only: the tier each creator was scheduled by, recorded on the run. */
+  tiers?: { source: string; byCreator: Record<string, string> };
 }): Promise<TrendPassSummary & { listedCreatorIds: string[] }> {
   const source = LISTING_SOURCE_BY_PLATFORM[input.platform];
   const breaker = new CircuitBreaker(source, { budget: input.budget, clock: input.deps.now });
@@ -564,7 +570,7 @@ export async function listingPass(input: {
     workspaceId: input.workspaceId,
     kind: input.kind,
     label: `Trend creator listing: ${source}`,
-    metadata: json({ source, creators: input.creators.length, perCreator: input.perCreator }),
+    metadata: json({ source, creators: input.creators.length, perCreator: input.perCreator, ...(input.tiers ? { tierSource: input.tiers.source, tierByCreator: input.tiers.byCreator } : {}) }),
   });
   const attempt = startRunAttempt({ runId: run.id, provider: "ytdlp", model: null, request: json({ creators: input.creators.length, perCreator: input.perCreator }) });
   let failure: unknown = null;
@@ -983,9 +989,16 @@ export async function ingest(options: IngestOptions, deps: TrendDeps, post: { ll
 
 // ─── Refresh ────────────────────────────────────────────────────────────────
 
+/** Which tier schedules `refresh --due`: the computed #577 attention tier (default) or the stored #556 tier. */
+export const TIER_SOURCES = ["computed", "stored"] as const;
+export type TierSource = (typeof TIER_SOURCES)[number];
+export const isTierSource = (value: unknown): value is TierSource => typeof value === "string" && (TIER_SOURCES as readonly string[]).includes(value);
+
 export interface RefreshOptions {
   workspaceId: string;
   dueOnly: boolean;
+  /** Default `computed`. */
+  tierSource?: TierSource;
   discover: boolean;
   platforms: TrendPlatform[];
   perCreator: number;
@@ -998,14 +1011,78 @@ export interface RefreshOptions {
   cooldownMs?: number;
 }
 
+/** The tier each listed creator was scheduled by in one refresh. */
+export interface RefreshSchedulingEntry {
+  creatorId: string;
+  handle: string | null;
+  platform: TrendPlatform;
+  tier: string;
+  cadenceHours: number | null;
+  selectedBy: "new" | "due" | "all";
+  reason: string | null;
+}
+
+export interface RefreshScheduling {
+  tierSource: TierSource;
+  cadenceHours: Record<string, number | null>;
+  /** Per platform and tier: listed creators considered, due under the tier's cadence, selected for this pass. */
+  byPlatform: Record<string, Record<string, { creators: number; due: number; selected: number }>>;
+  creators: RefreshSchedulingEntry[];
+  notes: string[];
+}
+
 export interface RefreshSummary {
   workspaceId: string;
   startedAt: number;
   wallMs: number;
   dueOnly: boolean;
+  scheduling: RefreshScheduling;
   passes: TrendPassSummary[];
   totals: Record<string, number>;
   skipped: string[];
+}
+
+/** Computed attention tier per creator of the Workspace (the same facts as `trends status`). */
+function computedTiers(workspaceId: string, now: number): Map<string, { tier: AttentionTier; reason: string }> {
+  const out = new Map<string, { tier: AttentionTier; reason: string }>();
+  for (const facts of creatorAttentionFacts({ workspaceId, now, signalFloor: DEFAULT_SIGNAL_OPTIONS.nearMissBand[0], hotMaxAgeHours: DEFAULT_TIER_RULES.hotMaxAgeHours, ignoreDateSources: [YOUTUBE_WATCH_SOURCE] })) {
+    const tier = attentionTier(facts, now);
+    out.set(facts.creatorId, { tier: tier.tier, reason: tier.reason });
+  }
+  return out;
+}
+
+/**
+ * Pick the already-listed creators of one platform for a refresh. With the
+ * computed source and `--due`, a creator is due when its attention tier's
+ * cadence has passed since its last listing (hot 6 h, watched daily,
+ * background weekly, dropped never) and no failure backoff holds it; the
+ * most overdue go first. With the stored source, the stored next listing
+ * time (#556 tiers) decides, as before.
+ */
+export function selectRefreshCreators(input: {
+  listed: readonly DueCreatorDto[];
+  tierSource: TierSource;
+  dueOnly: boolean;
+  now: number;
+  limit: number;
+  tiers: ReadonlyMap<string, { tier: AttentionTier; reason: string }> | null;
+}): { selected: Array<{ creator: DueCreatorDto; tier: string; cadenceHours: number | null; reason: string | null }>; considered: Array<{ creator: DueCreatorDto; tier: string; due: boolean }> } {
+  const considered = input.listed.map((creator) => {
+    if (input.tierSource === "computed") {
+      const computed = input.tiers?.get(creator.id) ?? { tier: "background" as AttentionTier, reason: "no attention facts" };
+      const due = dueByAttentionTier({ tier: computed.tier, lastListedAt: creator.lastListedAt, nextListAt: creator.nextListAt, listingFailures: creator.listingFailures ?? 0 }, input.now);
+      return { creator, tier: computed.tier as string, reason: computed.reason as string | null, cadenceHours: due.cadenceHours, due: due.due, rank: due.overdueRatio };
+    }
+    const stored = creator.tier as keyof typeof REFRESH_CADENCE_HOURS;
+    return { creator, tier: creator.tier, reason: null, cadenceHours: REFRESH_CADENCE_HOURS[stored] ?? null, due: creator.nextListAt === null || creator.nextListAt <= input.now, rank: 0 };
+  });
+  const pool = input.dueOnly ? considered.filter((entry) => entry.due) : considered;
+  const ordered = input.tierSource === "computed" && input.dueOnly ? [...pool].sort((a, b) => b.rank - a.rank || a.creator.id.localeCompare(b.creator.id)) : pool;
+  return {
+    selected: ordered.slice(0, Math.max(0, input.limit)).map(({ creator, tier, cadenceHours, reason }) => ({ creator, tier, cadenceHours, reason })),
+    considered: considered.map(({ creator, tier, due }) => ({ creator, tier, due })),
+  };
 }
 
 export async function refresh(options: RefreshOptions, deps: TrendDeps, post: { llm: boolean; llmLimit: number; refit: boolean }): Promise<RefreshSummary> {
@@ -1013,6 +1090,20 @@ export async function refresh(options: RefreshOptions, deps: TrendDeps, post: { 
   const cooldownMs = options.cooldownMs ?? BREAKER_COOLDOWN_MS;
   const passes: TrendPassSummary[] = [];
   const skipped: string[] = [];
+  const tierSource: TierSource = options.tierSource ?? "computed";
+  const scheduling: RefreshScheduling = {
+    tierSource,
+    cadenceHours: tierSource === "computed" ? { ...ATTENTION_REFRESH_HOURS } : { ...REFRESH_CADENCE_HOURS },
+    byPlatform: {},
+    creators: [],
+    notes: tierSource === "computed"
+      ? [
+          "computed attention tiers (#577): hot every 6 h, watched daily, background weekly, dropped never; tiers are re-read at the start of every refresh",
+          ...(options.dueOnly ? [] : ["without --due every non-excluded creator is listed; the tier is recorded only"]),
+        ]
+      : ["stored #556 tiers: the next listing time set after each listing (active daily, inactive weekly, dormant monthly, hot 6 h for watched creators)"],
+  };
+  const tiers = tierSource === "computed" ? computedTiers(options.workspaceId, startedAt) : null;
 
   if (options.discover) {
     for (const watchlist of dueWatchlists({ workspaceId: options.workspaceId, now: startedAt })) {
@@ -1058,9 +1149,41 @@ export async function refresh(options: RefreshOptions, deps: TrendDeps, post: { 
     const fresh = options.maxNewCreators > 0
       ? dueCreators({ workspaceId: options.workspaceId, now: deps.now(), platform, dueOnly: true, unlistedOnly: true, limit: options.maxNewCreators })
       : [];
-    const due = dueCreators({ workspaceId: options.workspaceId, now: deps.now(), platform, dueOnly: options.dueOnly, limit: options.maxCreators })
+    // Every listed creator is considered (ordered by the stored next listing
+    // time), so the run output counts each tier; the selection applies --due.
+    const listed = dueCreators({ workspaceId: options.workspaceId, now: deps.now(), platform, dueOnly: false, limit: Number.MAX_SAFE_INTEGER })
       .filter((creator) => creator.lastListedAt !== null);
-    const creators = [...fresh, ...due].slice(0, options.maxCreators + options.maxNewCreators);
+    const selection = selectRefreshCreators({ listed, tierSource, dueOnly: options.dueOnly, now: deps.now(), limit: options.maxCreators, tiers });
+    const freshEntries = fresh.map((creator) => {
+      const computed = tiers?.get(creator.id);
+      return { creator, tier: tierSource === "computed" ? computed?.tier ?? "background" : creator.tier, cadenceHours: null, reason: tierSource === "computed" ? `never listed${computed ? ` (${computed.reason})` : ""}` : "never listed", selectedBy: "new" as const };
+    });
+    const entries = [...freshEntries, ...selection.selected.map((entry) => ({ ...entry, selectedBy: options.dueOnly ? "due" as const : "all" as const }))]
+      .slice(0, options.maxCreators + options.maxNewCreators);
+    const counts: Record<string, { creators: number; due: number; selected: number }> = {};
+    const bump = (tier: string, field: "creators" | "due" | "selected") => {
+      const row = counts[tier] ?? (counts[tier] = { creators: 0, due: 0, selected: 0 });
+      row[field] += 1;
+    };
+    for (const entry of selection.considered) {
+      bump(entry.tier, "creators");
+      if (entry.due) bump(entry.tier, "due");
+    }
+    for (const entry of entries) {
+      if (entry.selectedBy === "new") bump(entry.tier, "creators");
+      bump(entry.tier, "selected");
+    }
+    scheduling.byPlatform[platform] = counts;
+    scheduling.creators.push(...entries.map((entry) => ({
+      creatorId: entry.creator.id,
+      handle: entry.creator.handle,
+      platform,
+      tier: entry.tier,
+      cadenceHours: entry.cadenceHours,
+      selectedBy: entry.selectedBy,
+      reason: entry.reason,
+    })));
+    const creators = entries.map((entry) => entry.creator);
     if (creators.length === 0) continue;
     passes.push(await listingPass({
       workspaceId: options.workspaceId,
@@ -1071,6 +1194,7 @@ export async function refresh(options: RefreshOptions, deps: TrendDeps, post: { 
       budget: options.budget,
       kind: "trend.snapshot",
       deps,
+      tiers: { source: tierSource, byCreator: Object.fromEntries(entries.map((entry) => [entry.creator.id, entry.tier])) },
     }));
   }
   if (options.platforms.includes("youtube")) {
@@ -1090,6 +1214,7 @@ export async function refresh(options: RefreshOptions, deps: TrendDeps, post: { 
     startedAt,
     wallMs: deps.now() - startedAt,
     dueOnly: options.dueOnly,
+    scheduling,
     passes,
     totals: mergeTotals(passes),
     skipped,

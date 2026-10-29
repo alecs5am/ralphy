@@ -2494,11 +2494,17 @@ Commands:
                                  Idempotent: re-runs upsert on platform ids and
                                  add no snapshot rows inside the same checkpoint
                                  bucket.
-  refresh [options]              Re-list creators by tier cadence (hot 6 h,
-                                 active daily, inactive weekly, dormant
-                                 monthly), re-run due watchlists for new
-                                 creators, then label and score. Headless; stops
-                                 a source when its breaker trips.
+  refresh [options]              Re-list creators by tier cadence, re-run due
+                                 watchlists for new creators, then label and
+                                 score. With --due the computed attention tier
+                                 (#577) schedules each creator by default (hot
+                                 every 6 h, watched daily, background weekly,
+                                 dropped never); --tier-source stored uses the
+                                 stored #556 tier (hot 6 h, active daily,
+                                 inactive weekly, dormant monthly). The tier
+                                 used per creator is in the output and on the
+                                 listing run. Headless; stops a source when its
+                                 breaker trips.
   score [options]                Recompute outlier scores, creator baselines,
                                  and cohort baselines for the corpus Workspace.
                                  Labels are calibrated per platform x niche by
@@ -2549,6 +2555,12 @@ Commands:
                                  videos on-topic) -> size-band quotas, negative
                                  control group, anomaly flags -> niche report
                                  ranked by copyability
+  pick                           Close the prediction loop (#577): mark a
+                                 prediction-ledger pick as produced (linked to a
+                                 Unit, judged later against its #558 outcomes)
+                                 or skipped (judged by whether the signal kept
+                                 spreading). Pick keys are the pickKey of each
+                                 signal after trends signals --record.
   help [command]                 display help for command
 ```
 

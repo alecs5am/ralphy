@@ -121,6 +121,28 @@ export function readPredictionLedgerDocument(input: { workspaceId: string; slug:
   return { documentId: row.id, revisionId: row.current_revision_id, revisions: row.revisions, body };
 }
 
+/** Every prediction-ledger Document of a Workspace (slug without the prefix), oldest first. */
+export function listPredictionLedgerDocuments(input: { workspaceId: string }): Array<PredictionLedgerDocumentDto & { slug: string }> {
+  const rows = openDomainDb()
+    .query<{ id: string; slug: string; current_revision_id: string | null; body: string | null; revisions: number }, [string, string, string, string]>(
+      `SELECT d.id, d.slug, d.current_revision_id, r.body,
+              (SELECT COUNT(*) FROM document_revisions x WHERE x.document_id = d.id) AS revisions
+       FROM documents d LEFT JOIN document_revisions r ON r.id = d.current_revision_id
+       WHERE d.workspace_id = ? AND d.project_id IS NULL AND d.kind = ? AND substr(d.slug, 1, length(?)) = ?
+       ORDER BY d.created_at, d.id`,
+    )
+    .all(input.workspaceId, PREDICTION_LEDGER_DOCUMENT_KIND, PREDICTION_LEDGER_SLUG_PREFIX, PREDICTION_LEDGER_SLUG_PREFIX);
+  return rows.map((row) => {
+    let body: unknown = null;
+    try {
+      body = row.body === null ? null : JSON.parse(row.body);
+    } catch {
+      body = null;
+    }
+    return { documentId: row.id, slug: row.slug.slice(PREDICTION_LEDGER_SLUG_PREFIX.length), revisionId: row.current_revision_id, revisions: row.revisions, body };
+  });
+}
+
 /** Append one ledger revision (creates the Document on first write). */
 export function appendPredictionLedgerRevision(input: { workspaceId: string; slug: string; title: string; body: unknown }): { documentId: string; revisionId: string } {
   const existing = readPredictionLedgerDocument({ workspaceId: input.workspaceId, slug: input.slug });

@@ -1,8 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { DAY_MS, HOUR_MS } from "../../cli/lib/trends/math.js";
 import { pickControls } from "../../cli/lib/trends/signal-engine.js";
+import { selectRefreshCreators } from "../../cli/lib/trends/ingest.js";
+import type { DueCreatorDto } from "../../cli/lib/store/trends.js";
 import {
+  ATTENTION_REFRESH_HOURS,
   attentionTier,
+  decidePick,
+  dueByAttentionTier,
+  judgeProducedPick,
   detectBreakouts,
   detectDemandSignals,
   detectEarlyMomentum,
@@ -18,6 +24,8 @@ import {
   type PredictionLedgerBody,
   type PredictionPick,
   type SignalVideo,
+  type AttentionTier,
+  type PickUnitRef,
   type TierFacts,
 } from "../../cli/lib/trends/signals.js";
 
@@ -268,7 +276,7 @@ describe("prediction ledger", () => {
     const fresh = precisionReport(ledger, facts, NOW + DAY_MS, 3);
     expect(fresh.rows.find((row) => row.signalType === "breakout")).toMatchObject({ picks: 2, resolved: 0, pendingSpreadChecks: 2, verdict: "insufficient data" });
     const old = new Date(NOW - 20 * DAY_MS).toISOString();
-    ledger.picks = [pick({ detectedAt: old }), pick({ pickId: "breakout:v2", detectedAt: old }), pick({ pickId: "breakout:v3", detectedAt: old }), pick({ pickId: "breakout:v4", outcome: { checkedAt: old, views: 10, ownMedianViews: 100, verdict: "miss" } })];
+    ledger.picks = [pick({ detectedAt: old }), pick({ pickId: "breakout:v2", detectedAt: old }), pick({ pickId: "breakout:v3", detectedAt: old }), pick({ pickId: "breakout:v4", outcome: { checkedAt: old, unitId: null, platform: "tiktok", views: 10, band: { low: 120, high: 200 }, basis: "relative-band", ownMedianViews: 100, position: "below", verdict: "miss" } })];
     const resolved = precisionReport(ledger, facts, NOW, 3).rows.find((row) => row.signalType === "breakout")!;
     expect(resolved).toMatchObject({ resolved: 4, producedWithOutcome: 1, verdict: "ok", precision: 0.75 });
   });
@@ -301,5 +309,132 @@ describe("sponsored posts (#577)", () => {
     const organic = video({ multiplier: 60, label: "breakout" });
     expect(detectBreakouts([paid]).length).toBe(0);
     expect(detectBreakouts([organic]).length).toBe(1);
+  });
+});
+
+// ─── #577 follow-up: pick decisions, produced outcomes, tier-driven refresh ──
+
+const UNIT: PickUnitRef = { unitId: "unit_00000000-0000-4000-8000-000000000001", slug: "remake-1", workspaceId: "ws_own", projectId: null, linkedAt: new Date(NOW).toISOString() };
+
+describe("pick decisions", () => {
+  test("link marks the pick produced with the Unit; the prediction is untouched; a repeat is a no-op", () => {
+    const picks = [pick(), pick({ pickId: "breakout:v2", videoId: "v2" })];
+    const linked = decidePick(picks, { pickId: "breakout:v1", decision: "produced", unit: UNIT });
+    if (!linked.ok) throw new Error(linked.detail);
+    expect(linked.changed).toBe(true);
+    expect(linked.pick).toMatchObject({ decision: "produced", unit: { unitId: UNIT.unitId, slug: "remake-1" }, skip: null });
+    expect(linked.pick.predicted).toEqual(picks[0]!.predicted);
+    expect(linked.pick.detectedAt).toBe(picks[0]!.detectedAt);
+    expect(linked.picks[1]).toEqual(picks[1]!);
+    expect(picks[0]!.decision).toBe("pending");
+    const again = decidePick(linked.picks, { pickId: "breakout:v1", decision: "produced", unit: { ...UNIT, linkedAt: new Date(NOW + DAY_MS).toISOString() } });
+    expect(again).toMatchObject({ ok: true, changed: false });
+  });
+
+  test("unknown keys, a second Unit, and skipping a produced pick are refused", () => {
+    const linked = decidePick([pick()], { pickId: "breakout:v1", decision: "produced", unit: UNIT });
+    if (!linked.ok) throw new Error(linked.detail);
+    expect(decidePick([pick()], { pickId: "breakout:nope", decision: "produced", unit: UNIT })).toMatchObject({ ok: false, error: "unknown-pick" });
+    expect(decidePick(linked.picks, { pickId: "breakout:v1", decision: "produced", unit: { ...UNIT, unitId: "unit_other" } })).toMatchObject({ ok: false, error: "linked-elsewhere" });
+    expect(decidePick(linked.picks, { pickId: "breakout:v1", decision: "skipped", reason: "off-brand", at: new Date(NOW).toISOString() })).toMatchObject({ ok: false, error: "already-produced" });
+  });
+
+  test("skip stores the reason; a skipped pick can still be produced later", () => {
+    const skipped = decidePick([pick()], { pickId: "breakout:v1", decision: "skipped", reason: "creator-bound giveaway", at: new Date(NOW).toISOString() });
+    if (!skipped.ok) throw new Error(skipped.detail);
+    expect(skipped.pick).toMatchObject({ decision: "skipped", skip: { reason: "creator-bound giveaway" } });
+    expect(decidePick(skipped.picks, { pickId: "breakout:v1", decision: "skipped", reason: "creator-bound giveaway", at: new Date(NOW + 1).toISOString() })).toMatchObject({ ok: true, changed: false });
+    const produced = decidePick(skipped.picks, { pickId: "breakout:v1", decision: "produced", unit: UNIT });
+    expect(produced).toMatchObject({ ok: true, changed: true, pick: { decision: "produced", skip: null } });
+  });
+});
+
+describe("produced picks against their predicted band", () => {
+  const relative = scaleUpEstimate({ views: 100_000, followers: 5_000, multiplier: 16, own: null });
+  const absolute = scaleUpEstimate({ views: 100_000, followers: 5_000, multiplier: 16, own: { platform: "tiktok", n: 0, medianViews: null, followers: 2_000, minN: 3 } });
+
+  test("a relative band needs our own median before the post; hit = at or above the low end", () => {
+    const produced = pick({ decision: "produced", unit: UNIT, predicted: { own: relative, spread: null } });
+    expect(relative.relativeToOwnMedian).toEqual({ low: 2, high: 4 });
+    expect(judgeProducedPick({ pick: produced, observation: null, ownMedianViews: 1_000, checkedAt: "x" })).toMatchObject({ status: "awaiting-outcome" });
+    expect(judgeProducedPick({ pick: produced, observation: { platform: "tiktok", views: 5_000 }, ownMedianViews: null, checkedAt: "x" })).toMatchObject({ status: "awaiting-baseline" });
+    expect(judgeProducedPick({ pick: produced, observation: { platform: "tiktok", views: 2_500 }, ownMedianViews: 1_000, checkedAt: "x" })).toMatchObject({
+      status: "resolved",
+      outcome: { band: { low: 2_000, high: 4_000 }, basis: "relative-band", position: "within", verdict: "hit", views: 2_500 },
+    });
+    expect(judgeProducedPick({ pick: produced, observation: { platform: "tiktok", views: 1_500 }, ownMedianViews: 1_000, checkedAt: "x" })).toMatchObject({ status: "resolved", outcome: { position: "below", verdict: "miss" } });
+  });
+
+  test("an absolute band (own follower count at pick time) needs no baseline", () => {
+    const produced = pick({ decision: "produced", unit: UNIT, predicted: { own: absolute, spread: null } });
+    expect(absolute).toMatchObject({ status: "ok", low: 4_000, high: 20_000 });
+    expect(judgeProducedPick({ pick: produced, observation: { platform: "tiktok", views: 25_000 }, ownMedianViews: null, checkedAt: "x" })).toMatchObject({ status: "resolved", outcome: { basis: "absolute-band", position: "above", verdict: "hit" } });
+  });
+
+  test("precision: produced picks resolve only through outcomes, skipped picks through the spread check, minimum n kept", () => {
+    const old = new Date(NOW - 20 * DAY_MS).toISOString();
+    const ledger: PredictionLedgerBody = {
+      kind: PREDICTION_LEDGER_BODY_KIND, version: 1, niche: "psychology", scope: { language: "en", platform: null }, updatedAt: old,
+      picks: [
+        pick({ pickId: "breakout:p1", detectedAt: old, decision: "produced", unit: UNIT }),
+        pick({ pickId: "breakout:p2", detectedAt: old, decision: "produced", unit: { ...UNIT, unitId: "unit_2" } }),
+        pick({ pickId: "breakout:s1", detectedAt: old, decision: "skipped", skip: { reason: "off-brand", at: old } }),
+      ],
+    };
+    const facts = {
+      spreadCreatorsAfter: () => 0,
+      producedOutcome: (entry: PredictionPick) => entry.unit?.unitId === UNIT.unitId
+        ? judgeProducedPick({ pick: { ...entry, predicted: { own: relative, spread: null } }, observation: { platform: "tiktok", views: 3_000 }, ownMedianViews: 1_000, checkedAt: "x" })
+        : judgeProducedPick({ pick: entry, observation: null, ownMedianViews: null, checkedAt: "x" }),
+    };
+    const two = precisionReport(ledger, facts, NOW, 3).rows.find((row) => row.signalType === "breakout")!;
+    // p1 hit through its outcome, p2 waits (never spread-checked), s1 missed the spread check: 2 resolved < 3.
+    expect(two).toMatchObject({ picks: 3, produced: 2, skipped: 1, resolved: 2, producedWithOutcome: 1, awaitingOutcome: 1, pendingSpreadChecks: 0, precision: null, verdict: "insufficient data" });
+    const ok = precisionReport(ledger, facts, NOW, 2).rows.find((row) => row.signalType === "breakout")!;
+    expect(ok).toMatchObject({ resolved: 2, precision: 0.5, verdict: "ok" });
+  });
+});
+
+describe("refresh cadence by computed attention tier", () => {
+  const listedHoursAgo = (hours: number) => NOW - hours * HOUR_MS;
+  const creator = (id: string, lastListedAt: number, over: Partial<DueCreatorDto> = {}): DueCreatorDto => ({
+    id, platform: "tiktok", platformCreatorId: id, handle: id, tier: "active", lastListedAt, nextListAt: lastListedAt + 24 * HOUR_MS, niche: null, watchlistId: null, listingFailures: 0, ...over,
+  });
+
+  test("cadence: hot 6 h, watched daily, background weekly, dropped never", () => {
+    expect(ATTENTION_REFRESH_HOURS).toEqual({ hot: 6, watched: 24, background: 168, dropped: null });
+    const due = (tier: AttentionTier, hours: number) => dueByAttentionTier({ tier, lastListedAt: listedHoursAgo(hours), nextListAt: null, listingFailures: 0 }, NOW).due;
+    expect([due("hot", 5), due("hot", 6)]).toEqual([false, true]);
+    expect([due("watched", 23), due("watched", 24)]).toEqual([false, true]);
+    expect([due("background", 24 * 6), due("background", 24 * 7)]).toEqual([false, true]);
+    expect(due("dropped", 24 * 365)).toBe(false);
+    // A failed listing's backoff still holds the creator.
+    expect(dueByAttentionTier({ tier: "hot", lastListedAt: listedHoursAgo(48), nextListAt: NOW + HOUR_MS, listingFailures: 2 }, NOW).due).toBe(false);
+  });
+
+  test("computed source ignores the stored next listing time and puts the most overdue first; stored source keeps it", () => {
+    const listed = [
+      creator("hot1", listedHoursAgo(7), { tier: "active", nextListAt: NOW + 17 * HOUR_MS }),
+      creator("watched1", listedHoursAgo(30)),
+      creator("watched2", listedHoursAgo(12), { nextListAt: NOW - HOUR_MS }),
+      creator("background1", listedHoursAgo(48), { nextListAt: NOW - 24 * HOUR_MS }),
+      creator("dropped1", listedHoursAgo(24 * 40), { tier: "dormant", nextListAt: NOW - 10 * DAY_MS }),
+    ];
+    const tiers = new Map<string, { tier: AttentionTier; reason: string }>([
+      ["hot1", { tier: "hot", reason: "rising" }],
+      ["watched1", { tier: "watched", reason: "qualifies" }],
+      ["watched2", { tier: "watched", reason: "qualifies" }],
+      ["background1", { tier: "background", reason: "few posts" }],
+      ["dropped1", { tier: "dropped", reason: "no post in 61 days" }],
+    ]);
+    const computed = selectRefreshCreators({ listed, tierSource: "computed", dueOnly: true, now: NOW, limit: 10, tiers });
+    expect(computed.selected.map((entry) => [entry.creator.id, entry.tier, entry.cadenceHours])).toEqual([["watched1", "watched", 24], ["hot1", "hot", 6]]);
+    expect(computed.considered.filter((entry) => entry.due).map((entry) => entry.creator.id).sort()).toEqual(["hot1", "watched1"]);
+    expect(selectRefreshCreators({ listed, tierSource: "computed", dueOnly: true, now: NOW, limit: 1, tiers }).selected.map((entry) => entry.creator.id)).toEqual(["watched1"]);
+    const stored = selectRefreshCreators({ listed, tierSource: "stored", dueOnly: true, now: NOW, limit: 10, tiers: null });
+    expect(stored.selected.map((entry) => [entry.creator.id, entry.tier])).toEqual([["watched1", "active"], ["watched2", "active"], ["background1", "active"], ["dropped1", "dormant"]]);
+    expect(stored.selected.some((entry) => entry.creator.id === "hot1")).toBe(false);
+    // Without --due every listed creator is selected; the tier is recorded only.
+    expect(selectRefreshCreators({ listed, tierSource: "computed", dueOnly: false, now: NOW, limit: 10, tiers }).selected).toHaveLength(5);
   });
 });

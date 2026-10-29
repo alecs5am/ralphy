@@ -864,6 +864,47 @@ export function writeLedger(input: {
   return { documentId, revisionId: revision.id, written: true, body };
 }
 
+/**
+ * Record manual decisions on a Unit's ledger: the library form of
+ * `ralphy unit decisions <unit> --set key=value`. Keeps the stored derivation
+ * (what produced the Unit) when one exists; a first write derives it from the
+ * Unit's artifacts. Each assignment is parsed like `--set` (throws
+ * MetricParseError on a bad key or value). Append-only: a revision is written
+ * only when the content changes.
+ */
+export function recordManualDecisions(input: {
+  context: QueryContext;
+  location: UnitLocationDto;
+  assignments: string[];
+  authoredBySessionId?: string;
+  now?: Date;
+}): { documentId: string; revisionId: string; written: boolean; manual: ManualDecisions } {
+  const sets = input.assignments.map(parseLedgerAssignment);
+  const stored = readStoredLedger(input.context, input.location.unitId);
+  let derived: DerivedDecisions;
+  let derivedFrom: string[];
+  if (stored?.body) {
+    derived = stored.body.derived;
+    derivedFrom = stored.body.derivedFrom;
+  } else {
+    const gathered = gatherLedgerSources(input.context, input.location);
+    derived = deriveDecisions(gathered.sources);
+    derivedFrom = gathered.derivedFrom;
+  }
+  const manual: ManualDecisions = { ...(stored?.body?.manual ?? {}) };
+  for (const { key, value } of sets) manual[key] = value;
+  const result = writeLedger({
+    context: input.context,
+    location: input.location,
+    derived,
+    manual,
+    derivedFrom,
+    ...(input.authoredBySessionId ? { authoredBySessionId: input.authoredBySessionId } : {}),
+    ...(input.now ? { now: input.now } : {}),
+  });
+  return { documentId: result.documentId, revisionId: result.revisionId, written: result.written, manual: result.body.manual };
+}
+
 function sameContent(left: DecisionLedgerBody, right: DecisionLedgerBody): boolean {
   const strip = (body: DecisionLedgerBody) =>
     JSON.stringify({ derived: sortKeys(body.derived), manual: sortKeys(body.manual), derivedFrom: body.derivedFrom });

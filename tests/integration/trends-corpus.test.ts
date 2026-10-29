@@ -261,6 +261,45 @@ describe("refresh scheduling", () => {
   });
 });
 
+describe("refresh scheduling by attention tier (#577)", () => {
+  test("--due follows the computed tier by default, the stored tier on request, and records the tier per creator", async () => {
+    const clock = { now: Date.UTC(2026, 9, 28, 12) };
+    const { deps, calls } = fakes(clock);
+    await ingest(baseOptions(), deps, post);
+    const listedCalls = calls.length;
+    // Push the stored next listing time out: the stored #556 tier sees nobody due.
+    openDomainDb().prepare("UPDATE trend_creators SET next_list_at = ?").run(clock.now + 10 * DAY_MS);
+    clock.now += 25 * HOUR_MS;
+    const options = {
+      workspaceId, dueOnly: true, discover: false, platforms: ["tiktok" as const], perCreator: 60, maxCreators: 50,
+      maxNewCreators: 0, concurrency: 1, budget: 100, discoveryDepth: 5, paid: { enabled: false, dailyCapUsd: null },
+    };
+    const stored = await refresh({ ...options, tierSource: "stored" }, deps, post);
+    expect(stored.passes.some((pass) => pass.kind === "trend.snapshot")).toBe(false);
+    expect(stored.scheduling).toMatchObject({ tierSource: "stored", byPlatform: { tiktok: { active: { creators: 2, due: 0, selected: 0 } } }, creators: [] });
+    expect(calls.length).toBe(listedCalls);
+
+    // Daily posters with a breakout in 30 days are `watched`: daily, so due after 25 h.
+    const computed = await refresh(options, deps, post);
+    expect(computed.scheduling.tierSource).toBe("computed");
+    expect(computed.scheduling.cadenceHours).toEqual({ hot: 6, watched: 24, background: 168, dropped: null });
+    expect(computed.scheduling.byPlatform.tiktok).toEqual({ watched: { creators: 2, due: 2, selected: 2 } });
+    expect(computed.scheduling.creators).toHaveLength(2);
+    for (const entry of computed.scheduling.creators) expect(entry).toMatchObject({ platform: "tiktok", tier: "watched", cadenceHours: 24, selectedBy: "due" });
+    const pass = computed.passes.find((entry) => entry.kind === "trend.snapshot")!;
+    expect(pass.counts.creatorsListed).toBe(2);
+    const metadata = JSON.parse(openDomainDb().query<{ metadata_json: string }, [string]>("SELECT metadata_json FROM runs WHERE id = ?").get(pass.runId!)!.metadata_json) as { tierSource: string; tierByCreator: Record<string, string> };
+    expect(metadata.tierSource).toBe("computed");
+    expect(Object.values(metadata.tierByCreator)).toEqual(["watched", "watched"]);
+
+    // An hour later nobody is due under the daily cadence.
+    clock.now += HOUR_MS;
+    const later = await refresh(options, deps, post);
+    expect(later.passes.some((entry) => entry.kind === "trend.snapshot")).toBe(false);
+    expect(later.scheduling.byPlatform.tiktok).toEqual({ watched: { creators: 2, due: 0, selected: 0 } });
+  });
+});
+
 describe("paid sources are off by default and capped", () => {
   const reel = (shortCode: string, postedAt: number, plays: number) => ({
     shortCode, url: `https://www.instagram.com/reel/${shortCode}/`, ownerId: "5500000001", ownerUsername: "fixture.reels",

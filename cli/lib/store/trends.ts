@@ -634,6 +634,8 @@ export type DueCreatorDto = {
   nextListAt: number | null;
   niche: string | null;
   watchlistId: string | null;
+  /** Consecutive failed listings (the stored next listing time is their backoff while > 0). */
+  listingFailures?: number;
 };
 
 export function dueCreators(input: {
@@ -659,7 +661,8 @@ export function dueCreators(input: {
   return openDomainDb()
     .query<DueCreatorDto, Array<string | number>>(
       `SELECT id, platform, platform_creator_id AS platformCreatorId, handle, tier,
-              last_listed_at AS lastListedAt, next_list_at AS nextListAt, niche, watchlist_id AS watchlistId
+              last_listed_at AS lastListedAt, next_list_at AS nextListAt, niche, watchlist_id AS watchlistId,
+              listing_failures AS listingFailures
        FROM trend_creators WHERE ${filters.join(" AND ")}
        ORDER BY COALESCE(next_list_at, 0), created_at, id LIMIT ?`,
     )

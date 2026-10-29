@@ -10,8 +10,12 @@
 
 import { followerSeries, loadNicheMembers, loadNicheVideos, type NicheDto, type NicheMemberDto, type NicheVideoDto } from "../store/trend-niches.js";
 import { latestDigestLinks } from "../store/trends.js";
-import { appendPredictionLedgerRevision, creatorAttentionFacts, loadViewSnapshots, readPredictionLedgerDocument } from "../store/trend-signals.js";
-import { listUnitOutcomeFacts } from "../store/outcomes.js";
+import { appendPredictionLedgerRevision, creatorAttentionFacts, listPredictionLedgerDocuments, loadViewSnapshots, readPredictionLedgerDocument } from "../store/trend-signals.js";
+import { listUnitOutcomeFacts, type UnitOutcomeFactsDto } from "../store/outcomes.js";
+import type { QueryContext } from "../store/scope-context.js";
+import { recordManualDecisions } from "../analytics/ledger.js";
+import { DomainError } from "../errors/domain.js";
+import { resolveUnitReference, unitContext } from "../unit-revision.js";
 import { DAY_MS, HOUR_MS, median, type TrendPlatform } from "./math.js";
 import { YOUTUBE_WATCH_SOURCE } from "./sources/youtube.js";
 import {
@@ -23,6 +27,7 @@ import {
   PREDICTION_SPREAD_DAYS,
   SIGNAL_TYPES,
   attentionTier,
+  decidePick,
   detectBreakouts,
   detectDemandSignals,
   detectEarlyMomentum,
@@ -30,6 +35,7 @@ import {
   detectNearMisses,
   detectSmallAccountBreakouts,
   isJudgeable,
+  judgeProducedPick,
   mergePicks,
   parsePredictionLedger,
   precisionReport,
@@ -37,6 +43,7 @@ import {
   widenReferences,
   type OwnBaseline,
   type PickClassification,
+  type PickDecisionInput,
   type PredictionLedgerBody,
   type PredictionPick,
   type SignalOptions,
@@ -291,6 +298,8 @@ export function buildNicheSignals(input: { niche: NicheDto; now: number; options
       improvement: signal.improvement,
       why: recorded?.why ?? null,
       transferable: recorded ? (recorded.classification === "unclassified" ? null : recorded.classification === "transferable") : null,
+      pickKey: recorded?.pickId ?? null,
+      decision: recorded?.decision ?? null,
       transferCandidate: signal.transferCandidate,
       wideningStep: stepOf.get(signal.videoId ?? signal.key) ?? null,
       scaleUp: signal.transferCandidate && video ? scaleUpEstimate({ views: video.views, followers: video.followers, multiplier: video.multiplier, own: { ...own, platform: video.platform } }) : null,
@@ -513,27 +522,228 @@ export function recordPicks(input: { niche: NicheDto; options: Pick<SignalEngine
   return { written: true, ...saved, added: merged.added, updated: merged.updated, picks: merged.picks.length, unmatchedHypotheses: unmatched };
 }
 
+// ─── Pick decisions (`trends pick link | skip`) ─────────────────────────────
+
+export interface PickScope {
+  /** Niche slug; omitted = every ledger of the Workspace. */
+  niche?: string;
+  language?: string;
+  platform?: TrendPlatform;
+}
+
+/** The Workspace's prediction ledgers that hold `pickId`, narrowed by niche / language / platform. */
+export function findPickLedger(input: { workspaceId: string; pickId: string; scope: PickScope }) {
+  const ledgers = listPredictionLedgerDocuments({ workspaceId: input.workspaceId })
+    .map((document) => ({ document, body: parsePredictionLedger(document.body) }))
+    .filter((entry): entry is { document: typeof entry.document; body: PredictionLedgerBody } => entry.body !== null)
+    .filter(({ body }) =>
+      (!input.scope.niche || body.niche === input.scope.niche) &&
+      (input.scope.language === undefined || body.scope.language === input.scope.language) &&
+      (input.scope.platform === undefined || body.scope.platform === input.scope.platform));
+  const matches = ledgers.filter(({ body }) => body.picks.some((pick) => pick.pickId === input.pickId));
+  const scopeText = [input.scope.niche ? `niche ${input.scope.niche}` : null, input.scope.language ? `language ${input.scope.language}` : null, input.scope.platform ? `platform ${input.scope.platform}` : null].filter(Boolean).join(", ");
+  if (matches.length === 0) {
+    const id = input.pickId.includes(":") ? input.pickId.slice(input.pickId.lastIndexOf(":") + 1) : input.pickId;
+    const near = ledgers.flatMap(({ body }) => body.picks.filter((pick) => pick.pickId.endsWith(`:${id}`) || pick.videoId === id).map((pick) => pick.pickId)).slice(0, 5);
+    throw new DomainError("E_INPUT_INVALID", undefined, {
+      field: "pick-key",
+      detail: `no pick "${input.pickId}" in ${ledgers.length} prediction ledger(s)${scopeText ? ` (${scopeText})` : ""}${near.length > 0 ? `; did you mean ${near.join(", ")}?` : "; pick keys are the pickKey of each signal after trends signals --record"}`,
+      verb: "trends pick",
+    });
+  }
+  if (matches.length > 1) {
+    throw new DomainError("E_INPUT_INVALID", undefined, {
+      field: "pick-key",
+      detail: `"${input.pickId}" is in ${matches.length} ledgers (${matches.map(({ document }) => document.slug).join(", ")}); pass --niche / --lang / --platform`,
+      verb: "trends pick",
+    });
+  }
+  return matches[0]!;
+}
+
+function writeDecision(input: { workspaceId: string; ledger: ReturnType<typeof findPickLedger>; decision: PickDecisionInput; now: number }) {
+  const { ledger } = input;
+  const result = decidePick(ledger.body.picks, input.decision);
+  if (!result.ok) throw new DomainError("E_INPUT_INVALID", undefined, { field: "pick-key", detail: result.detail, verb: "trends pick" });
+  if (!result.changed) {
+    return { written: false, ledger: { slug: ledger.document.slug, documentId: ledger.document.documentId, revisionId: ledger.document.revisionId, revisions: ledger.document.revisions }, pick: result.pick };
+  }
+  const body: PredictionLedgerBody = { ...ledger.body, picks: result.picks, updatedAt: new Date(input.now).toISOString() };
+  const saved = appendPredictionLedgerRevision({ workspaceId: input.workspaceId, slug: ledger.document.slug, title: `Trend prediction ledger: ${ledger.document.slug}`, body });
+  return { written: true, ledger: { slug: ledger.document.slug, documentId: saved.documentId, revisionId: saved.revisionId, revisions: ledger.document.revisions + 1 }, pick: result.pick };
+}
+
+const pickView = (pick: PredictionPick) => ({
+  pickId: pick.pickId,
+  signalType: pick.signalType,
+  decision: pick.decision,
+  unit: pick.unit ?? null,
+  skip: pick.skip ?? null,
+  url: pick.url,
+  creator: pick.creator,
+  platform: pick.platform,
+  detectedAt: pick.detectedAt,
+  predicted: pick.predicted.own
+    ? { status: pick.predicted.own.status, low: pick.predicted.own.low, high: pick.predicted.own.high, relativeToOwnMedian: pick.predicted.own.relativeToOwnMedian }
+    : null,
+});
+
+/**
+ * `trends pick link <key> --unit <unit>`: mark the pick `produced` with the
+ * Unit reference (one ledger revision), and record `reference_pick` /
+ * `reference_signal` in the Unit's #558 decision ledger so outcome reports
+ * group by reference type. The Unit may live in another Workspace (the own
+ * account) than the corpus.
+ */
+export function linkPickToUnit(input: {
+  workspaceId: string;
+  pickId: string;
+  scope: PickScope;
+  unitRef: string;
+  /** Where the Unit is resolved (default: the corpus Workspace). */
+  unitContext?: QueryContext;
+  now: number;
+  authoredBySessionId?: string;
+}) {
+  const ledger = findPickLedger({ workspaceId: input.workspaceId, pickId: input.pickId, scope: input.scope });
+  const context = input.unitContext ?? { workspaceId: input.workspaceId };
+  const location = resolveUnitReference(context, input.unitRef);
+  const pick = ledger.body.picks.find((entry) => entry.pickId === input.pickId)!;
+  const unit = { unitId: location.unitId, slug: location.slug, workspaceId: location.workspaceId, projectId: location.projectId, linkedAt: new Date(input.now).toISOString() };
+  const decision = writeDecision({ workspaceId: input.workspaceId, ledger, decision: { pickId: input.pickId, decision: "produced", unit }, now: input.now });
+  const decisions = recordManualDecisions({
+    context: unitContext(context, location),
+    location,
+    assignments: [`reference_pick=${pick.pickId}`, `reference_signal=${pick.signalType}`],
+    ...(input.authoredBySessionId ? { authoredBySessionId: input.authoredBySessionId } : {}),
+    now: new Date(input.now),
+  });
+  return {
+    kind: "trend-pick-link",
+    written: decision.written,
+    ledger: decision.ledger,
+    pick: pickView(decision.pick),
+    unitDecisions: {
+      unit: { id: location.unitId, slug: location.slug, projectId: location.projectId },
+      written: decisions.written,
+      documentId: decisions.documentId,
+      revisionId: decisions.revisionId,
+      reference_pick: decisions.manual.reference_pick ?? null,
+      reference_signal: decisions.manual.reference_signal ?? null,
+    },
+    next: "ralphy trends precision --niche <n> joins this pick to the Unit's #558 outcomes once metrics are imported (ralphy analytics import)",
+  };
+}
+
+/** `trends pick skip <key> --reason <text>`: mark the pick `skipped`; precision checks it by whether the signal kept spreading. */
+export function skipPick(input: { workspaceId: string; pickId: string; scope: PickScope; reason: string; now: number }) {
+  const reason = input.reason.trim().replace(/\s+/g, " ");
+  if (!reason) throw new DomainError("E_INPUT_INVALID", undefined, { field: "reason", detail: "a skip needs a reason", verb: "trends pick skip" });
+  if (Array.from(reason).length > 500) throw new DomainError("E_INPUT_INVALID", undefined, { field: "reason", detail: "at most 500 characters", verb: "trends pick skip" });
+  const ledger = findPickLedger({ workspaceId: input.workspaceId, pickId: input.pickId, scope: input.scope });
+  const decision = writeDecision({ workspaceId: input.workspaceId, ledger, decision: { pickId: input.pickId, decision: "skipped", reason, at: new Date(input.now).toISOString() }, now: input.now });
+  return {
+    kind: "trend-pick-skip",
+    written: decision.written,
+    ledger: decision.ledger,
+    pick: pickView(decision.pick),
+    spreadCheck: decision.pick.predicted.spread
+      ? { axis: decision.pick.predicted.spread.axis, value: decision.pick.predicted.spread.value, resolvesAfter: new Date(Date.parse(decision.pick.detectedAt) + decision.pick.predicted.spread.withinDays * DAY_MS).toISOString() }
+      : null,
+  };
+}
+
+// ─── Precision ──────────────────────────────────────────────────────────────
+
+type OutcomeObservation = UnitOutcomeFactsDto["observations"][number];
+const observedAt = (observation: OutcomeObservation) => observation.importFacts?.postedAt ?? observation.publishedAt ?? observation.snapshot.asOf;
+
+/**
+ * Join a produced pick to its Unit's #558 outcome: the newest views on the
+ * pick's platform (else any platform with views), judged against the
+ * predicted band. The own median for a relative band follows the #558
+ * prior-window rule: our posts on that platform before this one (last 20),
+ * this Unit excluded, at least `minN` of them.
+ */
+export function producedPickOutcome(pick: PredictionPick, units: readonly UnitOutcomeFactsDto[], now: number, minN = SIGNAL_MIN_N) {
+  if (!pick.unit) return null;
+  const unit = units.find((entry) => entry.unitId === pick.unit!.unitId);
+  const withViews = (unit?.observations ?? []).filter((observation) => typeof observation.snapshot.views === "number");
+  const observation = withViews.find((entry) => entry.platform === pick.platform) ?? withViews[0] ?? null;
+  let ownMedianViews: number | null = null;
+  if (observation) {
+    const at = observedAt(observation);
+    const prior = units
+      .filter((entry) => entry.unitId !== pick.unit!.unitId)
+      .flatMap((entry) => entry.observations)
+      .filter((entry) => entry.platform === observation.platform && typeof entry.snapshot.views === "number" && observedAt(entry) < at)
+      .sort((a, b) => observedAt(b) - observedAt(a))
+      .slice(0, 20)
+      .map((entry) => entry.snapshot.views!);
+    ownMedianViews = prior.length >= minN ? median(prior) : null;
+  }
+  return judgeProducedPick({ pick, observation: observation ? { platform: observation.platform, views: observation.snapshot.views } : null, ownMedianViews, checkedAt: new Date(now).toISOString() });
+}
+
 /** `trends precision`: per-signal-type precision from the ledger; "insufficient data" below the #558 minimum n. */
 export function buildPrecision(input: { niche: NicheDto; now: number; options: Pick<SignalEngineOptions, "language" | "platform">; minN: number }) {
   const ledger = readLedger(input.niche, input.options);
   let pool: EngineVideo[] | null = null;
+  const unitsByWorkspace = new Map<string, UnitOutcomeFactsDto[]>();
+  const unitsOf = (workspaceId: string) => {
+    let units = unitsByWorkspace.get(workspaceId);
+    if (!units) {
+      try {
+        units = listUnitOutcomeFacts({ context: { workspaceId } });
+      } catch {
+        units = [];
+      }
+      unitsByWorkspace.set(workspaceId, units);
+    }
+    return units;
+  };
+  const judged = new Map<string, ReturnType<typeof producedPickOutcome>>();
   const facts = {
     spreadCreatorsAfter(axis: "format" | "hook", value: string, since: number) {
       pool ??= loadEngineVideos(input.niche, input.now, 120).videos.filter((video) => (!input.options.language || video.member.language === input.options.language) && (!input.options.platform || video.platform === input.options.platform));
       return new Set(pool.filter((video) => isJudgeable(video) && video.postedAt !== null && video.postedAt > since && video[axis] === value && video.multiplier! >= DEFAULT_SIGNAL_OPTIONS.emerging.minMultiplier).map((video) => video.creatorKey)).size;
     },
+    producedOutcome(pick: PredictionPick) {
+      if (!pick.unit) return null;
+      if (!judged.has(pick.pickId)) judged.set(pick.pickId, producedPickOutcome(pick, unitsOf(pick.unit.workspaceId), input.now));
+      return judged.get(pick.pickId) ?? null;
+    },
   };
   const report = precisionReport(ledger.body, facts, input.now, input.minN);
-  const own = (ledger.body?.picks ?? []).filter((pick) => pick.outcome).length;
+  const producedPicks = (ledger.body?.picks ?? []).filter((pick) => pick.decision === "produced");
+  const produced = producedPicks.map((pick) => {
+    const result = facts.producedOutcome(pick);
+    return {
+      pickId: pick.pickId,
+      signalType: pick.signalType,
+      unit: pick.unit ? { id: pick.unit.unitId, slug: pick.unit.slug } : null,
+      status: result?.status ?? "awaiting-outcome",
+      verdict: result?.status === "resolved" ? result.outcome.verdict : null,
+      views: result?.status === "resolved" ? result.outcome.views : null,
+      band: result?.status === "resolved" ? result.outcome.band : null,
+      position: result?.status === "resolved" ? result.outcome.position : null,
+      basis: result?.status === "resolved" ? result.outcome.basis : null,
+      reason: result && result.status !== "resolved" ? result.reason : null,
+    };
+  });
+  const resolvedProduced = produced.filter((row) => row.status === "resolved").length;
+  const skipped = (ledger.body?.picks ?? []).filter((pick) => pick.decision === "skipped").length;
   return {
     kind: "trend-precision",
     niche: input.niche.slug,
-    ledger: { slug: ledgerSlug(input.niche, input.options), revisions: ledger.document?.revisions ?? 0, picks: report.picks },
+    ledger: { slug: ledgerSlug(input.niche, input.options), revisions: ledger.document?.revisions ?? 0, picks: report.picks, produced: producedPicks.length, skipped },
     minN: report.minN,
     rows: report.rows,
+    produced,
     notes: [
-      "A produced pick resolves through its #558 outcome; a skipped pick with a spread prediction resolves after its window (hit = one more unrelated creator broke out on the same label).",
-      ...(own === 0 ? ["no produced pick is linked to #558 outcomes yet"] : []),
+      "A produced pick resolves through its #558 outcome (hit = views at or above the low end of its predicted band); skipped and pending picks with a spread prediction resolve after the window (hit = one more unrelated creator broke out on the same label).",
+      ...(producedPicks.length === 0 ? ["no pick is linked to a produced Unit yet (ralphy trends pick link <pick-key> --unit <unit>)"] : []),
+      ...(producedPicks.length > resolvedProduced ? [`${producedPicks.length - resolvedProduced} produced pick(s) wait for #558 outcomes or an own baseline`] : []),
       ...(report.rows.every((row) => row.verdict === "insufficient data") ? [`insufficient data: fewer than ${report.minN} resolved picks per signal type`] : []),
     ],
   };

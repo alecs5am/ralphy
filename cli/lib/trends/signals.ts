@@ -7,7 +7,7 @@
 // creator-relative baselines (#556), never platform data.
 
 import { COPYABILITY_SIZE_WEIGHTS, SMALL_SIZE_BANDS } from "./niche.js";
-import { DAY_MS, MATURITY_PRIORS, PROVISIONAL_AGE_HOURS, median, momentum, type MaturityCurve, type TrendPlatform } from "./math.js";
+import { DAY_MS, HOUR_MS, MATURITY_PRIORS, PROVISIONAL_AGE_HOURS, median, momentum, type MaturityCurve, type TrendPlatform } from "./math.js";
 
 export const SIGNAL_TYPES = ["breakout", "small-account-breakout", "early-momentum", "near-miss", "emerging-format", "demand-signal"] as const;
 export type SignalType = (typeof SIGNAL_TYPES)[number];
@@ -360,6 +360,23 @@ export const DEFAULT_TIER_RULES: Readonly<TierRules> = { recentDays: 14, minPost
 
 export const TIER_CADENCE: Readonly<Record<AttentionTier, string>> = { hot: "every 6 h", watched: "daily", background: "weekly / monthly", dropped: "none" };
 
+/** Refresh cadence per computed attention tier (`trends refresh --due --tier-source computed`); `dropped` is never re-listed. */
+export const ATTENTION_REFRESH_HOURS: Readonly<Record<AttentionTier, number | null>> = { hot: 6, watched: 24, background: 24 * 7, dropped: null };
+
+/**
+ * Whether a listed creator is due for a re-listing under its computed tier:
+ * the tier's cadence has passed since the last listing, and a failed listing's
+ * backoff (the stored next listing time while failures are counted) is over.
+ */
+export function dueByAttentionTier(input: { tier: AttentionTier; lastListedAt: number | null; nextListAt: number | null; listingFailures: number }, now: number): { due: boolean; cadenceHours: number | null; overdueRatio: number } {
+  const cadenceHours = ATTENTION_REFRESH_HOURS[input.tier];
+  if (cadenceHours === null) return { due: false, cadenceHours, overdueRatio: 0 };
+  if (input.listingFailures > 0 && input.nextListAt !== null && input.nextListAt > now) return { due: false, cadenceHours, overdueRatio: 0 };
+  if (input.lastListedAt === null) return { due: true, cadenceHours, overdueRatio: Number.POSITIVE_INFINITY };
+  const overdueRatio = (now - input.lastListedAt) / (cadenceHours * HOUR_MS);
+  return { due: overdueRatio >= 1, cadenceHours, overdueRatio };
+}
+
 export interface TierFacts {
   creatorId: string;
   lastPostedAt: number | null;
@@ -543,9 +560,38 @@ export interface PredictionPick {
   };
   why: string | null;
   classification: PickClassification;
-  decision: "pending" | "produce" | "skip";
-  /** Filled when a produced pick is linked to #558 outcomes. */
-  outcome: { checkedAt: string; views: number; ownMedianViews: number; verdict: "hit" | "miss" } | null;
+  decision: PickDecision;
+  /** `produced`: the Unit made from this pick (`trends pick link`). */
+  unit?: PickUnitRef | null;
+  /** `skipped`: why (`trends pick skip`). */
+  skip?: { reason: string; at: string } | null;
+  /** Kept for ledger compatibility; `trends precision` judges produced picks on read from #558 outcomes. */
+  outcome: PickOutcome | null;
+}
+
+export const PICK_DECISIONS = ["pending", "produced", "skipped"] as const;
+export type PickDecision = (typeof PICK_DECISIONS)[number];
+
+export interface PickUnitRef {
+  unitId: string;
+  slug: string;
+  workspaceId: string;
+  projectId: string | null;
+  linkedAt: string;
+}
+
+/** A produced pick judged against its predicted band through a #558 outcome. */
+export interface PickOutcome {
+  checkedAt: string;
+  unitId: string | null;
+  platform: string | null;
+  views: number;
+  /** The band the pick predicted, in views on our account. */
+  band: { low: number; high: number } | null;
+  basis: "absolute-band" | "relative-band";
+  ownMedianViews: number | null;
+  position: "below" | "within" | "above";
+  verdict: "hit" | "miss";
 }
 
 export interface PredictionLedgerBody {
@@ -591,17 +637,106 @@ export function mergePicks(existing: readonly PredictionPick[], incoming: readon
   return { picks: order.map((id) => byId.get(id)!), added, updated };
 }
 
+// ─── Pick decisions (`trends pick link | skip`) ─────────────────────────────
+
+export type PickDecisionInput =
+  | { pickId: string; decision: "produced"; unit: PickUnitRef }
+  | { pickId: string; decision: "skipped"; reason: string; at: string };
+
+export type PickDecisionResult =
+  | { ok: true; picks: PredictionPick[]; pick: PredictionPick; changed: boolean }
+  | { ok: false; error: "unknown-pick" | "already-produced" | "linked-elsewhere"; detail: string };
+
+/**
+ * Set one pick's decision. The prediction itself (band, evidence, detection
+ * time) is never touched. A produced pick stays linked to its Unit: linking
+ * it again to the same Unit is a no-op, to another Unit or skipping it is
+ * refused (its outcome is what precision checks).
+ */
+export function decidePick(picks: readonly PredictionPick[], input: PickDecisionInput): PickDecisionResult {
+  const index = picks.findIndex((pick) => pick.pickId === input.pickId);
+  if (index < 0) return { ok: false, error: "unknown-pick", detail: `no pick "${input.pickId}" in the ledger` };
+  const current = picks[index]!;
+  let next: PredictionPick;
+  if (input.decision === "produced") {
+    if (current.decision === "produced" && current.unit) {
+      if (current.unit.unitId === input.unit.unitId) return { ok: true, picks: [...picks], pick: current, changed: false };
+      return { ok: false, error: "linked-elsewhere", detail: `pick "${input.pickId}" is already produced as Unit ${current.unit.unitId} (${current.unit.slug})` };
+    }
+    next = { ...current, decision: "produced", unit: input.unit, skip: null };
+  } else {
+    if (current.decision === "produced") {
+      return { ok: false, error: "already-produced", detail: `pick "${input.pickId}" is produced as Unit ${current.unit?.unitId ?? "?"}; a produced pick resolves through its outcome` };
+    }
+    if (current.decision === "skipped" && current.skip?.reason === input.reason) return { ok: true, picks: [...picks], pick: current, changed: false };
+    next = { ...current, decision: "skipped", skip: { reason: input.reason, at: input.at }, unit: null };
+  }
+  const out = [...picks];
+  out[index] = next;
+  return { ok: true, picks: out, pick: next, changed: true };
+}
+
+/** The predicted band of a produced pick in views on our account, when one can be stated. */
+export function predictedViewBand(pick: PredictionPick, ownMedianViews: number | null): { band: { low: number; high: number }; basis: PickOutcome["basis"] } | null {
+  const own = pick.predicted.own;
+  if (!own) return null;
+  if (own.status === "ok" && own.low !== null && own.high !== null) return { band: { low: own.low, high: own.high }, basis: "absolute-band" };
+  if (own.relativeToOwnMedian && ownMedianViews !== null && ownMedianViews > 0) {
+    return { band: { low: Math.round(ownMedianViews * own.relativeToOwnMedian.low), high: Math.round(ownMedianViews * own.relativeToOwnMedian.high) }, basis: "relative-band" };
+  }
+  return null;
+}
+
+/**
+ * Judge a produced pick against its predicted band with the Unit's #558
+ * outcome (newest views on the pick's platform). Hit = at or above the low
+ * end of the band. Without an outcome, or without a band (no absolute band
+ * recorded and fewer than the minimum own posts before it), it stays open.
+ */
+export function judgeProducedPick(input: {
+  pick: PredictionPick;
+  observation: { platform: string; views: number | null } | null;
+  /** Median views of our own posts on that platform before this one (#558 prior-window rule), or null below the minimum n. */
+  ownMedianViews: number | null;
+  checkedAt: string;
+}): { status: "resolved"; outcome: PickOutcome } | { status: "awaiting-outcome" | "awaiting-baseline"; reason: string } {
+  const { pick, observation } = input;
+  if (!observation || observation.views === null) return { status: "awaiting-outcome", reason: `no #558 views for Unit ${pick.unit?.slug ?? "?"}${pick.platform ? ` on ${pick.platform}` : ""} yet` };
+  const predicted = predictedViewBand(pick, input.ownMedianViews);
+  if (!predicted) return { status: "awaiting-baseline", reason: "no absolute band was recorded and our own baseline before this post is below the minimum n" };
+  const { band, basis } = predicted;
+  const views = observation.views;
+  const position = views < band.low ? "below" : views > band.high ? "above" : "within";
+  return {
+    status: "resolved",
+    outcome: {
+      checkedAt: input.checkedAt,
+      unitId: pick.unit?.unitId ?? null,
+      platform: observation.platform,
+      views,
+      band,
+      basis,
+      ownMedianViews: input.ownMedianViews,
+      position,
+      verdict: views >= band.low ? "hit" : "miss",
+    },
+  };
+}
+
 export interface PrecisionFacts {
   /** Distinct unrelated creators with a hit on `axis:value` posted after `since`. */
   spreadCreatorsAfter(axis: "format" | "hook", value: string, since: number): number;
+  /** Produced picks: the #558 outcome judged against the predicted band (absent = not linked or not judged). */
+  producedOutcome?(pick: PredictionPick): ReturnType<typeof judgeProducedPick> | null;
 }
 
 /**
  * Engine precision per signal type. A produced pick resolves through its
- * #558 outcome (hit = at or above the low end of its band); a pick with a
- * spread prediction resolves once its window has elapsed (hit = at least one
- * more unrelated creator broke out on the same label). Below `minN` resolved
- * picks a type reports "insufficient data" (the #558 minimum-n rule).
+ * #558 outcome (hit = at or above the low end of its band) and never through
+ * the spread check; a skipped or still pending pick with a spread prediction
+ * resolves once its window has elapsed (hit = at least one more unrelated
+ * creator broke out on the same label). Below `minN` resolved picks a type
+ * reports "insufficient data" (the #558 minimum-n rule).
  */
 export function precisionReport(ledger: PredictionLedgerBody | null, facts: PrecisionFacts, now: number, minN: number) {
   const picks = ledger?.picks ?? [];
@@ -611,7 +746,23 @@ export function precisionReport(ledger: PredictionLedgerBody | null, facts: Prec
     let hits = 0;
     let pendingSpread = 0;
     let produced = 0;
+    let producedLinked = 0;
+    let awaitingOutcome = 0;
+    let skipped = 0;
     for (const pick of list) {
+      if (pick.decision === "skipped") skipped += 1;
+      if (pick.decision === "produced") {
+        producedLinked += 1;
+        const judged = facts.producedOutcome?.(pick) ?? (pick.outcome ? { status: "resolved" as const, outcome: pick.outcome } : null);
+        if (judged?.status === "resolved") {
+          produced += 1;
+          resolved += 1;
+          if (judged.outcome.verdict === "hit") hits += 1;
+        } else {
+          awaitingOutcome += 1;
+        }
+        continue;
+      }
       if (pick.outcome) {
         produced += 1;
         resolved += 1;
@@ -630,8 +781,11 @@ export function precisionReport(ledger: PredictionLedgerBody | null, facts: Prec
     return {
       signalType: type,
       picks: list.length,
+      produced: producedLinked,
+      skipped,
       resolved,
       producedWithOutcome: produced,
+      awaitingOutcome,
       pendingSpreadChecks: pendingSpread,
       precision: enough ? round(hits / resolved, 3) : null,
       verdict: enough ? "ok" : "insufficient data",

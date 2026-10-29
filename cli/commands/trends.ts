@@ -1,7 +1,7 @@
 // `ralphy trends <verb>` — the creator-first trend corpus (#556).
 //
 //   trends ingest  --source <s> --seed <v> [--niche <n>]   discover + list + label + score
-//   trends refresh [--due]                                  re-list creators by tier cadence
+//   trends refresh [--due] [--tier-source computed|stored]  re-list creators by tier cadence
 //   trends score   [--refit]                                recompute outlier scores
 //   trends label   [--llm]                                  cohort labels (LLM off by default)
 //   trends top     --niche <n> --since 14d --by outlier     ranked videos
@@ -14,6 +14,8 @@
 //   trends niche list                                       open niches
 //   trends signals --niche <n> [--lang en] [--type ...]    signal engine (#577)
 //   trends precision --niche <n> [--lang en]                prediction-ledger precision (#577)
+//   trends pick link <pick-key> --unit <unit>               a pick was produced as a Unit (#577)
+//   trends pick skip <pick-key> --reason <text>             a pick was skipped (#577)
 //
 // Every verb takes an explicit global `--workspace <id>` (the corpus
 // Workspace). Free sources run logged out with no cookies; paid Apify sources
@@ -72,6 +74,8 @@ import {
   TREND_SOURCES,
   currentCurves,
   ingest,
+  TIER_SOURCES,
+  isTierSource,
   isTrendSource,
   labelPass,
   refresh,
@@ -86,7 +90,7 @@ import { PAID_ACTORS } from "../lib/trends/sources/paid.js";
 import { capturePageXhr, openTiktokProfileSession } from "../lib/trends/sources/tiktok.js";
 import { runYtdlp, ytdlpAvailable } from "../lib/trends/sources/ytdlp.js";
 import { YOUTUBE_API_SOURCE, YOUTUBE_WATCH_SOURCE } from "../lib/trends/sources/youtube.js";
-import { buildNicheSignals, buildPrecision, recordPicks, SIGNAL_MIN_N, type HypothesisInput } from "../lib/trends/signal-engine.js";
+import { buildNicheSignals, buildPrecision, linkPickToUnit, recordPicks, skipPick, SIGNAL_MIN_N, type HypothesisInput, type PickScope } from "../lib/trends/signal-engine.js";
 import { ATTENTION_TIERS, DEFAULT_TIER_RULES, SIGNAL_TYPES, TIER_CADENCE, attentionTier, isSignalType, type SignalType } from "../lib/trends/signals.js";
 import { creatorAttentionFacts } from "../lib/store/trend-signals.js";
 
@@ -145,8 +149,9 @@ export function trendsCmd(): Command {
 
   cmd
     .command("refresh")
-    .description("Re-list creators by tier cadence (hot 6 h, active daily, inactive weekly, dormant monthly), re-run due watchlists for new creators, then label and score. Headless; stops a source when its breaker trips.")
-    .option("--due", "Only creators whose next listing time has passed (default: every non-excluded creator)")
+    .description("Re-list creators by tier cadence, re-run due watchlists for new creators, then label and score. With --due the computed attention tier (#577) schedules each creator by default (hot every 6 h, watched daily, background weekly, dropped never); --tier-source stored uses the stored #556 tier (hot 6 h, active daily, inactive weekly, dormant monthly). The tier used per creator is in the output and on the listing run. Headless; stops a source when its breaker trips.")
+    .option("--due", "Only creators whose tier cadence has passed (default: every non-excluded creator)")
+    .option("--tier-source <source>", `Tier that schedules --due: ${TIER_SOURCES.join(" | ")}`, "computed")
     .option("--no-discover", "Skip due watchlist discovery")
     .option("--platform <platform...>", `Platforms: ${TREND_PLATFORMS.join(" | ")}`)
     .option("--per-creator <n>", "Videos per creator listing", "30")
@@ -165,10 +170,12 @@ export function trendsCmd(): Command {
     .action(async (opts, child: Command) => {
       const workspaceId = workspaceOf(child, "trends refresh");
       const platforms = platformsOf(opts.platform, "trends refresh");
+      if (!isTierSource(opts.tierSource)) raiseError("E_FLAG_UNKNOWN", { flag: "tier-source", value: String(opts.tierSource), allowed: TIER_SOURCES.join(", "), verb: "trends refresh" });
       const deps = liveDeps(opts);
       const summary = await refresh({
         workspaceId,
         dueOnly: opts.due === true,
+        tierSource: opts.tierSource,
         discover: opts.discover !== false,
         platforms,
         perCreator: positiveInt(opts.perCreator, "per-creator", "trends refresh"),
@@ -469,8 +476,60 @@ export function trendsCmd(): Command {
     });
 
   cmd.addCommand(nicheCmd());
+  cmd.addCommand(pickCmd());
 
   return cmd;
+}
+
+// ─── Pick decisions (#577) ──────────────────────────────────────────────────
+
+function pickCmd(): Command {
+  const pick = new Command("pick").description(
+    "Close the prediction loop (#577): mark a prediction-ledger pick as produced (linked to a Unit, judged later against its #558 outcomes) or skipped (judged by whether the signal kept spreading). Pick keys are the pickKey of each signal after trends signals --record.",
+  );
+  const scopeOptions = (command: Command) =>
+    command
+      .option("--niche <niche>", "Niche slug of the ledger (default: every ledger of the Workspace)")
+      .option("--lang <code>", "Ledger scope language")
+      .option("--platform <platform>", `Ledger scope platform: ${TREND_PLATFORMS.join(" | ")}`);
+  const scopeOf = (opts: Record<string, unknown>, workspaceId: string, verb: string): PickScope => {
+    let niche: string | undefined;
+    if (opts.niche) {
+      const found = getNiche({ workspaceId, ref: slugifyNiche(String(opts.niche)) }) ?? getNiche({ workspaceId, ref: String(opts.niche) });
+      if (!found) raiseError("E_NOT_FOUND", { kind: "trend niche", id: String(opts.niche) });
+      niche = found.slug;
+    }
+    const language = languageOf(opts.lang, verb);
+    return { ...(niche ? { niche } : {}), ...(language ? { language } : {}), ...(opts.platform ? { platform: platformOf(opts.platform, verb) } : {}) };
+  };
+
+  scopeOptions(
+    pick
+      .command("link <pick-key>")
+      .description("Mark a pick produced: append a ledger revision with decision produced and the Unit reference, and record reference_pick / reference_signal in the Unit's decision ledger (#558) so outcome reports group by reference type")
+      .requiredOption("--unit <unit>", "Unit ID or slug (a slug must match one Unit)")
+      .option("--own-workspace <id>", "Workspace that holds the Unit (default: the corpus Workspace)"),
+  ).action((key: string, opts, child: Command) => {
+    const verb = "trends pick link";
+    const workspaceId = workspaceOf(child, verb);
+    const scope = scopeOf(opts, workspaceId, verb);
+    const ownWorkspaceId = opts.ownWorkspace ? resolveCommandContext({ dataRoot: ralphDir(), workspaceId: String(opts.ownWorkspace), cwd: process.cwd() }).workspaceId : workspaceId;
+    out(linkPickToUnit({ workspaceId, pickId: String(key).trim(), scope, unitRef: String(opts.unit), unitContext: { workspaceId: ownWorkspaceId }, now: Date.now() }));
+  });
+
+  scopeOptions(
+    pick
+      .command("skip <pick-key>")
+      .description("Mark a pick skipped with a reason: append a ledger revision with decision skipped; trends precision checks it by whether the format or hook kept spreading")
+      .requiredOption("--reason <text>", "Why the pick was not produced (stored on the pick)"),
+  ).action((key: string, opts, child: Command) => {
+    const verb = "trends pick skip";
+    const workspaceId = workspaceOf(child, verb);
+    const scope = scopeOf(opts, workspaceId, verb);
+    out(skipPick({ workspaceId, pickId: String(key).trim(), scope, reason: String(opts.reason), now: Date.now() }));
+  });
+
+  return pick;
 }
 
 // ─── Niche onboarding (#576) ────────────────────────────────────────────────
@@ -777,7 +836,7 @@ function passReport(kind: "trend-ingest" | "trend-refresh", summary: IngestSumma
   return {
     kind,
     workspaceId: summary.workspaceId,
-    ...("source" in summary ? { source: summary.source, niche: summary.niche } : { dueOnly: summary.dueOnly }),
+    ...("source" in summary ? { source: summary.source, niche: summary.niche } : { dueOnly: summary.dueOnly, scheduling: summary.scheduling }),
     startedAt: iso(summary.startedAt),
     wallSeconds: round(summary.wallMs / 1000, 1),
     passes: summary.passes.map((pass: TrendPassSummary) => ({
@@ -831,7 +890,7 @@ export function statusReport(workspaceId: string, now: number) {
     attentionTiers: {
       rules: `hot: a video under ${DEFAULT_TIER_RULES.hotMaxAgeHours} h with rising momentum (${TIER_CADENCE.hot}); watched: posted in ${DEFAULT_TIER_RULES.recentDays} d, ${DEFAULT_TIER_RULES.minPosts30}+ posts in 30 d, a breakout or near-miss in 30 d (${TIER_CADENCE.watched}); background: the rest (${TIER_CADENCE.background}); dropped: excluded or no post in ${DEFAULT_TIER_RULES.droppedAfterDays}+ d`,
       byPlatform: attention,
-      note: "computed on read from posting frequency, recency, and signals, so tiers re-rank after every refresh; refresh scheduling still follows the stored active / inactive / dormant tier",
+      note: "computed on read from posting frequency, recency, and signals, so tiers re-rank after every refresh; trends refresh --due schedules by these tiers (hot every 6 h, watched daily, background weekly, dropped never) unless --tier-source stored",
     },
     lastRuns: [...lastBySource.values()].map((run) => {
       const response = run.response as { counts?: Record<string, number>; breaker?: { state?: string; reason?: string | null } } | null;
