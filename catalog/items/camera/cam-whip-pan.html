@@ -1,0 +1,18 @@
+<!-- catalog item: cam-whip-pan (camera). Contract: function catalog_cam_whip_pan(tl, o)
+     An in-shot whip: the frame swings sideways across a wide plate under a horizontal-only blur and lands on a new part of the scene (no cut). Needs a plate wider than the frame (a 16:9 source scaled to cover, or a wide still). Params: duration, distance, direction, blur. -->
+<style data-catalog-css>
+  .cwp-defs { position: absolute; width: 0; height: 0; }
+</style>
+<template data-catalog-markup>
+  <svg class="cwp-defs" aria-hidden="true"><filter id="cwp-blur" x="-20%" y="0" width="140%" height="100%"><feGaussianBlur id="cwp-blur-node" stdDeviation="0 0" /></filter></svg>
+</template>
+<script data-catalog-js>
+  function catalog_cam_whip_pan(tl, o) {
+    var T = o.at, d = o.duration, dx = (o.direction === "right" ? 1 : -1) * o.distance;
+    tl.set(o.target, { filter: "url(#cwp-blur)" }, T);
+    tl.fromTo(o.target, { x: 0 }, { x: dx, duration: d, ease: "expo.inOut", immediateRender: false }, T);
+    tl.fromTo("#cwp-blur-node", { attr: { stdDeviation: "0 0" } }, { attr: { stdDeviation: o.blur + " 0" }, duration: d / 2, ease: "power2.in", immediateRender: false }, T);
+    tl.to("#cwp-blur-node", { attr: { stdDeviation: "0 0" }, duration: d / 2, ease: "power2.out" }, T + d / 2);
+    tl.set(o.target, { filter: "none" }, T + d);
+  }
+</script>

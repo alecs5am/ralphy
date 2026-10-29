@@ -2016,6 +2016,2654 @@
       },
       "preview": "previews/notification-toast.mp4",
       "ledger": null
+    },
+    {
+      "id": "layout-split-top-bottom",
+      "kind": "layout",
+      "name": "Top / bottom split",
+      "summary": "Two stacked video slots; hook in the top half, caption on the seam.",
+      "source": "items/layout/layout-split-top-bottom.html",
+      "fn": "catalog_layout_split_top_bottom",
+      "duration": 1.15,
+      "energy": "medium",
+      "moods": [
+        "energetic",
+        "editorial"
+      ],
+      "tags": [
+        "split",
+        "two-up",
+        "comparison"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "split",
+          "type": "number",
+          "label": "Top share of the frame",
+          "default": 0.5,
+          "min": 0.35,
+          "max": 0.65
+        },
+        {
+          "id": "seam",
+          "type": "color",
+          "label": "Seam colour",
+          "default": "#ffffff"
+        },
+        {
+          "id": "hook",
+          "type": "string",
+          "label": "Hook line",
+          "default": "Same recipe, two results"
+        },
+        {
+          "id": "caption",
+          "type": "string",
+          "label": "Seam caption",
+          "default": "Watch the bottom half"
+        },
+        {
+          "id": "accent",
+          "type": "color",
+          "label": "Caption colour",
+          "default": "#ffe14d"
+        }
+      ],
+      "whenToUse": "Before / after, A vs B, cause and effect, two angles of one moment; any comparison the viewer should read in one glance.",
+      "whenNotToUse": "A single subject that needs the whole frame, talking heads that would be cropped at the chin, or footage with its subject near the seam.",
+      "sfx": null,
+      "preview": "previews/layout-split-top-bottom.mp4",
+      "ledger": null,
+      "slots": [
+        {
+          "id": "top",
+          "role": "video",
+          "box": [
+            0,
+            0,
+            1080,
+            960
+          ],
+          "required": true,
+          "note": "Top half; frame the subject in its middle third so the seam never cuts a face.",
+          "fit": "cover"
+        },
+        {
+          "id": "bottom",
+          "role": "video",
+          "box": [
+            0,
+            960,
+            1080,
+            960
+          ],
+          "required": true,
+          "note": "Bottom half; the lower 420 px sit under the platform caption block, so keep the action above y=1450.",
+          "fit": "cover"
+        },
+        {
+          "id": "hook",
+          "role": "text",
+          "box": [
+            80,
+            270,
+            880,
+            200
+          ],
+          "required": false,
+          "note": "Hook line, top safe zone."
+        },
+        {
+          "id": "caption",
+          "role": "caption",
+          "box": [
+            80,
+            890,
+            880,
+            140
+          ],
+          "required": true,
+          "note": "Caption straddles the seam; moves with the split param."
+        }
+      ]
+    },
+    {
+      "id": "layout-gameplay-split",
+      "kind": "layout",
+      "name": "Gameplay / satisfying split",
+      "summary": "Story or talking clip on top, a gameplay or satisfying loop below, captions on the seam.",
+      "source": "items/layout/layout-gameplay-split.html",
+      "fn": "catalog_layout_gameplay_split",
+      "duration": 0.9,
+      "energy": "high",
+      "moods": [
+        "energetic",
+        "playful"
+      ],
+      "tags": [
+        "split",
+        "gameplay",
+        "satisfying",
+        "retention"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "ratio",
+          "type": "number",
+          "label": "Story share of the frame",
+          "default": 0.56,
+          "min": 0.45,
+          "max": 0.65
+        },
+        {
+          "id": "caption",
+          "type": "string",
+          "label": "Caption",
+          "default": "He said this live on air"
+        },
+        {
+          "id": "accent",
+          "type": "color",
+          "label": "Caption colour",
+          "default": "#ffffff"
+        },
+        {
+          "id": "label",
+          "type": "string",
+          "label": "Bottom slot label",
+          "default": "Gameplay loop"
+        }
+      ],
+      "whenToUse": "Long voice-led stories, reddit-style narration, commentary over a clip; the bottom loop holds attention between beats.",
+      "whenNotToUse": "Brand or premium work, anything where the bottom loop competes with a product, or audiences that read the split as low-effort.",
+      "sfx": null,
+      "preview": "previews/layout-gameplay-split.mp4",
+      "ledger": null,
+      "slots": [
+        {
+          "id": "story",
+          "role": "video",
+          "box": [
+            0,
+            0,
+            1080,
+            1075
+          ],
+          "required": true,
+          "note": "Story or talking clip; keep the face in the upper 60 percent.",
+          "fit": "cover"
+        },
+        {
+          "id": "gameplay",
+          "role": "broll",
+          "box": [
+            0,
+            1075,
+            1080,
+            845
+          ],
+          "required": true,
+          "note": "Muted gameplay or satisfying loop (no faces, no text of its own).",
+          "fit": "cover"
+        },
+        {
+          "id": "caption",
+          "role": "caption",
+          "box": [
+            80,
+            995,
+            880,
+            150
+          ],
+          "required": true,
+          "note": "Caption rides the seam between the halves."
+        }
+      ]
+    },
+    {
+      "id": "layout-keyed-talking-head",
+      "kind": "layout",
+      "name": "Keyed talking head",
+      "summary": "A keyed talking head (alpha webm from ralphy matte) over a full-bleed background, headline above, caption below the face.",
+      "source": "items/layout/layout-keyed-talking-head.html",
+      "fn": "catalog_layout_keyed_talking_head",
+      "duration": 1.07,
+      "energy": "medium",
+      "moods": [
+        "editorial",
+        "warm"
+      ],
+      "tags": [
+        "green-screen",
+        "talking-head",
+        "keyed",
+        "explainer"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "headline",
+          "type": "string",
+          "label": "Headline",
+          "default": "Three things nobody tells you"
+        },
+        {
+          "id": "caption",
+          "type": "string",
+          "label": "Caption",
+          "default": "Number one is free"
+        },
+        {
+          "id": "accent",
+          "type": "color",
+          "label": "Caption colour",
+          "default": "#ffe14d"
+        },
+        {
+          "id": "dim",
+          "type": "number",
+          "label": "Background dim",
+          "default": 0.15,
+          "min": 0,
+          "max": 0.6
+        }
+      ],
+      "whenToUse": "Explainers and commentary over a screenshot, article, chart or product shot: the green-screen effect without a green screen.",
+      "whenNotToUse": "Footage with a busy background behind the speaker that the matte cannot separate cleanly, or when the background is the story and needs the full frame.",
+      "sfx": null,
+      "preview": "previews/layout-keyed-talking-head.mp4",
+      "ledger": null,
+      "slots": [
+        {
+          "id": "background",
+          "role": "image",
+          "box": [
+            0,
+            0,
+            1080,
+            1920
+          ],
+          "required": true,
+          "note": "Screenshot, article, chart or B-roll behind the speaker.",
+          "fit": "cover"
+        },
+        {
+          "id": "subject",
+          "role": "video",
+          "box": [
+            0,
+            760,
+            1080,
+            1160
+          ],
+          "required": true,
+          "note": "Alpha cutout from `ralphy matte key` (green screen) or `ralphy matte subject` (any footage).",
+          "keyed": true,
+          "fit": "contain"
+        },
+        {
+          "id": "face",
+          "role": "face",
+          "box": [
+            380,
+            890,
+            320,
+            400
+          ],
+          "required": true,
+          "note": "Where the face lands; keep it below the headline and above the caption."
+        },
+        {
+          "id": "headline",
+          "role": "text",
+          "box": [
+            80,
+            260,
+            880,
+            220
+          ],
+          "required": false,
+          "note": "Headline above the head."
+        },
+        {
+          "id": "caption",
+          "role": "caption",
+          "box": [
+            80,
+            1300,
+            880,
+            140
+          ],
+          "required": true,
+          "note": "Caption at chest height, above the platform caption block."
+        }
+      ]
+    },
+    {
+      "id": "layout-pip",
+      "kind": "layout",
+      "name": "Picture-in-picture",
+      "summary": "Full-bleed main video with a rounded face-cam window bottom-left, clear of the engagement rail.",
+      "source": "items/layout/layout-pip.html",
+      "fn": "catalog_layout_pip",
+      "duration": 0.95,
+      "energy": "medium",
+      "moods": [
+        "editorial",
+        "tech"
+      ],
+      "tags": [
+        "pip",
+        "facecam",
+        "commentary"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "corner",
+          "type": "enum",
+          "label": "PiP corner",
+          "default": "bottom-left",
+          "options": [
+            {
+              "value": "bottom-left",
+              "label": "bottom-left"
+            },
+            {
+              "value": "top-left",
+              "label": "top-left"
+            }
+          ]
+        },
+        {
+          "id": "size",
+          "type": "number",
+          "label": "PiP width (px)",
+          "default": 360,
+          "min": 280,
+          "max": 440
+        },
+        {
+          "id": "caption",
+          "type": "string",
+          "label": "Caption",
+          "default": "Here is where it breaks"
+        },
+        {
+          "id": "accent",
+          "type": "color",
+          "label": "Caption colour",
+          "default": "#ffffff"
+        }
+      ],
+      "whenToUse": "Commentary over footage, walkthroughs, the creator reacting to their own B-roll; the main video stays readable at full size.",
+      "whenNotToUse": "Main footage with its subject in the lower-left quarter (the window hides it), or very short clips where the window has no time to register.",
+      "sfx": null,
+      "preview": "previews/layout-pip.mp4",
+      "ledger": null,
+      "slots": [
+        {
+          "id": "main",
+          "role": "video",
+          "box": [
+            0,
+            0,
+            1080,
+            1920
+          ],
+          "required": true,
+          "note": "Main footage, full bleed.",
+          "fit": "cover"
+        },
+        {
+          "id": "pip",
+          "role": "face",
+          "box": [
+            80,
+            952,
+            360,
+            468
+          ],
+          "required": true,
+          "note": "Face-cam window; left side so the right engagement rail never covers it.",
+          "fit": "cover"
+        },
+        {
+          "id": "caption",
+          "role": "caption",
+          "box": [
+            80,
+            280,
+            880,
+            140
+          ],
+          "required": true,
+          "note": "Caption in the top safe zone so it never fights the window."
+        }
+      ]
+    },
+    {
+      "id": "layout-reaction",
+      "kind": "layout",
+      "name": "Reaction",
+      "summary": "Reactor face cam full-bleed; the reacted-to clip floats as a card in the upper half.",
+      "source": "items/layout/layout-reaction.html",
+      "fn": "catalog_layout_reaction",
+      "duration": 1.85,
+      "energy": "high",
+      "moods": [
+        "playful",
+        "energetic"
+      ],
+      "tags": [
+        "reaction",
+        "duet",
+        "facecam"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "cardTilt",
+          "type": "number",
+          "label": "Card tilt (deg)",
+          "default": -2,
+          "min": -6,
+          "max": 6
+        },
+        {
+          "id": "caption",
+          "type": "string",
+          "label": "Caption",
+          "default": "Wait for it"
+        },
+        {
+          "id": "accent",
+          "type": "color",
+          "label": "Caption colour",
+          "default": "#ffffff"
+        },
+        {
+          "id": "source",
+          "type": "string",
+          "label": "Source credit",
+          "default": "@source_clip"
+        }
+      ],
+      "whenToUse": "Reacting to a clip, a tweet or a screenshot; the face carries the emotion while the card carries the context.",
+      "whenNotToUse": "When the reacted-to clip needs detail at full size (use the top / bottom split), or when the reactor's face does not change.",
+      "sfx": null,
+      "preview": "previews/layout-reaction.mp4",
+      "ledger": null,
+      "slots": [
+        {
+          "id": "reactor",
+          "role": "video",
+          "box": [
+            0,
+            0,
+            1080,
+            1920
+          ],
+          "required": true,
+          "note": "Reactor face cam, full bleed; frame the face in the lower middle.",
+          "fit": "cover"
+        },
+        {
+          "id": "face",
+          "role": "face",
+          "box": [
+            380,
+            900,
+            320,
+            400
+          ],
+          "required": true,
+          "note": "Reactor face between the card and the caption."
+        },
+        {
+          "id": "clip",
+          "role": "video",
+          "box": [
+            80,
+            250,
+            880,
+            620
+          ],
+          "required": true,
+          "note": "The clip, tweet or screenshot being reacted to (credit the source).",
+          "fit": "contain"
+        },
+        {
+          "id": "caption",
+          "role": "caption",
+          "box": [
+            80,
+            1340,
+            880,
+            110
+          ],
+          "required": true,
+          "note": "Caption below the face, above the platform caption block."
+        }
+      ]
+    },
+    {
+      "id": "layout-screen-facecam",
+      "kind": "layout",
+      "name": "Screen recording + face cam",
+      "summary": "Screen recording in a device frame on top, a round face cam bottom-left, the caption beside it.",
+      "source": "items/layout/layout-screen-facecam.html",
+      "fn": "catalog_layout_screen_facecam",
+      "duration": 1.95,
+      "energy": "medium",
+      "moods": [
+        "tech",
+        "clean"
+      ],
+      "tags": [
+        "screen-recording",
+        "tutorial",
+        "facecam",
+        "saas"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "device",
+          "type": "enum",
+          "label": "Device frame",
+          "default": "desktop",
+          "options": [
+            {
+              "value": "desktop",
+              "label": "desktop"
+            },
+            {
+              "value": "phone",
+              "label": "phone"
+            }
+          ]
+        },
+        {
+          "id": "caption",
+          "type": "string",
+          "label": "Caption",
+          "default": "Click here, not there"
+        },
+        {
+          "id": "accent",
+          "type": "color",
+          "label": "Caption colour",
+          "default": "#ffffff"
+        },
+        {
+          "id": "ring",
+          "type": "color",
+          "label": "Face-cam ring",
+          "default": "#ffd166"
+        }
+      ],
+      "whenToUse": "Tutorials, app walkthroughs, SaaS demos, code explainers; the face keeps it human while the screen stays legible.",
+      "whenNotToUse": "Screens with small text that needs the full width (crop and zoom the recording instead), or talking-head-first content.",
+      "sfx": null,
+      "preview": "previews/layout-screen-facecam.mp4",
+      "ledger": null,
+      "slots": [
+        {
+          "id": "screen",
+          "role": "screen",
+          "box": [
+            80,
+            230,
+            880,
+            880
+          ],
+          "required": true,
+          "note": "Screen recording; crop to the region that matters and keep UI text 28 px or larger after scaling.",
+          "fit": "contain"
+        },
+        {
+          "id": "facecam",
+          "role": "face",
+          "box": [
+            80,
+            1150,
+            280,
+            280
+          ],
+          "required": true,
+          "note": "Round face cam, bottom-left, above the platform caption block.",
+          "fit": "cover"
+        },
+        {
+          "id": "caption",
+          "role": "caption",
+          "box": [
+            400,
+            1180,
+            560,
+            250
+          ],
+          "required": true,
+          "note": "Caption beside the face cam; right edge stays left of the engagement rail."
+        }
+      ]
+    },
+    {
+      "id": "layout-broll-caption-band",
+      "kind": "layout",
+      "name": "B-roll with caption band",
+      "summary": "Full-bleed B-roll with a solid caption band at chest height and a small kicker up top.",
+      "source": "items/layout/layout-broll-caption-band.html",
+      "fn": "catalog_layout_broll_caption_band",
+      "duration": 0.85,
+      "energy": "calm",
+      "moods": [
+        "editorial",
+        "clean",
+        "warm"
+      ],
+      "tags": [
+        "broll",
+        "caption-band",
+        "vlog",
+        "documentary"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "bandY",
+          "type": "number",
+          "label": "Band top (px)",
+          "default": 1150,
+          "min": 900,
+          "max": 1220
+        },
+        {
+          "id": "band",
+          "type": "color",
+          "label": "Band colour",
+          "default": "#111111"
+        },
+        {
+          "id": "kicker",
+          "type": "string",
+          "label": "Kicker",
+          "default": "Day 12"
+        },
+        {
+          "id": "caption",
+          "type": "string",
+          "label": "Caption",
+          "default": "We moved the whole studio in a weekend"
+        },
+        {
+          "id": "accent",
+          "type": "color",
+          "label": "Caption colour",
+          "default": "#ffffff"
+        }
+      ],
+      "whenToUse": "Vlogs, documentary and voice-over B-roll where the footage changes fast and captions must stay readable on every shot.",
+      "whenNotToUse": "Footage whose subject sits at chest height (the band hides it), or high-energy edits where a static band feels heavy.",
+      "sfx": null,
+      "preview": "previews/layout-broll-caption-band.mp4",
+      "ledger": null,
+      "slots": [
+        {
+          "id": "broll",
+          "role": "broll",
+          "box": [
+            0,
+            0,
+            1080,
+            1920
+          ],
+          "required": true,
+          "note": "B-roll, full bleed; any footage, the band guarantees contrast.",
+          "fit": "cover"
+        },
+        {
+          "id": "kicker",
+          "role": "text",
+          "box": [
+            80,
+            270,
+            600,
+            70
+          ],
+          "required": false,
+          "note": "Small kicker (day, chapter, location)."
+        },
+        {
+          "id": "band",
+          "role": "image",
+          "box": [
+            0,
+            1150,
+            1080,
+            230
+          ],
+          "required": true,
+          "note": "Solid band behind the caption (a shape, not media); its bottom stays above y=1450 (Reels)."
+        },
+        {
+          "id": "caption",
+          "role": "caption",
+          "box": [
+            80,
+            1200,
+            880,
+            140
+          ],
+          "required": true,
+          "note": "Caption inside the band."
+        }
+      ]
+    },
+    {
+      "id": "layout-text-led",
+      "kind": "layout",
+      "name": "Text-led",
+      "summary": "Type carries the video: big headline block, a supporting line and a CTA chip on a flat or faded-footage background.",
+      "source": "items/layout/layout-text-led.html",
+      "fn": "catalog_layout_text_led",
+      "duration": 1.2,
+      "energy": "medium",
+      "moods": [
+        "editorial",
+        "clean",
+        "premium"
+      ],
+      "tags": [
+        "text-led",
+        "kinetic-type",
+        "faceless",
+        "cta"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "headline",
+          "type": "string",
+          "label": "Headline (| splits lines)",
+          "default": "The|edit|is the|hook"
+        },
+        {
+          "id": "support",
+          "type": "string",
+          "label": "Supporting line",
+          "default": "Viewers decide in the first second; type gets read before a face does."
+        },
+        {
+          "id": "cta",
+          "type": "string",
+          "label": "CTA",
+          "default": "Try it free"
+        },
+        {
+          "id": "background",
+          "type": "color",
+          "label": "Background",
+          "default": "#f2ead8"
+        },
+        {
+          "id": "ink",
+          "type": "color",
+          "label": "Text colour",
+          "default": "#111111"
+        },
+        {
+          "id": "accent",
+          "type": "color",
+          "label": "CTA colour",
+          "default": "#ff5a36"
+        }
+      ],
+      "whenToUse": "Faceless explainers, quotes, listicles, announcements and CTAs; any beat where the words are the point.",
+      "whenNotToUse": "Long voice-over stretches (a static type frame dies after about 3 seconds without new motion), or lines too long to read in the beat.",
+      "sfx": null,
+      "preview": "previews/layout-text-led.mp4",
+      "ledger": null,
+      "slots": [
+        {
+          "id": "background",
+          "role": "image",
+          "box": [
+            0,
+            0,
+            1080,
+            1920
+          ],
+          "required": false,
+          "note": "Flat colour by default; faded footage at 10 to 20 percent also works.",
+          "fit": "cover"
+        },
+        {
+          "id": "headline",
+          "role": "text",
+          "box": [
+            80,
+            300,
+            880,
+            660
+          ],
+          "required": true,
+          "note": "Headline block, one to four short lines."
+        },
+        {
+          "id": "support",
+          "role": "text",
+          "box": [
+            80,
+            1010,
+            820,
+            190
+          ],
+          "required": false,
+          "note": "Supporting line, two lines at most."
+        },
+        {
+          "id": "cta",
+          "role": "cta",
+          "box": [
+            80,
+            1270,
+            520,
+            110
+          ],
+          "required": false,
+          "note": "CTA chip; bottom stays above the platform caption block."
+        }
+      ]
+    },
+    {
+      "id": "cam-punch-in",
+      "kind": "camera",
+      "name": "Punch-in on beat or word",
+      "summary": "Instant zoom cuts on beats or emphasised words; hold alternates tight and wide, pulse punches and eases back.",
+      "source": "items/camera/cam-punch-in.html",
+      "fn": "catalog_cam_punch_in",
+      "duration": 2.8,
+      "energy": "high",
+      "moods": [
+        "energetic",
+        "edgy"
+      ],
+      "tags": [
+        "punch-in",
+        "beat",
+        "word",
+        "talking-head"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "beats",
+          "type": "string",
+          "label": "Beat / word times (s, from at)",
+          "default": "0.3,1.1,1.8,2.4"
+        },
+        {
+          "id": "scale",
+          "type": "number",
+          "label": "Punch scale",
+          "default": 1.18,
+          "min": 1.05,
+          "max": 1.6
+        },
+        {
+          "id": "mode",
+          "type": "enum",
+          "label": "Mode",
+          "default": "hold",
+          "options": [
+            {
+              "value": "hold",
+              "label": "hold"
+            },
+            {
+              "value": "pulse",
+              "label": "pulse"
+            }
+          ]
+        },
+        {
+          "id": "release",
+          "type": "number",
+          "label": "Pulse release (s)",
+          "default": 0.35,
+          "min": 0.15,
+          "max": 0.8
+        }
+      ],
+      "whenToUse": "Talking heads and podcasts: punch on the key word of each line (word starts from captions.json) to fake a second camera and reset attention.",
+      "whenNotToUse": "Every sentence (it stops reading as emphasis), footage softer than about 1.2x upscale allows, or shots whose framing is already tight.",
+      "sfx": null,
+      "preview": "previews/cam-punch-in.mp4",
+      "ledger": null,
+      "camera": {
+        "input": "footage",
+        "overscan": 1.18
+      }
+    },
+    {
+      "id": "cam-slow-push",
+      "kind": "camera",
+      "name": "Slow push",
+      "summary": "A slow dolly-in with optional drift that keeps a held shot alive.",
+      "source": "items/camera/cam-slow-push.html",
+      "fn": "catalog_cam_slow_push",
+      "duration": 3.6,
+      "energy": "calm",
+      "moods": [
+        "premium",
+        "editorial",
+        "warm"
+      ],
+      "tags": [
+        "push",
+        "dolly",
+        "talking-head",
+        "product"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 3.6,
+          "min": 1.5,
+          "max": 10
+        },
+        {
+          "id": "scale",
+          "type": "number",
+          "label": "End scale",
+          "default": 1.12,
+          "min": 1.02,
+          "max": 1.3
+        },
+        {
+          "id": "driftX",
+          "type": "number",
+          "label": "Drift x (px)",
+          "default": 0,
+          "min": -80,
+          "max": 80
+        },
+        {
+          "id": "driftY",
+          "type": "number",
+          "label": "Drift y (px)",
+          "default": -24,
+          "min": -80,
+          "max": 80
+        }
+      ],
+      "whenToUse": "Static talking heads, product hero shots, emotional beats, and any still that sits on screen for more than two seconds.",
+      "whenNotToUse": "Fast-cut edits (the move never registers) and footage already moving; pushes on both sides of a cut feel like one long zoom.",
+      "sfx": null,
+      "preview": "previews/cam-slow-push.mp4",
+      "ledger": null,
+      "camera": {
+        "input": "footage",
+        "overscan": 1.0
+      }
+    },
+    {
+      "id": "cam-handheld",
+      "kind": "camera",
+      "name": "Handheld (seeded)",
+      "summary": "Seeded handheld drift on x, y and roll, eased in and out; same seed, same shake.",
+      "source": "items/camera/cam-handheld.html",
+      "fn": "catalog_cam_handheld",
+      "duration": 3.6,
+      "energy": "medium",
+      "moods": [
+        "warm",
+        "editorial"
+      ],
+      "tags": [
+        "handheld",
+        "shake",
+        "organic",
+        "ugc"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 3.6,
+          "min": 0.5,
+          "max": 30
+        },
+        {
+          "id": "seed",
+          "type": "number",
+          "label": "Seed",
+          "default": 7,
+          "min": 0,
+          "max": 9999
+        },
+        {
+          "id": "amplitude",
+          "type": "number",
+          "label": "Amplitude (px)",
+          "default": 14,
+          "min": 2,
+          "max": 40
+        },
+        {
+          "id": "roll",
+          "type": "number",
+          "label": "Roll (deg)",
+          "default": 0.6,
+          "min": 0,
+          "max": 3
+        },
+        {
+          "id": "frequency",
+          "type": "number",
+          "label": "Frequency (Hz)",
+          "default": 0.9,
+          "min": 0.2,
+          "max": 4
+        },
+        {
+          "id": "overscan",
+          "type": "number",
+          "label": "Overscan scale",
+          "default": 1.06,
+          "min": 1,
+          "max": 1.2
+        }
+      ],
+      "whenToUse": "Making locked-off AI or stock footage feel shot on a phone; UGC, vlog and documentary registers; subtle life on a static plate.",
+      "whenNotToUse": "Footage that already has camera shake (it doubles), text-heavy frames, premium product shots, and viewers prone to motion sickness at high amplitude.",
+      "sfx": null,
+      "preview": "previews/cam-handheld.mp4",
+      "ledger": null,
+      "camera": {
+        "input": "footage",
+        "overscan": 1.06
+      }
+    },
+    {
+      "id": "cam-whip-pan",
+      "kind": "camera",
+      "name": "Whip pan (in shot)",
+      "summary": "The frame whips sideways across a wide plate under horizontal blur and lands on a new part of the scene.",
+      "source": "items/camera/cam-whip-pan.html",
+      "fn": "catalog_cam_whip_pan",
+      "duration": 0.4,
+      "energy": "high",
+      "moods": [
+        "energetic",
+        "editorial"
+      ],
+      "tags": [
+        "whip",
+        "pan",
+        "motion-blur",
+        "reveal"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.4,
+          "min": 0.2,
+          "max": 0.8
+        },
+        {
+          "id": "distance",
+          "type": "number",
+          "label": "Distance (px)",
+          "default": 540,
+          "min": 200,
+          "max": 1080
+        },
+        {
+          "id": "direction",
+          "type": "enum",
+          "label": "Direction",
+          "default": "left",
+          "options": [
+            {
+              "value": "left",
+              "label": "left"
+            },
+            {
+              "value": "right",
+              "label": "right"
+            }
+          ]
+        },
+        {
+          "id": "blur",
+          "type": "number",
+          "label": "Peak horizontal blur",
+          "default": 50,
+          "min": 0,
+          "max": 120
+        }
+      ],
+      "whenToUse": "Revealing a second subject in the same wide shot, comedic double-takes, energetic travel and before / after in one plate.",
+      "whenNotToUse": "Plates no wider than the frame (the edge shows), calm registers, and next to a whip-pan transition (two whips read as one mistake).",
+      "sfx": {
+        "id": "sfx-whoosh-3feb26b4",
+        "at": -0.12,
+        "volume": 0.8
+      },
+      "preview": "previews/cam-whip-pan.mp4",
+      "ledger": null,
+      "camera": {
+        "input": "footage",
+        "overscan": 1.0
+      }
+    },
+    {
+      "id": "cam-roll",
+      "kind": "camera",
+      "name": "Dutch roll",
+      "summary": "The frame rolls to an angle while scaling just enough that no corner shows; smooth for unease, snap for a beat.",
+      "source": "items/camera/cam-roll.html",
+      "fn": "catalog_cam_roll",
+      "duration": 1.2,
+      "energy": "medium",
+      "moods": [
+        "dramatic",
+        "edgy"
+      ],
+      "tags": [
+        "rotation",
+        "dutch",
+        "roll"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 1.2,
+          "min": 0.2,
+          "max": 4
+        },
+        {
+          "id": "angle",
+          "type": "number",
+          "label": "Angle (deg)",
+          "default": 4,
+          "min": -12,
+          "max": 12
+        },
+        {
+          "id": "style",
+          "type": "enum",
+          "label": "Style",
+          "default": "smooth",
+          "options": [
+            {
+              "value": "smooth",
+              "label": "smooth"
+            },
+            {
+              "value": "snap",
+              "label": "snap"
+            }
+          ]
+        }
+      ],
+      "whenToUse": "Tension, comedy beats, something-is-off moments, music drops (snap).",
+      "whenNotToUse": "Horizons and architecture that must read level, text-heavy frames, and long holds (the tilt becomes the subject).",
+      "sfx": null,
+      "preview": "previews/cam-roll.mp4",
+      "ledger": null,
+      "camera": {
+        "input": "footage",
+        "overscan": 1.12
+      }
+    },
+    {
+      "id": "cam-parallax",
+      "kind": "camera",
+      "name": "Parallax (cut-out layers)",
+      "summary": "Background, midground and the cut-out subject slide at different speeds for a 2.5D move.",
+      "source": "items/camera/cam-parallax.html",
+      "fn": "catalog_cam_parallax",
+      "duration": 3.6,
+      "energy": "calm",
+      "moods": [
+        "premium",
+        "editorial"
+      ],
+      "tags": [
+        "parallax",
+        "depth",
+        "cutout",
+        "still"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 3.6,
+          "min": 1,
+          "max": 10
+        },
+        {
+          "id": "distance",
+          "type": "number",
+          "label": "Subject travel (px)",
+          "default": 140,
+          "min": 20,
+          "max": 400
+        },
+        {
+          "id": "direction",
+          "type": "enum",
+          "label": "Direction",
+          "default": "right",
+          "options": [
+            {
+              "value": "left",
+              "label": "left"
+            },
+            {
+              "value": "right",
+              "label": "right"
+            }
+          ]
+        },
+        {
+          "id": "depth",
+          "type": "number",
+          "label": "Foreground depth",
+          "default": 0.5,
+          "min": 0,
+          "max": 1.5
+        }
+      ],
+      "whenToUse": "Turning a still or a locked shot into depth: photos with a subject cut out by `ralphy matte subject`, title cards over layered art, documentary stills.",
+      "whenNotToUse": "Layers without enough overscan (edges show), cutouts with ragged mattes (the parallax exposes the edge), and fast edits.",
+      "sfx": null,
+      "preview": "previews/cam-parallax.mp4",
+      "ledger": null,
+      "camera": {
+        "input": "layers",
+        "overscan": 1.0
+      }
+    },
+    {
+      "id": "cam-ken-burns",
+      "kind": "camera",
+      "name": "Ken Burns",
+      "summary": "A slow zoom that travels from one focus point to another across a still.",
+      "source": "items/camera/cam-ken-burns.html",
+      "fn": "catalog_cam_ken_burns",
+      "duration": 3.6,
+      "energy": "calm",
+      "moods": [
+        "editorial",
+        "warm",
+        "premium"
+      ],
+      "tags": [
+        "still",
+        "ken-burns",
+        "documentary",
+        "photo"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 3.6,
+          "min": 2,
+          "max": 15
+        },
+        {
+          "id": "scale",
+          "type": "number",
+          "label": "End scale",
+          "default": 1.18,
+          "min": 1.05,
+          "max": 1.5
+        },
+        {
+          "id": "from",
+          "type": "enum",
+          "label": "Start focus",
+          "default": "top-left",
+          "options": [
+            {
+              "value": "center",
+              "label": "center"
+            },
+            {
+              "value": "top",
+              "label": "top"
+            },
+            {
+              "value": "bottom",
+              "label": "bottom"
+            },
+            {
+              "value": "left",
+              "label": "left"
+            },
+            {
+              "value": "right",
+              "label": "right"
+            },
+            {
+              "value": "top-left",
+              "label": "top-left"
+            },
+            {
+              "value": "bottom-right",
+              "label": "bottom-right"
+            }
+          ]
+        },
+        {
+          "id": "to",
+          "type": "enum",
+          "label": "End focus",
+          "default": "bottom-right",
+          "options": [
+            {
+              "value": "center",
+              "label": "center"
+            },
+            {
+              "value": "top",
+              "label": "top"
+            },
+            {
+              "value": "bottom",
+              "label": "bottom"
+            },
+            {
+              "value": "left",
+              "label": "left"
+            },
+            {
+              "value": "right",
+              "label": "right"
+            },
+            {
+              "value": "top-left",
+              "label": "top-left"
+            },
+            {
+              "value": "bottom-right",
+              "label": "bottom-right"
+            }
+          ]
+        }
+      ],
+      "whenToUse": "Photos, screenshots, archival images, generated stills that must hold for more than two seconds.",
+      "whenNotToUse": "Low-resolution stills (a 1.2x zoom shows softness), and when the image has text to read (the move fights reading).",
+      "sfx": null,
+      "preview": "previews/cam-ken-burns.mp4",
+      "ledger": null,
+      "camera": {
+        "input": "still",
+        "overscan": 1.02
+      }
+    },
+    {
+      "id": "cam-follow",
+      "kind": "camera",
+      "name": "Follow-cam (tracked)",
+      "summary": "Keeps a tracked subject at a fixed frame position from a ralphy track point or face track, with operator-like lag.",
+      "source": "items/camera/cam-follow.html",
+      "fn": "catalog_cam_follow",
+      "duration": 4.2,
+      "energy": "medium",
+      "moods": [
+        "editorial",
+        "energetic"
+      ],
+      "tags": [
+        "follow",
+        "tracking",
+        "reframe",
+        "subject"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "zoom",
+          "type": "number",
+          "label": "Zoom",
+          "default": 1.15,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "id": "anchorX",
+          "type": "number",
+          "label": "Subject x on screen (px)",
+          "default": 540,
+          "min": 200,
+          "max": 880
+        },
+        {
+          "id": "anchorY",
+          "type": "number",
+          "label": "Subject y on screen (px)",
+          "default": 900,
+          "min": 400,
+          "max": 1300
+        },
+        {
+          "id": "smooth",
+          "type": "number",
+          "label": "Smoothing (s)",
+          "default": 0.25,
+          "min": 0,
+          "max": 1.5
+        }
+      ],
+      "whenToUse": "Reframing landscape or wide footage to vertical around a moving person, keeping a face centred for captions, product demos where the hand moves.",
+      "whenNotToUse": "Tracks with long lost stretches (check confidence first), subjects that leave the plate (the clamp stops the camera), and shots where the move itself should feel locked off.",
+      "sfx": null,
+      "preview": "previews/cam-follow.mp4",
+      "ledger": null,
+      "camera": {
+        "input": "track",
+        "overscan": 1.15
+      }
+    },
+    {
+      "id": "cam-crash-zoom",
+      "kind": "camera",
+      "name": "Crash zoom",
+      "summary": "A fast zoom into a point under blur, overshooting and settling.",
+      "source": "items/camera/cam-crash-zoom.html",
+      "fn": "catalog_cam_crash_zoom",
+      "duration": 0.45,
+      "energy": "high",
+      "moods": [
+        "energetic",
+        "playful",
+        "dramatic"
+      ],
+      "tags": [
+        "zoom",
+        "crash-zoom",
+        "reaction",
+        "reveal"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.45,
+          "min": 0.2,
+          "max": 1
+        },
+        {
+          "id": "scale",
+          "type": "number",
+          "label": "End scale",
+          "default": 1.7,
+          "min": 1.2,
+          "max": 3
+        },
+        {
+          "id": "focusX",
+          "type": "number",
+          "label": "Focus x (px)",
+          "default": 540,
+          "min": 0,
+          "max": 1080
+        },
+        {
+          "id": "focusY",
+          "type": "number",
+          "label": "Focus y (px)",
+          "default": 1250,
+          "min": 0,
+          "max": 1920
+        },
+        {
+          "id": "blur",
+          "type": "number",
+          "label": "Peak blur (px)",
+          "default": 10,
+          "min": 0,
+          "max": 30
+        }
+      ],
+      "whenToUse": "Reaction beats, meme timing, sudden realisations, zooming into a detail the viewer must not miss.",
+      "whenNotToUse": "Premium or calm registers, footage softer than the end scale allows, and more than once or twice per video.",
+      "sfx": {
+        "id": "sfx-swoosh-f5cf2b46",
+        "at": -0.1,
+        "volume": 0.85
+      },
+      "preview": "previews/cam-crash-zoom.mp4",
+      "ledger": null,
+      "camera": {
+        "input": "footage",
+        "overscan": 1.0
+      }
+    },
+    {
+      "id": "cam-dolly-zoom",
+      "kind": "camera",
+      "name": "Dolly zoom (vertigo)",
+      "summary": "The subject holds its size while the background scales the other way, warping perspective.",
+      "source": "items/camera/cam-dolly-zoom.html",
+      "fn": "catalog_cam_dolly_zoom",
+      "duration": 2.4,
+      "energy": "medium",
+      "moods": [
+        "dramatic"
+      ],
+      "tags": [
+        "vertigo",
+        "dolly-zoom",
+        "cutout",
+        "tension"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 2.4,
+          "min": 1,
+          "max": 6
+        },
+        {
+          "id": "amount",
+          "type": "number",
+          "label": "Background scale change",
+          "default": 0.35,
+          "min": 0.1,
+          "max": 0.8
+        },
+        {
+          "id": "direction",
+          "type": "enum",
+          "label": "Direction",
+          "default": "in",
+          "options": [
+            {
+              "value": "in",
+              "label": "in"
+            },
+            {
+              "value": "out",
+              "label": "out"
+            }
+          ]
+        }
+      ],
+      "whenToUse": "A realisation, dread, a dramatic turn; one per video at most.",
+      "whenNotToUse": "Without a clean cutout of the subject (#560), backgrounds without depth cues (flat walls), or comedy that does not earn the drama.",
+      "sfx": null,
+      "preview": "previews/cam-dolly-zoom.mp4",
+      "ledger": null,
+      "camera": {
+        "input": "layers",
+        "overscan": 1.0
+      }
+    },
+    {
+      "id": "cam-pan-reframe",
+      "kind": "camera",
+      "name": "Pan-and-scan reframe",
+      "summary": "Moves a 9:16 window across a wide 16:9 plate from one position to another with eased holds.",
+      "source": "items/camera/cam-pan-reframe.html",
+      "fn": "catalog_cam_pan_reframe",
+      "duration": 3.6,
+      "energy": "calm",
+      "moods": [
+        "clean",
+        "editorial"
+      ],
+      "tags": [
+        "reframe",
+        "pan-and-scan",
+        "16x9",
+        "landscape"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 3.6,
+          "min": 1.5,
+          "max": 12
+        },
+        {
+          "id": "from",
+          "type": "number",
+          "label": "Start position (0 left, 1 right)",
+          "default": 0,
+          "min": 0,
+          "max": 1
+        },
+        {
+          "id": "to",
+          "type": "number",
+          "label": "End position",
+          "default": 1,
+          "min": 0,
+          "max": 1
+        },
+        {
+          "id": "hold",
+          "type": "number",
+          "label": "Hold at each end (s)",
+          "default": 0.5,
+          "min": 0,
+          "max": 2
+        }
+      ],
+      "whenToUse": "Landscape footage, two-person shots and wide B-roll cut for vertical: pan from one speaker or detail to the other.",
+      "whenNotToUse": "When a follow-cam on a track would keep a moving subject framed better, and for very short shots (the pan never settles).",
+      "sfx": null,
+      "preview": "previews/cam-pan-reframe.mp4",
+      "ledger": null,
+      "camera": {
+        "input": "footage",
+        "overscan": 1.0
+      }
+    },
+    {
+      "id": "cam-impact-shake",
+      "kind": "camera",
+      "name": "Impact shake",
+      "summary": "A short seeded shake with exponential decay on a hit, drop or punchline.",
+      "source": "items/camera/cam-impact-shake.html",
+      "fn": "catalog_cam_impact_shake",
+      "duration": 0.5,
+      "energy": "high",
+      "moods": [
+        "energetic",
+        "dramatic"
+      ],
+      "tags": [
+        "shake",
+        "impact",
+        "hit",
+        "beat"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "duration",
+          "type": "number",
+          "label": "Duration (s)",
+          "default": 0.5,
+          "min": 0.15,
+          "max": 1.5
+        },
+        {
+          "id": "seed",
+          "type": "number",
+          "label": "Seed",
+          "default": 3,
+          "min": 0,
+          "max": 9999
+        },
+        {
+          "id": "amplitude",
+          "type": "number",
+          "label": "Amplitude (px)",
+          "default": 30,
+          "min": 5,
+          "max": 80
+        },
+        {
+          "id": "frequency",
+          "type": "number",
+          "label": "Frequency (Hz)",
+          "default": 16,
+          "min": 4,
+          "max": 30
+        },
+        {
+          "id": "roll",
+          "type": "number",
+          "label": "Roll (deg)",
+          "default": 1.2,
+          "min": 0,
+          "max": 4
+        }
+      ],
+      "whenToUse": "Bass drops, impacts, slams, a punchline landing; pair with an impact SFX on the same frame.",
+      "whenNotToUse": "Continuous use (it becomes noise), dialogue under the shake, and text that must be read during the hit.",
+      "sfx": {
+        "id": "sfx-impact-d5dba9b3",
+        "at": 0,
+        "volume": 0.85
+      },
+      "preview": "previews/cam-impact-shake.mp4",
+      "ledger": null,
+      "camera": {
+        "input": "footage",
+        "overscan": 1.07
+      }
+    },
+    {
+      "id": "cap-one-word-pop",
+      "kind": "caption",
+      "name": "One word, pop",
+      "summary": "One word at a time, white with a heavy black outline, popping in on each word.",
+      "source": "items/caption/cap-one-word-pop.html",
+      "fn": "catalog_cap_one_word_pop",
+      "duration": 0.2,
+      "energy": "high",
+      "moods": [
+        "energetic",
+        "playful"
+      ],
+      "tags": [
+        "captions",
+        "1-word"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Caption top (px)",
+          "default": 1180,
+          "min": 260,
+          "max": 1320
+        },
+        {
+          "id": "size",
+          "type": "number",
+          "label": "Font size (px)",
+          "default": 96,
+          "min": 67,
+          "max": 125
+        },
+        {
+          "id": "text",
+          "type": "color",
+          "label": "Text colour",
+          "default": "#ffffff"
+        },
+        {
+          "id": "background",
+          "type": "color",
+          "label": "Outline / band colour",
+          "default": "#000000"
+        }
+      ],
+      "whenToUse": "Fast talking heads, hype edits, hooks; the eye never has to read more than one word.",
+      "whenNotToUse": "Calm or long-form narration (one word per beat tires the eye after about 20 seconds) and dense information.",
+      "sfx": null,
+      "preview": "previews/cap-one-word-pop.mp4",
+      "ledger": null,
+      "caption": {
+        "wordsPerScreen": 1,
+        "maxLines": 1,
+        "maxCharsPerLine": 14,
+        "minOnScreenMs": 250,
+        "entry": "pop",
+        "highlight": "none",
+        "stroke": 10,
+        "shadow": true,
+        "font": "montserrat",
+        "colors": {
+          "text": "#ffffff",
+          "highlight": "#ffe14d",
+          "background": "#000000"
+        }
+      }
+    },
+    {
+      "id": "cap-one-word-color-cycle",
+      "kind": "caption",
+      "name": "One word, colour cycle",
+      "summary": "One word per beat, hard cuts, every other word in the accent colour.",
+      "source": "items/caption/cap-one-word-color-cycle.html",
+      "fn": "catalog_cap_one_word_color_cycle",
+      "duration": 0.1,
+      "energy": "high",
+      "moods": [
+        "energetic",
+        "edgy"
+      ],
+      "tags": [
+        "captions",
+        "1-word",
+        "highlight-color"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Caption top (px)",
+          "default": 1180,
+          "min": 260,
+          "max": 1320
+        },
+        {
+          "id": "size",
+          "type": "number",
+          "label": "Font size (px)",
+          "default": 100,
+          "min": 70,
+          "max": 130
+        },
+        {
+          "id": "text",
+          "type": "color",
+          "label": "Text colour",
+          "default": "#ffffff"
+        },
+        {
+          "id": "highlight",
+          "type": "color",
+          "label": "Highlight colour",
+          "default": "#ffd60a"
+        },
+        {
+          "id": "background",
+          "type": "color",
+          "label": "Outline / band colour",
+          "default": "#000000"
+        }
+      ],
+      "whenToUse": "Rhythmic voice-overs, music-driven edits, meme pacing.",
+      "whenNotToUse": "Brand voice that must look calm; mixed-colour words fight a busy, colourful plate.",
+      "sfx": null,
+      "preview": "previews/cap-one-word-color-cycle.mp4",
+      "ledger": null,
+      "caption": {
+        "wordsPerScreen": 1,
+        "maxLines": 1,
+        "maxCharsPerLine": 14,
+        "minOnScreenMs": 250,
+        "entry": "cut",
+        "highlight": "color",
+        "stroke": 10,
+        "shadow": true,
+        "font": "rubik",
+        "colors": {
+          "text": "#ffffff",
+          "highlight": "#ffd60a",
+          "background": "#000000"
+        }
+      }
+    },
+    {
+      "id": "cap-one-word-slam",
+      "kind": "caption",
+      "name": "One word, slam",
+      "summary": "Condensed caps that slam in from oversize; key words punch in red.",
+      "source": "items/caption/cap-one-word-slam.html",
+      "fn": "catalog_cap_one_word_slam",
+      "duration": 0.2,
+      "energy": "high",
+      "moods": [
+        "dramatic",
+        "energetic"
+      ],
+      "tags": [
+        "captions",
+        "1-word",
+        "highlight-scale"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Caption top (px)",
+          "default": 1180,
+          "min": 260,
+          "max": 1320
+        },
+        {
+          "id": "size",
+          "type": "number",
+          "label": "Font size (px)",
+          "default": 124,
+          "min": 87,
+          "max": 161
+        },
+        {
+          "id": "text",
+          "type": "color",
+          "label": "Text colour",
+          "default": "#ffffff"
+        },
+        {
+          "id": "highlight",
+          "type": "color",
+          "label": "Highlight colour",
+          "default": "#ff3b30"
+        },
+        {
+          "id": "background",
+          "type": "color",
+          "label": "Outline / band colour",
+          "default": "#111111"
+        }
+      ],
+      "whenToUse": "Punchlines, reveals, sports and trailer-style hooks.",
+      "whenNotToUse": "Every word of a long script; reserve the slam for emphasis beats.",
+      "sfx": null,
+      "preview": "previews/cap-one-word-slam.mp4",
+      "ledger": null,
+      "caption": {
+        "wordsPerScreen": 1,
+        "maxLines": 1,
+        "maxCharsPerLine": 10,
+        "minOnScreenMs": 250,
+        "entry": "pop",
+        "highlight": "scale",
+        "stroke": 0,
+        "shadow": true,
+        "font": "oswald",
+        "colors": {
+          "text": "#ffffff",
+          "highlight": "#ff3b30",
+          "background": "#111111"
+        }
+      }
+    },
+    {
+      "id": "cap-one-word-arcade",
+      "kind": "caption",
+      "name": "One word, arcade",
+      "summary": "8-bit pixel type with a hard pixel shadow, one word per cut.",
+      "source": "items/caption/cap-one-word-arcade.html",
+      "fn": "catalog_cap_one_word_arcade",
+      "duration": 0.1,
+      "energy": "high",
+      "moods": [
+        "retro",
+        "playful"
+      ],
+      "tags": [
+        "captions",
+        "1-word"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Caption top (px)",
+          "default": 1180,
+          "min": 260,
+          "max": 1320
+        },
+        {
+          "id": "size",
+          "type": "number",
+          "label": "Font size (px)",
+          "default": 60,
+          "min": 42,
+          "max": 78
+        },
+        {
+          "id": "text",
+          "type": "color",
+          "label": "Text colour",
+          "default": "#00e5ff"
+        },
+        {
+          "id": "background",
+          "type": "color",
+          "label": "Outline / band colour",
+          "default": "#12002b"
+        }
+      ],
+      "whenToUse": "Gaming, scores, level-up moments, retro tech.",
+      "whenNotToUse": "More than a few seconds of speech: pixel type is slow to read.",
+      "sfx": null,
+      "preview": "previews/cap-one-word-arcade.mp4",
+      "ledger": null,
+      "caption": {
+        "wordsPerScreen": 1,
+        "maxLines": 1,
+        "maxCharsPerLine": 10,
+        "minOnScreenMs": 300,
+        "entry": "cut",
+        "highlight": "none",
+        "stroke": 0,
+        "shadow": true,
+        "font": "press-start-2p",
+        "colors": {
+          "text": "#00e5ff",
+          "highlight": "#ff4fd8",
+          "background": "#12002b"
+        }
+      }
+    },
+    {
+      "id": "cap-three-word-highlight",
+      "kind": "caption",
+      "name": "Three words, active highlight",
+      "summary": "Three-word chunks pop in; the spoken word turns yellow.",
+      "source": "items/caption/cap-three-word-highlight.html",
+      "fn": "catalog_cap_three_word_highlight",
+      "duration": 0.2,
+      "energy": "high",
+      "moods": [
+        "energetic"
+      ],
+      "tags": [
+        "captions",
+        "3-word",
+        "highlight-color"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Caption top (px)",
+          "default": 1180,
+          "min": 260,
+          "max": 1320
+        },
+        {
+          "id": "size",
+          "type": "number",
+          "label": "Font size (px)",
+          "default": 76,
+          "min": 53,
+          "max": 99
+        },
+        {
+          "id": "text",
+          "type": "color",
+          "label": "Text colour",
+          "default": "#ffffff"
+        },
+        {
+          "id": "highlight",
+          "type": "color",
+          "label": "Highlight colour",
+          "default": "#ffe14d"
+        },
+        {
+          "id": "background",
+          "type": "color",
+          "label": "Outline / band colour",
+          "default": "#000000"
+        }
+      ],
+      "whenToUse": "The creator default: talking heads, explainers, podcasts clipped to shorts.",
+      "whenNotToUse": "Luxury or editorial registers where caps and yellow read as cheap.",
+      "sfx": null,
+      "preview": "previews/cap-three-word-highlight.mp4",
+      "ledger": null,
+      "caption": {
+        "wordsPerScreen": 3,
+        "maxLines": 2,
+        "maxCharsPerLine": 18,
+        "minOnScreenMs": 400,
+        "entry": "pop",
+        "highlight": "color",
+        "stroke": 9,
+        "shadow": true,
+        "font": "montserrat",
+        "colors": {
+          "text": "#ffffff",
+          "highlight": "#ffe14d",
+          "background": "#000000"
+        }
+      }
+    },
+    {
+      "id": "cap-three-word-box",
+      "kind": "caption",
+      "name": "Three words, box highlight",
+      "summary": "Sentence-case chunks slide up; a solid box sits behind the spoken word.",
+      "source": "items/caption/cap-three-word-box.html",
+      "fn": "catalog_cap_three_word_box",
+      "duration": 0.22,
+      "energy": "medium",
+      "moods": [
+        "tech",
+        "clean"
+      ],
+      "tags": [
+        "captions",
+        "3-word",
+        "highlight-box"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Caption top (px)",
+          "default": 1180,
+          "min": 260,
+          "max": 1320
+        },
+        {
+          "id": "size",
+          "type": "number",
+          "label": "Font size (px)",
+          "default": 72,
+          "min": 50,
+          "max": 94
+        },
+        {
+          "id": "text",
+          "type": "color",
+          "label": "Text colour",
+          "default": "#ffffff"
+        },
+        {
+          "id": "highlight",
+          "type": "color",
+          "label": "Highlight colour",
+          "default": "#6d28d9"
+        },
+        {
+          "id": "background",
+          "type": "color",
+          "label": "Outline / band colour",
+          "default": "#000000"
+        }
+      ],
+      "whenToUse": "SaaS, tech and education; readable on any plate thanks to the box.",
+      "whenNotToUse": "Very fast speech: the box jumping every 150 ms flickers.",
+      "sfx": null,
+      "preview": "previews/cap-three-word-box.mp4",
+      "ledger": null,
+      "caption": {
+        "wordsPerScreen": 3,
+        "maxLines": 2,
+        "maxCharsPerLine": 18,
+        "minOnScreenMs": 400,
+        "entry": "slide",
+        "highlight": "box",
+        "stroke": 0,
+        "shadow": true,
+        "font": "inter",
+        "colors": {
+          "text": "#ffffff",
+          "highlight": "#6d28d9",
+          "background": "#000000"
+        }
+      }
+    },
+    {
+      "id": "cap-three-word-underline",
+      "kind": "caption",
+      "name": "Three words, underline",
+      "summary": "Calm fade-in chunks; an accent underline draws under the spoken word.",
+      "source": "items/caption/cap-three-word-underline.html",
+      "fn": "catalog_cap_three_word_underline",
+      "duration": 0.16,
+      "energy": "medium",
+      "moods": [
+        "editorial",
+        "clean"
+      ],
+      "tags": [
+        "captions",
+        "3-word",
+        "highlight-underline"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Caption top (px)",
+          "default": 1180,
+          "min": 260,
+          "max": 1320
+        },
+        {
+          "id": "size",
+          "type": "number",
+          "label": "Font size (px)",
+          "default": 70,
+          "min": 49,
+          "max": 91
+        },
+        {
+          "id": "text",
+          "type": "color",
+          "label": "Text colour",
+          "default": "#ffffff"
+        },
+        {
+          "id": "highlight",
+          "type": "color",
+          "label": "Highlight colour",
+          "default": "#ff5a36"
+        },
+        {
+          "id": "background",
+          "type": "color",
+          "label": "Outline / band colour",
+          "default": "#000000"
+        }
+      ],
+      "whenToUse": "Editorial, interviews, voice-over essays; emphasis without shouting.",
+      "whenNotToUse": "Busy bright plates where a thin outline is not enough contrast (use the box or band).",
+      "sfx": null,
+      "preview": "previews/cap-three-word-underline.mp4",
+      "ledger": null,
+      "caption": {
+        "wordsPerScreen": 3,
+        "maxLines": 2,
+        "maxCharsPerLine": 20,
+        "minOnScreenMs": 400,
+        "entry": "fade",
+        "highlight": "underline",
+        "stroke": 6,
+        "shadow": false,
+        "font": "manrope",
+        "colors": {
+          "text": "#ffffff",
+          "highlight": "#ff5a36",
+          "background": "#000000"
+        }
+      }
+    },
+    {
+      "id": "cap-three-word-handwritten",
+      "kind": "caption",
+      "name": "Three words, handwritten note",
+      "summary": "Handwritten words on a tilted paper note; the spoken word turns burnt orange.",
+      "source": "items/caption/cap-three-word-handwritten.html",
+      "fn": "catalog_cap_three_word_handwritten",
+      "duration": 0.2,
+      "energy": "medium",
+      "moods": [
+        "warm",
+        "playful"
+      ],
+      "tags": [
+        "captions",
+        "3-word",
+        "highlight-color"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Caption top (px)",
+          "default": 1180,
+          "min": 260,
+          "max": 1320
+        },
+        {
+          "id": "size",
+          "type": "number",
+          "label": "Font size (px)",
+          "default": 92,
+          "min": 64,
+          "max": 120
+        },
+        {
+          "id": "text",
+          "type": "color",
+          "label": "Text colour",
+          "default": "#2b2118"
+        },
+        {
+          "id": "highlight",
+          "type": "color",
+          "label": "Highlight colour",
+          "default": "#c2410c"
+        },
+        {
+          "id": "background",
+          "type": "color",
+          "label": "Outline / band colour",
+          "default": "#fff4e6"
+        }
+      ],
+      "whenToUse": "UGC reviews, recipes, journaling, cosy and personal brands.",
+      "whenNotToUse": "Corporate, technical or urgent content.",
+      "sfx": null,
+      "preview": "previews/cap-three-word-handwritten.mp4",
+      "ledger": null,
+      "caption": {
+        "wordsPerScreen": 3,
+        "maxLines": 2,
+        "maxCharsPerLine": 18,
+        "minOnScreenMs": 400,
+        "entry": "pop",
+        "highlight": "color",
+        "stroke": 0,
+        "shadow": false,
+        "font": "caveat",
+        "colors": {
+          "text": "#2b2118",
+          "highlight": "#c2410c",
+          "background": "#fff4e6"
+        }
+      }
+    },
+    {
+      "id": "cap-three-word-reveal",
+      "kind": "caption",
+      "name": "Three words, word reveal",
+      "summary": "Each word rises into place as it is spoken; wide geometric type.",
+      "source": "items/caption/cap-three-word-reveal.html",
+      "fn": "catalog_cap_three_word_reveal",
+      "duration": 0.14,
+      "energy": "medium",
+      "moods": [
+        "tech",
+        "premium"
+      ],
+      "tags": [
+        "captions",
+        "3-word"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Caption top (px)",
+          "default": 1180,
+          "min": 260,
+          "max": 1320
+        },
+        {
+          "id": "size",
+          "type": "number",
+          "label": "Font size (px)",
+          "default": 64,
+          "min": 45,
+          "max": 83
+        },
+        {
+          "id": "text",
+          "type": "color",
+          "label": "Text colour",
+          "default": "#ffffff"
+        },
+        {
+          "id": "background",
+          "type": "color",
+          "label": "Outline / band colour",
+          "default": "#0f0f14"
+        }
+      ],
+      "whenToUse": "Product launches, fintech, modern brand voice.",
+      "whenNotToUse": "Long words in narrow columns: the wide face needs short words.",
+      "sfx": null,
+      "preview": "previews/cap-three-word-reveal.mp4",
+      "ledger": null,
+      "caption": {
+        "wordsPerScreen": 3,
+        "maxLines": 2,
+        "maxCharsPerLine": 16,
+        "minOnScreenMs": 450,
+        "entry": "typewriter",
+        "highlight": "none",
+        "stroke": 8,
+        "shadow": false,
+        "font": "unbounded",
+        "colors": {
+          "text": "#ffffff",
+          "highlight": "#8ea2ff",
+          "background": "#0f0f14"
+        }
+      }
+    },
+    {
+      "id": "cap-five-word-karaoke",
+      "kind": "caption",
+      "name": "Five words, karaoke fill",
+      "summary": "Phrase-length chunks; spoken words fill with the accent colour and stay filled.",
+      "source": "items/caption/cap-five-word-karaoke.html",
+      "fn": "catalog_cap_five_word_karaoke",
+      "duration": 0.16,
+      "energy": "medium",
+      "moods": [
+        "editorial",
+        "warm"
+      ],
+      "tags": [
+        "captions",
+        "5-word",
+        "highlight-color"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Caption top (px)",
+          "default": 1180,
+          "min": 260,
+          "max": 1320
+        },
+        {
+          "id": "size",
+          "type": "number",
+          "label": "Font size (px)",
+          "default": 62,
+          "min": 43,
+          "max": 81
+        },
+        {
+          "id": "text",
+          "type": "color",
+          "label": "Text colour",
+          "default": "#ffffff"
+        },
+        {
+          "id": "highlight",
+          "type": "color",
+          "label": "Highlight colour",
+          "default": "#ffe14d"
+        },
+        {
+          "id": "background",
+          "type": "color",
+          "label": "Outline / band colour",
+          "default": "#000000"
+        }
+      ],
+      "whenToUse": "Storytelling, podcasts, longer voice-overs where one-word pacing would exhaust.",
+      "whenNotToUse": "Hooks: five words at once are slower to land than one.",
+      "sfx": null,
+      "preview": "previews/cap-five-word-karaoke.mp4",
+      "ledger": null,
+      "caption": {
+        "wordsPerScreen": 5,
+        "maxLines": 2,
+        "maxCharsPerLine": 26,
+        "minOnScreenMs": 600,
+        "entry": "fade",
+        "highlight": "color",
+        "stroke": 7,
+        "shadow": true,
+        "font": "inter",
+        "colors": {
+          "text": "#ffffff",
+          "highlight": "#ffe14d",
+          "background": "#000000"
+        }
+      }
+    },
+    {
+      "id": "cap-five-word-band",
+      "kind": "caption",
+      "name": "Five words, solid band",
+      "summary": "Dark text on a white band that slides up; the spoken word turns red.",
+      "source": "items/caption/cap-five-word-band.html",
+      "fn": "catalog_cap_five_word_band",
+      "duration": 0.22,
+      "energy": "calm",
+      "moods": [
+        "clean",
+        "editorial"
+      ],
+      "tags": [
+        "captions",
+        "5-word",
+        "highlight-color"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Caption top (px)",
+          "default": 1180,
+          "min": 260,
+          "max": 1320
+        },
+        {
+          "id": "size",
+          "type": "number",
+          "label": "Font size (px)",
+          "default": 58,
+          "min": 41,
+          "max": 75
+        },
+        {
+          "id": "text",
+          "type": "color",
+          "label": "Text colour",
+          "default": "#111111"
+        },
+        {
+          "id": "highlight",
+          "type": "color",
+          "label": "Highlight colour",
+          "default": "#c1121f"
+        },
+        {
+          "id": "background",
+          "type": "color",
+          "label": "Outline / band colour",
+          "default": "#ffffff"
+        }
+      ],
+      "whenToUse": "News, documentary, accessibility-first captions on any footage.",
+      "whenNotToUse": "High-energy edits; a solid band feels static against fast cuts.",
+      "sfx": null,
+      "preview": "previews/cap-five-word-band.mp4",
+      "ledger": null,
+      "caption": {
+        "wordsPerScreen": 5,
+        "maxLines": 2,
+        "maxCharsPerLine": 28,
+        "minOnScreenMs": 600,
+        "entry": "slide",
+        "highlight": "color",
+        "stroke": 0,
+        "shadow": false,
+        "font": "golos-text",
+        "colors": {
+          "text": "#111111",
+          "highlight": "#c1121f",
+          "background": "#ffffff"
+        }
+      }
+    },
+    {
+      "id": "cap-five-word-subtle",
+      "kind": "caption",
+      "name": "Five words, subtle",
+      "summary": "Quiet sentence-case subtitles with a soft shadow; no highlight.",
+      "source": "items/caption/cap-five-word-subtle.html",
+      "fn": "catalog_cap_five_word_subtle",
+      "duration": 0.16,
+      "energy": "calm",
+      "moods": [
+        "premium",
+        "editorial"
+      ],
+      "tags": [
+        "captions",
+        "5-word"
+      ],
+      "aspect": "9:16",
+      "params": [
+        {
+          "id": "y",
+          "type": "number",
+          "label": "Caption top (px)",
+          "default": 1180,
+          "min": 260,
+          "max": 1320
+        },
+        {
+          "id": "size",
+          "type": "number",
+          "label": "Font size (px)",
+          "default": 56,
+          "min": 39,
+          "max": 73
+        },
+        {
+          "id": "text",
+          "type": "color",
+          "label": "Text colour",
+          "default": "#ffffff"
+        },
+        {
+          "id": "background",
+          "type": "color",
+          "label": "Outline / band colour",
+          "default": "#000000"
+        }
+      ],
+      "whenToUse": "Premium, cinematic and documentary work where captions should disappear.",
+      "whenNotToUse": "Bright plates without a dark area behind the text, and attention-hungry hooks.",
+      "sfx": null,
+      "preview": "previews/cap-five-word-subtle.mp4",
+      "ledger": null,
+      "caption": {
+        "wordsPerScreen": 5,
+        "maxLines": 2,
+        "maxCharsPerLine": 30,
+        "minOnScreenMs": 700,
+        "entry": "fade",
+        "highlight": "none",
+        "stroke": 0,
+        "shadow": true,
+        "font": "pt-sans",
+        "colors": {
+          "text": "#ffffff",
+          "highlight": "#ffd166",
+          "background": "#000000"
+        }
+      }
     }
   ]
 }

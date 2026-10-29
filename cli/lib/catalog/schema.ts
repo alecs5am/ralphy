@@ -8,12 +8,13 @@
 //    gitignored): the harvested, deduped, tagged, loudness-normalized SFX pack.
 //    The binaries stay out of git; item entries reference SFX by stable id.
 //
-// Kinds `layout` (#564) and `caption` (#565) are reserved so those issues add
-// items to the same manifest without a schema change.
+// Kinds `layout` (#564), `caption` (#565) and `camera` (#567) share the same
+// manifest; each carries its own typed metadata block (`slots`, `caption`,
+// `camera`) that the superRefine below requires for that kind.
 
 import { z } from "zod";
 
-export const CATALOG_KINDS = ["transition", "element", "layout", "caption"] as const;
+export const CATALOG_KINDS = ["transition", "element", "layout", "caption", "camera"] as const;
 export type CatalogKind = (typeof CATALOG_KINDS)[number];
 
 export const CATALOG_ENERGIES = ["calm", "medium", "high"] as const;
@@ -87,13 +88,61 @@ export const CatalogSfxCueSchema = z.object({
 });
 export type CatalogSfxCue = z.infer<typeof CatalogSfxCueSchema>;
 
+/** #564: one named region of a vertical layout, in 1080x1920 composition px. */
+export const LAYOUT_SLOT_ROLES = ["video", "image", "face", "screen", "broll", "text", "caption", "product", "cta"] as const;
+export type LayoutSlotRole = (typeof LAYOUT_SLOT_ROLES)[number];
+export const LayoutSlotSchema = z.object({
+  id: z.string().regex(/^[a-z][a-z0-9-]*$/),
+  role: z.enum(LAYOUT_SLOT_ROLES),
+  /** [left, top, width, height] in composition px. */
+  box: z.tuple([z.number(), z.number(), z.number().positive(), z.number().positive()]),
+  /** How media fills the slot (object-fit). */
+  fit: z.enum(["cover", "contain"]).optional(),
+  /** The slot expects an alpha cutout (`ralphy matte key|subject`, #560). */
+  keyed: z.boolean().optional(),
+  required: z.boolean(),
+  note: z.string().min(1),
+});
+export type LayoutSlot = z.infer<typeof LayoutSlotSchema>;
+
+/** #565: readability + look metadata of a caption preset; the caption gate reads it. */
+export const CAPTION_ENTRIES = ["cut", "pop", "slide", "fade", "typewriter"] as const;
+export const CAPTION_HIGHLIGHTS = ["none", "color", "box", "underline", "scale"] as const;
+const HEX = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+export const CaptionPresetSchema = z.object({
+  wordsPerScreen: z.number().int().min(1).max(6),
+  maxLines: z.number().int().min(1).max(3),
+  maxCharsPerLine: z.number().int().min(4).max(40),
+  /** A chunk shorter than this on screen is too short to read (caption gate floor). */
+  minOnScreenMs: z.number().int().min(150).max(2000),
+  entry: z.enum(CAPTION_ENTRIES),
+  highlight: z.enum(CAPTION_HIGHLIGHTS),
+  /** Outline width in px (0 = none). */
+  stroke: z.number().min(0).max(20),
+  shadow: z.boolean(),
+  /** Font id from catalog/fonts.json. */
+  font: z.string().regex(/^[a-z][a-z0-9-]*$/),
+  /** `text` / `highlight` are checked for contrast against `background` (stroke, band or box colour). */
+  colors: z.object({ text: HEX, highlight: HEX, background: HEX }),
+});
+export type CaptionPreset = z.infer<typeof CaptionPresetSchema>;
+
+/** #567: what a camera recipe moves and what it needs. */
+export const CAMERA_INPUTS = ["footage", "still", "layers", "track"] as const;
+export const CameraMetaSchema = z.object({
+  input: z.enum(CAMERA_INPUTS),
+  /** Minimum scale the target needs so the move never exposes an edge. */
+  overscan: z.number().min(1).max(3),
+});
+export type CameraMeta = z.infer<typeof CameraMetaSchema>;
+
 export const CatalogItemSchema = z.object({
   id: z.string().regex(ID_RE),
   kind: z.enum(CATALOG_KINDS),
   name: z.string().min(1),
   summary: z.string().min(1),
   /** Fragment path relative to `catalog/`. */
-  source: z.string().regex(/^items\/(transition|element|layout|caption)\/[a-z][a-z0-9-]*\.html$/),
+  source: z.string().regex(/^items\/(transition|element|layout|caption|camera)\/[a-z][a-z0-9-]*\.html$/),
   /** JS function the fragment defines: `function <fn>(tl, o)`. */
   fn: z.string().regex(/^catalog_[a-z0-9_]+$/),
   /** Seconds the effect occupies (transition: swap window; element: entrance to settle). */
@@ -112,6 +161,12 @@ export const CatalogItemSchema = z.object({
   preview: z.string().regex(/^previews\/[a-z][a-z0-9-]*\.mp4$/),
   /** #558 ledger link; null until performance data exists. */
   ledger: z.string().nullable().default(null),
+  /** Layouts only (#564): the slots a caller fills. */
+  slots: z.array(LayoutSlotSchema).optional(),
+  /** Caption presets only (#565). */
+  caption: CaptionPresetSchema.optional(),
+  /** Camera recipes only (#567). */
+  camera: CameraMetaSchema.optional(),
 });
 export type CatalogItem = z.infer<typeof CatalogItemSchema>;
 
@@ -137,6 +192,22 @@ export const CatalogManifestSchema = z
       }
       if (item.cutAt !== undefined && item.cutAt > item.duration) {
         ctx.addIssue({ code: "custom", message: `${item.id}: cutAt exceeds duration` });
+      }
+      if (item.kind === "layout" && (!item.slots || item.slots.length === 0)) {
+        ctx.addIssue({ code: "custom", message: `${item.id}: layouts declare slots` });
+      }
+      if (item.kind === "caption" && !item.caption) {
+        ctx.addIssue({ code: "custom", message: `${item.id}: caption presets declare caption metadata` });
+      }
+      if (item.kind === "camera" && !item.camera) {
+        ctx.addIssue({ code: "custom", message: `${item.id}: camera recipes declare camera metadata` });
+      }
+      if (item.slots) {
+        const slotIds = new Set<string>();
+        for (const s of item.slots) {
+          if (slotIds.has(s.id)) ctx.addIssue({ code: "custom", message: `${item.id}: duplicate slot ${s.id}` });
+          slotIds.add(s.id);
+        }
       }
       const ids = new Set<string>();
       for (const p of item.params) {

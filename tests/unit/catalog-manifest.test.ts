@@ -41,11 +41,14 @@ function baseItem(over: Partial<CatalogItem> = {}): Record<string, unknown> {
 }
 
 describe("catalog manifest (#563)", () => {
-  test("parses and meets the checkpoint caps: 20 transitions, 15 elements, all 9:16", () => {
+  test("parses and meets the checkpoint caps: 20 transitions, 15 elements, 8 layouts (#564), 12 caption presets (#565), 12 camera recipes (#567), all 9:16", () => {
     const transitions = manifest.items.filter((i) => i.kind === "transition");
     const elements = manifest.items.filter((i) => i.kind === "element");
     expect(transitions.length).toBe(20);
     expect(elements.length).toBe(15);
+    expect(manifest.items.filter((i) => i.kind === "layout").length).toBe(8);
+    expect(manifest.items.filter((i) => i.kind === "caption").length).toBe(12);
+    expect(manifest.items.filter((i) => i.kind === "camera").length).toBe(12);
     expect(manifest.items.every((i) => i.aspect === "9:16")).toBe(true);
   });
 
@@ -59,12 +62,12 @@ describe("catalog manifest (#563)", () => {
     }
   });
 
-  test("every item carries usage guidance, at least one mood, and an SFX cue", () => {
+  test("every item carries usage guidance and at least one mood; transitions and elements carry an SFX cue", () => {
     for (const item of manifest.items) {
       expect(item.whenToUse.length).toBeGreaterThan(10);
       expect(item.whenNotToUse.length).toBeGreaterThan(10);
       expect(item.moods.length).toBeGreaterThan(0);
-      expect(item.sfx).not.toBeNull();
+      if (item.kind === "transition" || item.kind === "element") expect(item.sfx).not.toBeNull();
     }
   });
 
@@ -73,6 +76,14 @@ describe("catalog manifest (#563)", () => {
       const d = item.params.find((p) => p.id === "duration");
       if (d) expect(d.default).toBe(item.duration);
     }
+  });
+
+  test("kind metadata is required: layouts need slots, captions need caption, cameras need camera", () => {
+    const layout = baseItem({ kind: "layout", source: "items/layout/demo-item.html", cutAt: undefined, sfx: null });
+    expect(CatalogManifestSchema.safeParse({ version: 1, updated: "2026-10-30", items: [layout] }).success).toBe(false);
+    const camera = baseItem({ kind: "camera", source: "items/camera/demo-item.html", cutAt: undefined, sfx: null });
+    expect(CatalogManifestSchema.safeParse({ version: 1, updated: "2026-10-30", items: [camera] }).success).toBe(false);
+    expect(CatalogManifestSchema.safeParse({ version: 1, updated: "2026-10-30", items: [{ ...camera, camera: { input: "footage", overscan: 1 } }] }).success).toBe(true);
   });
 
   test("rejects duplicate ids, a transition without cutAt, a malformed sfx id, and a bad enum default", () => {
@@ -98,7 +109,7 @@ describe("catalog manifest (#563)", () => {
     expect(calm.every((i) => i.energy === "calm")).toBe(true);
     const glitchSfx = filterCatalogItems(manifest.items, { sfx: "glitch" });
     expect(glitchSfx.every((i) => i.sfx!.id.startsWith("sfx-glitch-"))).toBe(true);
-    expect(filterCatalogItems(manifest.items, { kind: "layout" })).toEqual([]);
+    expect(filterCatalogItems(manifest.items, { kind: "layout" }).length).toBe(8);
   });
 });
 
@@ -112,7 +123,8 @@ describe("preview harness (#563)", () => {
       expect(html).toContain('window.__timelines["main"] = tl');
       expect(html).not.toContain("Math.random");
       expect(html).not.toContain("repeat: -1");
-      expect(html).toContain('id="cat-sfx"');
+      if (item.sfx) expect(html).toContain('id="cat-sfx"');
+      else expect(html).not.toContain("<audio");
       expect(lintHyperframesHtml(html).ok).toBe(true);
       const vars = JSON.parse(html.match(/data-composition-variables='([^']*)'/)![1]!.replace(/&#39;/g, "'").replace(/&amp;/g, "&"));
       expect(vars.map((v: { id: string }) => v.id)).toEqual(item.params.map((p) => p.id));

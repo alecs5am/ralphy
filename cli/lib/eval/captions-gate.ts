@@ -77,6 +77,29 @@ const DRIFT_WARN_MS = 250;
 const DRIFT_FAIL_MS = 600;
 
 /**
+ * Readability limits the deterministic checks use. Defaults are the constants
+ * above; a caption preset from the catalog (#565) tightens them to its own
+ * words-per-screen and minimum on-screen time (`captionLimitsFromPreset` in
+ * cli/lib/catalog/captions.ts), so a 1-word preset flags a 3-word window.
+ */
+export interface CaptionReadabilityLimits {
+  tooShortWarnMs: number;
+  tooShortFailMs: number;
+  overcrowdedWarnWords: number;
+  overcrowdedFailWords: number;
+  /** Where the limits came from: "default" or "preset:<id>". */
+  source: string;
+}
+
+export const DEFAULT_CAPTION_LIMITS: CaptionReadabilityLimits = {
+  tooShortWarnMs: TOO_SHORT_WARN_MS,
+  tooShortFailMs: TOO_SHORT_FAIL_MS,
+  overcrowdedWarnWords: OVERCROWDED_WARN_WORDS,
+  overcrowdedFailWords: OVERCROWDED_FAIL_WORDS,
+  source: "default",
+};
+
+/**
  * A track is WORD-LEVEL (#569) when it has at least this many entries and at
  * least `WORD_LEVEL_SHARE` of them are single words. That is the scribe timing
  * truth (AGENTS.md #16), not the display windows: each entry lasts as long as the
@@ -173,6 +196,8 @@ export interface CaptionsGateReport {
   frames: FramePlacement[];
   /** All findings, flattened (the fixer/readiness path consumes these). */
   findings: Finding[];
+  /** Readability limits applied (#565); absent on older reports. */
+  limits?: CaptionReadabilityLimits;
 }
 
 /** First rendered video under render/ or artifacts/videos, or null. Never throws. */
@@ -309,8 +334,11 @@ export async function checkCaptions(input: {
   extractFrames?: typeof extractKeyframes;
   /** Restore the pre-audit (#569) severities. Default: RALPHY_EVAL_STRICT_RUBRIC. */
   strictRubric?: boolean;
+  /** Readability limits (#565): a caption preset's own words-per-screen and on-screen floor. */
+  limits?: CaptionReadabilityLimits;
 }): Promise<CaptionsGateReport> {
   const { projectId, mode } = input;
+  const limits = input.limits ?? DEFAULT_CAPTION_LIMITS;
   const analyze = input.analyze ?? defaultAnalyzer;
   const extractFrames = input.extractFrames ?? extractKeyframes;
 
@@ -333,6 +361,7 @@ export async function checkCaptions(input: {
         "no caption track found (captions.json / artifacts/captions/) — caption sync gate not applicable (generate captions to run it).",
       captionSource: resolved?.source ?? null,
       captionCount: 0,
+      limits,
       wordTimingsProvided: !!input.wordTimings,
       video: video ?? null,
       frames: [],
@@ -358,23 +387,23 @@ export async function checkCaptions(input: {
     const durMs = c.endMs - c.startMs;
     if (durMs <= 0) return; // a zero/negative window is a generator quirk, not a readability call
     const quote = ` "${c.text.replace(/\s+/g, " ").trim().slice(0, 40)}"`;
-    if (durMs < TOO_SHORT_FAIL_MS) {
+    if (durMs < limits.tooShortFailMs) {
       add({
         category: "captions.too-short",
         severity: "fail",
         sceneIndex: null,
         timestampSec: c.startMs / 1000,
         message: `Caption #${i + 1}${quote} is on screen only ${durMs}ms — too brief to read.`,
-        fixHint: `Hold each caption ≥ ${TOO_SHORT_WARN_MS}ms; merge it with the neighbouring window or slow the cut.`,
+        fixHint: `Hold each caption ≥ ${limits.tooShortWarnMs}ms; merge it with the neighbouring window or slow the cut.`,
         fixCommand: null,
       });
-    } else if (durMs < TOO_SHORT_WARN_MS) {
+    } else if (durMs < limits.tooShortWarnMs) {
       add({
         category: "captions.too-short",
         severity: "warn",
         sceneIndex: null,
         timestampSec: c.startMs / 1000,
-        message: `Caption #${i + 1}${quote} is on screen ${durMs}ms — under the ${TOO_SHORT_WARN_MS}ms readable floor.`,
+        message: `Caption #${i + 1}${quote} is on screen ${durMs}ms — under the ${limits.tooShortWarnMs}ms readable floor.`,
         fixHint: "Lengthen the window or merge with the adjacent caption so the eye can land on it.",
         fixCommand: null,
       });
@@ -385,23 +414,23 @@ export async function checkCaptions(input: {
   captions.forEach((c, i) => {
     const words = countWords(c.text);
     const quote = ` "${c.text.replace(/\s+/g, " ").trim().slice(0, 40)}"`;
-    if (words > OVERCROWDED_FAIL_WORDS) {
+    if (words > limits.overcrowdedFailWords) {
       add({
         category: "captions.overcrowded",
         severity: "fail",
         sceneIndex: null,
         timestampSec: c.startMs / 1000,
         message: `Caption #${i + 1}${quote} packs ${words} words into one window — a wall of text.`,
-        fixHint: `Split into chunks of ≤ ${OVERCROWDED_WARN_WORDS} words; short-form captions read best at 1-3 words punching every 1-2s.`,
+        fixHint: `Split into chunks of ≤ ${limits.overcrowdedWarnWords} words; short-form captions read best at 1-3 words punching every 1-2s.`,
         fixCommand: null,
       });
-    } else if (words > OVERCROWDED_WARN_WORDS) {
+    } else if (words > limits.overcrowdedWarnWords) {
       add({
         category: "captions.overcrowded",
         severity: "warn",
         sceneIndex: null,
         timestampSec: c.startMs / 1000,
-        message: `Caption #${i + 1}${quote} carries ${words} words — over the ${OVERCROWDED_WARN_WORDS}-word readable chunk.`,
+        message: `Caption #${i + 1}${quote} carries ${words} words — over the ${limits.overcrowdedWarnWords}-word readable chunk.`,
         fixHint: "Break the line into shorter caption windows so each chunk is glanceable.",
         fixCommand: null,
       });
@@ -536,6 +565,7 @@ export async function checkCaptions(input: {
     video: video ?? null,
     frames: framePlacements,
     findings,
+    limits,
   };
 }
 

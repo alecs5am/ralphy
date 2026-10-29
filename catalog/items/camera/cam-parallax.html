@@ -1,0 +1,20 @@
+<!-- catalog item: cam-parallax (camera). Contract: function catalog_cam_parallax(tl, o)
+     2.5D parallax on cut-out layers: background, midground and the foreground subject (an alpha cutout from `ralphy matte subject`, #560) slide at different speeds. Pass o.layers = { bg, mid, fg } selectors and o.subject. Params: duration, distance, direction, depth. -->
+<style data-catalog-css>
+</style>
+<template data-catalog-markup>
+</template>
+<script data-catalog-js>
+  function catalog_cam_parallax(tl, o) {
+    var T = o.at, D = o.duration, s = (o.direction === "right" ? 1 : -1) * o.distance;
+    var L = o.layers || {};
+    // Depth multipliers: far layers move least; the subject and foreground move most.
+    var plan = [[L.bg, 0.25], [L.mid, 0.6], [o.subject, 1.0], [L.fg, 1.0 + o.depth]];
+    for (var i = 0; i < plan.length; i++) {
+      if (!plan[i][0]) continue;
+      var k = plan[i][1];
+      tl.fromTo(plan[i][0], { x: -s * k / 2 }, { x: s * k / 2, duration: D, ease: "sine.inOut", immediateRender: false }, T);
+    }
+    if (L.fg) tl.fromTo(L.fg, { scale: 1 }, { scale: 1 + o.depth * 0.08, duration: D, ease: "sine.inOut", immediateRender: false }, T);
+  }
+</script>

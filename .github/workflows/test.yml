@@ -97,6 +97,11 @@ jobs:
       - name: Lint no-Cyrillic (#465)
         run: bun run lint:no-cyrillic
 
+      # Every font a catalog fragment names must carry a recorded, allowed
+      # license in catalog/fonts.json (#565).
+      - name: Lint font licenses (#565)
+        run: bun run lint:fonts
+
       - name: Check CLI surface doc is current (01.10.01)
         run: bun run cli:surface:check
 

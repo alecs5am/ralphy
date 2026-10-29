@@ -1,0 +1,41 @@
+<!-- catalog item: cam-follow (camera). Contract: function catalog_cam_follow(tl, o)
+     Follow-cam: keeps a tracked subject at a fixed frame position using a point or face track from `ralphy track point|face` (#559). o.track is the ralphy.track/v1 document, o.trackStart the composition second where track t=0, o.mapping optional { box, fit } (source px -> composition px, like RalphyTrack), o.bounds optional [x0, y0, x1, y1] plate extents so no edge shows. Smoothing is a centred moving average, so the camera lags like an operator. Params: zoom, anchorX, anchorY, smooth. -->
+<style data-catalog-css>
+</style>
+<template data-catalog-markup>
+</template>
+<script data-catalog-js>
+  function catalog_cam_follow(tl, o) {
+    var tr = o.track, keys = [];
+    for (var i = 0; i < tr.keyframes.length; i++) if (!tr.keyframes[i].lost && tr.keyframes[i].confidence >= 0.3) keys.push(tr.keyframes[i]);
+    if (keys.length === 0) return;
+    // Source px -> composition px (cover / contain / fill), identity without a mapping.
+    var sx = 1, sy = 1, ox = 0, oy = 0, m = o.mapping;
+    if (m && m.box) {
+      sx = m.box[2] / tr.source.width; sy = m.box[3] / tr.source.height;
+      if (m.fit !== "fill") { var s = m.fit === "contain" ? Math.min(sx, sy) : Math.max(sx, sy); sx = s; sy = s; }
+      ox = m.box[0] + (m.box[2] - tr.source.width * sx) / 2; oy = m.box[1] + (m.box[3] - tr.source.height * sy) / 2;
+    }
+    // Centred moving average over +/- smooth seconds: precomputed once, so every frame is a lookup.
+    var pts = keys.map(function (k) {
+      var n = 0, ax = 0, ay = 0;
+      for (var j = 0; j < keys.length; j++) if (Math.abs(keys[j].t - k.t) <= o.smooth) { ax += keys[j].x; ay += keys[j].y; n++; }
+      return { t: k.t, x: (ax / n) * sx + ox, y: (ay / n) * sy + oy };
+    });
+    var z = o.zoom, B = o.bounds;
+    function clamp(v, lo, hi) { return lo > hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, v)); }
+    // Camera offset per keyframe, then one linear fromTo per segment: plain GSAP tweens, so any
+    // seek order (and a fresh page that seeks straight to a frame) lands on the same state.
+    var cam = pts.map(function (p) {
+      var x = o.anchorX - z * p.x, y = o.anchorY - z * p.y;
+      if (B) { x = clamp(x, 1080 - z * B[2], -z * B[0]); y = clamp(y, 1920 - z * B[3], -z * B[1]); }
+      return { t: p.t, x: x, y: y };
+    });
+    tl.set(o.target, { transformOrigin: "0px 0px", scale: z, x: cam[0].x, y: cam[0].y }, Math.min(o.at, o.trackStart + cam[0].t));
+    for (var k = 0; k + 1 < cam.length; k++) {
+      var a = cam[k], b = cam[k + 1];
+      if (b.t <= a.t) continue;
+      tl.fromTo(o.target, { x: a.x, y: a.y }, { x: b.x, y: b.y, duration: b.t - a.t, ease: "none", immediateRender: false }, o.trackStart + a.t);
+    }
+  }
+</script>

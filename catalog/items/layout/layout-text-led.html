@@ -1,0 +1,44 @@
+<!-- catalog item: layout-text-led (layout). Contract: function catalog_layout_text_led(tl, o)
+     Type carries the video: a big headline block, a supporting line and a CTA chip on a flat or faded-footage background. Params: headline, support, cta, background, ink, accent. -->
+<style data-catalog-css>
+  .ltl-bg { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; }
+  .ltl-tex { position: absolute; inset: -80px; opacity: 0.18; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.5) 0px, rgba(0,0,0,0.5) 2px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 8px); }
+  .ltl-headline { position: absolute; left: 80px; top: 300px; width: 880px; font-family: "Anton", "Impact", sans-serif; font-size: 168px; line-height: 0.95; text-transform: uppercase; }
+  .ltl-line { display: block; overflow: hidden; }
+  .ltl-line span { display: inline-block; }
+  .ltl-support { position: absolute; left: 80px; top: 1010px; width: 820px; font-family: "Inter", sans-serif; font-weight: 500; font-size: 48px; line-height: 1.28; }
+  .ltl-cta { position: absolute; left: 80px; top: 1270px; padding: 22px 38px; border-radius: 999px; font-family: "Inter", sans-serif; font-weight: 800; font-size: 44px; color: #0b0b0b; }
+</style>
+<template data-catalog-markup>
+  <div class="ltl-bg" id="ltl-bg" data-slot="background"><div class="ltl-tex" id="ltl-tex"></div></div>
+  <div class="ltl-headline" id="ltl-headline" data-slot="headline"></div>
+  <div class="ltl-support" id="ltl-support" data-slot="support"></div>
+  <div class="ltl-cta" id="ltl-cta" data-slot="cta" data-safe-zone="cta"></div>
+</template>
+<script data-catalog-js>
+  function catalog_layout_text_led(tl, o) {
+    var T = o.at;
+    document.getElementById("ltl-bg").style.backgroundColor = o.background;
+    var head = document.getElementById("ltl-headline");
+    head.style.color = o.ink;
+    var words = String(o.headline).split("|");
+    for (var i = 0; i < words.length; i++) {
+      var line = document.createElement("span");
+      line.className = "ltl-line";
+      var inner = document.createElement("span");
+      inner.textContent = words[i];
+      line.appendChild(inner);
+      head.appendChild(line);
+      tl.from(inner, { yPercent: 105, duration: 0.55, ease: "power4.out" }, T + i * 0.12);
+    }
+    var sup = document.getElementById("ltl-support");
+    sup.textContent = o.support;
+    sup.style.color = o.ink;
+    var cta = document.getElementById("ltl-cta");
+    cta.textContent = o.cta;
+    cta.style.backgroundColor = o.accent;
+    tl.from("#ltl-support", { y: 30, opacity: 0, duration: 0.45, ease: "power3.out" }, T + 0.5);
+    tl.from("#ltl-cta", { scale: 0.4, opacity: 0, duration: 0.4, ease: "back.out(2.2)" }, T + 0.8);
+    tl.fromTo("#ltl-tex", { y: 0 }, { y: -64, duration: 3.6, ease: "none" }, 0);
+  }
+</script>

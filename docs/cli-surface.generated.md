@@ -575,26 +575,35 @@ Editor-stage observability — preflight clip checks, trim-analysis, composition
 QA.
 
 Options:
-  -h, --help                          display help for command
+  -h, --help                           display help for command
 
 Commands:
-  preflight [options] <projectId>     ffprobe every clip + music in
-                                      <project>/artifacts/, surface durations /
-                                      fps / codec / audio / aspect, run a
-                                      music-gap check, and verify every scenario
-                                      scene has a corresponding clip on disk.
-                                      Exit 1 on red. Run BEFORE `ralphy render`.
-  trim-analyze [options] <projectId>  Run gemini-3.1-pro-preview vision over
-                                      every clip in artifacts/videos/, write
-                                      per-clip JSON to
-                                      artifacts/analysis/<clip>.json, and
-                                      aggregate to
-                                      artifacts/analysis/summary.json.
-                                      Idempotent: clips with mtime <= prior
-                                      summary row are skipped. Parallelism is
-                                      capped (default 3) to respect the
-                                      gemini-3.1-pro-preview concurrency floor.
-  help [command]                      display help for command
+  preflight [options] <projectId>      ffprobe every clip + music in
+                                       <project>/artifacts/, surface durations /
+                                       fps / codec / audio / aspect, run a
+                                       music-gap check, and verify every
+                                       scenario scene has a corresponding clip
+                                       on disk. Exit 1 on red. Run BEFORE
+                                       `ralphy render`.
+  trim-analyze [options] <projectId>   Run gemini-3.1-pro-preview vision over
+                                       every clip in artifacts/videos/, write
+                                       per-clip JSON to
+                                       artifacts/analysis/<clip>.json, and
+                                       aggregate to
+                                       artifacts/analysis/summary.json.
+                                       Idempotent: clips with mtime <= prior
+                                       summary row are skipped. Parallelism is
+                                       capped (default 3) to respect the
+                                       gemini-3.1-pro-preview concurrency floor.
+  lint-safe-zones [options] <project>  Flag text, captions, CTAs, faces and
+                                       products inside TikTok / Reels / Shorts
+                                       UI zones. Loads <project>/index.html in
+                                       headless Chromium, seeks the timeline to
+                                       sample times, and checks every visible
+                                       text element plus anything tagged
+                                       data-safe-zone. Exit 1 on errors. Local,
+                                       zero provider calls.
+  help [command]                       display help for command
 ```
 
 ### `ralphy compose`
@@ -1308,6 +1317,8 @@ Commands:
   build-previews [options]  Assemble each item into a standalone 1080x1920
                             HyperFrames composition and render its preview mp4
                             (local, free)
+  fonts                     Free font library (#565): license manifest, glyph
+                            coverage tags, font pairs by register
   page                      Write the static catalog page (filters by kind /
                             mood / energy, playable local previews)
   help [command]            display help for command
@@ -1320,6 +1331,12 @@ Examples:
   ralphy catalog sfx list --tag whoosh
   ralphy catalog build-previews --id zoom-punch whip-pan
   ralphy catalog page
+  ralphy catalog list --kind layout
+  ralphy catalog fonts list --script cyrillic
+  ralphy catalog fonts pairs
+  ralphy catalog fonts sync --write
+  ralphy catalog fonts lint
+  ralphy catalog fonts preview --pair bold-creator
 ```
 
 ### `ralphy benchmark`

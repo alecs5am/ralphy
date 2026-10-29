@@ -11,13 +11,15 @@ Any text or CTA element must lie entirely inside `[60..960, 210..1480]`.
 
 ## Per-platform variants
 
-| Platform | Top safe | Bottom safe | Notes |
-|---|---|---|---|
-| TikTok | 210 | 440 | Most aggressive bottom UI |
-| Reels (Instagram) | 200 | 360 | Slightly more lenient |
-| Shorts (YouTube) | 180 | 320 | Most liberal |
+The per-platform zones are data in `cli/lib/editor/safe-zones.ts` (same numbers as [`docs/green-zone.md`](../../../../docs/green-zone.md)). Check a composition against them with `ralphy editor lint-safe-zones <project>` (#564); layout guidance is in [`vertical-layouts.md`](./vertical-layouts.md).
 
-**Default — TikTok** (unless specified otherwise). What passes on TikTok will pass everywhere.
+| Platform | Safe x | Safe y | Bottom UI height | Notes |
+|---|---|---|---|---|
+| TikTok | 60..960 | 220..1500 | 420 | Tallest top bar |
+| Reels (Instagram) | 60..960 | 200..1450 | 470 | Tallest bottom block: the binding limit for captions |
+| Shorts (YouTube) | 80..980 | 180..1520 | 400 | Rail sits further right |
+
+**Default: the intersection** (x 80..960, y 220..1450) when a cut ships to more than one platform.
 
 ## Text position presets
 

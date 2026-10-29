@@ -6,6 +6,10 @@
 
 For an aligned-to-VO cut as a whole (scene cuts gated by speech, not just caption overlays), use the stitched-VO scribe pattern in [`vo-sync.md`](./vo-sync.md) first — it produces one `transcript.json` that drives both the cut and the captions.
 
+## Style
+
+Pick a caption preset and font from the catalog before styling by hand: [`caption-presets.md`](./caption-presets.md) (#565: 12 presets fed by these word timings, licensed fonts with Latin and Cyrillic coverage, contrast-checked colours).
+
 ## Generation
 
 Tool: `ralphy generate captions` (under the hood `cli/lib/transcribe.ts` → OpenRouter `openai/whisper-1`).

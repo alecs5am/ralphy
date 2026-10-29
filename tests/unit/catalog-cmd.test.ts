@@ -44,10 +44,12 @@ describe("ralphy catalog list (#563)", () => {
     expect(rows.map((x) => x.id)).toContain("zoom-punch");
   });
 
-  test("no filters lists all 35 checkpoint items", () => {
+  test("no filters lists every checkpoint item: 35 (#563) + 8 layouts (#564) + 12 captions (#565) + 12 camera recipes (#567)", () => {
     const r = run(["--json", "catalog", "list"]);
     expect(r.status).toBe(0);
-    expect(JSON.parse(r.stdout).length).toBe(35);
+    const rows = JSON.parse(r.stdout) as Array<{ kind: string }>;
+    expect(rows.length).toBe(67);
+    for (const [kind, n] of [["layout", 8], ["caption", 12], ["camera", 12]] as const) expect(rows.filter((x) => x.kind === kind).length).toBe(n);
   });
 
   test("--energy calm --kind element narrows with AND semantics", () => {

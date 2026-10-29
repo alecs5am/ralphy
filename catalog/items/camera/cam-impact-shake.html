@@ -1,0 +1,33 @@
+<!-- catalog item: cam-impact-shake (camera). Contract: function catalog_cam_impact_shake(tl, o)
+     A short, decaying shake on a hit (drop, slam, punchline): seeded noise at a high frequency under an exponential decay. One proxy tween; the offset is a pure function of timeline time and zero outside the window, so it seeks deterministically. Params: duration, seed, amplitude, frequency, roll. -->
+<style data-catalog-css>
+</style>
+<template data-catalog-markup>
+</template>
+<script data-catalog-js>
+  function catalog_cam_impact_shake(tl, o) {
+    var seed = Math.floor(o.seed), D = o.duration;
+    function hash(n) {
+      var x = (n * 374761393 + seed * 668265263) | 0;
+      x = Math.imul(x ^ (x >>> 13), 1274126177);
+      x = x ^ (x >>> 16);
+      return ((x >>> 0) / 4294967295) * 2 - 1;
+    }
+    function noise(ch, t) {
+      var i = Math.floor(t), f = t - i, u = f * f * (3 - 2 * f);
+      var a = hash(i * 7 + ch * 1013), b = hash((i + 1) * 7 + ch * 1013);
+      return a + (b - a) * u;
+    }
+    var proxy = { t: 0 };
+    tl.set(o.target, { scale: 1 + (o.amplitude * 2.5) / 1080 }, o.at);
+    tl.fromTo(proxy, { t: 0 }, {
+      t: D, duration: D, ease: "none", immediateRender: false,
+      onUpdate: function () {
+        // Zero at both ends: a seek to before the hit (progress 0) must leave the frame untouched.
+        var t = proxy.t, env = t <= 0 || t >= D ? 0 : Math.exp((-5 * t) / D);
+        var f = t * o.frequency;
+        gsap.set(o.target, { x: o.amplitude * env * noise(1, f), y: o.amplitude * env * noise(2, f), rotation: o.roll * env * noise(3, f) });
+      },
+    }, o.at);
+  }
+</script>

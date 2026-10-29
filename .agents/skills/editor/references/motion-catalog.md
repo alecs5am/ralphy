@@ -4,7 +4,7 @@
 
 ## What it is
 
-- **Definitions (repo-tracked):** `catalog/manifest.json` plus one HyperFrames fragment per item under `catalog/items/<kind>/<id>.html`. Kinds today: `transition` (20) and `element` (15). `layout` (#564) and `caption` (#565) are reserved.
+- **Definitions (repo-tracked):** `catalog/manifest.json` plus one HyperFrames fragment per item under `catalog/items/<kind>/<id>.html`. Kinds today: `transition` (20), `element` (15), `layout` (8, #564: see [`vertical-layouts.md`](./vertical-layouts.md)), `caption` (12, #565: see [`caption-presets.md`](./caption-presets.md)) and `camera` (12, #567: see [`virtual-camera.md`](./virtual-camera.md)).
 - **Binaries (gitignored, `.ralphy/catalog/`):** the shared SFX pack (`sfx/<tag>/<id>.mp3` + `sfx/manifest.json`), rendered 9:16 previews (`previews/<id>.mp4`), the assembled standalone compositions (`build/<id>/index.html`), and the static page (`index.html`).
 
 ## Query it
@@ -42,5 +42,5 @@ Every fragment has three parts: `<style data-catalog-css>`, `<template data-cata
 ## Maintain it
 
 - Two GSAP traps the checkpoint hit (both render wrong without a lint error): a `fromTo` whose from-vars carry `opacity: 1` on the incoming scene renders that state at t=0 and hides the outgoing scene for the whole lead-in, so reveal with `tl.set(o.to, { opacity: 1 }, t)` and pass `immediateRender: false`; and a `filter` tween that starts from `none` interpolates every function from 0 (`brightness(0)` is a black frame), so always give it an explicit neutral start such as `"blur(0px) brightness(1)"`.
-- New item: add the fragment, add the manifest entry (schema in `cli/lib/catalog/schema.ts`), run `ralphy catalog build-previews --id <id>`, then `ralphy catalog page`. `tests/unit/catalog-manifest.test.ts` checks the contract.
+- New item: add the fragment, add the manifest entry (schema in `cli/lib/catalog/schema.ts`), run `ralphy catalog build-previews --id <id>`, then `ralphy catalog page`. `tests/unit/catalog-manifest.test.ts` checks the contract. Fonts a fragment names must be in `catalog/fonts.json` (`bun run lint:fonts`); previews declare the vendored files with `@font-face` (#565).
 - New SFX from a finished project: `ralphy catalog sfx harvest` (copies only, sources untouched; dedupes by sha256 and an envelope fingerprint; normalizes with the `loudnorm` recipe).

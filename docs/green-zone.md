@@ -40,7 +40,7 @@ Use the universal box if a clip is published on multiple platforms. If targeting
 | Instagram Reels | 60 | 960 | 200 | 1450 | Caption block is wider |
 | YouTube Shorts | 80 | 980 | 180 | 1520 | Minimal UI plates |
 
-We only implement Universal (first generation). Per-platform comes if we add platform-targeted exports.
+`scoreScenario()` gates on the Universal box. The per-platform zones are data in `cli/lib/editor/safe-zones.ts` (same numbers as this table) and `ralphy editor lint-safe-zones <project>` checks a rendered composition against TikTok, Reels and Shorts in headless Chromium (#564). Layout and placement guidance: [`.agents/skills/editor/references/vertical-layouts.md`](../.agents/skills/editor/references/vertical-layouts.md).
 
 ## Text position presets (for typical roles)
 

@@ -5,6 +5,7 @@
 // single entry-point so the agent skill `/evaluator` doesn't have
 // to reach into TS internals.
 
+import { captionPresetLimitsById } from "../lib/catalog/captions.js";
 import { Command } from "commander";
 import path from "node:path";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -377,15 +378,19 @@ export function evalCmd() {
     .option("--mode <mode>", "Override the content mode (default: read from the project's production-plan.json)")
     .option("--video <path>", "Override the auto-detected video (default: render/final.mp4 then artifacts/videos)")
     .option("--no-placement", "Skip the vision placement/occlusion pass (run the deterministic timing/duration/crowding checks only)")
+    .option("--caption-preset <id>", "Judge words-per-window and on-screen time against a catalog caption preset (#565), e.g. cap-three-word-highlight")
     .option("--pretty", "Render a table instead of JSON")
     .action(async (project: string, opts) => {
       try {
         const mode = (opts.mode as string | undefined) ?? readProjectMode(project);
+        let limits: Awaited<ReturnType<typeof captionPresetLimitsById>> | undefined;
+        if (opts.captionPreset) limits = await captionPresetLimitsById(String(opts.captionPreset));
         const report = await checkCaptions({
           projectId: project,
           mode,
           videoPath: opts.video as string | undefined,
           noPlacement: opts.placement === false,
+          limits,
         });
 
         // Append-only persistence: archive any existing report to .vN first.
@@ -403,6 +408,7 @@ export function evalCmd() {
           reason: report.reason,
           captionCount: report.captionCount,
           wordTimingsProvided: report.wordTimingsProvided,
+          limits: report.limits?.source ?? "default",
           findings: report.findings.length,
           jsonPath: dest,
         });

@@ -1,0 +1,21 @@
+<!-- catalog item: cam-punch-in (camera). Contract: function catalog_cam_punch_in(tl, o)
+     Instant zoom cuts on beats or emphasised words (pass word start times from captions.json, relative to o.at). Hold mode alternates in / out like a two-camera cut; pulse mode punches in and eases back. Params: beats, scale, mode, release. -->
+<style data-catalog-css>
+</style>
+<template data-catalog-markup>
+</template>
+<script data-catalog-js>
+  function catalog_cam_punch_in(tl, o) {
+    var T = o.at;
+    var beats = String(o.beats).split(",").map(function (v) { return parseFloat(v); }).filter(function (v) { return isFinite(v) && v >= 0; });
+    for (var i = 0; i < beats.length; i++) {
+      var t = T + beats[i];
+      if (o.mode === "pulse") {
+        tl.fromTo(o.target, { scale: o.scale }, { scale: 1, duration: o.release, ease: "power3.out", immediateRender: false }, t);
+      } else {
+        // Hard cut: no tween, the frame is simply tighter from this frame on (odd beats return to wide).
+        tl.set(o.target, { scale: i % 2 === 0 ? o.scale : 1 }, t);
+      }
+    }
+  }
+</script>

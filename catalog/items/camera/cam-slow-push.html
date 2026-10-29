@@ -1,0 +1,11 @@
+<!-- catalog item: cam-slow-push (camera). Contract: function catalog_cam_slow_push(tl, o)
+     A slow dolly-in on a held shot, with optional drift; keeps a static talking head or product shot alive. Params: duration, scale, driftX, driftY. -->
+<style data-catalog-css>
+</style>
+<template data-catalog-markup>
+</template>
+<script data-catalog-js>
+  function catalog_cam_slow_push(tl, o) {
+    tl.fromTo(o.target, { scale: 1, x: 0, y: 0 }, { scale: o.scale, x: o.driftX, y: o.driftY, duration: o.duration, ease: "sine.inOut", immediateRender: false }, o.at);
+  }
+</script>

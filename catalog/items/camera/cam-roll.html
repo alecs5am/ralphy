@@ -1,0 +1,15 @@
+<!-- catalog item: cam-roll (camera). Contract: function catalog_cam_roll(tl, o)
+     Dutch roll: the frame rotates to an angle while scaling just enough that no corner shows (scale = cos a + (H/W) sin a for a 9:16 frame). Snap for a beat, smooth for unease. Params: duration, angle, style. -->
+<style data-catalog-css>
+</style>
+<template data-catalog-markup>
+</template>
+<script data-catalog-js>
+  function catalog_cam_roll(tl, o) {
+    var a = Math.abs(o.angle) * Math.PI / 180;
+    var cover = Math.cos(a) + (1920 / 1080) * Math.sin(a);
+    var ease = o.style === "snap" ? "back.out(2.5)" : "sine.inOut";
+    var d = o.style === "snap" ? Math.min(0.35, o.duration) : o.duration;
+    tl.fromTo(o.target, { rotation: 0, scale: 1 }, { rotation: o.angle, scale: cover, duration: d, ease: ease, immediateRender: false }, o.at);
+  }
+</script>

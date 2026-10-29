@@ -1,0 +1,12 @@
+<!-- catalog item: cam-ken-burns (camera). Contract: function catalog_cam_ken_burns(tl, o)
+     Ken Burns for stills: a slow zoom that travels from one focus point to another (transform-origin moves with it), so a photo reads as a shot. Params: duration, scale, from, to. -->
+<style data-catalog-css>
+</style>
+<template data-catalog-markup>
+</template>
+<script data-catalog-js>
+  function catalog_cam_ken_burns(tl, o) {
+    var P = { center: "50% 50%", top: "50% 20%", bottom: "50% 80%", left: "20% 50%", right: "80% 50%", "top-left": "25% 25%", "bottom-right": "75% 75%" };
+    tl.fromTo(o.target, { scale: 1.02, transformOrigin: P[o.from] || P.center }, { scale: o.scale, transformOrigin: P[o.to] || P.center, duration: o.duration, ease: "sine.inOut", immediateRender: false }, o.at);
+  }
+</script>

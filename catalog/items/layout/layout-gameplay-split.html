@@ -1,0 +1,48 @@
+<!-- catalog item: layout-gameplay-split (layout). Contract: function catalog_layout_gameplay_split(tl, o)
+     Story or talking clip on top, a gameplay / satisfying loop below; captions ride the seam where both halves meet. Params: ratio, caption, accent, label. -->
+<style data-catalog-css>
+  .lgs-slot { position: absolute; left: 0; width: 1080px; overflow: hidden; }
+  .lgs-story .lgs-ph { position: absolute; inset: -40px; background: radial-gradient(circle at 50% 40%, rgba(255,214,170,0.55), rgba(255,214,170,0) 50%), linear-gradient(180deg, #3d2a4f 0%, #1a1224 100%); }
+  .lgs-head { position: absolute; left: 390px; top: 260px; width: 300px; height: 360px; border-radius: 48% 48% 44% 44%; background: rgba(250,226,200,0.32); }
+  .lgs-game { background: #0d1230; }
+  .lgs-track { position: absolute; left: -200px; top: 0; width: 1480px; height: 100%; background: repeating-linear-gradient(90deg, #1b2a6b 0px, #1b2a6b 90px, #22348a 90px, #22348a 180px); }
+  .lgs-runner { position: absolute; left: 470px; width: 140px; height: 140px; border-radius: 28px; background: #ffd23f; box-shadow: 0 0 40px rgba(255,210,63,0.6); }
+  .lgs-gem { position: absolute; width: 70px; height: 70px; transform: rotate(45deg); background: #4cf2c8; border-radius: 10px; }
+  .lgs-label { position: absolute; left: 80px; font-family: "Inter", sans-serif; font-weight: 600; font-size: 26px; letter-spacing: 4px; color: rgba(255,255,255,0.55); text-transform: uppercase; }
+  .lgs-caption { position: absolute; left: 80px; width: 880px; text-align: center; font-family: "Montserrat", "Inter", sans-serif; font-weight: 900; font-size: 64px; line-height: 1.08; color: #ffffff; -webkit-text-stroke: 9px #000000; paint-order: stroke fill; text-transform: uppercase; }
+</style>
+<template data-catalog-markup>
+  <div class="lgs-slot lgs-story" id="lgs-story" data-slot="story"><div class="lgs-ph" id="lgs-story-ph"></div><div class="lgs-head" data-safe-zone="face"></div><div class="lgs-label" style="top: 250px;" data-safe-zone="ignore">Story clip</div></div>
+  <div class="lgs-slot lgs-game" id="lgs-game" data-slot="gameplay">
+    <div class="lgs-track" id="lgs-track"></div>
+    <div class="lgs-runner" id="lgs-runner"></div>
+    <div class="lgs-gem" id="lgs-gem-a"></div><div class="lgs-gem" id="lgs-gem-b"></div>
+    <div class="lgs-label" id="lgs-game-label" style="top: 40px;" data-safe-zone="ignore"></div>
+  </div>
+  <div class="lgs-caption" id="lgs-caption" data-slot="caption" data-safe-zone="caption"></div>
+</template>
+<script data-catalog-js>
+  function catalog_layout_gameplay_split(tl, o) {
+    var T = o.at, H = 1920, topH = Math.round(H * o.ratio), botH = H - topH;
+    var story = document.getElementById("lgs-story"), game = document.getElementById("lgs-game");
+    story.style.top = "0px"; story.style.height = topH + "px";
+    game.style.top = topH + "px"; game.style.height = botH + "px";
+    document.getElementById("lgs-runner").style.top = Math.round(botH * 0.32) + "px";
+    document.getElementById("lgs-gem-a").style.top = Math.round(botH * 0.36) + "px";
+    document.getElementById("lgs-gem-b").style.top = Math.round(botH * 0.36) + "px";
+    document.getElementById("lgs-game-label").textContent = o.label;
+    var cap = document.getElementById("lgs-caption");
+    cap.textContent = o.caption;
+    cap.style.top = (topH - 80) + "px";
+    cap.style.color = o.accent;
+    tl.from("#lgs-story", { opacity: 0, duration: 0.4, ease: "power2.out" }, T);
+    tl.from("#lgs-game", { yPercent: 100, duration: 0.55, ease: "expo.out" }, T + 0.1);
+    tl.from("#lgs-caption", { scale: 0.5, opacity: 0, duration: 0.3, ease: "back.out(2.4)" }, T + 0.6);
+    tl.fromTo("#lgs-track", { x: 0 }, { x: -540, duration: 3.4, ease: "none" }, T);
+    tl.fromTo("#lgs-gem-a", { x: 1180 }, { x: -200, duration: 2.2, ease: "none" }, T + 0.2);
+    tl.fromTo("#lgs-gem-b", { x: 1500 }, { x: -200, duration: 2.6, ease: "none" }, T + 0.6);
+    tl.to("#lgs-runner", { y: -150, duration: 0.28, ease: "power2.out" }, T + 1.2);
+    tl.to("#lgs-runner", { y: 0, duration: 0.3, ease: "bounce.out" }, T + 1.48);
+    tl.fromTo("#lgs-story-ph", { scale: 1 }, { scale: 1.06, duration: 3.4, ease: "sine.inOut" }, T);
+  }
+</script>

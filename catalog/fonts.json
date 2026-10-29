@@ -1,0 +1,1133 @@
+{
+  "version": 1,
+  "updated": "2026-10-30",
+  "source": {
+    "repo": "google/fonts",
+    "commit": "6157dfaa640ca5738b4d1a7070fe389c3036d7fc"
+  },
+  "fonts": [
+    {
+      "id": "inter",
+      "family": "Inter",
+      "designer": "Rasmus Andersson",
+      "category": "sans",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/inter/OFL.txt",
+        "sha256": "5b9321a4298cfeb6b34354164a1c3afc3db114569984c502b9b35d988fd58c57",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/inter/Inter[opsz,wght].ttf",
+          "local": "inter.ttf",
+          "style": "normal",
+          "weight": "100 900",
+          "sha256": "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031",
+          "bytes": 876576
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 2933
+      },
+      "note": "Workhorse UI and body sans; default caption body."
+    },
+    {
+      "id": "anton",
+      "family": "Anton",
+      "designer": "Vernon Adams",
+      "category": "display",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/anton/OFL.txt",
+        "sha256": "ee67e6ee22790b7929f1a3769ca2801d565c64b5a9096942c1adf5596de9c9e4",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/anton/Anton-Regular.ttf",
+          "local": "anton.ttf",
+          "style": "normal",
+          "weight": "400",
+          "sha256": "a4ba3a92350ebb031da0cb47630ac49eb265082ca1bc0450442f4a83ab947cab",
+          "bytes": 170812
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext"
+        ],
+        "missing": {
+          "cyrillic": [
+            "U+0410",
+            "U+0411",
+            "U+0412",
+            "U+0413",
+            "U+0414",
+            "U+0415",
+            "U+0416",
+            "U+0417",
+            "U+0418",
+            "U+0419",
+            "U+041A",
+            "U+041B"
+          ],
+          "cyrillic-ext": [
+            "U+0404",
+            "U+0454",
+            "U+0406",
+            "U+0456",
+            "U+0407",
+            "U+0457",
+            "U+0490",
+            "U+0491",
+            "U+040E",
+            "U+045E",
+            "U+0408",
+            "U+0458"
+          ]
+        },
+        "glyphs": 1373
+      },
+      "note": "Condensed impact-style display; the free stand-in for Impact."
+    },
+    {
+      "id": "space-grotesk",
+      "family": "Space Grotesk",
+      "designer": "Florian Karsten",
+      "category": "sans",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/spacegrotesk/OFL.txt",
+        "sha256": "564ce565c371c5e5bbf286006565a7c9aa55a9f56e7ca58d56e05d649dd61a72",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/spacegrotesk/SpaceGrotesk[wght].ttf",
+          "local": "space-grotesk.ttf",
+          "style": "normal",
+          "weight": "300 700",
+          "sha256": "acad6de1fc93436f5c0f1f4137751ef04f1aea3063e7036535970ffcfbd79f72",
+          "bytes": 136676
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext"
+        ],
+        "missing": {
+          "cyrillic": [
+            "U+0410",
+            "U+0411",
+            "U+0412",
+            "U+0413",
+            "U+0414",
+            "U+0415",
+            "U+0416",
+            "U+0417",
+            "U+0418",
+            "U+0419",
+            "U+041A",
+            "U+041B"
+          ],
+          "cyrillic-ext": [
+            "U+0404",
+            "U+0454",
+            "U+0406",
+            "U+0456",
+            "U+0407",
+            "U+0457",
+            "U+0490",
+            "U+0491",
+            "U+040E",
+            "U+045E",
+            "U+0408",
+            "U+0458"
+          ]
+        },
+        "glyphs": 1001
+      },
+      "note": "Geometric grotesk for kickers and labels."
+    },
+    {
+      "id": "montserrat",
+      "family": "Montserrat",
+      "designer": "Julieta Ulanovsky",
+      "category": "sans",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/montserrat/OFL.txt",
+        "sha256": "8b7141c03fa4f8d44e6345d5d4931709290f0f67875e452e95ac1fd3a027802e",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/montserrat/Montserrat[wght].ttf",
+          "local": "montserrat.ttf",
+          "style": "normal",
+          "weight": "100 900",
+          "sha256": "0f7b311b2f3279e4eef9b2f968bcdbab6e28f4daeb1f049f4f278a902bcd82f7",
+          "bytes": 744936
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 2747
+      },
+      "note": "Black weight is the creator-caption standard."
+    },
+    {
+      "id": "playfair-display",
+      "family": "Playfair Display",
+      "designer": "Claus Eggers Sorensen",
+      "category": "serif",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/playfairdisplay/OFL.txt",
+        "sha256": "566be814f8e96e93dfa16101331557eb6b5467e9e03f627c0910fe93ca12300e",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/playfairdisplay/PlayfairDisplay[wght].ttf",
+          "local": "playfair-display.ttf",
+          "style": "normal",
+          "weight": "400 900",
+          "sha256": "c40f2293766a503bc70cce9e512ef844a4ccb7cbcde792fe2ea31d191917d8d6",
+          "bytes": 300724
+        },
+        {
+          "path": "ofl/playfairdisplay/PlayfairDisplay-Italic[wght].ttf",
+          "local": "playfair-display-italic.ttf",
+          "style": "italic",
+          "weight": "400 900",
+          "sha256": "a5e26dc5e2e77fb2803a0bf02fd4f81ee136ec8dea863ccdb0c59a263b21378b",
+          "bytes": 278688
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 1103
+      },
+      "note": "High-contrast editorial serif for headlines."
+    },
+    {
+      "id": "manrope",
+      "family": "Manrope",
+      "designer": "Mikhail Sharanda",
+      "category": "sans",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/manrope/OFL.txt",
+        "sha256": "58172e0c0fac2cda8a37b348164bb55e44b0e69051e557e92b1d3f6910141f7b",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/manrope/Manrope[wght].ttf",
+          "local": "manrope.ttf",
+          "style": "normal",
+          "weight": "200 800",
+          "sha256": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6",
+          "bytes": 164700
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 742
+      },
+      "note": "Calm modern sans for editorial body copy."
+    },
+    {
+      "id": "jetbrains-mono",
+      "family": "JetBrains Mono",
+      "designer": "JetBrains",
+      "category": "mono",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/jetbrainsmono/OFL.txt",
+        "sha256": "b2fe5e8987594e9ffd1d2ca52a2f5d73eb8335243893c5d6254b5ad69269591d",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/jetbrainsmono/JetBrainsMono[wght].ttf",
+          "local": "jetbrains-mono.ttf",
+          "style": "normal",
+          "weight": "100 800",
+          "sha256": "48715a42ec242c21e9f02692891e147d022299a52e48d5e413e1a942193ffeda",
+          "bytes": 187208
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 1179
+      },
+      "note": "Code and terminal register."
+    },
+    {
+      "id": "ibm-plex-sans",
+      "family": "IBM Plex Sans",
+      "designer": "Mike Abbink, Bold Monday",
+      "category": "sans",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/ibmplexsans/OFL.txt",
+        "sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/ibmplexsans/IBMPlexSans[wdth,wght].ttf",
+          "local": "ibm-plex-sans.ttf",
+          "style": "normal",
+          "weight": "100 700",
+          "sha256": "3b031aa4216174205bd8471f88a49b91f093169e9e87bd5262242bc5967fe2e3",
+          "bytes": 537244
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 1025
+      },
+      "note": "Technical body sans."
+    },
+    {
+      "id": "rubik",
+      "family": "Rubik",
+      "designer": "Hubert and Fischer",
+      "category": "sans",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/rubik/OFL.txt",
+        "sha256": "472cbe7c25441df63e9c7864b43eb3c0f4b3df950c66a76224e6cfe1eae843fb",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/rubik/Rubik[wght].ttf",
+          "local": "rubik.ttf",
+          "style": "normal",
+          "weight": "300 900",
+          "sha256": "1b3a7437ba2af80e465e773ed60c5036d1ba6ace492d89046dbcf18fb31e4e88",
+          "bytes": 359804
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 1174
+      },
+      "note": "Rounded friendly sans; playful captions."
+    },
+    {
+      "id": "nunito",
+      "family": "Nunito",
+      "designer": "Vernon Adams",
+      "category": "sans",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/nunito/OFL.txt",
+        "sha256": "580df76c95a1ec5ab878ceb25bb3d85c6a076804e9c970c8c6972aea775fdf65",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/nunito/Nunito[wght].ttf",
+          "local": "nunito.ttf",
+          "style": "normal",
+          "weight": "200 1000",
+          "sha256": "bb55a5ca5c2042335b3991af27c4d0705d0ef41cac6164ac737fd8f2a1e85207",
+          "bytes": 276932
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 1103
+      },
+      "note": "Rounded body sans."
+    },
+    {
+      "id": "cormorant-garamond",
+      "family": "Cormorant Garamond",
+      "designer": "Christian Thalmann",
+      "category": "serif",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/cormorantgaramond/OFL.txt",
+        "sha256": "60700d351cac4650c51f3f9db318d2a420f8b45052dba2715eb5fec41f0f6956",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/cormorantgaramond/CormorantGaramond[wght].ttf",
+          "local": "cormorant-garamond.ttf",
+          "style": "normal",
+          "weight": "300 700",
+          "sha256": "b20b7d9626dd956b2c5e558692ad328b1f19e3275e2782db4fa07670d83f35e0",
+          "bytes": 1195560
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 3241
+      },
+      "note": "Display Garamond for luxury and beauty."
+    },
+    {
+      "id": "tenor-sans",
+      "family": "Tenor Sans",
+      "designer": "Denis Masharov",
+      "category": "sans",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/tenorsans/OFL.txt",
+        "sha256": "7b826efb1b74a50b1c1aef0a1ba4530925b993ceadc3016d1d787c68a61649dd",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/tenorsans/TenorSans-Regular.ttf",
+          "local": "tenor-sans.ttf",
+          "style": "normal",
+          "weight": "400",
+          "sha256": "350c882fa9f19927ed108371691d393d5dc1c209edde8472cab8aa8013241366",
+          "bytes": 131896
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 477
+      },
+      "note": "Elegant humanist sans with wide caps."
+    },
+    {
+      "id": "rubik-wet-paint",
+      "family": "Rubik Wet Paint",
+      "designer": "Hubert and Fischer, Luke Prowse",
+      "category": "display",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/rubikwetpaint/OFL.txt",
+        "sha256": "f9e2d4498ea80d38bac7b8841d68af68c132fa67e1552e7c05717e6987de1d74",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/rubikwetpaint/RubikWetPaint-Regular.ttf",
+          "local": "rubik-wet-paint.ttf",
+          "style": "normal",
+          "weight": "400",
+          "sha256": "3f35d1c77219c5219826b23c2f0c72dd0eed46425a0d4fff21b8827cdce61693",
+          "bytes": 442628
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 774
+      },
+      "note": "Dripping display face; horror titles with Cyrillic."
+    },
+    {
+      "id": "old-standard",
+      "family": "Old Standard TT",
+      "designer": "Alexey Kryukov",
+      "category": "serif",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/oldstandardtt/OFL.txt",
+        "sha256": "4faa2d9e2ce0a4b5b37e62ee6fafe474a539b31578f7214ed97cc3503aeb8ebd",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/oldstandardtt/OldStandard-Regular.ttf",
+          "local": "old-standard.ttf",
+          "style": "normal",
+          "weight": "400",
+          "sha256": "42717a1280b523a506ca2b0285cca380e77fe214b1f6e3d75a8b925005f19eac",
+          "bytes": 249668
+        },
+        {
+          "path": "ofl/oldstandardtt/OldStandard-Bold.ttf",
+          "local": "old-standard-bold.ttf",
+          "style": "normal",
+          "weight": "700",
+          "sha256": "7d831e9d799ad23ee98e889381a9db2a283b2dac7f228dd5c06071decb9c54db",
+          "bytes": 267128
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 940
+      },
+      "note": "Nineteenth-century book serif; archival and horror body."
+    },
+    {
+      "id": "oswald",
+      "family": "Oswald",
+      "designer": "Vernon Adams",
+      "category": "sans",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/oswald/OFL.txt",
+        "sha256": "0fd731a904b729a4e02eaf5e8ebd06783edd9abe400e8882760160230675b652",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/oswald/Oswald[wght].ttf",
+          "local": "oswald.ttf",
+          "style": "normal",
+          "weight": "200 700",
+          "sha256": "5b38c246e255a12f5712d640d56bcced0472466fc68983d2d0410ec0457c2817",
+          "bytes": 172088
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 883
+      },
+      "note": "Condensed news and documentary headline sans."
+    },
+    {
+      "id": "pt-sans",
+      "family": "PT Sans",
+      "designer": "ParaType",
+      "category": "sans",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/ptsans/OFL.txt",
+        "sha256": "ee633f3e777f9ddd3cc18984d74ccbe2d1a863276465b347d2aab925be9c58d9",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/ptsans/PT_Sans-Web-Regular.ttf",
+          "local": "pt-sans.ttf",
+          "style": "normal",
+          "weight": "400",
+          "sha256": "9cc831490532009bae2b3ce0d39c62adfc889060beb421593bfd9d2396d0f10a",
+          "bytes": 442960
+        },
+        {
+          "path": "ofl/ptsans/PT_Sans-Web-Bold.ttf",
+          "local": "pt-sans-bold.ttf",
+          "style": "normal",
+          "weight": "700",
+          "sha256": "3128bd5ecf01816e59a23d54c57a7a6b14615b07db53ff277c77376010265b05",
+          "bytes": 470240
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 720
+      },
+      "note": "Neutral body sans drawn for Latin and Cyrillic."
+    },
+    {
+      "id": "press-start-2p",
+      "family": "Press Start 2P",
+      "designer": "CodeMan38",
+      "category": "display",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/pressstart2p/OFL.txt",
+        "sha256": "705960c3281a5765ecc0b59bd4ed7ca59eed165748076bc2fc3e8fdbfeb944b0",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/pressstart2p/PressStart2P-Regular.ttf",
+          "local": "press-start-2p.ttf",
+          "style": "normal",
+          "weight": "400",
+          "sha256": "034c77f1f05ec89421e4a63f0e3a4ca1ecf852cc6d2bf611f126f275728e017d",
+          "bytes": 118204
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 658
+      },
+      "note": "8-bit arcade display; short lines only."
+    },
+    {
+      "id": "exo-2",
+      "family": "Exo 2",
+      "designer": "Natanael Gama",
+      "category": "sans",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/exo2/OFL.txt",
+        "sha256": "7f95a8eeecc6904ffc81cd10cc8ebc7fcee72a67922924bf45f02dff03b88127",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/exo2/Exo2[wght].ttf",
+          "local": "exo-2.ttf",
+          "style": "normal",
+          "weight": "100 900",
+          "sha256": "205a448676a2586f9c57c25f3d5c58ca8db7e6cf5edf7506783a010c6fe2bfb5",
+          "bytes": 303940
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 1033
+      },
+      "note": "Techno sans; pairs with arcade and sci-fi."
+    },
+    {
+      "id": "caveat",
+      "family": "Caveat",
+      "designer": "Impallari Type",
+      "category": "handwriting",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/caveat/OFL.txt",
+        "sha256": "1f9d81d094273d82f3898a1ee8b598a717d050ecbf5ff7bede105b704880157b",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/caveat/Caveat[wght].ttf",
+          "local": "caveat.ttf",
+          "style": "normal",
+          "weight": "400 700",
+          "sha256": "0bdb6b660482d31531b3945849fba5916b3ef8695da7024a9e6b9ee3c4157988",
+          "bytes": 403648
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 1034
+      },
+      "note": "Handwritten notes and warm UGC captions."
+    },
+    {
+      "id": "unbounded",
+      "family": "Unbounded",
+      "designer": "NaN",
+      "category": "display",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/unbounded/OFL.txt",
+        "sha256": "31e5d4e83955e7103c34570dd49b0570ef490800bd65b42923c0dd02445263b3",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/unbounded/Unbounded[wght].ttf",
+          "local": "unbounded.ttf",
+          "style": "normal",
+          "weight": "200 900",
+          "sha256": "323b511be380c8d474ef030686b71aedde501f8d9cd46da558b7c40454372c3f",
+          "bytes": 778272
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 1419
+      },
+      "note": "Wide geometric display; modern brand captions."
+    },
+    {
+      "id": "golos-text",
+      "family": "Golos Text",
+      "designer": "Alexandra Korolkova, Vitaly Kuzmin",
+      "category": "sans",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/golostext/OFL.txt",
+        "sha256": "ff532f9e8789f09a9fdffc3c0954eedfb0a48be77b2e2eb90f5f82e4f347f50c",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/golostext/GolosText[wght].ttf",
+          "local": "golos-text.ttf",
+          "style": "normal",
+          "weight": "400 900",
+          "sha256": "17bb58fb69aec2dfb047a2ebf52534023e9b688c97a6b7ac795b0a72912c2063",
+          "bytes": 184292
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext",
+          "cyrillic",
+          "cyrillic-ext"
+        ],
+        "missing": {},
+        "glyphs": 643
+      },
+      "note": "Grotesk drawn for Cyrillic first; clean body."
+    },
+    {
+      "id": "bebas-neue",
+      "family": "Bebas Neue",
+      "designer": "Dharma Type",
+      "category": "display",
+      "license": {
+        "id": "OFL-1.1",
+        "path": "ofl/bebasneue/OFL.txt",
+        "sha256": "72082f6cb4d04be2ecf7cc7d9e1e7d73787f0af8a5a278a47cade70c16b78341",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "ofl/bebasneue/BebasNeue-Regular.ttf",
+          "local": "bebas-neue.ttf",
+          "style": "normal",
+          "weight": "400",
+          "sha256": "08e4623805102d819f58601e46e345648846075e363b2ceb23313c2d1c83ec73",
+          "bytes": 61400
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext"
+        ],
+        "missing": {
+          "cyrillic": [
+            "U+0410",
+            "U+0411",
+            "U+0412",
+            "U+0413",
+            "U+0414",
+            "U+0415",
+            "U+0416",
+            "U+0417",
+            "U+0418",
+            "U+0419",
+            "U+041A",
+            "U+041B"
+          ],
+          "cyrillic-ext": [
+            "U+0404",
+            "U+0454",
+            "U+0406",
+            "U+0456",
+            "U+0407",
+            "U+0457",
+            "U+0490",
+            "U+0491",
+            "U+040E",
+            "U+045E",
+            "U+0408",
+            "U+0458"
+          ]
+        },
+        "glyphs": 508
+      },
+      "note": "All-caps condensed display; Latin only."
+    },
+    {
+      "id": "special-elite",
+      "family": "Special Elite",
+      "designer": "Astigmatic",
+      "category": "display",
+      "license": {
+        "id": "Apache-2.0",
+        "path": "apache/specialelite/LICENSE.txt",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "commercialVideo": true
+      },
+      "files": [
+        {
+          "path": "apache/specialelite/SpecialElite-Regular.ttf",
+          "local": "special-elite.ttf",
+          "style": "normal",
+          "weight": "400",
+          "sha256": "a776fcb4ceb8bdf03e2967688ebdad42680de5b91a7e62c17e718ae212d14bc4",
+          "bytes": 166180
+        }
+      ],
+      "coverage": {
+        "tags": [
+          "latin",
+          "latin-ext"
+        ],
+        "missing": {
+          "cyrillic": [
+            "U+0410",
+            "U+0411",
+            "U+0412",
+            "U+0413",
+            "U+0414",
+            "U+0415",
+            "U+0416",
+            "U+0417",
+            "U+0418",
+            "U+0419",
+            "U+041A",
+            "U+041B"
+          ],
+          "cyrillic-ext": [
+            "U+0404",
+            "U+0454",
+            "U+0406",
+            "U+0456",
+            "U+0407",
+            "U+0457",
+            "U+0490",
+            "U+0491",
+            "U+040E",
+            "U+045E",
+            "U+0408",
+            "U+0458"
+          ]
+        },
+        "glyphs": 370
+      },
+      "note": "Typewriter face for analog and found-footage looks; Latin only."
+    }
+  ],
+  "pairs": [
+    {
+      "id": "bold-creator",
+      "register": "bold creator",
+      "display": {
+        "font": "montserrat",
+        "weight": 900,
+        "transform": "uppercase",
+        "tracking": 0
+      },
+      "body": {
+        "font": "inter",
+        "weight": 500,
+        "transform": "none",
+        "tracking": 0
+      },
+      "colors": {
+        "background": "#111111",
+        "ink": "#ffffff",
+        "accent": "#ffe14d"
+      },
+      "whenToUse": "Talking-head creators, hooks, listicles, fast captions; reads at a glance on any phone.",
+      "whenNotToUse": "Premium, luxury or editorial brands where shouting caps cheapen the message."
+    },
+    {
+      "id": "editorial",
+      "register": "editorial",
+      "display": {
+        "font": "playfair-display",
+        "weight": 800,
+        "transform": "none",
+        "tracking": 0
+      },
+      "body": {
+        "font": "manrope",
+        "weight": 400,
+        "transform": "none",
+        "tracking": 0
+      },
+      "colors": {
+        "background": "#f4efe6",
+        "ink": "#1b1a17",
+        "accent": "#b23a1e"
+      },
+      "whenToUse": "Essays, explainers, culture and food stories, quote cards; a magazine voice.",
+      "whenNotToUse": "Fast word-by-word captions (thin serif strokes shimmer at small sizes in motion)."
+    },
+    {
+      "id": "tech",
+      "register": "tech",
+      "display": {
+        "font": "jetbrains-mono",
+        "weight": 700,
+        "transform": "none",
+        "tracking": 0
+      },
+      "body": {
+        "font": "ibm-plex-sans",
+        "weight": 400,
+        "transform": "none",
+        "tracking": 0
+      },
+      "colors": {
+        "background": "#0d1117",
+        "ink": "#e6edf3",
+        "accent": "#39d98a"
+      },
+      "whenToUse": "Developer tools, SaaS demos, code explainers, data stories.",
+      "whenNotToUse": "Consumer lifestyle or emotional storytelling; mono headlines read cold."
+    },
+    {
+      "id": "playful",
+      "register": "playful",
+      "display": {
+        "font": "rubik",
+        "weight": 800,
+        "transform": "none",
+        "tracking": 0
+      },
+      "body": {
+        "font": "nunito",
+        "weight": 600,
+        "transform": "none",
+        "tracking": 0
+      },
+      "colors": {
+        "background": "#ffd23f",
+        "ink": "#1a1a2e",
+        "accent": "#ff4f9a"
+      },
+      "whenToUse": "Kids and family, snacks, games, light humour, friendly apps.",
+      "whenNotToUse": "Serious topics, finance, health warnings."
+    },
+    {
+      "id": "luxury",
+      "register": "luxury",
+      "display": {
+        "font": "cormorant-garamond",
+        "weight": 500,
+        "transform": "uppercase",
+        "tracking": 0.12
+      },
+      "body": {
+        "font": "tenor-sans",
+        "weight": 400,
+        "transform": "none",
+        "tracking": 0
+      },
+      "colors": {
+        "background": "#0e0d0b",
+        "ink": "#efe6d2",
+        "accent": "#c9a45c"
+      },
+      "whenToUse": "Beauty, fashion, jewellery, hospitality, premium product reveals.",
+      "whenNotToUse": "Small sizes and busy footage; the thin strokes need space and a calm plate."
+    },
+    {
+      "id": "horror",
+      "register": "horror",
+      "display": {
+        "font": "rubik-wet-paint",
+        "weight": 400,
+        "transform": "uppercase",
+        "tracking": 0
+      },
+      "body": {
+        "font": "old-standard",
+        "weight": 400,
+        "transform": "none",
+        "tracking": 0
+      },
+      "colors": {
+        "background": "#0a0707",
+        "ink": "#e9e1d3",
+        "accent": "#b3001b"
+      },
+      "whenToUse": "Horror, true crime teasers, Halloween, creepy PSA titles.",
+      "whenNotToUse": "Body captions longer than a few words; the drips hurt legibility."
+    },
+    {
+      "id": "news",
+      "register": "news and documentary",
+      "display": {
+        "font": "oswald",
+        "weight": 700,
+        "transform": "uppercase",
+        "tracking": 0
+      },
+      "body": {
+        "font": "pt-sans",
+        "weight": 400,
+        "transform": "none",
+        "tracking": 0
+      },
+      "colors": {
+        "background": "#f2f2f2",
+        "ink": "#121212",
+        "accent": "#d62828"
+      },
+      "whenToUse": "News recaps, documentary lower thirds, sports, explainers with data.",
+      "whenNotToUse": "Soft lifestyle content where condensed caps feel aggressive."
+    },
+    {
+      "id": "retro-arcade",
+      "register": "retro arcade",
+      "display": {
+        "font": "press-start-2p",
+        "weight": 400,
+        "transform": "uppercase",
+        "tracking": 0
+      },
+      "body": {
+        "font": "exo-2",
+        "weight": 500,
+        "transform": "none",
+        "tracking": 0
+      },
+      "colors": {
+        "background": "#12002b",
+        "ink": "#f5f3ff",
+        "accent": "#00e5ff"
+      },
+      "whenToUse": "Gaming, level-up and score moments, retro tech nostalgia.",
+      "whenNotToUse": "Long lines: the pixel display only works for two to four words."
+    },
+    {
+      "id": "handwritten-warm",
+      "register": "handwritten warm",
+      "display": {
+        "font": "caveat",
+        "weight": 700,
+        "transform": "none",
+        "tracking": 0
+      },
+      "body": {
+        "font": "rubik",
+        "weight": 400,
+        "transform": "none",
+        "tracking": 0
+      },
+      "colors": {
+        "background": "#fff4e6",
+        "ink": "#2b2118",
+        "accent": "#e76f51"
+      },
+      "whenToUse": "UGC reviews, recipes, journaling, personal notes, cosy brands.",
+      "whenNotToUse": "Corporate or technical content; anything that must look official."
+    },
+    {
+      "id": "modern-geometric",
+      "register": "modern geometric",
+      "display": {
+        "font": "unbounded",
+        "weight": 700,
+        "transform": "none",
+        "tracking": 0
+      },
+      "body": {
+        "font": "golos-text",
+        "weight": 400,
+        "transform": "none",
+        "tracking": 0
+      },
+      "colors": {
+        "background": "#ffffff",
+        "ink": "#0f0f14",
+        "accent": "#4b5bff"
+      },
+      "whenToUse": "Startups, fintech, product launches, clean brand captions in Latin and Cyrillic.",
+      "whenNotToUse": "Narrow columns: the wide display face needs short words."
+    }
+  ]
+}

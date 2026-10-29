@@ -1,0 +1,52 @@
+<!-- catalog item: cap-five-word-subtle (caption). Contract: function catalog_cap_five_word_subtle(tl, o)
+     Quiet sentence-case subtitles with a soft shadow; no highlight. o.words = [{ text, start, end }] in composition seconds (scribe word timings, AGENTS.md #16); chunks break at 5 words, a pause over 0.3 s, or clause punctuation. Params: y, size, text, background. -->
+<style data-catalog-css>
+  .cfws-wrap { position: absolute; left: 80px; width: 880px; height: 1px; }
+  .cfws-chunk { position: absolute; left: 0; top: 0; width: 880px; padding: 0 24px; box-sizing: border-box; text-align: center; opacity: 0; visibility: hidden; font-family: "PT Sans", sans-serif; font-weight: 700; line-height: 1.14; }
+  .cfws-line { display: inline-block; }
+  .cfws-w { display: inline-block; position: relative; }
+</style>
+<template data-catalog-markup>
+  <div class="cfws-wrap" id="cfws-wrap" data-safe-zone="caption"></div>
+</template>
+<script data-catalog-js>
+  function catalog_cap_five_word_subtle(tl, o) {
+    var N = 5, MIN = 0.7, CPL = 30;
+    var wrap = document.getElementById("cfws-wrap");
+    wrap.style.top = o.y + "px";
+    var words = o.words || [], chunks = [], cur = [];
+    for (var i = 0; i < words.length; i++) {
+      var prev = words[i - 1];
+      // New chunk at the size cap, a pause over 0.3 s, or after clause punctuation.
+      if (cur.length && (cur.length >= N || (prev && (words[i].start - prev.end > 0.3 || /[.!?,;:]$/.test(prev.text))))) { chunks.push(cur); cur = []; }
+      cur.push(words[i]);
+    }
+    if (cur.length) chunks.push(cur);
+    for (var c = 0; c < chunks.length; c++) {
+      var ch = chunks[c], el = document.createElement("div"), line = document.createElement("span"), spans = [];
+      el.className = "cfws-chunk"; el.id = "cfws-c" + c; line.className = "cfws-line";
+      // Shrink for a word longer than the line holds (Russian words run long): no measuring, so no font-load race.
+      var longest = 1;
+      for (var q = 0; q < ch.length; q++) longest = Math.max(longest, ch[q].text.length);
+      el.style.fontSize = Math.round(o.size * Math.min(1, CPL / longest)) + "px";
+      el.style.color = o.text;
+      el.style.textShadow = "0 8px 24px " + o.background + "8c";
+      for (var j = 0; j < ch.length; j++) {
+        var s = document.createElement("span");
+        s.className = "cfws-w"; s.textContent = ch[j].text;
+        line.appendChild(s); spans.push(s);
+        if (j < ch.length - 1) line.appendChild(document.createTextNode(" "));
+      }
+      el.appendChild(line); wrap.appendChild(el);
+      var start = ch[0].start, last = ch[ch.length - 1].end;
+      var next = chunks[c + 1] ? chunks[c + 1][0].start : last + 0.6;
+      var end = Math.min(next, Math.max(last + 0.25, start + MIN));
+      tl.set(el, { visibility: "visible", opacity: 1 }, start);
+      tl.set(el, { visibility: "hidden", opacity: 0 }, end);
+      tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.16, ease: "power1.out", immediateRender: false }, start);
+      for (var k = 0; k < ch.length; k++) {
+        var w = ch[k], sp = spans[k], until = k + 1 < ch.length ? ch[k + 1].start : end;
+      }
+    }
+  }
+</script>

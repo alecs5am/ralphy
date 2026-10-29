@@ -1,0 +1,37 @@
+<!-- catalog item: layout-keyed-talking-head (layout). Contract: function catalog_layout_keyed_talking_head(tl, o)
+     Green-screen look: a keyed talking head (VP9-alpha webm from `ralphy matte key|subject`, #560) over a full-bleed background, headline above the head, caption at chest height. Params: headline, caption, accent, dim. -->
+<style data-catalog-css>
+  .lkt-bg { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; }
+  .lkt-bg-ph { position: absolute; inset: -60px; background: linear-gradient(180deg, rgba(10,12,20,0) 40%, rgba(10,12,20,0.6) 100%), repeating-linear-gradient(115deg, #e8e2d6 0px, #e8e2d6 140px, #d9d1c2 140px, #d9d1c2 280px); }
+  .lkt-shot { position: absolute; left: 140px; top: 470px; width: 800px; height: 520px; border-radius: 22px; background: linear-gradient(135deg, #3a5bd9 0%, #8a3ad9 100%); box-shadow: 0 30px 60px rgba(0,0,0,0.25); }
+  .lkt-dim { position: absolute; inset: 0; background: #000000; }
+  .lkt-subject { position: absolute; left: 0; top: 760px; width: 1080px; height: 1160px; }
+  .lkt-body { position: absolute; left: 190px; top: 560px; width: 700px; height: 700px; border-radius: 340px 340px 0 0; background: #2f3a4a; }
+  .lkt-face { position: absolute; left: 380px; top: 130px; width: 320px; height: 400px; border-radius: 48% 48% 44% 44%; background: #e3b590; }
+  .lkt-headline { position: absolute; left: 80px; top: 260px; width: 880px; font-family: "Anton", "Impact", sans-serif; font-size: 104px; line-height: 1; color: #101010; text-transform: uppercase; }
+  .lkt-caption { position: absolute; left: 80px; top: 1300px; width: 880px; text-align: center; font-family: "Montserrat", "Inter", sans-serif; font-weight: 900; font-size: 62px; line-height: 1.1; color: #ffffff; -webkit-text-stroke: 8px #000000; paint-order: stroke fill; }
+  .lkt-label { position: absolute; right: 150px; top: 1010px; font-family: "Inter", sans-serif; font-weight: 600; font-size: 24px; letter-spacing: 4px; color: rgba(255,255,255,0.7); text-transform: uppercase; }
+</style>
+<template data-catalog-markup>
+  <div class="lkt-bg" data-slot="background"><div class="lkt-bg-ph" id="lkt-bg-ph"></div><div class="lkt-shot" id="lkt-shot"></div><div class="lkt-dim" id="lkt-dim"></div></div>
+  <div class="lkt-headline" id="lkt-headline" data-slot="headline"></div>
+  <div class="lkt-subject" id="lkt-subject" data-slot="subject"><div class="lkt-body"></div><div class="lkt-face" id="lkt-face" data-safe-zone="face"></div></div>
+  <div class="lkt-label" data-safe-zone="ignore">Keyed subject (alpha)</div>
+  <div class="lkt-caption" id="lkt-caption" data-slot="caption" data-safe-zone="caption"></div>
+</template>
+<script data-catalog-js>
+  function catalog_layout_keyed_talking_head(tl, o) {
+    var T = o.at;
+    document.getElementById("lkt-headline").textContent = o.headline;
+    var cap = document.getElementById("lkt-caption");
+    cap.textContent = o.caption;
+    cap.style.color = o.accent;
+    tl.set("#lkt-dim", { opacity: o.dim }, 0);
+    tl.from("#lkt-shot", { y: 80, opacity: 0, duration: 0.6, ease: "power3.out" }, T);
+    tl.from("#lkt-headline", { y: 40, opacity: 0, duration: 0.5, ease: "power3.out" }, T + 0.15);
+    tl.from("#lkt-subject", { y: 120, opacity: 0, duration: 0.7, ease: "expo.out" }, T + 0.1);
+    tl.from("#lkt-caption", { scale: 0.6, opacity: 0, duration: 0.32, ease: "back.out(2.2)" }, T + 0.75);
+    tl.fromTo("#lkt-bg-ph", { x: 0 }, { x: -50, duration: 3.4, ease: "none" }, T);
+    tl.fromTo("#lkt-face", { rotation: -2 }, { rotation: 2, duration: 1.7, ease: "sine.inOut" }, T + 0.8);
+  }
+</script>

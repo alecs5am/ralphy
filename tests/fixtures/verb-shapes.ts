@@ -500,7 +500,37 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
     },
     {
       label: "catalog.page",
-      shape: { page: ".ralphy/catalog/index.html", items: 35, previewsPresent: 34, previewsMissing: ["ink-bleed"], sfxPack: { unique: 206, byTag: { whoosh: 12 } } },
+      shape: { page: ".ralphy/catalog/index.html", items: 35, previewsPresent: 34, previewsMissing: ["ink-bleed"], sfxPack: { unique: 206, byTag: { whoosh: 12 } }, fonts: { fonts: 23, pairs: 10, pairPreviewsPresent: 10 } },
+    },
+    {
+      label: "catalog.show.layout",
+      shape: {
+        id: "layout-pip",
+        kind: "layout",
+        slots: [{ id: "pip", role: "face", box: [80, 952, 360, 468], fit: "cover", required: true, note: "Face-cam window" }],
+        sfx: null,
+        timing: { at: 0.3, total: 3.3 },
+      },
+    },
+    {
+      label: "catalog.fonts.list",
+      shape: [{ id: "inter", family: "Inter", category: "sans", license: "OFL-1.1", coverage: ["latin", "latin-ext", "cyrillic", "cyrillic-ext"], weights: ["100 900"], bytes: 876576, synced: true }],
+    },
+    {
+      label: "catalog.fonts.pairs",
+      shape: [{ id: "bold-creator", register: "bold creator", display: "Montserrat 900 caps", body: "Inter 500", scripts: ["latin", "cyrillic"], preview: "previews/fonts/bold-creator.mp4", whenToUse: "Hooks" }],
+    },
+    {
+      label: "catalog.fonts.sync",
+      shape: { written: "catalog/fonts.json", dataDir: ".ralphy/catalog/fonts", fonts: 23, failed: 0, rows: [{ id: "anton", files: 1, downloaded: 0, verified: 1, license: "verified", tags: ["latin", "latin-ext"], error: null }] },
+    },
+    {
+      label: "catalog.fonts.lint",
+      shape: { ok: false, fonts: 23, pairs: 10, errors: 1, warnings: 0, issues: [{ severity: "error", code: "font.unlicensed", where: "catalog/items/element/quote-card.html", message: "font-family \"Helvetica Neue\" has no recorded license" }] },
+    },
+    {
+      label: "catalog.fonts.preview",
+      shape: { built: ["bold-creator"], skipped: ["tech"], failed: [], warnings: [], previewsDir: ".ralphy/catalog/previews/fonts" },
     },
   ],
   clip: [
@@ -541,6 +571,38 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
   ],
   editor: [
     { label: "editor.payload", shape: { project: "demo-001", clipCount: 6, summaryPath: "render/summary.json", plan: [], results: [] } },
+    {
+      label: "editor.lint-safe-zones",
+      shape: {
+        project: "demo-001",
+        composition: ".ralphy/workspaces/default/projects/demo-001/index.html",
+        ok: false,
+        duration: 12,
+        samples: [0.667, 2, 3.333],
+        platforms: [{ platform: "reels", safe: { left: 60, top: 200, width: 900, height: 1250 } }],
+        elementsChecked: 14,
+        errorCount: 1,
+        warningCount: 0,
+        findings: [
+          {
+            platform: "reels",
+            zone: "bottom-block",
+            zoneKind: "ui",
+            severity: "error",
+            role: "caption",
+            selector: "#cap-3",
+            text: null,
+            rect: { left: 120, top: 1500, width: 800, height: 90 },
+            overlap: { px: 90, share: 1 },
+            firstSeen: 2,
+            lastSeen: 3.333,
+            occurrences: 2,
+            fix: "Keep its bottom above y=1450 (Instagram Reels username, follow button, caption block and audio line).",
+          },
+        ],
+        warnings: [],
+      },
+    },
   ],
   eval: [
     {

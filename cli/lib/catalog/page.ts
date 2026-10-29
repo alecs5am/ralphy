@@ -7,7 +7,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { catalogDataDir, catalogPagePath } from "./paths.js";
 import { previewTiming } from "./harness.js";
-import { CATALOG_ENERGIES, CATALOG_KINDS, type CatalogManifest, type SfxManifest } from "./schema.js";
+import { CATALOG_ENERGIES, CATALOG_KINDS, type CatalogItem, type CatalogManifest, type SfxManifest } from "./schema.js";
+import type { FontManifest } from "./fonts.js";
 
 export type CatalogPageResult = {
   page: string;
@@ -15,7 +16,40 @@ export type CatalogPageResult = {
   previewsPresent: number;
   previewsMissing: string[];
   sfxPack: { unique: number; byTag: Record<string, number> } | null;
+  fonts: { fonts: number; pairs: number; pairPreviewsPresent: number } | null;
 };
+
+/** One line of kind-specific metadata for the card details (#564 slots, #565 caption, #567 camera). */
+function kindNote(it: CatalogItem): string | null {
+  if (it.slots) return "Slots: " + it.slots.map((s) => `${s.id} (${s.role}${s.keyed ? ", alpha" : ""})`).join(", ");
+  if (it.caption) {
+    const c = it.caption;
+    return `Words per screen: ${c.wordsPerScreen}; entry: ${c.entry}; highlight: ${c.highlight}; font: ${c.font}; min on screen: ${c.minOnScreenMs} ms; preview: English then Russian`;
+  }
+  if (it.camera) return `Input: ${it.camera.input}; overscan: ${it.camera.overscan}x; deterministic under seek`;
+  return null;
+}
+
+function fontsSection(fonts: FontManifest, pairPreviews: Set<string>): string {
+  const byId = new Map(fonts.fonts.map((f) => [f.id, f]));
+  const pairCards = fonts.pairs
+    .map((p) => {
+      const d = byId.get(p.display.font)!;
+      const b = byId.get(p.body.font)!;
+      const scripts = (d.coverage?.tags ?? []).filter((t) => (b.coverage?.tags ?? []).includes(t));
+      const media = pairPreviews.has(p.id)
+        ? `<video src="previews/fonts/${esc(p.id)}.mp4#t=1.2" preload="metadata" playsinline muted loop></video>`
+        : `<div class="missing">Run ralphy catalog fonts preview --pair ${esc(p.id)}</div>`;
+      return `<article class="card"><div class="frame">${media}</div><div class="body"><div class="title">${esc(p.register)}</div><div class="id">${esc(p.id)}</div><div class="summary">${esc(d.family)} ${p.display.weight} + ${esc(b.family)} ${p.body.weight}</div><div class="badges">${scripts.map((t) => `<span class="badge">${esc(t)}</span>`).join("")}</div><details><summary>Use / avoid</summary><p><b>Use:</b> ${esc(p.whenToUse)}</p><p><b>Avoid:</b> ${esc(p.whenNotToUse)}</p></details></div></article>`;
+    })
+    .join("");
+  const rows = fonts.fonts
+    .map((f) => `<tr><td>${esc(f.family)}</td><td>${esc(f.category)}</td><td>${esc(f.license.id)}</td><td>${esc((f.coverage?.tags ?? []).join(", ") || "not measured")}</td><td>${esc(f.designer)}</td></tr>`)
+    .join("");
+  return `<section class="fonts"><h2>Font pairs</h2><div class="meta">${fonts.pairs.length} pairs, ${fonts.fonts.length} free fonts from google/fonts (pinned ${esc(fonts.source.commit.slice(0, 10))}); every preview shows English, then Russian. <code>ralphy catalog fonts pairs</code></div>
+<div class="grid fonts-grid">${pairCards}</div>
+<table class="font-table"><thead><tr><th>Family</th><th>Category</th><th>License</th><th>Coverage</th><th>Designer</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+}
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -26,7 +60,12 @@ function inlineJson(v: unknown): string {
   return JSON.stringify(v).replace(/</g, "\\u003c");
 }
 
-export function renderCatalogPageHtml(manifest: CatalogManifest, sfx: SfxManifest | null, present: Set<string>): string {
+export function renderCatalogPageHtml(
+  manifest: CatalogManifest,
+  sfx: SfxManifest | null,
+  present: Set<string>,
+  fonts: { manifest: FontManifest; pairPreviews: Set<string> } | null = null,
+): string {
   const sfxById = new Map((sfx?.entries ?? []).map((e) => [e.id, e]));
   const data = manifest.items.map((it) => {
     const s = it.sfx ? sfxById.get(it.sfx.id) : undefined;
@@ -43,6 +82,7 @@ export function renderCatalogPageHtml(manifest: CatalogManifest, sfx: SfxManifes
       whenToUse: it.whenToUse,
       whenNotToUse: it.whenNotToUse,
       sfx: it.sfx ? { id: it.sfx.id, tag: it.sfx.id.split("-")[1], file: s ? `sfx/${s.file}` : null } : null,
+      note: kindNote(it),
       preview: present.has(it.id) ? it.preview : null,
       // Poster frame: mid-effect for a transition, the settled frame for an element.
       posterAt: Math.round((previewTiming(it).at + (it.kind === "transition" ? it.duration * 0.45 : it.duration + 0.2)) * 100) / 100,
@@ -99,6 +139,12 @@ details summary { cursor: pointer; color: var(--ink); }
 details p { margin: 6px 0; }
 code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .empty { padding: 40px; text-align: center; color: var(--muted); }
+.fonts { margin-top: 40px; }
+.fonts h2 { margin: 0 0 4px; font-size: 20px; }
+.fonts-grid { margin-top: 14px; }
+.font-table { margin-top: 22px; width: 100%; border-collapse: collapse; font-size: 13px; }
+.font-table th, .font-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.font-table th { color: var(--muted); font-weight: 600; }
 @media (max-width: 520px) { header, .filters-inner, main { padding-left: 16px; padding-right: 16px; } .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } input[type=search] { min-width: 0; width: 100%; } }
 </style>
 </head>
@@ -117,6 +163,7 @@ code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
 <main>
   <div class="count" id="count"></div>
   <div class="grid" id="grid"></div>
+${fonts ? fontsSection(fonts.manifest, fonts.pairPreviews) : ""}
 </main>
 <script>
 var ITEMS = ${inlineJson(data)};
@@ -146,6 +193,7 @@ function card(it) {
     + '<details><summary>Use / avoid / params</summary><p><b>Use:</b> ' + esc(it.whenToUse) + '</p><p><b>Avoid:</b> ' + esc(it.whenNotToUse) + '</p>'
     + '<p><b>Params:</b> <code>' + esc(it.params.join("  ")) + '</code></p>'
     + (it.sfx ? '<p><b>SFX:</b> <code>' + esc(it.sfx.id) + '</code></p>' : '')
+    + (it.note ? '<p>' + esc(it.note) + '</p>' : '')
     + '<p><code>ralphy catalog show ' + esc(it.id) + '</code></p></details></div></article>';
 }
 function render() {
@@ -186,6 +234,7 @@ render();
 export async function buildCatalogPage(
   manifest: CatalogManifest,
   sfx: SfxManifest | null,
+  fonts: FontManifest | null = null,
   opts: { dataDir?: string; pagePath?: string } = {},
 ): Promise<CatalogPageResult> {
   const dataDir = opts.dataDir ?? catalogDataDir();
@@ -200,13 +249,23 @@ export async function buildCatalogPage(
       missing.push(it.id);
     }
   }
+  const pairPreviews = new Set<string>();
+  for (const p of fonts?.pairs ?? []) {
+    try {
+      await fs.access(path.join(dataDir, "previews", "fonts", `${p.id}.mp4`));
+      pairPreviews.add(p.id);
+    } catch {
+      /* not rendered yet */
+    }
+  }
   await fs.mkdir(path.dirname(pagePath), { recursive: true });
-  await fs.writeFile(pagePath, renderCatalogPageHtml(manifest, sfx, present));
+  await fs.writeFile(pagePath, renderCatalogPageHtml(manifest, sfx, present, fonts ? { manifest: fonts, pairPreviews } : null));
   return {
     page: pagePath,
     items: manifest.items.length,
     previewsPresent: present.size,
     previewsMissing: missing,
     sfxPack: sfx ? { unique: sfx.stats.unique, byTag: sfx.stats.byTag } : null,
+    fonts: fonts ? { fonts: fonts.fonts.length, pairs: fonts.pairs.length, pairPreviewsPresent: pairPreviews.size } : null,
   };
 }

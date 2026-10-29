@@ -1,0 +1,15 @@
+<!-- catalog item: cam-dolly-zoom (camera). Contract: function catalog_cam_dolly_zoom(tl, o)
+     Vertigo effect on cut-out layers: the subject holds its size while the background scales the other way, so perspective seems to warp. Needs o.layers.bg (and optionally mid) behind a cutout subject (#560). Params: duration, amount, direction. -->
+<style data-catalog-css>
+</style>
+<template data-catalog-markup>
+</template>
+<script data-catalog-js>
+  function catalog_cam_dolly_zoom(tl, o) {
+    var T = o.at, D = o.duration, L = o.layers || {};
+    var k = o.direction === "out" ? -1 : 1;
+    if (L.bg) tl.fromTo(L.bg, { scale: 1 }, { scale: 1 + k * o.amount, duration: D, ease: "power1.inOut", immediateRender: false }, T);
+    if (L.mid) tl.fromTo(L.mid, { scale: 1 }, { scale: 1 + k * o.amount * 0.5, duration: D, ease: "power1.inOut", immediateRender: false }, T);
+    if (L.fg) tl.fromTo(L.fg, { scale: 1 }, { scale: 1 - k * o.amount * 0.15, duration: D, ease: "power1.inOut", immediateRender: false }, T);
+  }
+</script>

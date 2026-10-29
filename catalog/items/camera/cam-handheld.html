@@ -1,0 +1,37 @@
+<!-- catalog item: cam-handheld (camera). Contract: function catalog_cam_handheld(tl, o)
+     Seeded handheld drift: smooth value noise on x, y and roll, eased in and out. One tween on a proxy; every frame is a pure function of timeline time, so seeking in any order renders the same frame. Same seed, same shake. Params: duration, seed, amplitude, roll, frequency, overscan. -->
+<style data-catalog-css>
+</style>
+<template data-catalog-markup>
+</template>
+<script data-catalog-js>
+  function catalog_cam_handheld(tl, o) {
+    var seed = Math.floor(o.seed), D = o.duration;
+    function hash(n) {
+      // Integer hash -> [-1, 1]: no random source, no state.
+      var x = (n * 374761393 + seed * 668265263) | 0;
+      x = Math.imul(x ^ (x >>> 13), 1274126177);
+      x = x ^ (x >>> 16);
+      return ((x >>> 0) / 4294967295) * 2 - 1;
+    }
+    function noise(ch, t) {
+      var i = Math.floor(t), f = t - i, u = f * f * (3 - 2 * f);
+      var a = hash(i * 7 + ch * 1013), b = hash((i + 1) * 7 + ch * 1013);
+      return a + (b - a) * u;
+    }
+    function shake(ch, t) {
+      return noise(ch, t * o.frequency) * 0.75 + noise(ch + 50, t * o.frequency * 2.3) * 0.25;
+    }
+    var proxy = { t: 0 };
+    tl.set(o.target, { scale: o.overscan }, o.at);
+    tl.fromTo(proxy, { t: 0 }, {
+      t: D, duration: D, ease: "none", immediateRender: false,
+      onUpdate: function () {
+        var t = proxy.t, ramp = 0.25;
+        var env = Math.min(1, t / ramp, (D - t) / ramp);
+        env = env <= 0 ? 0 : env * env * (3 - 2 * env);
+        gsap.set(o.target, { x: o.amplitude * env * shake(1, t), y: o.amplitude * env * shake(2, t), rotation: o.roll * env * shake(3, t) });
+      },
+    }, o.at);
+  }
+</script>

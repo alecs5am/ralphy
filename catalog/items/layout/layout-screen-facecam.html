@@ -1,0 +1,40 @@
+<!-- catalog item: layout-screen-facecam (layout). Contract: function catalog_layout_screen_facecam(tl, o)
+     Screen recording in a device frame on top, a round face cam bottom-left and the caption beside it, all inside the safe box. Params: device, caption, accent, ring. -->
+<style data-catalog-css>
+  .lsf-bg { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; background: linear-gradient(180deg, #11131a 0%, #1b1f2b 100%); }
+  .lsf-screen { position: absolute; left: 80px; top: 230px; width: 880px; height: 880px; border-radius: 26px; overflow: hidden; background: #f4f5f7; border: 10px solid #2a2f3d; }
+  .lsf-bar { position: absolute; left: 0; top: 0; width: 100%; height: 64px; background: #dfe3ea; }
+  .lsf-row { position: absolute; left: 48px; height: 34px; border-radius: 10px; background: #c9d0dc; }
+  .lsf-cursor { position: absolute; left: 520px; top: 420px; width: 34px; height: 34px; border-radius: 50%; background: rgba(255,90,60,0.85); box-shadow: 0 0 0 10px rgba(255,90,60,0.25); }
+  .lsf-cam { position: absolute; left: 80px; top: 1150px; width: 280px; height: 280px; border-radius: 50%; overflow: hidden; background: linear-gradient(160deg, #4b6a8a 0%, #24364a 100%); border: 8px solid; }
+  .lsf-face { position: absolute; left: 70px; top: 50px; width: 140px; height: 175px; border-radius: 48% 48% 44% 44%; background: #e0ab86; }
+  .lsf-caption { position: absolute; left: 400px; top: 1180px; width: 560px; font-family: "Inter", sans-serif; font-weight: 800; font-size: 50px; line-height: 1.12; color: #ffffff; }
+</style>
+<template data-catalog-markup>
+  <div class="lsf-bg"></div>
+  <div class="lsf-screen" id="lsf-screen" data-slot="screen">
+    <div class="lsf-bar"></div>
+    <div class="lsf-row" style="top: 120px; width: 520px;"></div><div class="lsf-row" style="top: 190px; width: 680px;"></div>
+    <div class="lsf-row" style="top: 260px; width: 420px;"></div><div class="lsf-row" id="lsf-hl" style="top: 400px; width: 600px; background: #ffd166;"></div>
+    <div class="lsf-row" style="top: 470px; width: 560px;"></div><div class="lsf-row" style="top: 540px; width: 640px;"></div>
+    <div class="lsf-cursor" id="lsf-cursor"></div>
+  </div>
+  <div class="lsf-cam" id="lsf-cam" data-slot="facecam"><div class="lsf-face" data-safe-zone="face"></div></div>
+  <div class="lsf-caption" id="lsf-caption" data-slot="caption" data-safe-zone="caption"></div>
+</template>
+<script data-catalog-js>
+  function catalog_layout_screen_facecam(tl, o) {
+    var T = o.at;
+    var screen = document.getElementById("lsf-screen");
+    if (o.device === "phone") { screen.style.left = "250px"; screen.style.width = "540px"; screen.style.borderRadius = "56px"; }
+    document.getElementById("lsf-cam").style.borderColor = o.ring;
+    var cap = document.getElementById("lsf-caption");
+    cap.textContent = o.caption;
+    cap.style.color = o.accent;
+    tl.from("#lsf-screen", { y: 60, opacity: 0, duration: 0.5, ease: "power3.out" }, T);
+    tl.from("#lsf-cam", { scale: 0, duration: 0.45, ease: "back.out(1.9)" }, T + 0.3);
+    tl.from("#lsf-caption", { x: 40, opacity: 0, duration: 0.4, ease: "power3.out" }, T + 0.5);
+    tl.fromTo("#lsf-cursor", { x: -260, y: -200 }, { x: 0, y: 0, duration: 0.9, ease: "power2.inOut" }, T + 0.6);
+    tl.from("#lsf-hl", { scaleX: 0, transformOrigin: "0% 50%", duration: 0.45, ease: "power2.out" }, T + 1.5);
+  }
+</script>

@@ -1,0 +1,33 @@
+<!-- catalog item: layout-broll-caption-band (layout). Contract: function catalog_layout_broll_caption_band(tl, o)
+     Full-bleed B-roll with a solid caption band at chest height and a small kicker up top; the band guarantees contrast on any footage. Params: bandY, band, kicker, caption, accent. -->
+<style data-catalog-css>
+  .lbb-broll { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; }
+  .lbb-ph { position: absolute; inset: -80px; background: radial-gradient(circle at 25% 30%, rgba(255,230,160,0.6), rgba(255,230,160,0) 45%), radial-gradient(circle at 80% 75%, rgba(90,170,255,0.5), rgba(90,170,255,0) 50%), linear-gradient(160deg, #6b4f3a 0%, #2a1d14 100%); }
+  .lbb-label { position: absolute; left: 600px; top: 700px; font-family: "Inter", sans-serif; font-weight: 600; font-size: 26px; letter-spacing: 4px; color: rgba(255,255,255,0.6); text-transform: uppercase; }
+  .lbb-kicker { position: absolute; left: 80px; top: 270px; padding: 12px 22px; border-radius: 10px; background: rgba(0,0,0,0.55); font-family: "Inter", sans-serif; font-weight: 700; font-size: 34px; letter-spacing: 3px; color: #ffffff; text-transform: uppercase; }
+  .lbb-band { position: absolute; left: 0; width: 1080px; height: 230px; transform-origin: 0% 50%; }
+  .lbb-caption { position: absolute; left: 80px; width: 880px; text-align: center; font-family: "Montserrat", "Inter", sans-serif; font-weight: 800; font-size: 58px; line-height: 1.12; color: #ffffff; }
+</style>
+<template data-catalog-markup>
+  <div class="lbb-broll" data-slot="broll"><div class="lbb-ph" id="lbb-ph"></div><div class="lbb-label" data-safe-zone="ignore">B-roll</div></div>
+  <div class="lbb-kicker" id="lbb-kicker" data-slot="kicker"></div>
+  <div class="lbb-band" id="lbb-band" data-slot="band"></div>
+  <div class="lbb-caption" id="lbb-caption" data-slot="caption" data-safe-zone="caption"></div>
+</template>
+<script data-catalog-js>
+  function catalog_layout_broll_caption_band(tl, o) {
+    var T = o.at;
+    var band = document.getElementById("lbb-band");
+    band.style.top = o.bandY + "px";
+    band.style.backgroundColor = o.band;
+    document.getElementById("lbb-kicker").textContent = o.kicker;
+    var cap = document.getElementById("lbb-caption");
+    cap.textContent = o.caption;
+    cap.style.top = (o.bandY + 50) + "px";
+    cap.style.color = o.accent;
+    tl.fromTo("#lbb-ph", { scale: 1.12, x: 0 }, { scale: 1.0, x: -40, duration: 3.6, ease: "sine.out" }, 0);
+    tl.from("#lbb-kicker", { y: -30, opacity: 0, duration: 0.4, ease: "power3.out" }, T);
+    tl.from("#lbb-band", { scaleX: 0, duration: 0.45, ease: "expo.out" }, T + 0.2);
+    tl.from("#lbb-caption", { y: 40, opacity: 0, duration: 0.4, ease: "power3.out" }, T + 0.45);
+  }
+</script>

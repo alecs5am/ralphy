@@ -1,0 +1,16 @@
+<!-- catalog item: cam-crash-zoom (camera). Contract: function catalog_cam_crash_zoom(tl, o)
+     A fast zoom into a point under radial-feeling blur, overshooting and settling; the reveal move of reaction and meme edits. Params: duration, scale, focusX, focusY, blur. -->
+<style data-catalog-css>
+</style>
+<template data-catalog-markup>
+</template>
+<script data-catalog-js>
+  function catalog_cam_crash_zoom(tl, o) {
+    var T = o.at, d = o.duration;
+    tl.set(o.target, { transformOrigin: o.focusX + "px " + o.focusY + "px" }, T);
+    tl.fromTo(o.target, { scale: 1 }, { scale: o.scale * 1.06, duration: d * 0.6, ease: "expo.in", immediateRender: false }, T);
+    tl.to(o.target, { scale: o.scale, duration: d * 0.4, ease: "back.out(2)" }, T + d * 0.6);
+    tl.fromTo(o.target, { filter: "blur(0px) brightness(1)" }, { filter: "blur(" + o.blur + "px) brightness(1.15)", duration: d * 0.6, ease: "power2.in", immediateRender: false }, T);
+    tl.to(o.target, { filter: "blur(0px) brightness(1)", duration: d * 0.4, ease: "power2.out" }, T + d * 0.6);
+  }
+</script>

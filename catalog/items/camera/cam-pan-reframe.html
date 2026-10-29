@@ -1,0 +1,16 @@
+<!-- catalog item: cam-pan-reframe (camera). Contract: function catalog_cam_pan_reframe(tl, o)
+     Pan-and-scan a wide (16:9) source inside the 9:16 frame: move the window from one horizontal position to another with eased holds, the way you reframe landscape footage for vertical. o.bounds = [x0, y0, x1, y1] gives the plate extents (default: a 2160 px plate centred on the frame). Params: duration, from, to, hold. -->
+<style data-catalog-css>
+</style>
+<template data-catalog-markup>
+</template>
+<script data-catalog-js>
+  function catalog_cam_pan_reframe(tl, o) {
+    var B = o.bounds || [-540, 0, 1620, 1920];
+    // Window position 0 shows the plate's left edge, 1 its right edge.
+    function offset(pos) { return -(B[0] + pos * (B[2] - B[0] - 1080)); }
+    var hold = Math.min(o.hold, o.duration / 3), move = o.duration - 2 * hold;
+    tl.set(o.target, { x: offset(o.from) }, o.at);
+    tl.fromTo(o.target, { x: offset(o.from) }, { x: offset(o.to), duration: move, ease: "power2.inOut", immediateRender: false }, o.at + hold);
+  }
+</script>

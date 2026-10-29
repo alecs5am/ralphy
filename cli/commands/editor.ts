@@ -10,6 +10,10 @@
 //                     aggregated into artifacts/analysis/summary.json with mtime
 //                     idempotency (#034)
 //
+//   - `lint-safe-zones`: probe the composition in headless Chromium and flag
+//                     text, captions, CTAs, faces and products that sit under
+//                     TikTok / Reels / Shorts UI (#564)
+//
 // These verbs make the agent's editor-stage workflow CLI-native and keep
 // AGENTS.md invariant #2 honest (no raw ffmpeg loops outside cli/). Helpers
 // live in cli/lib/editor/ so the prompt + shapes + completeness + music-gap
@@ -21,6 +25,8 @@ import path from "node:path";
 import { artifactKindDir, resolveArtifactKindDirs, resolveArtifactPath, projectDir } from "../lib/paths.js";
 import { out, err, ok, isPretty } from "../lib/output.js";
 import { c, icons, section, kv } from "../lib/ui.js";
+import { raiseError } from "../lib/errors/index.js";
+import { checkSafeZones, PLATFORM_SAFE_ZONES, SAFE_ZONE_PLATFORMS, type SafeZonePlatform } from "../lib/editor/safe-zones.js";
 import { probeFile, ensureFfprobe } from "../lib/ffprobe.js";
 import type { ProbeResult } from "../lib/ffprobe.js";
 import {
@@ -428,6 +434,83 @@ export function editorCmd(): Command {
           results,
         });
         if (okCount < results.length) process.exitCode = 1;
+      },
+    );
+
+  // ── lint-safe-zones (#564) ────────────────────────────────────────────────
+  cmd
+    .command("lint-safe-zones <project>")
+    .description(
+      "Flag text, captions, CTAs, faces and products inside TikTok / Reels / Shorts UI zones. Loads <project>/index.html in headless Chromium, seeks the timeline to sample times, and checks every visible text element plus anything tagged data-safe-zone. Exit 1 on errors. Local, zero provider calls.",
+    )
+    .option("--platform <platforms...>", `Platforms to check: ${SAFE_ZONE_PLATFORMS.join(" | ")} (default: all)`)
+    .option("--composition <file>", "Composition file inside the project", "index.html")
+    .option("--samples <n>", "Midpoint samples across the duration", (v) => parseInt(v, 10), 9)
+    .option("--at <times>", "Comma-separated sample times in seconds (overrides --samples)")
+    .option("--tolerance <px>", "Px an element may cross into a zone before it counts", (v) => Number(v), 4)
+    .option("--strict", "Exit 1 on warnings too (edge margins, faces partly under the rail)")
+    .addHelpText(
+      "after",
+      `
+Examples:
+  ralphy editor lint-safe-zones my-project
+  ralphy editor lint-safe-zones my-project --platform tiktok reels --at 0.5,2,4.25
+  ralphy editor lint-safe-zones .ralphy/catalog/build/layout-pip     # any directory with an index.html
+
+Tag elements the probe cannot infer: data-safe-zone="face|product|cta|caption|text";
+data-safe-zone="ignore" skips decorative or intentionally off-frame elements.`,
+    )
+    .action(
+      async (
+        project: string,
+        opts: { platform?: string[]; composition: string; samples: number; at?: string; tolerance: number; strict?: boolean },
+      ) => {
+        for (const p of opts.platform ?? []) {
+          if (!(SAFE_ZONE_PLATFORMS as readonly string[]).includes(p)) {
+            raiseError("E_FLAG_UNKNOWN", { flag: "platform", value: p, allowed: SAFE_ZONE_PLATFORMS.join(", "), verb: "editor lint-safe-zones" });
+          }
+        }
+        let dir: string | null = null;
+        try {
+          const st = await fs.stat(project);
+          if (st.isDirectory()) dir = path.resolve(project);
+        } catch {
+          /* not a path: resolve as a project id */
+        }
+        if (!dir) dir = projectDir(project);
+        const htmlPath = path.join(dir, opts.composition);
+        try {
+          await fs.access(htmlPath);
+        } catch {
+          raiseError("E_FILE_UNREADABLE", { path: htmlPath });
+        }
+        const times = opts.at
+          ? opts.at
+              .split(",")
+              .map((v) => Number(v.trim()))
+              .filter((v) => Number.isFinite(v) && v >= 0)
+          : undefined;
+        const platforms = (opts.platform ?? [...SAFE_ZONE_PLATFORMS]) as SafeZonePlatform[];
+        const { probeComposition } = await import("../lib/editor/safe-zones-probe.js");
+        const probe = await probeComposition(htmlPath, { times, samples: opts.samples });
+        const findings = checkSafeZones(probe.samples, { platforms, tolerance: opts.tolerance });
+        const errorCount = findings.filter((f) => f.severity === "error").length;
+        const warningCount = findings.length - errorCount;
+        const ok = errorCount === 0 && (!opts.strict || warningCount === 0);
+        out({
+          project,
+          composition: htmlPath,
+          ok,
+          duration: probe.duration,
+          samples: probe.samples.map((s) => s.t),
+          platforms: platforms.map((p) => ({ platform: p, safe: PLATFORM_SAFE_ZONES[p].safe })),
+          elementsChecked: probe.samples.reduce((n, s) => n + s.elements.length, 0),
+          errorCount,
+          warningCount,
+          findings,
+          warnings: probe.warnings,
+        });
+        if (!ok) process.exitCode = 1;
       },
     );
 

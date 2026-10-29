@@ -70,6 +70,7 @@ bun run lint:confirmation-shape  # English/Russian confirmation phrases in promp
 bun run lint:motion-graphics  # motion-graphics misroutes in prompts.json
 bun run lint:docs-links:fast  # internal CLI-doc links resolve
 bun run lint:out-coverage     # every out()-emitting command verb has a pretty-mode render assertion
+bun run lint:fonts            # every font a catalog fragment names has a recorded license (#565)
 bun run cli:surface:check     # cli-surface.generated.md is fresh
 ```
 

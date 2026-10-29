@@ -1,4 +1,5 @@
 #!/usr/bin/env -S bun --no-env-file
+import { statSync } from "node:fs";
 import { Command } from "commander";
 import path from "node:path";
 import { setPretty } from "./lib/output.js";
@@ -258,7 +259,10 @@ program
          venv and reads only the media path it is given (#560). With
          `--project` it resolves scope like any project verb. */
       const matteWithoutProject = sub === "matte" && !actionCommand.opts().project;
-      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || sub === "catalog" || matteWithoutProject || explicitCredentialProbe) {
+      /* And `editor lint-safe-zones <dir>` on a composition directory rather
+         than a project id: it reads only that path (#564). */
+      const safeZonesOnPath = sub === "editor" && actionCommand.name() === "lint-safe-zones" && isDirectoryArg(actionCommand.args[0]);
+      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || sub === "catalog" || matteWithoutProject || safeZonesOnPath || explicitCredentialProbe) {
         setDataRoot(identity.dataRoot);
         return true;
       }
@@ -577,6 +581,15 @@ function preserveStagedScopeOptions(command: Command): void {
     }
   });
   for (const child of command.commands) preserveStagedScopeOptions(child);
+}
+
+function isDirectoryArg(arg: unknown): boolean {
+  if (typeof arg !== "string" || arg.length === 0) return false;
+  try {
+    return statSync(arg).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 function positionalProjectId(command: Command): string | undefined {
