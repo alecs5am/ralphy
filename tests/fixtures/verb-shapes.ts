@@ -23,6 +23,27 @@ export interface VerbShape {
   shape: unknown;
 }
 
+// #590 adapt scorecard as printed on every trends reference row.
+const TREND_SCORECARD_SHAPE = {
+  rulesVersion: 1,
+  posted: { at: "2026-10-18T12:00:00.000Z", ageDays: 12, freshness: "hot" },
+  multiplier: 8,
+  nichePercentile: 0.97,
+  views: 400000,
+  viewsPerFollower: 10,
+  creator: { followers: 40000, sizeBand: "micro" },
+  replication: { visualFormatCreators: 2, seriesLift: null, seriesParts: null, seriesPartsInWindow: null },
+  visualFormat: { format: "text-over-action", confidence: 0.8 },
+  captionLabel: "listicle",
+  sponsored: false,
+  transfer: "not-checked",
+  evidence: { quality: "strong", baselineN: 24, dated: true, views: "exact" },
+  verdict: "adapt",
+  reasons: ["A1 strong lift: 8x creator median, niche p97", "A3 replication: series lift 4.6x over 22 parts; text-over-action on 2 other creator(s)", "note: transferability not checked (no within-creator contrast)"],
+  checks: [{ rule: "K1 dated", pass: true, detail: "posted 2026-10-18, 12 d" }, { rule: "A2 evidence", pass: true, detail: "strong (baseline n 24, exact views)" }],
+};
+const TREND_SCORECARD_RULES = ["skip when any of: K1 undated; K2 stale; K3 sponsored; K4 creator-bound; K5 no lift", "test otherwise; the failing adapt rules are the reasons."];
+
 // Keyed by command file basename (cli/commands/<key>.ts). Each verb lists one
 // or more canonical shapes. Mirrors the real `out(...)` payloads.
 export const VERB_SHAPES: Record<string, VerbShape[]> = {
@@ -1343,7 +1364,8 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         by: "outlier",
         scoreNote: "Multipliers, z scores, composites, and labels are Ralphy's own estimates from creator-relative baselines, not platform data.",
         count: 2,
-        notes: ["1 video(s) in scope have no post time (YouTube Shorts tabs without the YouTube Data API connector) and are not ranked"],
+        maxAgeDays: 90,
+        notes: ["1 video(s) in scope have no post time (freshness-unknown) and are not ranked", "--since 365d was clamped to the 90-day freshness window (#590)"],
         videos: [
           {
             rank: 1, platform: "tiktok", creator: "fixture_alpha", followers: 45000, title: "5 AI tools that save time", url: "https://www.tiktok.com/@fixture_alpha/video/7700000000000000101",
@@ -1440,11 +1462,14 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         kind: "trend-niche-report",
         niche: { slug: "psychology", topic: "psychology", languages: ["en"], platforms: ["tiktok", "youtube"], seedSource: "file", subNiches: ["anxiety"] },
         scope: { language: "en", platform: null },
-        coverage: { creators: { kept: 300, dropped: 800 }, groups: { main: 250, negative: 45, anomaly: 5 }, quotas: [{ band: "lt10k", quota: 75, kept: 40, deficit: 35 }], lastRun: null },
+        settings: { sinceDays: 90, maxAgeDays: 90, sinceClamped: false },
+        scorecardRules: TREND_SCORECARD_RULES,
+        coverage: { creators: { kept: 300, dropped: 800 }, groups: { main: 250, negative: 45, anomaly: 5 }, quotas: [{ band: "lt10k", quota: 75, kept: 40, deficit: 35 }], videos: { listed: 20000, inWindowDatedMain: 1800, excluded: { olderThanWindow: 5893, undated: 12000, windowDays: 90, maxAgeDays: 90 } }, lastRun: null },
         whatToCopy: {
           status: "ok",
           noiseFloorViews: 50000,
-          items: [{ rank: 1, score: 3.65, platform: "tiktok", creator: "calm.mind", sizeBand: "micro", multiplier: 20, views: 500000, components: { multiplier: 20, viewsPerFollower: 12.5, sizeWeight: 0.85, replicationFactor: 1, replication: { format: { label: null, smallCreators: 0 }, hook: { label: "question", smallCreators: 2 }, sameCreatorRepeats: 0 } }, digest: null }],
+          verdicts: { adapt: 0, test: 1, skip: 0 },
+          items: [{ rank: 1, score: 3.65, platform: "tiktok", creator: "calm.mind", sizeBand: "micro", postedAt: "2026-10-18T12:00:00.000Z", ageDays: 12, multiplier: 20, views: 500000, components: { multiplier: 20, viewsPerFollower: 12.5, sizeWeight: 0.85, replicationFactor: 1, replication: { format: { label: null, smallCreators: 0 }, hook: { label: "question", smallCreators: 2 }, sameCreatorRepeats: 0 } }, digest: null, verdict: "adapt", scorecard: TREND_SCORECARD_SHAPE }],
         },
         formats: { formats: [{ label: "listicle", n: 4, medianMultiplier: null, hitRate: null, lift: null, verdict: "insufficient data" }], hooks: [] },
         growth: { basis: "proxy", rows: [{ group: "others", creators: 3, medianPostsPerWeek: null, medianDurationSec: null, verdict: "insufficient data" }] },
@@ -1458,8 +1483,9 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       shape: {
         kind: "trend-signals",
         niche: "psychology",
-        scope: { language: "en", platform: null, subNiche: null, sinceDays: 30, widenSinceDays: 90, types: null },
-        coverage: { creators: 400, videos: 19900, datedInWindow: 543, judgeableInWindow: 437, withTwoSnapshots: 0 },
+        generatedAt: "2026-10-30T10:00:00.000Z",
+        scope: { language: "en", platform: null, subNiche: null, sinceDays: 30, widenSinceDays: 90, maxAgeDays: 90, types: null },
+        coverage: { creators: 400, videos: 19900, excluded: { olderThanWindow: 5893, undated: 12000, maxAgeDays: 90 }, datedInWindow: 543, judgeableInWindow: 437, withTwoSnapshots: 0 },
         counts: { breakout: 17, "small-account-breakout": 6, "early-momentum": 0, "near-miss": 48, "emerging-format": 1, "demand-signal": 0, nearMissCauses: { "packaging-weak": 29, "content-weak": 12, unclear: 7 } },
         widening: {
           k: 20,
@@ -1481,10 +1507,17 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
             improvement: "Content strong, packaging weak: keep the body; rework the first 1-2 s, the first frame, and the caption.",
             why: null, transferable: null, pickKey: "near-miss:tvideo_00000000-0000-4000-8000-000000000577", decision: "pending", transferCandidate: true, wideningStep: "near-miss-threshold",
             scaleUp: { status: "no own baseline yet", method: null, low: null, high: null, relativeToOwnMedian: { low: 1.33, high: 1.76 }, inputs: { viewsPerFollower: 3, multiplier: 3.1, ownMedianViews: null, ownFollowers: null, ownN: 0 }, assumptions: ["#558 has fewer than 3 own outcomes"] },
+            postedAt: "2026-10-18T12:00:00.000Z", ageDays: 12, verdict: "adapt", scorecard: TREND_SCORECARD_SHAPE,
             videoId: "tvideo_00000000-0000-4000-8000-000000000577",
           },
           { type: "emerging-format", label: "emerging hook: question", cause: null, creators: ["calm.mind", "anxietyhelp"], strength: 2, evidence: { axis: "hook", value: "question", unrelatedCreators: 2, active: true }, urls: ["https://www.tiktok.com/@calm.mind/video/7700000000000000578"], why: null, transferable: null },
         ],
+        references: {
+          basis: "the widened reference set with its #590 adapt scorecard; ordered adapt, test, skip",
+          verdicts: { adapt: 1, test: 0, skip: 0 },
+          rules: TREND_SCORECARD_RULES,
+          rows: [{ type: "small-account-breakout", label: "small-account breakout", creator: "calm.mind", platform: "tiktok", url: "https://www.tiktok.com/@calm.mind/video/7700000000000000577", wideningStep: "base", postedAt: "2026-10-18T12:00:00.000Z", ageDays: 12, verdict: "adapt", scorecard: TREND_SCORECARD_SHAPE, videoId: "tvideo_00000000-0000-4000-8000-000000000577" }],
+        },
         contrasts: [
           {
             rank: 1, type: "small-account-breakout", label: "small-account breakout", wideningStep: "base", creator: "calm.mind", sizeBand: "micro", followers: 40000, subNiche: "anxiety",
@@ -1498,6 +1531,7 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         ledger: { slug: "psychology-en", revisions: 1, picks: 27 },
         notes: ["Ralphy's own estimates"],
         recorded: { written: true, documentId: "doc_00000000-0000-4000-8000-000000000577", revisionId: "drev_00000000-0000-4000-8000-000000000577", added: 27, updated: 0, picks: 27, unmatchedHypotheses: 0 },
+        outputs: { markdown: "/tmp/references-psychology-en.md" },
         scoreNote: "Ralphy's own estimates",
       },
     },
@@ -1603,13 +1637,16 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         niches: ["psychology"],
         scope: { language: "en", platform: null },
         generatedAt: "2026-10-30T10:00:00.000Z",
-        settings: { minParts: 3, minOther: 5, stemWords: 3, minMedianViews: 0, limit: 30 },
+        settings: { minParts: 3, minOther: 5, stemWords: 3, minMedianViews: 0, limit: 30, freshDays: 90, freshOnly: true },
         method: "part / episode / day / #N markers grouped by a 3-word stem",
         coverage: {
           channels: 923,
           channelsWithSeries: 76,
           series: 109,
           shown: 1,
+          eligible: 2,
+          excluded: { stale: 39, freshnessUnknown: 59, belowMedianViews: 0, listed: false, basis: "a series is listed only when a part was posted within 90 days" },
+          verdicts: { adapt: 1, test: 0, skip: 1 },
           primary: { series: 76, atLeast1_5x: 13, atLeast2x: 6 },
           byNiche: [{ niche: "psychology", channels: 923, withMarkers: 178, withSeries: 76, thinBaseline: 2, series: 109, primaryAtLeast1_5x: 13, primaryAtLeast2x: 6, labeled: 1 }],
         },
@@ -1618,13 +1655,17 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
             rank: 1, niche: "psychology", platform: "youtube", channel: "@calm.mind", language: "en", followers: 120000, sizeBand: "mid", stem: "things people with", grouping: "stem", primary: true,
             parts: 22, partNumbers: [19, 20, 21], markerKinds: ["part"], other: 13, seriesMedianViews: 88000, otherMedianViews: 19000, lift: 4.63, multiplierLift: null, datedParts: 1, datedOther: 0,
             bestPart: { url: "https://www.youtube.com/shorts/aaaaaaaaaaa", views: 2132710, videoId: "tvideo_00000000-0000-4000-8000-000000000588" },
+            referencePart: { url: "https://www.youtube.com/shorts/aaaaaaaaaab", views: 88000, postedAt: "2026-10-23T12:00:00.000Z", ageDays: 7, videoId: "tvideo_00000000-0000-4000-8000-000000000590" },
+            partsInWindow: 9,
             visualFormat: { format: "text-over-action", confidence: 0.85, method: "vision-agent" },
+            verdict: "adapt",
+            scorecard: TREND_SCORECARD_SHAPE,
             seriesKey: "tcreator_00000000-0000-4000-8000-000000000588:things people with",
           },
           {
             rank: 2, niche: "psychology", platform: "tiktok", channel: "calm.night", language: "en", followers: null, sizeBand: null, stem: "", grouping: "numbered-set", primary: true,
             parts: 3, partNumbers: [1, 2, 3], markerKinds: ["part", "number"], other: 40, seriesMedianViews: null, otherMedianViews: 3000, lift: null, multiplierLift: null, datedParts: 0, datedOther: 0,
-            bestPart: null, visualFormat: null, seriesKey: "tcreator_00000000-0000-4000-8000-000000000589:#numbered",
+            bestPart: null, referencePart: null, partsInWindow: 0, visualFormat: null, verdict: "skip", scorecard: null, seriesKey: "tcreator_00000000-0000-4000-8000-000000000589:#numbered",
           },
         ],
         formats: {
@@ -1634,6 +1675,7 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
           rows: [{ niche: "psychology", format: "text-over-action", series: 1, channels: 1, medianLift: 4.63, bestExample: { channel: "@calm.mind", lift: 4.63, parts: 22, url: "https://www.youtube.com/shorts/aaaaaaaaaaa" } }],
           howTo: "ralphy trends series --niche <n> --digest <k>",
         },
+        scorecardRules: TREND_SCORECARD_RULES,
         notes: ["Lifts are Ralphy's own estimates"],
         worksheet: { file: "/tmp/worksheet.json", items: 1, ok: 1, reused: 0, failed: 0, blocked: 0, notRun: 0, stopped: null, next: "ralphy trends formats label --from /tmp/worksheet.json" },
         outputs: { worksheet: "/tmp/worksheet.json" },

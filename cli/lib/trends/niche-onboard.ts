@@ -84,6 +84,7 @@ import { YOUTUBE_LISTING_SOURCE, YOUTUBE_WATCH_SOURCE, dateYoutubeVideo, listYou
 import type { SourceVideo } from "./sources/types.js";
 import { bioMetadata, extractMentions, tiktokHandleFromYoutube } from "./text.js";
 import type { LabelPolicy } from "./thresholds.js";
+import { DEFAULT_MAX_AGE_DAYS, listingLimitFor } from "./freshness.js";
 
 /** Watchlist sources that only niche onboarding runs (refresh skips them: they are not TREND_SOURCES). */
 export const NICHE_TIKTOK_PROFILE_SOURCE = "niche-tiktok-profile";
@@ -124,6 +125,8 @@ export interface NicheInitOptions {
    * candidates are never backfilled. 0 = list every candidate in full.
    */
   sampleListing?: number;
+  /** #590 collection cutoff in days (default 90): listed videos posted earlier are skipped. */
+  maxAgeDays?: number;
 }
 
 export interface NicheRoundSummary {
@@ -338,7 +341,8 @@ export async function youtubeHandlePass(input: {
         continue;
       }
       if (!breaker.acquire()) break;
-      const result = await listYoutubeChannelShorts({ channelRef: seed.handle, limit: input.perCreator, run: input.deps.ytdlp });
+      // Flat Shorts tabs carry no post time: only the newest entries (#590); they are stored freshness-unknown.
+      const result = await listYoutubeChannelShorts({ channelRef: seed.handle, limit: listingLimitFor("youtube", input.perCreator), run: input.deps.ytdlp });
       breaker.record(result.outcome);
       const channelId = result.creator?.platformCreatorId;
       if (result.outcome.kind !== "ok" || !channelId || !isChannelId(channelId)) {
@@ -845,6 +849,7 @@ async function runDiscovery(input: {
     discoveryDepth: depth,
     budget: options.budget,
     paid: { enabled: false, dailyCapUsd: null },
+    maxAgeDays: options.maxAgeDays ?? DEFAULT_MAX_AGE_DAYS,
   });
   const plain: Array<{ source: TrendSource; discoverySource: string; kind: WatchlistKind; platform: TrendPlatform; values: string[]; depth: number }> = [
     { source: "youtube-search", discoverySource: "youtube-search", kind: "keyword", platform: "youtube", values: work.youtubeKeywords, depth: options.searchDepth },
@@ -926,6 +931,7 @@ async function listCandidates(input: { niche: NicheDto; options: NicheInitOption
       budget: options.budget,
       kind: "trend.list",
       deps,
+      maxAgeDays: options.maxAgeDays ?? DEFAULT_MAX_AGE_DAYS,
     });
     input.passes.push(pass);
     listed[platform] = pass.counts.creatorsListed ?? 0;
@@ -960,6 +966,7 @@ async function backfillKept(input: { niche: NicheDto; options: NicheInitOptions;
       budget: options.budget,
       kind: "trend.list",
       deps,
+      maxAgeDays: options.maxAgeDays ?? DEFAULT_MAX_AGE_DAYS,
     });
     input.passes.push(pass);
     out[platform] = pass.counts.creatorsListed ?? 0;

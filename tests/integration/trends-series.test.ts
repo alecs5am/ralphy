@@ -57,12 +57,21 @@ function seed(): NicheDto {
 describe("trends series over the store", () => {
   test("detects both series, marks freshness, and joins vision-agent labels into format stats", () => {
     const niche = seed();
-    const report = buildSeriesReport({ niches: [niche], now: NOW });
+    // #590: the default lists fresh series only and counts the rest; --include-stale (freshOnly false) lists them with verdict skip.
+    const fresh = buildSeriesReport({ niches: [niche], now: NOW });
+    expect(fresh.series.map((row) => row.channel)).toEqual(["@freshgym"]);
+    expect(fresh.coverage.excluded).toMatchObject({ stale: 1, freshnessUnknown: 0, listed: false });
+    const report = buildSeriesReport({ niches: [niche], now: NOW, options: { freshOnly: false } });
     expect(report.coverage).toMatchObject({ channels: 2, channelsWithSeries: 2, series: 2, freshness: { fresh: 1, stale: 1, unknown: 0 } });
     const byChannel = Object.fromEntries(report.series.map((row) => [row.channel, row]));
     expect(byChannel["@freshgym"]).toMatchObject({ parts: 3, lift: 5, freshness: "fresh", ageDays: 10, stem: "weird gym machines", newestPart: { url: "https://www.youtube.com/shorts/freshgymp3", ageDays: 10 } });
     expect(byChannel["@oldgym"]).toMatchObject({ parts: 3, lift: 8, freshness: "stale", ageDays: 400 });
-    expect(buildSeriesReport({ niches: [niche], now: NOW, options: { freshOnly: true } }).series.map((row) => row.channel)).toEqual(["@freshgym"]);
+    // Scorecard of the reference part: the fresh series adapts on its own lift; the stale one is skipped by K2 even with the higher lift.
+    expect(byChannel["@freshgym"]!.scorecard).toMatchObject({ verdict: "adapt", posted: { freshness: "hot", ageDays: 10 }, replication: { seriesLift: 5, seriesParts: 3, seriesPartsInWindow: 1 }, evidence: { quality: "ok", views: "rounded" }, transfer: "not-checked" });
+    expect(byChannel["@freshgym"]!.referencePart).toMatchObject({ url: "https://www.youtube.com/shorts/freshgymp3", ageDays: 10 });
+    expect(byChannel["@oldgym"]!.scorecard!.verdict).toBe("skip");
+    expect(byChannel["@oldgym"]!.scorecard!.reasons[0]).toMatch(/^K2 fresh: posted .* 400 d > 90 d$/);
+    expect(report.series.map((row) => row.verdict)).toEqual(["adapt", "skip"]);
 
     // Label both newest parts; only the fresh series counts in the format stats.
     const ids = report.series.map((row) => row.newestPart!.videoId);
@@ -82,6 +91,8 @@ describe("trends series over the store", () => {
     expect(labeled.formats.rows).toEqual([expect.objectContaining({ niche: "fitness", series: 1, channels: 1, medianLift: 5 })]);
     const markdown = renderSeriesMarkdown(labeled);
     expect(markdown).toContain("## Formats and series");
+    expect(markdown).toContain("## Adapt scorecard");
+    expect(markdown).toContain("Excluded from the list: 1 stale series");
     expect(markdown).toContain("Freshness unknown");
     expect(markdown).not.toContain("undefined");
   });

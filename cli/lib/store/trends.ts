@@ -16,6 +16,7 @@ import {
   type TrendPlatform,
 } from "../trends/math.js";
 import type { ScoreCreator, ScoreSnapshot, ScoreVideo, VideoScore } from "../trends/score.js";
+import { FRESHNESS_UNKNOWN } from "../trends/freshness.js";
 
 /**
  * Trend corpus store (#556). Every function takes an explicit Workspace id:
@@ -474,7 +475,7 @@ export function writeIngestBatch(input: {
         id = existing.id;
         updateVideo.run(
           postedAt,
-          postedAt === null ? null : video.postedAtSource ?? "platform",
+          postedAt === null ? FRESHNESS_UNKNOWN : video.postedAtSource ?? "platform",
           intOrNull(video.durationMs),
           intOrNull(video.width),
           intOrNull(video.height),
@@ -504,7 +505,7 @@ export function writeIngestBatch(input: {
           video.formatKey ?? formatKeyFor(video.platform),
           truncateCodePoints(video.url, 1_000),
           postedAt,
-          postedAt === null ? null : video.postedAtSource ?? "platform",
+          postedAt === null ? FRESHNESS_UNKNOWN : video.postedAtSource ?? "platform",
           intOrNull(video.durationMs),
           intOrNull(video.width),
           intOrNull(video.height),

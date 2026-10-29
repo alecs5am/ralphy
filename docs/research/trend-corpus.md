@@ -924,6 +924,33 @@ dates the top candidate per channel, but its baseline stays undated, so the
 report lists dated candidates separately with a raw listing ratio, labeled as
 a filter rather than the #556 score.
 
+## Freshness window and adapt scorecard (#590)
+
+Owner rule (2026-10-30): a reference must be posted within the last 90 days; older hits come from a different algorithm era. Code: `cli/lib/trends/freshness.ts` (window), `cli/lib/trends/scorecard.ts` (pure rules), `cli/lib/trends/reference-card.ts` (facts per niche).
+
+**Collection.** `trends ingest`, `trends refresh` and `trends niche init` (sample listing and backfill) take `--max-age-days` (default 90). TikTok listings carry a post time: videos posted earlier, including a pinned old post at the top of a profile, are not written (the filter runs after parsing, so a pinned post never stops the listing). YouTube channel Shorts tabs are flat and undated, so a channel lists only its 30 newest entries; they are dated through the existing paths (the YouTube Data API pass when `YOUTUBE_API_KEY` is configured, otherwise the watch-page budget for Tier-1 candidates in `niche init --youtube-date-budget` and for newest series parts in `trends series --digest`, both stopping on the first bot check). Discovery videos get the same cutoff. A video stored without a post time carries `posted_at_source = 'freshness-unknown'` (no migration; a later dated sample replaces it with its own source). Pass counts: `videosSkippedOld`, `videosFreshnessUnknown`. A creator with no post inside the window lists no videos, so the relevance gate sees fewer samples for rarely posting creators.
+
+**Analysis.** Rows older than the window and undated rows stay stored (append-only) but never enter an analysis: `trends top` and the niche report clamp `--since` to `--max-age-days`; the niche report analyses only dated main-group videos inside the window (`coverage.videos.excluded`); `trends signals` clamps `--since` and `--widen-since` (`coverage.excluded`); `trends series` lists fresh series only (`coverage.excluded` counts stale and freshness-unknown series; `--include-stale` lists them with verdict skip). Creator baselines and series lifts still use the whole stored history: the window decides which rows are references, not what a creator's median is.
+
+**Scorecard.** Every reference row (`trends signals` rows and `references`, `trends series` rows, the niche report's what-to-copy, top outliers and fresh series) carries `scorecard` and `verdict`. A series row is judged on its reference part: the most-viewed part posted inside the window, else the newest part. Fields: post date and age; freshness (`hot` <= 30 days, `fresh` <= window, `stale`, `unknown`); the creator-relative multiplier and its niche percentile (share of the niche's judgeable in-window videos on the same platform at or below it); views per follower; follower count and size band; replication (other creators with a fresh labeled series of the same visual format, other 3x+ hits of the same creator in the window, series lift and parts, parts inside the window); visual format (#588 label of the video or its series); caption label (shown only); sponsored flag; transfer class (#577 contrast on any ledger of the niche: `transferable`, `creator-bound`, `not-checked`); evidence quality (baseline n, dated, exact or rounded views); verdict and reasons.
+
+Rules (version 1). A multiplier from a thin baseline or a provisional age (under 72 hours) is shown but decides no rule.
+
+| Rule | Passes when |
+| --- | --- |
+| K1 dated | the row has a post time |
+| K2 fresh | posted within the window (default 90 days) |
+| K3 not sponsored | no `#ad` / paid-partnership marker |
+| K4 not creator-bound | no within-creator contrast classed it creator-bound |
+| K5 lift | multiplier >= 2x or series lift >= 1.5x; a series row needs its own series lift >= 1.5x |
+| A1 strong lift | multiplier >= 3x at niche percentile >= p90, or series lift >= 2x over 3+ parts |
+| A2 evidence | `ok` or `strong`: strong = scored, non-thin, non-provisional, baseline n >= 15, exact views; ok = scored with baseline n >= 8, or a series with 3+ parts and 5+ unmarked videos |
+| A3 replication | the visual format on 1+ other creator's fresh labeled series in the niche, or series lift >= 1.5x over 3+ parts, or 2+ other 3x+ hits by the same creator inside the window |
+| A4 noise floor | views >= the niche noise floor (default 50k) |
+| A5 reach beyond audience | not a macro / mega account, or >= 1 view per follower, or a strong series (A1 by series lift) |
+
+Verdict: `skip` when any K rule fails (the failing K rules are the reasons); otherwise `adapt` when every A rule passes (the reasons list them, plus a note when transfer was not checked); otherwise `test` (the failing A rules are the reasons). Rows are ordered adapt, test, skip. First run: `docs/research/references-psychology-en-2026-10-30.md`.
+
 ## Open risks
 
 - **Terms of service.** TikTok's terms ban automated extraction for everyone,

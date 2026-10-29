@@ -92,13 +92,14 @@ import { PAID_ACTORS } from "../lib/trends/sources/paid.js";
 import { capturePageXhr, openTiktokProfileSession } from "../lib/trends/sources/tiktok.js";
 import { runYtdlp, ytdlpAvailable } from "../lib/trends/sources/ytdlp.js";
 import { YOUTUBE_API_SOURCE, YOUTUBE_WATCH_SOURCE } from "../lib/trends/sources/youtube.js";
-import { buildNicheSignals, buildPrecision, linkPickToUnit, recordPicks, skipPick, SIGNAL_MIN_N, type HypothesisInput, type PickScope } from "../lib/trends/signal-engine.js";
+import { buildNicheSignals, buildPrecision, linkPickToUnit, recordPicks, renderSignalReferencesMarkdown, skipPick, SIGNAL_MIN_N, type HypothesisInput, type PickScope } from "../lib/trends/signal-engine.js";
 import { ATTENTION_TIERS, DEFAULT_TIER_RULES, SIGNAL_TYPES, TIER_CADENCE, attentionTier, isSignalType, type SignalType } from "../lib/trends/signals.js";
 import { creatorAttentionFacts } from "../lib/store/trend-signals.js";
 import { appendVisualFormatLabels, trendVideoRefs } from "../lib/store/trend-formats.js";
 import { buildSeriesReport, digestTopSeries, renderSeriesMarkdown, DEFAULT_SERIES_REPORT_OPTIONS, type SeriesDigestDeps } from "../lib/trends/series-report.js";
 import { parseLabelWorksheet, VISUAL_FORMATS, type VisualFormatLabel } from "../lib/trends/series.js";
 import { buildDigest, createVersionedDir, metricsFromYtDlpMeta } from "../lib/ref-digest.js";
+import { DEFAULT_MAX_AGE_DAYS, YOUTUBE_NEWEST_PER_CHANNEL, clampWindowDays } from "../lib/trends/freshness.js";
 import { pullReference } from "../lib/research.js";
 
 const SCORE_NOTE = "Multipliers, z scores, composites, and labels are Ralphy's own estimates from creator-relative baselines, not platform data.";
@@ -115,7 +116,7 @@ export function trendsCmd(): Command {
     .requiredOption("--source <source>", `Source: ${TREND_SOURCES.join(" | ")}`)
     .option("--seed <value...>", "Seed values: Explore category (Technology), sound URL/id, hashtag (aitools), keyword, TikTok secUid, YouTube channel id")
     .option("--niche <niche>", `Seed niche for discovered creators: ${NICHES.join(" | ")}`)
-    .option("--per-creator <n>", "Videos per creator listing", "60")
+    .option("--per-creator <n>", `Videos per creator listing (YouTube channels list at most their ${YOUTUBE_NEWEST_PER_CHANNEL} newest)`, "60")
     .option("--max-creators <n>", "Creators to list in this pass", "200")
     .option("--concurrency <n>", "Parallel listings", "2")
     .option("--depth <n>", "Discovery depth (Explore scrolls, hashtag/search entries)", "40")
@@ -128,6 +129,7 @@ export function trendsCmd(): Command {
     .option("--llm-limit <n>", "Max videos the LLM labels in this pass", "500")
     .option("--refit", "Refit the maturity curve from longitudinal snapshots before scoring")
     .option("--no-youtube-api", "Do not use the YouTube Data API connector even when configured")
+    .option("--max-age-days <n>", "Freshness window (#590): skip listed videos posted more than this many days ago; undated videos are stored freshness-unknown", String(DEFAULT_MAX_AGE_DAYS))
     .option("--quiet-progress", "Suppress progress events on stderr")
     .action(async (opts, child: Command) => {
       const workspaceId = workspaceOf(child, "trends ingest");
@@ -150,6 +152,7 @@ export function trendsCmd(): Command {
         cadenceHours: positiveInt(opts.cadenceHours, "cadence-hours", "trends ingest"),
         paid,
         discoverOnly: opts.discoverOnly === true,
+        maxAgeDays: positiveInt(opts.maxAgeDays, "max-age-days", "trends ingest"),
       }, deps, { llm: opts.llm === true, llmLimit: positiveInt(opts.llmLimit, "llm-limit", "trends ingest"), refit: opts.refit === true });
       out(passReport("trend-ingest", summary));
     });
@@ -161,7 +164,7 @@ export function trendsCmd(): Command {
     .option("--tier-source <source>", `Tier that schedules --due: ${TIER_SOURCES.join(" | ")}`, "computed")
     .option("--no-discover", "Skip due watchlist discovery")
     .option("--platform <platform...>", `Platforms: ${TREND_PLATFORMS.join(" | ")}`)
-    .option("--per-creator <n>", "Videos per creator listing", "30")
+    .option("--per-creator <n>", `Videos per creator listing (YouTube channels list at most their ${YOUTUBE_NEWEST_PER_CHANNEL} newest)`, "30")
     .option("--max-creators <n>", "Due creators to list in this pass", "1000")
     .option("--max-new-creators <n>", "Never-listed creators to list in this pass", "30")
     .option("--concurrency <n>", "Parallel listings", "2")
@@ -173,6 +176,7 @@ export function trendsCmd(): Command {
     .option("--llm-limit <n>", "Max videos the LLM labels in this pass", "500")
     .option("--refit", "Force a maturity-curve refit (otherwise monthly)")
     .option("--no-youtube-api", "Do not use the YouTube Data API connector even when configured")
+    .option("--max-age-days <n>", "Freshness window (#590): skip listed videos posted more than this many days ago; undated videos are stored freshness-unknown", String(DEFAULT_MAX_AGE_DAYS))
     .option("--quiet-progress", "Suppress progress events on stderr")
     .action(async (opts, child: Command) => {
       const workspaceId = workspaceOf(child, "trends refresh");
@@ -192,6 +196,7 @@ export function trendsCmd(): Command {
         discoveryDepth: positiveInt(opts.depth, "depth", "trends refresh"),
         budget: positiveInt(opts.budget, "budget", "trends refresh"),
         paid: paidOf(opts, false, "trends refresh"),
+        maxAgeDays: positiveInt(opts.maxAgeDays, "max-age-days", "trends refresh"),
       }, deps, { llm: opts.llm === true, llmLimit: positiveInt(opts.llmLimit, "llm-limit", "trends refresh"), refit: opts.refit === true });
       out(passReport("trend-refresh", summary));
     });
@@ -235,6 +240,8 @@ export function trendsCmd(): Command {
     .option("--label <label>", "Only this outlier label: breakout | outlier | strong | normal | under")
     .option("--include-thin", "Also rank videos whose creator baseline is thin (fewer than 8 earlier same-format videos)")
     .option("--limit <n>", "Rows", "20")
+    .option("--max-age-days <n>", "Freshness window (#590): analyse only videos posted within this many days; older and undated videos are left out and counted", String(DEFAULT_MAX_AGE_DAYS))
+
     .action((opts, child: Command) => {
       const workspaceId = workspaceOf(child, "trends top");
       const niches = (opts.niche as string[] | undefined)?.flatMap((value) => value.split(",")).map((value) => value.trim()).filter(Boolean);
@@ -244,7 +251,9 @@ export function trendsCmd(): Command {
       if (opts.sizeBand !== undefined && !(SIZE_BANDS as readonly string[]).includes(opts.sizeBand)) {
         raiseError("E_FLAG_UNKNOWN", { flag: "size-band", value: opts.sizeBand, allowed: SIZE_BANDS.join(", "), verb: "trends top" });
       }
-      const sinceMs = durationMs(opts.since, "since", "trends top");
+      const maxAgeDays = positiveInt(opts.maxAgeDays, "max-age-days", "trends top");
+      const window = clampWindowDays(durationMs(opts.since, "since", "trends top") / DAY_MS, maxAgeDays);
+      const sinceMs = window.days * DAY_MS;
       const now = Date.now();
       const formatKey = typeof opts.format === "string" && ["tiktok-video", "yt-short", "ig-reel"].includes(opts.format) ? opts.format : undefined;
       const limit = positiveInt(opts.limit, "limit", "trends top");
@@ -270,9 +279,11 @@ export function trendsCmd(): Command {
         by: opts.by,
         scoreNote: SCORE_NOTE,
         count: rows.length,
-        notes: undated > 0
-          ? [`${undated} video(s) in scope have no post time (YouTube Shorts tabs without the YouTube Data API connector) and are not ranked; configure YOUTUBE_API_KEY to date and score them`]
-          : [],
+        maxAgeDays,
+        notes: [
+          ...(undated > 0 ? [`${undated} video(s) in scope have no post time (freshness-unknown: YouTube Shorts tabs without the YouTube Data API connector) and are not ranked; configure YOUTUBE_API_KEY to date and score them`] : []),
+          ...(window.clamped ? [`--since ${opts.since} was clamped to the ${maxAgeDays}-day freshness window (#590)`] : []),
+        ],
         videos: videoRows(workspaceId, rows, now),
       });
     });
@@ -423,6 +434,8 @@ export function trendsCmd(): Command {
     .option("--own-followers <n>", "Own follower count for the reach-per-follower scale-up (#558 stores none)")
     .option("--record", "Append the picks (widened references + emerging formats) with predicted outcome bands to the prediction ledger Document")
     .option("--hypotheses <file>", "With --record: JSON [{ videoId | url, why, classification: transferable | creator-bound }] merged into the picks")
+    .option("--max-age-days <n>", "Freshness window (#590): analyse only videos posted within this many days; older and undated videos are left out and counted", String(DEFAULT_MAX_AGE_DAYS))
+    .option("--markdown <path>", "Also write the reference list (widened references with the adapt scorecard) as a new markdown file (an existing file is never overwritten)")
     .action((opts, child: Command) => {
       const verb = "trends signals";
       const workspaceId = workspaceOf(child, verb);
@@ -447,6 +460,7 @@ export function trendsCmd(): Command {
           k: positiveInt(opts.k, "k", verb),
           limit: positiveInt(opts.limit, "limit", verb),
           contrast: nonNegativeInt(opts.contrast, "contrast", verb),
+          maxAgeDays: positiveInt(opts.maxAgeDays, "max-age-days", verb),
           ...(opts.noiseFloor !== undefined ? { noiseFloorViews: nonNegativeInt(opts.noiseFloor, "noise-floor", verb) } : {}),
         },
         ownFollowers: opts.ownFollowers === undefined ? null : positiveInt(opts.ownFollowers, "own-followers", verb),
@@ -458,7 +472,15 @@ export function trendsCmd(): Command {
         const hypotheses = opts.hypotheses ? hypothesesOf(String(opts.hypotheses), verb) : [];
         recorded = recordPicks({ niche: found, options: scope, picks, hypotheses, now });
       }
-      out({ ...printed, recorded, scoreNote: SCORE_NOTE });
+      const outputs: Record<string, string> = {};
+      if (opts.markdown) {
+        const file = path.resolve(String(opts.markdown));
+        if (fs.existsSync(file)) raiseError("E_INPUT_INVALID", { field: "markdown", detail: `${file} exists; the reference list never overwrites a file, pass a new path`, verb });
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, renderSignalReferencesMarkdown(report));
+        outputs.markdown = file;
+      }
+      out({ ...printed, recorded, outputs, scoreNote: SCORE_NOTE });
     });
 
   cmd
@@ -493,8 +515,10 @@ export function trendsCmd(): Command {
     .option("--stem-words <n>", "Words in a series stem", String(DEFAULT_SERIES_REPORT_OPTIONS.stemWords))
     .option("--min-median-views <n>", "Hide series whose median views sit below this floor", String(DEFAULT_SERIES_REPORT_OPTIONS.minMedianViews))
     .option("--limit <n>", "Rows in the series list", String(DEFAULT_SERIES_REPORT_OPTIONS.limit))
-    .option("--fresh-days <n>", "A series is a reference only when a part was posted within this many days", String(DEFAULT_SERIES_REPORT_OPTIONS.freshDays))
-    .option("--fresh-only", "List only fresh series (references)")
+    .option("--max-age-days <n>", "Freshness window (#590): a series is a reference only when a part was posted within this many days", String(DEFAULT_MAX_AGE_DAYS))
+    .option("--fresh-days <n>", "Alias of --max-age-days (the #588 name); --max-age-days wins when both are given")
+    .option("--fresh-only", "List only fresh series (the default since #590; kept for compatibility)")
+    .option("--include-stale", "Also list stale and freshness-unknown series (each with verdict skip); the default lists fresh series only")
     .option("--digest <k>", "Date the newest part of freshness-unknown YouTube series through the watch page (free, stops on the first bot check), then digest the newest part of the top-k fresh series (free yt-dlp path, no cookies, a block stops that platform) and write a labeling worksheet")
     .option("--date-budget <n>", "With --digest: watch-page calls to date newest parts (0 = off)", "60")
     .option("--digest-every <sec>", "Digest cadence in seconds", "1")
@@ -517,8 +541,8 @@ export function trendsCmd(): Command {
         stemWords: positiveInt(opts.stemWords, "stem-words", verb),
         minMedianViews: nonNegativeInt(opts.minMedianViews, "min-median-views", verb),
         limit: positiveInt(opts.limit, "limit", verb),
-        freshDays: positiveInt(opts.freshDays, "fresh-days", verb),
-        freshOnly: opts.freshOnly === true,
+        freshDays: seriesWindowOf(opts, child, verb),
+        freshOnly: opts.includeStale !== true,
       };
       let report = buildSeriesReport({ niches, now, options: reportOptions });
       const outputs: Record<string, string> = {};
@@ -698,6 +722,7 @@ function nicheCmd(): Command {
     .option("--sample-cap <n>", "Kept creators per language in the analysis set, stratified by size band (the rest are out-of-sample)", "400")
     .option("--llm-relevance", "Judge undetermined and near-threshold creators with batched callLLM() calls (paid, off by default)")
     .option("--label-percentiles <list>", "Per-niche label percentiles breakout,outlier,strong (default 0.98,0.95,0.85)")
+    .option("--max-age-days <n>", "Freshness window (#590): skip listed videos posted more than this many days ago; undated videos are stored freshness-unknown", String(DEFAULT_MAX_AGE_DAYS))
     .option("--quiet-progress", "Suppress progress events on stderr")
     .action(async (topic: string, opts, child: Command) => {
       const verb = "trends niche init";
@@ -780,6 +805,7 @@ function nicheCmd(): Command {
         discover: opts.discover !== false,
         list: opts.list !== false,
         sampleListing: nonNegativeInt(opts.sampleListing, "sample-listing", verb),
+        maxAgeDays: positiveInt(opts.maxAgeDays, "max-age-days", verb),
       }, deps);
       out(nicheInitReport(summary, seedSource, seedFile, notes));
     });
@@ -795,6 +821,7 @@ function nicheCmd(): Command {
     .option("--noise-floor <views>", "Override the niche's noise floor in views")
     .option("--since <age>", "Analysis window for dated videos (dataset spec backfill: 90d)", "90d")
     .option("--max-per-creator <n>", "Rows per creator in the ranked lists", "2")
+    .option("--max-age-days <n>", "Freshness window (#590): analyse only videos posted within this many days; older and undated videos are left out and counted", String(DEFAULT_MAX_AGE_DAYS))
     .option("--markdown <path>", "Also write the report as a markdown file")
     .option("--document", "Also save the report as a research Document in the corpus Workspace")
     .action((ref: string, opts, child: Command) => {
@@ -815,6 +842,7 @@ function nicheCmd(): Command {
           top: positiveInt(opts.top, "top", verb),
           sinceDays: durationMs(opts.since, "since", verb) / DAY_MS,
           maxPerCreator: positiveInt(opts.maxPerCreator, "max-per-creator", verb),
+          maxAgeDays: positiveInt(opts.maxAgeDays, "max-age-days", verb),
           ...(opts.noiseFloor !== undefined ? { noiseFloorViews: nonNegativeInt(opts.noiseFloor, "noise-floor", verb) } : {}),
         },
       });
@@ -1160,6 +1188,13 @@ function platformsOf(value: unknown, verb: string): TrendPlatform[] {
   if (value === undefined) return ["tiktok", "youtube"];
   const list = (value as string[]).flatMap((item) => item.split(",")).map((item) => item.trim()).filter(Boolean);
   return list.map((item) => platformOf(item, verb));
+}
+
+/** `trends series` window: --max-age-days, else the #588 alias --fresh-days. */
+function seriesWindowOf(opts: Record<string, unknown>, child: Command, verb: string): number {
+  const source = child.getOptionValueSource("maxAgeDays");
+  if (source === "cli" || opts.freshDays === undefined) return positiveInt(opts.maxAgeDays, "max-age-days", verb);
+  return positiveInt(opts.freshDays, "fresh-days", verb);
 }
 
 function positiveInt(value: unknown, field: string, verb: string): number {

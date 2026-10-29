@@ -18,6 +18,11 @@ import { DomainError } from "../errors/domain.js";
 import { resolveUnitReference, unitContext } from "../unit-revision.js";
 import { DAY_MS, HOUR_MS, median, type TrendPlatform } from "./math.js";
 import { YOUTUBE_WATCH_SOURCE } from "./sources/youtube.js";
+import { DEFAULT_MAX_AGE_DAYS, clampWindowDays, windowExclusion } from "./freshness.js";
+import { buildReferenceIndex, contrastClassByVideo, videoScorecard, type ReferenceIndex } from "./reference-card.js";
+import { byVerdict, renderScorecardTable, verdictCounts, SCORECARD_RULES } from "./scorecard.js";
+import { collectSeries } from "./series-report.js";
+import { visualFormatLabels } from "../store/trend-formats.js";
 import {
   isSponsored,
   ATTENTION_TIERS,
@@ -73,9 +78,11 @@ export interface SignalEngineOptions {
   contrast: number;
   noiseFloorViews?: number;
   signal?: Partial<SignalOptions>;
+  /** #590 freshness window: no window reaches past it (default 90 days). */
+  maxAgeDays?: number;
 }
 
-export const DEFAULT_SIGNAL_ENGINE_OPTIONS: SignalEngineOptions = { sinceDays: 30, widenSinceDays: 90, k: DEFAULT_K, limit: 20, contrast: 0 };
+export const DEFAULT_SIGNAL_ENGINE_OPTIONS: SignalEngineOptions = { sinceDays: 30, widenSinceDays: 90, k: DEFAULT_K, limit: 20, contrast: 0, maxAgeDays: DEFAULT_MAX_AGE_DAYS };
 
 type EngineVideo = SignalVideo & {
   member: NicheMemberDto;
@@ -83,6 +90,8 @@ type EngineVideo = SignalVideo & {
   title: string | null;
   durationMs: number | null;
   hashtags: string[];
+  baselineN: number | null;
+  viewsPrecision: string | null;
 };
 
 const round = (value: number | null, digits = 2): number | null => (value === null || !Number.isFinite(value) ? null : Math.round(value * 10 ** digits) / 10 ** digits);
@@ -165,6 +174,8 @@ function loadEngineVideos(niche: NicheDto, now: number, windowDays: number) {
       title: video.title,
       durationMs: video.durationMs,
       hashtags: video.hashtags,
+      baselineN: typeof video.detail?.baselineN === "number" ? video.detail.baselineN : null,
+      viewsPrecision: video.viewsPrecision,
     };
   });
   return { members, videos };
@@ -205,7 +216,12 @@ export function pickControls<T extends SignalVideo>(signal: T, creatorVideos: re
 }
 
 export function buildNicheSignals(input: { niche: NicheDto; now: number; options?: Partial<SignalEngineOptions>; ownFollowers?: number | null; ownWorkspaceId?: string }) {
-  const options: SignalEngineOptions = { ...DEFAULT_SIGNAL_ENGINE_OPTIONS, ...(input.options ?? {}) };
+  const given: SignalEngineOptions = { ...DEFAULT_SIGNAL_ENGINE_OPTIONS, ...(input.options ?? {}) };
+  // #590: no listing or widening window reaches past the freshness window.
+  const maxAgeDays = given.maxAgeDays ?? DEFAULT_MAX_AGE_DAYS;
+  const since = clampWindowDays(given.sinceDays, maxAgeDays);
+  const widen = clampWindowDays(given.widenSinceDays, maxAgeDays);
+  const options: SignalEngineOptions = { ...given, maxAgeDays, sinceDays: since.days, widenSinceDays: widen.days };
   const signalOptions: SignalOptions = { ...DEFAULT_SIGNAL_OPTIONS, ...(options.signal ?? {}) };
   const { niche, now } = input;
   const noiseFloor = options.noiseFloorViews ?? niche.settings.noiseFloorViews;
@@ -283,9 +299,27 @@ export function buildNicheSignals(input: { niche: NicheDto; now: number; options
 
   const own = ownBaselineFor({ workspaceId: input.ownWorkspaceId ?? niche.workspaceId, platform: options.platform ?? "tiktok", followers: input.ownFollowers ?? null });
 
+  // #590 adapt scorecard: visual formats and series (#588), contrasts (#577), the niche multiplier population.
+  const seriesScan = collectSeries({ niches: [niche], now, options: { ...(options.language ? { language: options.language } : {}), ...(options.platform ? { platform: options.platform } : {}), freshDays: maxAgeDays } });
+  const cardIndex: ReferenceIndex = buildReferenceIndex({
+    now,
+    maxAgeDays,
+    noiseFloorViews: noiseFloor,
+    labels: visualFormatLabels({ workspaceId: niche.workspaceId, niche: niche.slug }),
+    seriesItems: seriesScan.items,
+    transferByVideo: contrastClassByVideo({ workspaceId: niche.workspaceId, niche: niche.slug }),
+    population: pool.filter((video) => inLanguage(video) && inPlatform(video) && isJudgeable(video)),
+  });
+  const cardOf = (video: EngineVideo) => videoScorecard(cardIndex, {
+    videoId: video.videoId, creatorId: video.creatorId, platform: video.platform, postedAt: video.postedAt, views: video.views, viewsPrecision: video.viewsPrecision,
+    multiplier: video.multiplier, baselineN: video.baselineN, flags: video.flags, followers: video.followers, sizeBand: video.sizeBand,
+    title: video.title, hashtags: video.hashtags, captionLabel: video.format,
+  });
+
   const render = (signal: TrendSignal) => {
     const video = videoOf(signal);
     const recorded = signal.videoId ? ledgerByVideo.get(signal.videoId) : undefined;
+    const card = video ? cardOf(video) : null;
     return {
       type: signal.type,
       label: signal.label,
@@ -303,9 +337,15 @@ export function buildNicheSignals(input: { niche: NicheDto; now: number; options
       transferCandidate: signal.transferCandidate,
       wideningStep: stepOf.get(signal.videoId ?? signal.key) ?? null,
       scaleUp: signal.transferCandidate && video ? scaleUpEstimate({ views: video.views, followers: video.followers, multiplier: video.multiplier, own: { ...own, platform: video.platform } }) : null,
+      postedAt: card?.posted.at ?? null,
+      ageDays: card?.posted.ageDays ?? null,
+      verdict: card?.verdict ?? null,
+      scorecard: card,
       videoId: signal.videoId,
     };
   };
+  // The reference list: the widened set with its scorecard, adapt first.
+  const referenceRows = byVerdict(widened.items.map((entry) => render(entry.item)), (row) => row.scorecard);
   const wanted = (type: SignalType) => !options.types || options.types.includes(type);
   const listing = SIGNAL_TYPES.filter(wanted).flatMap((type): Array<Record<string, unknown>> => {
     if (type === "emerging-format") {
@@ -450,6 +490,7 @@ export function buildNicheSignals(input: { niche: NicheDto; now: number; options
 
   const scopeVideos = videos.filter(scoped);
   const scopeWindow = scopeVideos.filter((video) => inWindow(video, options.sinceDays));
+  const excluded = windowExclusion(scopeVideos, (video) => video.postedAt, now, maxAgeDays);
   const notes = [
     "Multipliers, engagement lifts, and bands are Ralphy's own estimates from creator-relative baselines, not platform data.",
     `early-momentum needs 2+ dated snapshots per video: ${early.withTwoSnapshots} video(s) in the ${widestDays}-day pool have them; most corpus videos have one snapshot until refreshes accrue`,
@@ -457,14 +498,19 @@ export function buildNicheSignals(input: { niche: NicheDto; now: number; options
     "near-miss 'momentum that stalled' needs 2+ snapshots per video and is not evaluated yet",
     ...(own.medianViews === null && !own.followers ? [`scale-up: no own baseline yet (#558 has ${own.n} own outcome(s) on ${own.platform}; ${own.minN} needed)`] : []),
     ...(widened.reachedK ? [] : [`only ${widened.items.length} qualifying reference(s) after every widening step (K=${options.k})`]),
+    `freshness window ${maxAgeDays} days (#590): ${excluded.olderThanWindow} stored video(s) in scope posted earlier and ${excluded.undated} undated (freshness-unknown) are left out of every signal and reference; nothing is deleted`,
+    ...(since.clamped ? [`--since ${given.sinceDays}d was clamped to the ${maxAgeDays}-day freshness window`] : []),
+    ...(widen.clamped ? [`--widen-since ${given.widenSinceDays}d was clamped to the ${maxAgeDays}-day freshness window`] : []),
   ];
   return {
     kind: "trend-signals",
     niche: niche.slug,
-    scope: { language: options.language ?? null, platform: options.platform ?? null, subNiche: options.subNiche ?? null, sinceDays: options.sinceDays, widenSinceDays: options.widenSinceDays, types: options.types ?? null },
+    generatedAt: new Date(now).toISOString(),
+    scope: { language: options.language ?? null, platform: options.platform ?? null, subNiche: options.subNiche ?? null, sinceDays: options.sinceDays, widenSinceDays: options.widenSinceDays, maxAgeDays, types: options.types ?? null },
     coverage: {
       creators: scopedMembers.length,
       videos: scopeVideos.length,
+      excluded: { olderThanWindow: excluded.olderThanWindow, undated: excluded.undated, maxAgeDays },
       datedInWindow: scopeWindow.length,
       judgeableInWindow: scopeWindow.filter(isJudgeable).length,
       withTwoSnapshots: early.withTwoSnapshots,
@@ -474,6 +520,7 @@ export function buildNicheSignals(input: { niche: NicheDto; now: number; options
     tiers: { rules: DEFAULT_TIER_RULES, byPlatform: tierCounts, reasons: tierReasons },
     ownBaseline: own,
     signals: listing,
+    references: { basis: "Widened reference set (transferable candidates at or above the noise floor), each with its #590 adapt scorecard; ordered adapt, test, skip", verdicts: verdictCounts(referenceRows.map((row) => row.scorecard)), rules: SCORECARD_RULES, rows: referenceRows },
     contrasts,
     demand: { status: demand.status, reason: demand.reason },
     ledger: { slug: ledgerSlug(niche, options), revisions: ledger.document?.revisions ?? 0, picks: ledger.body?.picks.length ?? 0 },
@@ -481,6 +528,27 @@ export function buildNicheSignals(input: { niche: NicheDto; now: number; options
     /** Picks the caller may record (not printed). */
     _picks: picks,
   };
+}
+
+export type NicheSignalsReport = ReturnType<typeof buildNicheSignals>;
+
+/** The reference list of one `trends signals` run as markdown: every row with post date, age, and the full scorecard. */
+export function renderSignalReferencesMarkdown(report: NicheSignalsReport, options: { title?: string; level?: number } = {}): string {
+  const h = "#".repeat(options.level ?? 1);
+  const scope = [report.scope.language ? report.scope.language.toUpperCase() : null, report.scope.platform].filter(Boolean).join(", ");
+  const r = report.references;
+  const lines: string[] = [`${h} ${options.title ?? `References: ${report.niche}${scope ? ` (${scope})` : ""}`}`, ""];
+  lines.push(
+    `Generated ${report.generatedAt} by \`ralphy trends signals --niche ${report.niche}${report.scope.language ? ` --lang ${report.scope.language}` : ""}\`. Freshness window ${report.scope.maxAgeDays} days; listing window ${report.scope.sinceDays} days, widening up to ${report.scope.widenSinceDays} days. Left out (stored, not deleted): ${report.coverage.excluded.olderThanWindow} videos in scope posted earlier, ${report.coverage.excluded.undated} undated (freshness-unknown).`,
+    "",
+  );
+  lines.push(`${r.basis}. K = ${report.widening.k}, ${report.widening.qualifying} qualifying (noise floor ${report.widening.noiseFloorViews} views). Verdicts: adapt ${r.verdicts.adapt}, test ${r.verdicts.test}, skip ${r.verdicts.skip}.`, "");
+  lines.push(`${h}# Rules`, "", ...r.rules.map((rule) => `- ${rule}`), "");
+  lines.push(`${h}# Reference list`, "");
+  const label = (row: (typeof r.rows)[number]) => `${row.platform}:@${String(row.creator).replace(/^@/, "")} ${row.type}${row.wideningStep ? ` (${row.wideningStep})` : ""}`;
+  lines.push(renderScorecardTable(r.rows.filter((row) => row.scorecard !== null).map((row) => ({ label: label(row), url: row.url, card: row.scorecard! }))));
+  lines.push(`${h}# Notes`, "", ...report.notes.map((note) => `- ${note}`), "");
+  return lines.join("\n");
 }
 
 export type HypothesisInput = { videoId?: string; url?: string; why: string; classification: PickClassification };

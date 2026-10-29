@@ -72,6 +72,7 @@ The report cites every claim. If the model produces an uncited bullet, the synth
 
 - The source URL needs a non-standard pull (Playwright for JS-heavy landing pages, manual yt-dlp flags for region-locked content) — see `.agents/skills/researcher/references/yt-dlp.md` and `site-extract.md`.
 - The user asks for trend discovery, not a fixed source list — the `discover-trends` sub-task uses the trend corpus (`ralphy trends ingest` / `ralphy trends top --by outlier`, #556) to find creator-relative outliers, then loops the chosen videos through `add-source`. `ralphy ref scrape-trends` is deprecated (its logged-out hashtag path returns 0 videos).
+- **Trend references: fresh only, scorecard always (#590).** Present only videos posted within the last 90 days (`--max-age-days`, default 90; undated rows are freshness-unknown and never references), and keep every row's post date, age, verdict (`adapt | test | skip`) and reasons from the `scorecard` that `trends signals`, `trends series` and `trends niche report` print. Never hand-pick an older or undated hit.
 - The user wants viral-moment extraction from a long-form video — that is a different sub-task with its own sub-doc (`viral-moments.md`); the topic-level synthesis here is not the right fit.
 
 This skill is the workflow contract. The playbook is the tool encyclopedia. Don't duplicate; cross-reference.

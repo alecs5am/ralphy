@@ -95,6 +95,8 @@ Keep the question set tight — 3-5 questions max in a single turn. Use `AskUser
 
 After the format/template match, call `chooseResearchDepth({ brief, contentMode, unitCount })` (`cli/lib/research-bootstrap.ts`) and route the depth to an EXISTING surface: `quick` → the site-grounding sub-agent (AGENTS #15) or a few `ralphy ref pull <url>`; `deep` → `ralphy research run` / `ralphy research scrape-profile`; `none` → plan from the brief. Distill into `<project>/artifacts/refs/research-facts.json`. The reference gate (AGENTS #3) stays a separate axis. Detail: [`references/research-bootstrap-step.md`](./references/research-bootstrap-step.md).
 
+**Trend references: fresh only, scorecard always (#590).** When the plan cites trend references (`ralphy trends signals | series | niche report`), show only videos posted within the last 90 days, each with its post date, age, verdict (`adapt | test | skip`) and the scorecard reasons; never present an older or undated hit as a reference.
+
 ## Step 2 — Plan + user approval
 
 Once the questions land, draft a **plan** as a chat message — never a side file. Format:

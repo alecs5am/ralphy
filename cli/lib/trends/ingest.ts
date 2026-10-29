@@ -93,6 +93,7 @@ import {
 } from "./sources/paid.js";
 import type { YtdlpRunner } from "./sources/ytdlp.js";
 import { bioMetadata } from "./text.js";
+import { DEFAULT_MAX_AGE_DAYS, FRESHNESS_UNKNOWN, applyCollectionCutoff, listingLimitFor } from "./freshness.js";
 import type { TiktokProfileOpener } from "./sources/tiktok.js";
 import type { DiscoveryResult, ListingResult, SourceCreator, SourceVideo } from "./sources/types.js";
 import type { YouTubeVideoDetails } from "../providers/youtube-analytics.js";
@@ -208,7 +209,25 @@ function emptyCounts(): Record<string, number> {
     creatorsListed: 0,
     creatorsFailed: 0,
     newVideosDetected: 0,
+    // #590 collection cutoff: listed videos posted before the window, and undated ones stored freshness-unknown.
+    videosSkippedOld: 0,
+    videosFreshnessUnknown: 0,
   };
+}
+
+/** Apply the #590 collection cutoff to one batch of source videos and count what it did. */
+function cutoffVideos<T extends { postedAt: number | null }>(videos: readonly T[], counts: Record<string, number>, now: number, maxAgeDays: number): T[] {
+  const cut = applyCollectionCutoff(videos, { now, maxAgeDays });
+  counts.videosSkippedOld = (counts.videosSkippedOld ?? 0) + cut.skippedOld;
+  counts.videosFreshnessUnknown = (counts.videosFreshnessUnknown ?? 0) + cut.undated;
+  return cut.kept;
+}
+
+function cutoffNote(counts: Record<string, number>, maxAgeDays: number): string[] {
+  const out: string[] = [];
+  if ((counts.videosSkippedOld ?? 0) > 0) out.push(`${counts.videosSkippedOld} listed video(s) posted more than ${maxAgeDays} days ago skipped (--max-age-days)`);
+  if ((counts.videosFreshnessUnknown ?? 0) > 0) out.push(`${counts.videosFreshnessUnknown} undated video(s) stored freshness-unknown (never a reference until dated)`);
+  return out;
 }
 
 function addBatch(counts: Record<string, number>, result: IngestBatchResult): void {
@@ -245,7 +264,7 @@ function videoInput(video: SourceVideo, extra: { discoveredVia: string; inListin
     url: video.url,
     formatKey: formatKeyFor(video.platform),
     postedAt: video.postedAt,
-    postedAtSource: video.postedAt === null ? null : extra.postedAtSource ?? "platform",
+    postedAtSource: video.postedAt === null ? FRESHNESS_UNKNOWN : extra.postedAtSource ?? "platform",
     durationMs: video.durationMs,
     width: video.width,
     height: video.height,
@@ -291,6 +310,8 @@ export interface IngestOptions {
   cooldownMs?: number;
   /** Skip the listing step (discovery only). */
   discoverOnly?: boolean;
+  /** #590 collection cutoff in days (default 90): older listed videos are skipped. */
+  maxAgeDays?: number;
 }
 
 export interface IngestSummary {
@@ -491,6 +512,7 @@ export async function discoveryPass(options: IngestOptions, watchlists: Watchlis
       }
       counts.creatorsFound += creators.length;
       counts.videosFound += videos.length;
+      videos = cutoffVideos(videos, counts, asOf, options.maxAgeDays ?? DEFAULT_MAX_AGE_DAYS);
       const batch = writeIngestBatch({
         workspaceId: options.workspaceId,
         runId: run.id,
@@ -524,6 +546,7 @@ export async function discoveryPass(options: IngestOptions, watchlists: Watchlis
   if (counts.unresolvedVideoIds > 0) {
     notes.push(`${counts.unresolvedVideoIds} hashtag Shorts ids have no channel in the flat listing; configure YOUTUBE_API_KEY (registered YouTube connector) to resolve them`);
   }
+  notes.push(...cutoffNote(counts, options.maxAgeDays ?? DEFAULT_MAX_AGE_DAYS));
   const breakerState = breaker.snapshot();
   finishRunAttempt(attempt.id, {
     state: failure ? "failed" : "succeeded",
@@ -543,7 +566,8 @@ async function listOne(creator: DueCreatorDto, perCreator: number, deps: TrendDe
     return listTiktokCreator({ platformCreatorId: creator.platformCreatorId, handle: creator.handle, limit: perCreator, run: deps.ytdlp });
   }
   if (creator.platform === "youtube") {
-    return listYoutubeChannelShorts({ channelRef: creator.platformCreatorId, limit: perCreator, run: deps.ytdlp });
+    // Flat Shorts tabs carry no post time: list only the newest entries (#590).
+    return listYoutubeChannelShorts({ channelRef: creator.platformCreatorId, limit: listingLimitFor("youtube", perCreator), run: deps.ytdlp });
   }
   return { outcome: { kind: "failed", reason: "no-free-listing", detail: "Instagram listing runs only through the paid Apify reel actor" }, creator: null, videos: [], ms: 0 };
 }
@@ -560,7 +584,10 @@ export async function listingPass(input: {
   deps: TrendDeps;
   /** Refresh only: the tier each creator was scheduled by, recorded on the run. */
   tiers?: { source: string; byCreator: Record<string, string> };
+  /** #590 collection cutoff in days (default 90). */
+  maxAgeDays?: number;
 }): Promise<TrendPassSummary & { listedCreatorIds: string[] }> {
+  const maxAgeDays = input.maxAgeDays ?? DEFAULT_MAX_AGE_DAYS;
   const source = LISTING_SOURCE_BY_PLATFORM[input.platform];
   const breaker = new CircuitBreaker(source, { budget: input.budget, clock: input.deps.now });
   const counts = emptyCounts();
@@ -570,7 +597,7 @@ export async function listingPass(input: {
     workspaceId: input.workspaceId,
     kind: input.kind,
     label: `Trend creator listing: ${source}`,
-    metadata: json({ source, creators: input.creators.length, perCreator: input.perCreator, ...(input.tiers ? { tierSource: input.tiers.source, tierByCreator: input.tiers.byCreator } : {}) }),
+    metadata: json({ source, creators: input.creators.length, perCreator: listingLimitFor(input.platform, input.perCreator), maxAgeDays, ...(input.tiers ? { tierSource: input.tiers.source, tierByCreator: input.tiers.byCreator } : {}) }),
   });
   const attempt = startRunAttempt({ runId: run.id, provider: "ytdlp", model: null, request: json({ creators: input.creators.length, perCreator: input.perCreator }) });
   let failure: unknown = null;
@@ -608,7 +635,7 @@ export async function listingPass(input: {
         now: asOf,
         creators: creatorUpdate,
         // The stored identity wins: a channel listed by @handle keeps its row.
-        videos: result.videos.map((video) => videoInput({ ...video, creatorPlatformId: creator.platformCreatorId }, { discoveredVia: "listing", inListing: true, asOf, source })),
+        videos: cutoffVideos(result.videos, counts, asOf, maxAgeDays).map((video) => videoInput({ ...video, creatorPlatformId: creator.platformCreatorId }, { discoveredVia: "listing", inListing: true, asOf, source })),
         listings,
       });
       addBatch(counts, batch);
@@ -628,6 +655,7 @@ export async function listingPass(input: {
   if (breakerState.state === "tripped") notes.push(`breaker tripped: ${breakerState.reason}${breakerState.detail ? ` (${breakerState.detail})` : ""}`);
   if (breakerState.state === "budget-exhausted") notes.push(`request budget of ${input.budget} reached`);
   for (const [reason, n] of failures) notes.push(`${n} listing(s) ${reason}`);
+  notes.push(...cutoffNote(counts, maxAgeDays));
   finishRunAttempt(attempt.id, {
     state: failure ? "failed" : "succeeded",
     response: json({ counts, breaker: breakerState, notes }),
@@ -964,6 +992,7 @@ export async function ingest(options: IngestOptions, deps: TrendDeps, post: { ll
           budget: options.budget,
           kind: "trend.list",
           deps,
+          maxAgeDays: options.maxAgeDays ?? DEFAULT_MAX_AGE_DAYS,
         }));
       }
     }
@@ -1009,6 +1038,8 @@ export interface RefreshOptions {
   discoveryDepth: number;
   paid: PaidOptions;
   cooldownMs?: number;
+  /** #590 collection cutoff in days (default 90). */
+  maxAgeDays?: number;
 }
 
 /** The tier each listed creator was scheduled by in one refresh. */
@@ -1132,6 +1163,7 @@ export async function refresh(options: RefreshOptions, deps: TrendDeps, post: { 
         discoveryDepth: options.discoveryDepth,
         budget: options.budget,
         paid: options.paid,
+        maxAgeDays: options.maxAgeDays ?? DEFAULT_MAX_AGE_DAYS,
       }, [watchlist], deps));
     }
   }
@@ -1195,6 +1227,7 @@ export async function refresh(options: RefreshOptions, deps: TrendDeps, post: { 
       kind: "trend.snapshot",
       deps,
       tiers: { source: tierSource, byCreator: Object.fromEntries(entries.map((entry) => [entry.creator.id, entry.tier])) },
+      maxAgeDays: options.maxAgeDays ?? DEFAULT_MAX_AGE_DAYS,
     }));
   }
   if (options.platforms.includes("youtube")) {

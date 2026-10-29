@@ -21,6 +21,11 @@ import { QUOTA_BANDS, SMALL_SIZE_BANDS, quotaBandFor, quotaStatus, rankCopyabili
 import { YOUTUBE_WATCH_SOURCE } from "./sources/youtube.js";
 import { collectSeries, labeledSeriesRows, renderFormatsAndSeriesMarkdown, seriesRow, stemCell } from "./series-report.js";
 import { formatStats } from "./series.js";
+import { DEFAULT_MAX_AGE_DAYS, clampWindowDays, windowExclusion } from "./freshness.js";
+import { buildReferenceIndex, contrastClassByVideo, videoScorecard } from "./reference-card.js";
+import { renderScorecardTable, verdictCounts, SCORECARD_RULES, type Scorecard } from "./scorecard.js";
+import { isSponsored } from "./signals.js";
+import { visualFormatLabels } from "../store/trend-formats.js";
 
 export const NICHE_REPORT_MIN_N = 20;
 export const NICHE_REPORT_MIN_CREATORS = 5;
@@ -38,9 +43,11 @@ export interface NicheReportOptions {
   sinceDays: number;
   /** Rows per creator in the ranked lists (repeats still count as evidence). */
   maxPerCreator: number;
+  /** #590 freshness window: the analysis window never reaches past it, and undated videos are left out. */
+  maxAgeDays?: number;
 }
 
-export const DEFAULT_NICHE_REPORT_OPTIONS: NicheReportOptions = { minN: NICHE_REPORT_MIN_N, minCreators: NICHE_REPORT_MIN_CREATORS, top: 20, sinceDays: 90, maxPerCreator: 2 };
+export const DEFAULT_NICHE_REPORT_OPTIONS: NicheReportOptions = { minN: NICHE_REPORT_MIN_N, minCreators: NICHE_REPORT_MIN_CREATORS, top: 20, sinceDays: 90, maxPerCreator: 2, maxAgeDays: DEFAULT_MAX_AGE_DAYS };
 
 /** Keep at most `max` rows per creator, in order. */
 function capPerCreator<T>(rows: readonly T[], creatorOf: (row: T) => string, max: number): T[] {
@@ -95,7 +102,7 @@ function labelTable(videos: readonly VideoView[], axis: "format" | "hook", overa
     .sort((a, b) => (b.lift ?? -Infinity) - (a.lift ?? -Infinity) || b.n - a.n || a.label.localeCompare(b.label));
 }
 
-function videoRef(video: VideoView, now: number) {
+function videoRef(video: VideoView, now: number, card: Scorecard | null = null) {
   return {
     platform: video.platform,
     creator: video.member.handle ?? video.member.platformCreatorId,
@@ -111,12 +118,17 @@ function videoRef(video: VideoView, now: number) {
     label: video.label,
     format: video.format,
     hook: video.hook,
+    verdict: card?.verdict ?? null,
+    scorecard: card,
     videoId: video.id,
   };
 }
 
 export function buildNicheReport(input: { niche: NicheDto; options?: Partial<NicheReportOptions>; now: number }) {
-  const options = { ...DEFAULT_NICHE_REPORT_OPTIONS, ...(input.options ?? {}) };
+  const given = { ...DEFAULT_NICHE_REPORT_OPTIONS, ...(input.options ?? {}) };
+  const maxAgeDays = given.maxAgeDays ?? DEFAULT_MAX_AGE_DAYS;
+  const window = clampWindowDays(given.sinceDays, maxAgeDays);
+  const options = { ...given, maxAgeDays, sinceDays: window.days };
   const niche = input.niche;
   const now = input.now;
   const noiseFloor = options.noiseFloorViews ?? niche.settings.noiseFloorViews;
@@ -143,12 +155,32 @@ export function buildNicheReport(input: { niche: NicheDto; options?: Partial<Nic
   });
   const mainIds = new Set(main.map((member) => member.creatorId));
   const windowStart = now - options.sinceDays * DAY_MS;
-  // Dated videos outside the analysis window are baseline history, not references.
-  const inWindow = (video: VideoView) => video.postedAt === null || video.postedAt >= windowStart;
-  const mainVideos = videos.filter((video) => mainIds.has(video.creatorId) && inWindow(video));
+  // #590: only dated videos inside the window are analysed; older ones are
+  // baseline history and undated ones are freshness-unknown (both stay stored).
+  const inWindow = (video: VideoView) => video.postedAt !== null && video.postedAt >= windowStart;
+  const mainAll = videos.filter((video) => mainIds.has(video.creatorId));
+  const mainVideos = mainAll.filter(inWindow);
+  const excludedMain = windowExclusion(mainAll, (video) => video.postedAt, now, options.sinceDays);
   const mature = mainVideos.filter(isMatureScored);
   const overallHits = mature.filter((video) => video.label !== null && HIT_LABELS.has(video.label)).length;
   const overallHitRate = mature.length > 0 ? overallHits / mature.length : null;
+  // #590 adapt scorecard: series and visual formats (#588), contrasts (#577), the niche multiplier population.
+  const seriesScan = collectSeries({ niches: [niche], now, options: { ...(options.language ? { language: options.language } : {}), ...(options.platform ? { platform: options.platform } : {}), freshDays: options.sinceDays } });
+  const cardIndex = buildReferenceIndex({
+    now,
+    maxAgeDays: options.sinceDays,
+    noiseFloorViews: noiseFloor,
+    labels: visualFormatLabels({ workspaceId: niche.workspaceId, niche: niche.slug }),
+    seriesItems: seriesScan.items,
+    transferByVideo: contrastClassByVideo({ workspaceId: niche.workspaceId, niche: niche.slug }),
+    population: mature.filter((video) => !isSponsored({ title: video.title ?? video.description, hashtags: video.hashtags })),
+  });
+  const cardOf = (video: VideoView) => videoScorecard(cardIndex, {
+    videoId: video.id, creatorId: video.creatorId, platform: video.platform, postedAt: video.postedAt, views: video.views, viewsPrecision: video.viewsPrecision,
+    multiplier: video.multiplier, baselineN: typeof video.detail?.baselineN === "number" ? video.detail.baselineN : null, flags: video.flags,
+    followers: video.followersAtSnapshot, sizeBand: video.member.sizeBand, title: video.title ?? video.description, hashtags: video.hashtags, captionLabel: video.format,
+  });
+  const ref = (video: VideoView) => videoRef(video, now, cardOf(video));
   const runs = nicheRuns({ workspaceId: niche.workspaceId, slug: niche.slug })
     .filter((run) => run.state === "succeeded" && run.response && run.response.stopReason !== "no-discovery")
     .map((run) => {
@@ -194,7 +226,9 @@ export function buildNicheReport(input: { niche: NicheDto; options?: Partial<Nic
       dated: videos.filter((video) => video.postedAt !== null).length,
       scored: videos.filter((video) => video.multiplier !== null).length,
       matureScoredMain: mature.length,
-      inWindowDatedMain: mainVideos.filter((video) => video.postedAt !== null).length,
+      inWindowDatedMain: mainVideos.length,
+      /** #590: main-group videos left out of every section (stored, not deleted). */
+      excluded: { olderThanWindow: excludedMain.olderThanWindow, undated: excludedMain.undated, windowDays: options.sinceDays, maxAgeDays },
       byPlatform: Object.fromEntries((["tiktok", "youtube"] as const).map((platform) => [platform, videos.filter((video) => video.platform === platform).length])),
     },
     discoveryRuns: runs,
@@ -227,12 +261,13 @@ export function buildNicheReport(input: { niche: NicheDto; options?: Partial<Nic
     excluded: excludedCounts,
     rankedCreators: new Set(ranking.ranked.map((entry) => entry.candidate.creatorId)).size,
     platforms: [...new Set(ranking.ranked.map((entry) => entry.candidate.video.platform))],
+    verdicts: verdictCounts(topRanked.map((entry) => cardOf(entry.candidate.video))),
     items: topRanked.map((entry, index) => {
       const digest = digests.get(entry.candidate.videoId);
       return {
         rank: index + 1,
         score: entry.score,
-        ...videoRef(entry.candidate.video, now),
+        ...ref(entry.candidate.video),
         components: entry.components,
         digest: digest ? `${digest.refKind}:${digest.digestRef}` : null,
       };
@@ -242,7 +277,7 @@ export function buildNicheReport(input: { niche: NicheDto; options?: Partial<Nic
   // 3. Top outliers overall, per sub-niche, per size band
   const byMultiplier = [...mature].sort((a, b) => (b.multiplier ?? 0) - (a.multiplier ?? 0));
   const outliersOf = (list: VideoView[], limit: number) =>
-    capPerCreator(list.filter((video) => video.label === "breakout" || video.label === "outlier"), (video) => video.creatorId, options.maxPerCreator).slice(0, limit).map((video) => videoRef(video, now));
+    capPerCreator(list.filter((video) => video.label === "breakout" || video.label === "outlier"), (video) => video.creatorId, options.maxPerCreator).slice(0, limit).map(ref);
   const subNiches = [...new Set(main.map((member) => member.subNiche ?? "general"))].sort();
   const thresholds = mature.find((video) => video.detail?.labelThresholds)?.detail?.labelThresholds ?? null;
   const topOutliers = {
@@ -265,7 +300,6 @@ export function buildNicheReport(input: { niche: NicheDto; options?: Partial<Nic
 
   // 4b. Formats and series (#588): numbered series of one channel vs its
   // unmarked videos, with frame-read visual format labels where present.
-  const seriesScan = collectSeries({ niches: [niche], now, options: { ...(options.language ? { language: options.language } : {}), ...(options.platform ? { platform: options.platform } : {}) } });
   const freshSeries = seriesScan.items.filter((item) => item.freshness === "fresh");
   const seriesPrimary = seriesScan.items.filter((item) => item.series.primary);
   const labeledSeries = seriesScan.items.filter((item) => item.label !== null);
@@ -277,6 +311,7 @@ export function buildNicheReport(input: { niche: NicheDto; options?: Partial<Nic
     primaryAtLeast2x: seriesPrimary.filter((item) => (item.series.lift ?? 0) >= 2).length,
     freshness: { fresh: freshSeries.length, stale: seriesScan.items.filter((item) => item.freshness === "stale").length, unknown: seriesScan.items.filter((item) => item.freshness === "unknown").length },
     topSeries: freshSeries.slice(0, options.top).map((item, index) => seriesRow(item, index + 1, now)),
+    verdicts: verdictCounts(freshSeries.slice(0, options.top).map((item) => item.card)),
     labeledSeries: labeledSeries.filter((item) => item.freshness === "fresh").map((item, index) => seriesRow(item, index + 1, now)),
     formats: formatStats(labeledSeriesRows(seriesScan.items)),
   };
@@ -378,8 +413,9 @@ export function buildNicheReport(input: { niche: NicheDto; options?: Partial<Nic
 
   // 10. YouTube coverage
   const youtubeMembers = main.filter((member) => member.platform === "youtube");
-  const youtubeVideos = mainVideos.filter((video) => video.platform === "youtube");
-  const dated = youtubeVideos.filter((video) => video.postedAtSource === YOUTUBE_WATCH_SOURCE);
+  // The raw listing ratio compares with the whole undated listing (baseline history); candidates are dated in-window only.
+  const youtubeVideos = mainAll.filter((video) => video.platform === "youtube");
+  const dated = youtubeVideos.filter((video) => video.postedAtSource === YOUTUBE_WATCH_SOURCE && inWindow(video));
   const creatorMedian = new Map<string, number>();
   for (const member of youtubeMembers) {
     const values = youtubeVideos.filter((video) => video.creatorId === member.creatorId && video.latestSource !== YOUTUBE_WATCH_SOURCE).map((video) => video.views).filter((value): value is number => value !== null);
@@ -389,12 +425,13 @@ export function buildNicheReport(input: { niche: NicheDto; options?: Partial<Nic
     creators: youtubeMembers.length,
     videos: youtubeVideos.length,
     undated: youtubeVideos.filter((video) => video.postedAt === null).length,
-    datedByWatchPage: dated.length,
+    datedByWatchPage: youtubeVideos.filter((video) => video.postedAtSource === YOUTUBE_WATCH_SOURCE).length,
+    datedByWatchPageInWindow: dated.length,
     candidates: dated
       .map((video) => {
         const center = creatorMedian.get(video.creatorId) ?? null;
         return {
-          ...videoRef(video, now),
+          ...ref(video),
           rawListingRatio: center && video.views !== null ? round(video.views / center, 1) : null,
           viewsPerFollower: video.views !== null && video.followersAtSnapshot ? round(video.views / video.followersAtSnapshot, 2) : null,
         };
@@ -414,6 +451,7 @@ export function buildNicheReport(input: { niche: NicheDto; options?: Partial<Nic
     "Multipliers, labels, and copyability scores are Ralphy's own estimates from creator-relative baselines, not platform data.",
     `Groups below the minimum n (${options.minN} videos, ${options.minCreators} creators) show "insufficient data" instead of a claim.`,
     "Videos come from the backfill cohort (first seen already mature); they set baselines and format distributions, never early-breakout predictions.",
+    `Freshness window (#590): only main-group videos posted within ${options.sinceDays} days are analysed; ${excludedMain.olderThanWindow} older and ${excludedMain.undated} undated (freshness-unknown) videos stay stored and are left out.${window.clamped ? ` --since was clamped to the ${maxAgeDays}-day window.` : ""}`,
   ];
   if (labeled.format < options.minN) notes.push(`Only ${labeled.format} mature videos carry a content-format label (rule pre-labels from titles; the LLM label pass was off), so format rows are thin.`);
 
@@ -422,7 +460,8 @@ export function buildNicheReport(input: { niche: NicheDto; options?: Partial<Nic
     niche: { slug: niche.slug, topic: niche.topic, languages: niche.languages, platforms: niche.platforms, seedSource: niche.seedSource, subNiches: niche.taxonomy.subNiches.map((sub) => sub.slug) },
     scope: { language: options.language ?? null, platform: options.platform ?? null },
     generatedAt: new Date(now).toISOString(),
-    settings: { minN: options.minN, minCreators: options.minCreators, top: options.top, noiseFloorViews: noiseFloor, relevanceThreshold: niche.settings.relevanceThreshold, sinceDays: options.sinceDays, maxPerCreator: options.maxPerCreator },
+    settings: { minN: options.minN, minCreators: options.minCreators, top: options.top, noiseFloorViews: noiseFloor, relevanceThreshold: niche.settings.relevanceThreshold, sinceDays: options.sinceDays, maxAgeDays, sinceClamped: window.clamped, maxPerCreator: options.maxPerCreator },
+    scorecardRules: SCORECARD_RULES,
     coverage,
     whatToCopy,
     topOutliers,
@@ -467,6 +506,7 @@ export function renderNicheReportMarkdown(report: NicheReport, options: { title?
   lines.push(`Groups among kept creators: main ${c.groups.main}, negative control ${c.groups.negative}, anomaly ${c.groups.anomaly}.`, "");
   lines.push(table(["Platform", ...QUOTA_BANDS, "unknown"], Object.entries(c.keptByPlatformBand).map(([platform, bands]) => [platform, ...QUOTA_BANDS.map((band) => bands[band] ?? 0), bands.unknown ?? 0])));
   lines.push(table(["Quota band", "Quota", "Kept", "Deficit"], c.quotas.map((row) => [row.band, row.quota, row.kept, row.deficit])));
+  lines.push(`Freshness window (#590): ${c.videos.excluded.windowDays} days; left out of every section below: ${cell(c.videos.excluded.olderThanWindow)} main-group videos posted earlier and ${cell(c.videos.excluded.undated)} undated (freshness-unknown). Nothing is deleted.`, "");
   lines.push(`Videos: ${cell(c.videos.listed)} listed (TikTok ${cell(c.videos.byPlatform.tiktok)}, YouTube ${cell(c.videos.byPlatform.youtube)}), ${cell(c.videos.dated)} dated, ${cell(c.videos.scored)} scored. Analysis window: the last ${report.settings.sinceDays} days, ${cell(c.videos.inWindowDatedMain)} dated main-group videos, ${cell(c.videos.matureScoredMain)} of them mature (7 d+) with a non-thin baseline.`, "");
   if (c.discoveryRuns.length > 0) lines.push(table(["Discovery run", "Languages", "Wall (min)", "Rounds", "Stop reason", "Blocks"], c.discoveryRuns.map((run) => [run.startedAt, run.languages, run.wallMinutes, run.rounds, run.stopReason, run.blocks])));
   if (Object.keys(c.gateReasons).length > 0) lines.push(table(["Gate outcome", "Creators"], Object.entries(c.gateReasons).sort((a, b) => b[1] - a[1])));
@@ -477,14 +517,16 @@ export function renderNicheReportMarkdown(report: NicheReport, options: { title?
   if (w.items.length === 0) lines.push("Insufficient data: no main-group video clears the noise floor above its creator's baseline.", "");
   else {
     lines.push(table(
-      ["#", "Score", "Creator", "Size", "Sub-niche", "X", "Views", "Views/follower", "Size weight", "Replication (small creators with a hit)", "Factor", "Format", "Hook", "Video"],
+      ["#", "Score", "Creator", "Size", "Sub-niche", "Posted (age d)", "Verdict", "X", "Views", "Views/follower", "Size weight", "Replication (small creators with a hit)", "Factor", "Format", "Hook", "Video"],
       w.items.map((item) => [
-        item.rank, item.score, `${item.platform}:@${String(item.creator).replace(/^@/, "")}`, item.sizeBand, item.subNiche, `${item.components.multiplier}x`, item.views,
+        item.rank, item.score, `${item.platform}:@${String(item.creator).replace(/^@/, "")}`, item.sizeBand, item.subNiche, item.postedAt ? `${item.postedAt.slice(0, 10)} (${item.ageDays})` : "undated", item.verdict, `${item.components.multiplier}x`, item.views,
         item.components.viewsPerFollower, item.components.sizeWeight,
         `format ${item.components.replication.format.label ?? "unlabeled"} (${item.components.replication.format.smallCreators}); hook ${item.components.replication.hook.label ?? "unlabeled"} (${item.components.replication.hook.smallCreators})${item.components.replication.sameCreatorRepeats ? `; +${item.components.replication.sameCreatorRepeats} same creator` : ""}`,
         item.components.replicationFactor, item.format, item.hook, item.url,
       ]),
     ));
+    lines.push("### Adapt scorecard for these references", "", `Verdicts: adapt ${w.verdicts.adapt}, test ${w.verdicts.test}, skip ${w.verdicts.skip}. Rules:`, "", ...report.scorecardRules.map((rule) => `- ${rule}`), "");
+    lines.push(renderScorecardTable(w.items.filter((item) => item.scorecard !== null).map((item) => ({ label: `${item.platform}:@${String(item.creator).replace(/^@/, "")}`, url: item.url, card: item.scorecard! }))));
   }
 
   lines.push("## Top outliers", "");
@@ -493,12 +535,12 @@ export function renderNicheReportMarkdown(report: NicheReport, options: { title?
     const thresholds = t.thresholds as { group?: string; basis?: string; breakout?: number; outlier?: number; strong?: number };
     lines.push(`Label thresholds (${cell(thresholds.basis)}, ${cell(thresholds.group)}): breakout ${cell(thresholds.breakout)}x, outlier ${cell(thresholds.outlier)}x with z >= 2, strong ${cell(thresholds.strong)}x.`, "");
   }
-  const outlierRows = (list: ReturnType<typeof videoRef>[]) => list.map((video) => [`${video.platform}:@${String(video.creator).replace(/^@/, "")}`, video.sizeBand, video.subNiche, `${video.multiplier}x`, video.label, video.views, video.ageDays, video.url]);
-  lines.push("### Overall", "", t.overall.length > 0 ? table(["Creator", "Size", "Sub-niche", "X", "Label", "Views", "Age (d)", "Video"], outlierRows(t.overall)) : "Insufficient data: no breakout or outlier among mature main-group videos.\n");
+  const outlierRows = (list: ReturnType<typeof videoRef>[]) => list.map((video) => [`${video.platform}:@${String(video.creator).replace(/^@/, "")}`, video.sizeBand, video.subNiche, `${video.multiplier}x`, video.label, video.views, video.postedAt ? `${video.postedAt.slice(0, 10)} (${video.ageDays})` : "undated", video.verdict, video.url]);
+  lines.push("### Overall", "", t.overall.length > 0 ? table(["Creator", "Size", "Sub-niche", "X", "Label", "Views", "Posted (age d)", "Verdict", "Video"], outlierRows(t.overall)) : "Insufficient data: no breakout or outlier among mature main-group videos.\n");
   lines.push("### By sub-niche", "");
-  for (const [sub, list] of Object.entries(t.bySubNiche)) lines.push(`**${sub}**`, "", list.length > 0 ? table(["Creator", "Size", "Sub-niche", "X", "Label", "Views", "Age (d)", "Video"], outlierRows(list)) : "Insufficient data.\n");
+  for (const [sub, list] of Object.entries(t.bySubNiche)) lines.push(`**${sub}**`, "", list.length > 0 ? table(["Creator", "Size", "Sub-niche", "X", "Label", "Views", "Posted (age d)", "Verdict", "Video"], outlierRows(list)) : "Insufficient data.\n");
   lines.push("### By size band", "");
-  for (const [band, list] of Object.entries(t.bySizeBand)) lines.push(`**${band}**`, "", list.length > 0 ? table(["Creator", "Size", "Sub-niche", "X", "Label", "Views", "Age (d)", "Video"], outlierRows(list)) : "Insufficient data.\n");
+  for (const [band, list] of Object.entries(t.bySizeBand)) lines.push(`**${band}**`, "", list.length > 0 ? table(["Creator", "Size", "Sub-niche", "X", "Label", "Views", "Posted (age d)", "Verdict", "Video"], outlierRows(list)) : "Insufficient data.\n");
 
   lines.push("## Winning formats and hook types", "");
   const f = report.formats;
@@ -511,8 +553,8 @@ export function renderNicheReportMarkdown(report: NicheReport, options: { title?
   lines.push("## Formats and series", "", `${fs.basis}. ${fs.series} series on ${fs.channelsWithSeries} channels (fresh ${fs.freshness.fresh}, stale ${fs.freshness.stale}, freshness unknown ${fs.freshness.unknown}); ${fs.primaryAtLeast1_5x} channels' main series reach 1.5x and ${fs.primaryAtLeast2x} reach 2x.`, "");
   lines.push("### Fresh series by lift", "");
   lines.push(table(
-    ["#", "Channel", "Stem", "Parts", "Median views (series vs other)", "Lift", "Posted (age d)", "Visual format", "Newest part"],
-    fs.topSeries.map((row) => [row.rank, `${row.platform}:@${String(row.channel).replace(/^@/, "")}`, stemCell(row.stem), row.parts, `${cell(row.seriesMedianViews)} vs ${cell(row.otherMedianViews)}`, row.lift === null ? null : `${row.lift}x`, row.postedAt ? `${row.postedAt.slice(0, 10)} (${row.ageDays})` : "undated", row.visualFormat ? `${row.visualFormat.format} (${row.visualFormat.confidence})` : null, row.newestPart?.url ?? row.bestPart?.url ?? null]),
+    ["#", "Channel", "Stem", "Parts", "Median views (series vs other)", "Lift", "Posted (age d)", "Visual format", "Verdict", "Newest part"],
+    fs.topSeries.map((row) => [row.rank, `${row.platform}:@${String(row.channel).replace(/^@/, "")}`, stemCell(row.stem), row.parts, `${cell(row.seriesMedianViews)} vs ${cell(row.otherMedianViews)}`, row.lift === null ? null : `${row.lift}x`, row.postedAt ? `${row.postedAt.slice(0, 10)} (${row.ageDays})` : "undated", row.visualFormat ? `${row.visualFormat.format} (${row.visualFormat.confidence})` : null, row.verdict, row.referencePart?.url ?? row.newestPart?.url ?? row.bestPart?.url ?? null]),
   ));
   lines.push(renderFormatsAndSeriesMarkdown({ labeledSeries: fs.labeledSeries, stats: fs.formats, heading: "Visual formats", level: 3 }));
 

@@ -16,6 +16,10 @@ import { loadNicheMembers, loadNicheVideos, type NicheDto, type NicheMemberDto, 
 import { visualFormatLabels } from "../store/trend-formats.js";
 import { truncateCodePoints, type TrendPlatform } from "./math.js";
 import { classifyProbe } from "./breaker.js";
+import { inFreshWindow } from "./freshness.js";
+import { buildReferenceIndex, contrastClassByVideo, videoScorecard } from "./reference-card.js";
+import { byVerdict, renderScorecardTable, verdictCounts, SCORECARD_RULES, type Scorecard } from "./scorecard.js";
+import { isSponsored } from "./signals.js";
 import {
   DEFAULT_SERIES_OPTIONS,
   VISUAL_FORMATS,
@@ -41,13 +45,13 @@ export interface SeriesReportOptions extends SeriesOptions {
   minMedianViews: number;
   /** Rows in the printed list. */
   limit: number;
-  /** A series is a reference only with a part posted within this many days. */
+  /** A series is a reference only with a part posted within this many days (the #590 window, --max-age-days). */
   freshDays: number;
-  /** List only fresh series (references). */
+  /** List only fresh series (references); default true since #590, `--include-stale` lists the rest with verdict skip. */
   freshOnly: boolean;
 }
 
-export const DEFAULT_SERIES_REPORT_OPTIONS: SeriesReportOptions = { ...DEFAULT_SERIES_OPTIONS, minMedianViews: 0, limit: 30, freshDays: SERIES_FRESH_DAYS, freshOnly: false };
+export const DEFAULT_SERIES_REPORT_OPTIONS: SeriesReportOptions = { ...DEFAULT_SERIES_OPTIONS, minMedianViews: 0, limit: 30, freshDays: SERIES_FRESH_DAYS, freshOnly: true };
 
 const DAY_MS = 86_400_000;
 const isoOf = (value: number | null) => (value === null ? null : new Date(value).toISOString());
@@ -73,6 +77,21 @@ export interface SeriesItem {
   postedAt: number | null;
   ageDays: number | null;
   label: VisualFormatLabel | null;
+  /** The part the scorecard judges (#590): the most-viewed part posted inside the window, else the newest part. */
+  reference: ReferencePart | null;
+  /** Parts posted inside the window. */
+  partsInWindow: number;
+  /** Adapt scorecard of the reference part (#590). */
+  card: Scorecard | null;
+}
+
+export interface ReferencePart extends PartRef {
+  multiplier: number | null;
+  baselineN: number | null;
+  flags: string[];
+  viewsPrecision: string | null;
+  hashtags: string[];
+  captionLabel: string | null;
 }
 
 export interface PartRef {
@@ -101,9 +120,11 @@ export function collectSeries(input: { niches: readonly NicheDto[]; options?: Pa
     );
     const labels = visualFormatLabels({ workspaceId: niche.workspaceId, niche: niche.slug });
     const byCreator = new Map<string, NicheVideoDto[]>();
-    for (const video of loadNicheVideos({ creatorIds: members.map((member) => member.creatorId) })) {
+    const loaded = loadNicheVideos({ creatorIds: members.map((member) => member.creatorId) });
+    for (const video of loaded) {
       (byCreator.get(video.creatorId) ?? byCreator.set(video.creatorId, []).get(video.creatorId)!).push(video);
     }
+    const nicheItems: SeriesItem[] = [];
     const stats = { niche: niche.slug, channels: members.length, withMarkers: 0, withSeries: 0, thinBaseline: 0 };
     for (const member of members) {
       const videos = byCreator.get(member.creatorId) ?? [];
@@ -115,12 +136,53 @@ export function collectSeries(input: { niches: readonly NicheDto[]; options?: Pa
       if (result.reason === "thin-baseline") stats.thinBaseline += 1;
       if (result.series.length > 0) stats.withSeries += 1;
       const byId = new Map(videos.map((video) => [video.id, video]));
-      for (const series of result.series) items.push(seriesItem(niche, member, series, byId, labels, input.now, options.freshDays));
+      for (const series of result.series) nicheItems.push(seriesItem(niche, member, series, byId, labels, input.now, options.freshDays));
+    }
+    // #590 scorecards: one reference index per niche (labels, fresh labeled formats, contrasts, the multiplier population).
+    const index = buildReferenceIndex({
+      now: input.now,
+      maxAgeDays: options.freshDays,
+      noiseFloorViews: niche.settings.noiseFloorViews,
+      labels,
+      seriesItems: nicheItems,
+      transferByVideo: contrastClassByVideo({ workspaceId: niche.workspaceId, niche: niche.slug }),
+      population: loaded.filter((video) => judgeableInWindow(video, input.now, options.freshDays)),
+    });
+    const memberOf = new Map(members.map((member) => [member.creatorId, member]));
+    for (const item of nicheItems) {
+      const ref = item.reference;
+      const member = memberOf.get(item.creatorId);
+      item.card = ref
+        ? videoScorecard(index, {
+            videoId: ref.videoId, creatorId: item.creatorId, platform: item.platform, postedAt: ref.postedAt, views: ref.views, viewsPrecision: ref.viewsPrecision,
+            multiplier: ref.multiplier, baselineN: ref.baselineN, flags: ref.flags, followers: member?.followers ?? item.followers, sizeBand: item.sizeBand,
+            title: ref.title, hashtags: ref.hashtags, captionLabel: ref.captionLabel,
+          }, { partsInWindow: item.partsInWindow, kind: "series", series: item })
+        : null;
+      items.push(item);
     }
     channels.set(niche.slug, stats);
   }
   items.sort((a, b) => (b.series.lift ?? -Infinity) - (a.series.lift ?? -Infinity) || b.series.parts - a.series.parts || a.channel.localeCompare(b.channel));
   return { items, channels };
+}
+
+/** Scored, non-thin, past the provisional age, not sponsored, and posted inside the window: the percentile population. */
+export function judgeableInWindow(video: NicheVideoDto, now: number, maxAgeDays: number): boolean {
+  return video.multiplier !== null && !video.flags.includes("thin") && !video.flags.includes("provisional") && !isSponsored({ title: video.title ?? video.description, hashtags: video.hashtags }) && inFreshWindow(video.postedAt, now, maxAgeDays);
+}
+
+const baselineNOf = (video: NicheVideoDto): number | null => (typeof video.detail?.baselineN === "number" ? video.detail.baselineN : null);
+
+function referencePart(series: DetectedSeries, byId: Map<string, NicheVideoDto>, now: number, maxAgeDays: number): { part: ReferencePart | null; inWindow: number } {
+  const parts = series.partIds.map((id) => byId.get(id)).filter((video): video is NicheVideoDto => video !== undefined);
+  const fresh = parts.filter((video) => inFreshWindow(video.postedAt, now, maxAgeDays));
+  const chosen = fresh.sort((a, b) => (b.views ?? -1) - (a.views ?? -1))[0] ?? (series.newestPartId ? byId.get(series.newestPartId) : undefined) ?? (series.bestPartId ? byId.get(series.bestPartId) : undefined);
+  if (!chosen) return { part: null, inWindow: fresh.length };
+  return {
+    part: { ...partRef(chosen)!, multiplier: chosen.multiplier, baselineN: baselineNOf(chosen), flags: chosen.flags, viewsPrecision: chosen.viewsPrecision, hashtags: chosen.hashtags, captionLabel: chosen.format },
+    inWindow: fresh.length,
+  };
 }
 
 function partRef(video: NicheVideoDto | null | undefined): PartRef | null {
@@ -133,6 +195,7 @@ function seriesItem(niche: NicheDto, member: NicheMemberDto, series: DetectedSer
   // The label of the newest part wins, then the best part; any labeled part labels the series.
   const labeledId = [series.newestPartId, series.bestPartId, ...series.partIds].find((id) => id !== null && labels.has(id)) ?? null;
   const fresh = seriesFreshness(series, now, freshDays);
+  const reference = referencePart(series, byId, now, freshDays);
   return {
     niche: niche.slug,
     creatorId: member.creatorId,
@@ -149,6 +212,9 @@ function seriesItem(niche: NicheDto, member: NicheMemberDto, series: DetectedSer
     postedAt: fresh.postedAt,
     ageDays: fresh.ageDays,
     label: labeledId ? labels.get(labeledId)! : null,
+    reference: reference.part,
+    partsInWindow: reference.inWindow,
+    card: null,
   };
 }
 
@@ -202,7 +268,11 @@ export function seriesRow(item: SeriesItem, rank: number, now: number) {
     datedOther: s.datedOther,
     bestPart: part(item.best),
     newestPart: part(item.newest),
+    referencePart: part(item.reference),
+    partsInWindow: item.partsInWindow,
     visualFormat: item.label ? { format: item.label.format, confidence: item.label.confidence, method: item.label.method } : null,
+    verdict: item.card?.verdict ?? "skip",
+    scorecard: item.card,
     seriesKey: item.seriesKey,
   };
 }
@@ -210,7 +280,10 @@ export function seriesRow(item: SeriesItem, rank: number, now: number) {
 export function buildSeriesReport(input: { niches: readonly NicheDto[]; options?: Partial<SeriesReportOptions>; now: number }) {
   const options = { ...DEFAULT_SERIES_REPORT_OPTIONS, ...(input.options ?? {}) };
   const { items, channels } = collectSeries({ niches: input.niches, options, now: input.now });
-  const shown = items.filter((item) => (item.series.seriesMedianViews ?? 0) >= options.minMedianViews && (!options.freshOnly || item.freshness === "fresh"));
+  const aboveFloor = items.filter((item) => (item.series.seriesMedianViews ?? 0) >= options.minMedianViews);
+  // #590: references are fresh only; stale and freshness-unknown series are counted, not listed (unless --include-stale).
+  const shown = byVerdict(aboveFloor.filter((item) => !options.freshOnly || item.freshness === "fresh"), (item) => item.card);
+  const excluded = { stale: aboveFloor.filter((item) => item.freshness === "stale").length, freshnessUnknown: aboveFloor.filter((item) => item.freshness === "unknown").length, belowMedianViews: items.length - aboveFloor.length };
   const freshnessCounts = (list: readonly SeriesItem[]) => ({ fresh: list.filter((item) => item.freshness === "fresh").length, stale: list.filter((item) => item.freshness === "stale").length, unknown: list.filter((item) => item.freshness === "unknown").length });
   const primary = items.filter((item) => item.series.primary);
   const labeled = labeledSeriesRows(items);
@@ -242,6 +315,10 @@ export function buildSeriesReport(input: { niches: readonly NicheDto[]; options?
       series: items.length,
       freshness: freshnessCounts(items),
       shown: Math.min(shown.length, options.limit),
+      /** Series that pass the freshness and median-views filters, before --limit; the verdict counts cover these. */
+      eligible: shown.length,
+      excluded: { ...excluded, listed: !options.freshOnly, basis: `a series is listed only when a part was posted within ${options.freshDays} days (--max-age-days); stale and undated series stay stored and counted` },
+      verdicts: verdictCounts(shown.map((item) => item.card)),
       primary: {
         series: primary.length,
         atLeast1_5x: primary.filter((item) => (item.series.lift ?? 0) >= 1.5).length,
@@ -250,6 +327,7 @@ export function buildSeriesReport(input: { niches: readonly NicheDto[]; options?
       byNiche,
     },
     series: shown.slice(0, options.limit).map((item, index) => seriesRow(item, index + 1, input.now)),
+    scorecardRules: SCORECARD_RULES,
     formats: {
       taxonomyVersion: VISUAL_FORMAT_TAXONOMY_VERSION,
       method: VISUAL_FORMAT_METHOD,
@@ -264,6 +342,7 @@ export function buildSeriesReport(input: { niches: readonly NicheDto[]; options?
       "A series without a caption marker is missed; a product name such as 'Series 11' or a date such as 10/28 can read as a marker.",
       "The primary series of a channel is its largest one (the one-series-per-channel view of docs/research/series-formats-2026-10-30.md).",
       `Freshness: a series is a reference only when a part was posted within ${options.freshDays} days; detection and lift use the whole channel history. YouTube flat listings carry no post date, so most YouTube series stay "unknown" until their newest part is dated (trends series --digest dates it through the watch page first).`,
+      `Scorecard (#590): each row judges its reference part (the most-viewed part posted within ${options.freshDays} days, else the newest part) with the adapt / test / skip rules in scorecardRules; rows are ordered adapt, test, skip, then by lift.`,
     ],
     _items: items,
   };
@@ -332,17 +411,27 @@ export function renderSeriesMarkdown(report: SeriesReport, options: { title?: st
       report.coverage.byNiche.map((row) => [row.niche, row.channels, row.withMarkers, row.withSeries, row.series, row.freshness.fresh, row.freshness.stale, row.freshness.unknown, row.primaryAtLeast1_5x, row.primaryAtLeast2x, row.labeled]),
     ),
   );
-  lines.push("## Series by lift", "");
+  const ex = report.coverage.excluded;
+  lines.push(`Freshness window: ${report.settings.freshDays} days. Excluded from the list: ${ex.stale} stale series (newest dated part older than the window), ${ex.freshnessUnknown} freshness-unknown series (no dated part), ${ex.belowMedianViews} below the median-views floor. Verdicts of the ${report.coverage.eligible} listable series (before --limit ${report.settings.limit}): adapt ${report.coverage.verdicts.adapt}, test ${report.coverage.verdicts.test}, skip ${report.coverage.verdicts.skip}.`, "");
+  lines.push("## Series by verdict and lift", "");
   lines.push(
     table(
-      ["#", "Channel", "Niche", "Stem", "Grouping", "Parts", "Median views (series vs other)", "Lift", "Multiplier lift", "Freshness", "Posted (age d)", "Visual format", "Newest part"],
+      ["#", "Channel", "Niche", "Stem", "Grouping", "Parts (in window)", "Median views (series vs other)", "Lift", "Multiplier lift", "Freshness", "Posted (age d)", "Visual format", "Verdict", "Reference part"],
       report.series.map((row) => [
-        row.rank, `${row.platform}:@${String(row.channel).replace(/^@/, "")}`, row.niche, stemCell(row.stem), row.grouping, row.parts,
+        row.rank, `${row.platform}:@${String(row.channel).replace(/^@/, "")}`, row.niche, stemCell(row.stem), row.grouping, `${row.parts} (${row.partsInWindow})`,
         `${cell(row.seriesMedianViews)} vs ${cell(row.otherMedianViews)}`, row.lift === null ? null : `${row.lift}x`, row.multiplierLift === null ? null : `${row.multiplierLift}x`,
-        row.freshness, postedCell(row.postedAt, row.ageDays), row.visualFormat ? `${row.visualFormat.format} (${row.visualFormat.confidence})` : null, row.newestPart?.url ?? row.bestPart?.url ?? null,
+        row.freshness, postedCell(row.postedAt, row.ageDays), row.visualFormat ? `${row.visualFormat.format} (${row.visualFormat.confidence})` : null, row.verdict,
+        row.referencePart?.url ?? row.newestPart?.url ?? row.bestPart?.url ?? null,
       ]),
     ),
   );
+  lines.push("## Adapt scorecard", "");
+  lines.push("Each row judges the series' reference part (the most-viewed part posted inside the window, else the newest part). Rules:", "", ...report.scorecardRules.map((rule) => `- ${rule}`), "");
+  lines.push(renderScorecardTable(report.series.filter((row) => row.scorecard !== null).map((row) => ({
+    label: `${row.platform}:@${String(row.channel).replace(/^@/, "")} (${row.niche}) "${stemCell(row.stem)}" ${row.parts} parts`,
+    url: row.referencePart?.url ?? row.newestPart?.url ?? null,
+    card: row.scorecard!,
+  }))));
   const now = Date.parse(report.generatedAt);
   const labeledRows = report._items.filter((item) => item.label !== null && item.freshness === "fresh").map((item, index) => seriesRow(item, index + 1, now));
   lines.push(renderFormatsAndSeriesMarkdown({ labeledSeries: labeledRows, stats: report.formats.rows }));

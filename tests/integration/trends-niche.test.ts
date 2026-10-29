@@ -218,7 +218,7 @@ describe("niche report", () => {
     const niche = getNiche({ workspaceId, ref: "psychology" })!;
     const report = buildNicheReport({ niche, now: clock.now, options: { language: "en" } });
     expect(Object.keys(report)).toEqual([
-      "kind", "niche", "scope", "generatedAt", "settings", "coverage", "whatToCopy", "topOutliers", "formats", "formatsAndSeries", "growth",
+      "kind", "niche", "scope", "generatedAt", "settings", "scorecardRules", "coverage", "whatToCopy", "topOutliers", "formats", "formatsAndSeries", "growth",
       "subNicheGaps", "entryFormats", "negativeGroup", "anomalies", "digests", "youtube", "notes",
     ]);
     expect(report.coverage.creators.kept).toBe(5);
