@@ -436,6 +436,8 @@ Prediction ledger: one JSON Document per niche scope (`trend-prediction-ledger-p
 
 ## Formats with several top performers (2026-10-30)
 
+> **Correction (owner review, same day):** two of the four 5x+ creators in the first row are stale: elenacarr0ll's video is from 2024-05-14 and doctorlegrand's from 2023-12-01. References must be posted within the last 90 days, so only thepsychdoctormd (2026-08-19) and theworkoutwitch (2026-09-25) remain; the row is two fresh creators, not four. Also, per the owner's definition, the patterns below are caption hooks, not formats; formats are visual and production shapes, see docs/research/series-formats-2026-10-30.md and #588.
+
 Question from the owner: which video format in the psychology EN set has several top performers (different creators, not one creator's luck). Scope: in-sample kept creators, main group, scored TikTok videos only (2,990 judgeable videos; 1,776 EN from 38 creators; YouTube is undated and excluded), sponsored posts excluded. Base rate: 12.8% of EN videos reach 3x their creator's median. Formats were tagged from captions with simple patterns (rule pre-labels for hook type are too coarse: almost every caption is labelled `question`), so these are hypotheses with small samples, to be validated by #578.
 
 | Format (caption pattern) | Videos | Creators | Share at 3x+ | Lift vs base | Creators with a 5x+ video |
