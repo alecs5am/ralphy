@@ -237,7 +237,7 @@ export function labeledSeriesRows(items: readonly SeriesItem[]): LabeledSeries[]
 }
 
 const SERIES_METHOD =
-  "captions with a part / episode / day / week / chapter / series / #N / N-of-M marker (English and Russian) are grouped per channel by a 3-word stem (markers, hashtags, and digits removed); a stem group with the minimum parts is a series, otherwise all marked videos of the channel form one numbered set; lift = series median views / median views of the channel's unmarked videos; multiplier lift compares creator-relative multipliers where both sides are dated and scored";
+  "captions with a part / episode / day / week / chapter / series / #N / N-of-M marker (English and Russian) are grouped per channel by a 3-word stem (markers, hashtags, and digits removed); a rank (\"the #1 skill\") is never a marker, and a rank-shaped #N, a bare \"series N\", a rating or stat fraction (N/10, N/100) or a date-shaped fraction (10/28) counts only when the channel has the minimum parts of that kind with distinct numbers (#593); a stem group with the minimum parts is a series, otherwise the marked videos of one marker kind with the minimum distinct part numbers form one numbered set; lift = series median views / median views of the channel's unmarked videos; multiplier lift compares creator-relative multipliers where both sides are dated and scored";
 
 export function seriesRow(item: SeriesItem, rank: number, now: number) {
   const s = item.series;
@@ -339,7 +339,7 @@ export function buildSeriesReport(input: { niches: readonly NicheDto[]; options?
     },
     notes: [
       "Lifts are Ralphy's own estimates from listing views (YouTube listing views are rounded to 2-3 significant figures), not platform data.",
-      "A series without a caption marker is missed; a product name such as 'Series 11' or a date such as 10/28 can read as a marker.",
+      "A series without a caption marker is missed. Ratings (10/10), ranks (the #1 skill), dates (10/28) and product names (Series 11) are not markers unless the channel numbers several parts that way (#593); three unrelated franchises with one marker kind (Ep 1, Ep 5, Ep 16) can still form a numbered set.",
       "The primary series of a channel is its largest one (the one-series-per-channel view of docs/research/series-formats-2026-10-30.md).",
       `Freshness: a series is a reference only when a part was posted within ${options.freshDays} days; detection and lift use the whole channel history. YouTube flat listings carry no post date, so most YouTube series stay "unknown" until their newest part is dated (trends series --digest dates it through the watch page first).`,
       `Scorecard (#590): each row judges its reference part (the most-viewed part posted within ${options.freshDays} days, else the newest part) with the adapt / test / skip rules in scorecardRules; rows are ordered adapt, test, skip, then by lift.`,

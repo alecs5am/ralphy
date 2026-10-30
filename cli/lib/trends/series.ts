@@ -9,13 +9,27 @@
 // Detection, per channel:
 //   1. Parse part / episode / day / number markers in the caption (English and
 //      Russian; the Russian marker words are Unicode escapes so the
-//      English-only gate stays empty).
+//      English-only gate stays empty). A rank ("The #1 skill", "my #1 tip",
+//      "Rank #1") is never a marker. Weak markers read as parts only with
+//      channel context (#593): a rank-shaped `#N` followed by a word ("#1
+//      mistake"), a bare "series N" (also a product name, "Series 11"), a
+//      rating or stat fraction (`N/10`, `N/100`, "10/10", "9/10 people"), and
+//      a date-shaped fraction (`10/28`: a month, then a day above 12; or a
+//      zero-padded total, `1/05`). A weak marker counts only when the
+//      channel's markers of its kind (fractions: of its total) carry at least
+//      `minParts` distinct numbers, as an episode list "#1".."#38" or a
+//      "1/15".."14/15" set does; otherwise the video is unmarked. `M/D/Y`
+//      dates never match.
 //   2. Stem each marked caption: drop the markers, hashtags, mentions, URLs,
 //      and bare numbers, then keep the first `stemWords` words.
 //   3. A stem group with at least `minParts` parts is a series (`stem`). When
-//      no stem group qualifies but the channel has `minParts` marked videos,
-//      they form one `numbered-set` (the episodes of a franchise whose titles
-//      vary, such as "Pt 1" videos about different machines).
+//      no stem group qualifies, the channel's marked videos of one marker
+//      kind with at least `minParts` parts and `minParts` distinct part
+//      numbers form one `numbered-set` (the episodes of a franchise whose
+//      titles vary, such as "Ep N" videos on different topics); the largest
+//      such kind wins, first seen on a tie. A rating, a rank and one "Part 2"
+//      are three kinds, and three "Day 1" reposts are one number: neither is
+//      a series (#593).
 //   4. Baseline: the channel's videos with no marker at all (marked videos of
 //      other series are never the baseline). Series lift = series median
 //      views / baseline median views; where both sides are dated and scored,
@@ -50,6 +64,8 @@ export interface SeriesMarker {
   /** Code-unit span in the caption. */
   start: number;
   end: number;
+  /** A part number only with channel context (see `weakMarkerKey`); `parseSeriesMarkers` returns weak markers only on request. */
+  weak: boolean;
 }
 
 /**
@@ -78,15 +94,36 @@ const MARKER_PATTERNS: Array<{ kind: SeriesMarkerKind; pattern: RegExp }> = [
   { kind: "day", pattern: word(["day", ...RU.day]) },
   { kind: "week", pattern: word(["week", ...RU.week], 3) },
   { kind: "chapter", pattern: word(["chapter", "lesson", "vol", "volume", ...RU.chapter]) },
-  // "Series 11" is also a product name (a watch generation); kept because a
-  // numbered "series N" is a real marker and the parts still share a template.
+  // "Series 11" is also a product name (a watch generation): a bare "series N"
+  // is weak, "series N/M" (a stated total) is not.
   { kind: "series", pattern: word(["series"]) },
   { kind: "fraction", pattern: /(?<![\p{N}/.,:])(\d{1,3})\s?\/\s?(\d{1,3})(?![\p{N}/])/gu },
   { kind: "number", pattern: /(?<![\p{L}\p{N}&])#\s?(\d{1,4})(?![\p{L}\p{N}])/gu },
 ];
 
-/** Every part / episode / day / number marker in a caption, in reading order. */
-export function parseSeriesMarkers(text: string | null | undefined): SeriesMarker[] {
+/** A determiner, a possessive, or a rank verb right before `#N`: "The #1 skill", "my #1 tip", "Netflix's #1 series", "Rank #1". */
+const RANK_BEFORE = /(?:(?<![\p{L}\p{N}])(?:the|a|an|my|your|our|his|her|their|its|rank|ranks|ranked|ranking)|\p{L}['\u2019]s)\s*$/iu;
+/** A word right after `#N`: "#1 mistake", "#10 Daily Routines". */
+const WORD_AFTER = /^\s*\p{L}/u;
+
+/**
+ * Whether a parsed candidate is weak: a rank-shaped `#N`, a bare "series N",
+ * a rating or stat fraction (`N/10`, `N/100`), or a date-shaped fraction
+ * (a month, then a day above 12, or a zero-padded total).
+ */
+function isWeak(kind: SeriesMarkerKind, text: string, end: number, n: number, of: number | null, total: string | undefined): boolean {
+  if (kind === "number") return WORD_AFTER.test(text.slice(end));
+  if (kind === "series") return of === null;
+  if (kind !== "fraction" || of === null) return false;
+  return of === 10 || of === 100 || (n <= 12 && of >= 13 && of <= 31) || (total ?? "").startsWith("0");
+}
+
+/**
+ * Every part / episode / day / number marker in a caption, in reading order.
+ * Weak markers (see `isWeak`) are left out unless `weak` is set; they still
+ * hide the lower-priority matches they overlap.
+ */
+export function parseSeriesMarkers(text: string | null | undefined, options: { weak?: boolean } = {}): SeriesMarker[] {
   if (!text) return [];
   const found: SeriesMarker[] = [];
   for (const { kind, pattern } of MARKER_PATTERNS) {
@@ -100,10 +137,30 @@ export function parseSeriesMarkers(text: string | null | undefined): SeriesMarke
       if (kind === "fraction" && (of === null || of < 2 || n < 1 || n > of)) continue;
       if (n >= 1900 && n <= 2099) continue;
       if (found.some((marker) => start < marker.end && end > marker.start)) continue;
-      found.push({ kind, n, of, start, end });
+      // A rank is never a part (#593).
+      if (kind === "number" && RANK_BEFORE.test(text.slice(0, start))) continue;
+      found.push({ kind, n, of, start, end, weak: isWeak(kind, text, end, n, of, match[2]) });
     }
   }
-  return found.sort((a, b) => a.start - b.start);
+  return found.filter((marker) => options.weak || !marker.weak).sort((a, b) => a.start - b.start);
+}
+
+/**
+ * The context a weak marker needs: markers of the same kind (fractions: the
+ * same total) with `minParts` distinct numbers on the channel.
+ */
+export function weakMarkerKey(marker: Pick<SeriesMarker, "kind" | "of">): string {
+  return marker.kind === "fraction" ? `fraction/${marker.of}` : marker.kind;
+}
+
+/** Keys (see `weakMarkerKey`) whose markers carry at least `minParts` distinct numbers on one channel. */
+export function weakMarkerContext(markers: readonly SeriesMarker[], minParts: number): Set<string> {
+  const numbers = new Map<string, Set<number>>();
+  for (const marker of markers) {
+    const key = weakMarkerKey(marker);
+    (numbers.get(key) ?? numbers.set(key, new Set()).get(key)!).add(marker.n);
+  }
+  return new Set([...numbers].filter(([, values]) => values.size >= minParts).map(([key]) => key));
 }
 
 /** First `words` words of the caption with markers, hashtags, mentions, URLs, and digits removed (digits split words). */
@@ -226,12 +283,15 @@ export function seriesLift(seriesValues: Array<number | null>, otherValues: Arra
 /** Group one channel's videos into series and compute each series' lift against the channel's unmarked videos. */
 export function detectChannelSeries(videos: readonly SeriesVideo[], options: Partial<SeriesOptions> = {}): ChannelSeriesResult {
   const opts = { ...DEFAULT_SERIES_OPTIONS, ...options };
+  const parsed = videos.map((video) => ({ video, markers: parseSeriesMarkers(video.text, { weak: true }) }));
+  // Weak markers count only where the channel numbers enough parts of their kind (#593).
+  const context = weakMarkerContext(parsed.flatMap((entry) => entry.markers), opts.minParts);
   const marked: Array<{ video: SeriesVideo; markers: SeriesMarker[]; stem: string }> = [];
   const other: SeriesVideo[] = [];
-  for (const video of videos) {
-    const markers = parseSeriesMarkers(video.text);
-    if (markers.length === 0) other.push(video);
-    else marked.push({ video, markers, stem: seriesStem(video.text, markers, opts.stemWords) });
+  for (const entry of parsed) {
+    const markers = entry.markers.filter((marker) => !marker.weak || context.has(weakMarkerKey(marker)));
+    if (markers.length === 0) other.push(entry.video);
+    else marked.push({ video: entry.video, markers, stem: seriesStem(entry.video.text, markers, opts.stemWords) });
   }
   const base = { videos: videos.length, marked: marked.length, other: other.length };
   if (marked.length < opts.minParts) return { ...base, series: [], reason: "no-series" };
@@ -242,7 +302,18 @@ export function detectChannelSeries(videos: readonly SeriesVideo[], options: Par
   let chosen: Array<{ key: string; stem: string; grouping: SeriesGrouping; entries: typeof marked }> = [...groups.entries()]
     .filter(([, entries]) => entries.length >= opts.minParts)
     .map(([stem, entries]) => ({ key: stem, stem, grouping: "stem" as const, entries }));
-  if (chosen.length === 0) chosen = [{ key: "#numbered", stem: marked[0]!.stem, grouping: "numbered-set", entries: marked }];
+  if (chosen.length === 0) {
+    // A numbered set is one marker kind (a video's kind is its first marker's) with `minParts` distinct part numbers (#593).
+    const byKind = new Map<SeriesMarkerKind, typeof marked>();
+    for (const entry of marked) (byKind.get(entry.markers[0]!.kind) ?? byKind.set(entry.markers[0]!.kind, []).get(entry.markers[0]!.kind)!).push(entry);
+    let set: typeof marked | null = null;
+    for (const entries of byKind.values()) {
+      if (entries.length < opts.minParts || new Set(entries.map((entry) => entry.markers[0]!.n)).size < opts.minParts) continue;
+      if (set === null || entries.length > set.length) set = entries;
+    }
+    if (set === null) return { ...base, series: [], reason: "no-series" };
+    chosen = [{ key: "#numbered", stem: set[0]!.stem, grouping: "numbered-set", entries: set }];
+  }
 
   // Primary: the largest series; Map order keeps the first seen on a tie.
   let primaryKey = chosen[0]!.key;

@@ -12,6 +12,8 @@ import {
   seriesFreshness,
   seriesLift,
   seriesStem,
+  weakMarkerContext,
+  weakMarkerKey,
   type SeriesVideo,
 } from "../../cli/lib/trends/series.js";
 import { digestTopSeries, postedAtFromMeta, type SeriesItem } from "../../cli/lib/trends/series-report.js";
@@ -20,6 +22,8 @@ const DAY = 86_400_000;
 const NOW = Date.UTC(2026, 9, 30, 12);
 
 const kinds = (text: string) => parseSeriesMarkers(text).map((marker) => `${marker.kind}:${marker.n}${marker.of === null ? "" : `/${marker.of}`}`);
+/** With weak markers, suffixed `~`. */
+const weakKinds = (text: string) => parseSeriesMarkers(text, { weak: true }).map((marker) => `${marker.kind}:${marker.n}${marker.of === null ? "" : `/${marker.of}`}${marker.weak ? "~" : ""}`);
 
 describe("series markers (English)", () => {
   test("part, episode, day, week, chapter, series, #N, and N/M markers", () => {
@@ -34,9 +38,45 @@ describe("series markers (English)", () => {
     expect(kinds("Rolling into Week 2 of our program")).toEqual(["week:2"]);
     expect(kinds("Lesson 4: compound interest")).toEqual(["chapter:4"]);
     expect(kinds("Kettlebell Workout Series 1/30 - Full Body")).toEqual(["series:1/30"]);
-    expect(kinds("Claude Cowork: The #1 Thing To Know")).toEqual(["number:1"]);
-    expect(kinds("4 Layers of SEO, Rank # 1")).toEqual(["number:1"]);
+    expect(kinds("Grief Coping Skills #3 - Art Expression #grief")).toEqual(["number:3"]);
+    expect(kinds("Calisthenics Level Up #1")).toEqual(["number:1"]);
     expect(kinds("7/65 Planet Fitness Workouts")).toEqual(["fraction:7/65"]);
+  });
+
+  test("real parts stay markers (#593 counter-examples)", () => {
+    expect(kinds("Part 1/3")).toEqual(["part:1/3"]);
+    expect(kinds("Upper body pt 2")).toEqual(["part:2"]);
+    expect(kinds("Day 12 of 30")).toEqual(["day:12/30"]);
+    expect(kinds("Crisis Files Ep. 4 | Dot-Com Bubble")).toEqual(["episode:4"]);
+    expect(kinds("Episode 3")).toEqual(["episode:3"]);
+    expect(kinds("Narcissist - what they say Vs what they mean (Part 2)")).toEqual(["part:2"]);
+    expect(kinds("14/15 \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u043e")).toEqual(["fraction:14/15"]);
+  });
+
+  test("ranks are never markers (#593)", () => {
+    expect(kinds("The #1 Skill School Never Taught You")).toEqual([]);
+    expect(kinds("Claude Cowork: The #1 Thing To Know")).toEqual([]);
+    expect(kinds("Always my #1 supporter")).toEqual([]);
+    expect(kinds("Netflix’s #1 series Reality Check")).toEqual([]);
+    expect(kinds("4 Layers of SEO, Rank # 1")).toEqual([]);
+    expect(kinds("Pakistan Ranks #1 in Solar Power Generation!")).toEqual([]);
+    expect(weakKinds("The #1 Skill School Never Taught You")).toEqual([]);
+  });
+
+  test("ratings, stats, dates, a rank-shaped #N, and a bare 'series N' are weak (#593)", () => {
+    for (const text of ["10/10 Habits That Build an Unshakeable Mind", "How to be a 10/10 Founder", "9/10 people don’t know this", "The Long Coat Trick (Tip 5/100)", "Crypto Market Update 10/28", "#1 Mistake Parents Make", "Habits For Good Mental Health #10 Daily Routines", "Apple Watch Series 11 VS Apple Watch SE 3 battery test"]) {
+      expect(kinds(text)).toEqual([]);
+      expect(parseSeriesMarkers(text, { weak: true }).map((marker) => marker.weak)).toEqual([true]);
+    }
+    expect(weakKinds("10/10 Habits That Build an Unshakeable Mind")).toEqual(["fraction:10/10~"]);
+    expect(weakKinds("Crypto Market Update 10/28")).toEqual(["fraction:10/28~"]);
+    // A zero-padded total is a date (Dec 26 to Jan 5).
+    expect(weakKinds("12/26–1/05 Details in description")).toEqual(["fraction:12/26~", "fraction:1/5~"]);
+    // Month/day/year never matches; the first strong marker stays strong next to a weak one.
+    expect(weakKinds("Report 10/28/2026 and 10/28/26")).toEqual([]);
+    expect(weakKinds("Step #1 & #2 In Stopping Rumination")).toEqual(["number:1", "number:2~"]);
+    expect(weakMarkerKey({ kind: "fraction", of: 15 })).toBe("fraction/15");
+    expect(weakMarkerKey({ kind: "number", of: null })).toBe("number");
   });
 
   test("hashtags with digits, 24/7, years, and plain numbers are not markers", () => {
@@ -60,7 +100,9 @@ describe("series markers (Russian, escaped)", () => {
     expect(kinds("\u0441\u0435\u0440\u0438\u044f 3")).toEqual(["episode:3"]);
     expect(kinds("\u0432\u044b\u043f\u0443\u0441\u043a 12")).toEqual(["episode:12"]);
     expect(kinds("\u0434\u0435\u043d\u044c 5 \u0438\u0437 30")).toEqual(["day:5/30"]);
-    expect(kinds("5/15 \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u043e")).toEqual(["fraction:5/15"]);
+    // "5/15" has a date shape (May 15): weak until the channel has its other parts (see grouping).
+    expect(kinds("5/15 \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u043e")).toEqual([]);
+    expect(weakKinds("5/15 \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u043e")).toEqual(["fraction:5/15~"]);
   });
 
   test("a word that only contains a marker word is not a marker", () => {
@@ -72,7 +114,9 @@ describe("series stems", () => {
   test("drop markers, hashtags, punctuation, and digits; keep the first words", () => {
     expect(seriesStem("Things people with ADHD do despite knowing better. Part 65 #adhd")).toBe("things people with");
     expect(seriesStem("EPISODE 4 - I’m a Narcissist - How I treat my wife")).toBe("i m a");
-    expect(seriesStem("Apple Watch Series 11 VS Apple Watch SE 3 battery test")).toBe("apple watch vs");
+    // A bare "Series 11" is weak: kept in the stem unless the channel context promotes it.
+    expect(seriesStem("Apple Watch Series 11 VS Apple Watch SE 3 battery test")).toBe("apple watch series");
+    expect(seriesStem("Apple Watch Series 11 VS Apple Watch SE 3 battery test", parseSeriesMarkers("Apple Watch Series 11 VS Apple Watch SE 3 battery test", { weak: true }))).toBe("apple watch vs");
     expect(seriesStem("100 Day Body Transformation: Day 9")).toBe("day body transformation");
     expect(seriesStem("Harry Potter economics (part 2)")).toBe("harry potter economics");
     expect(seriesStem("Bluey Economics (part 1)")).toBe("bluey economics");
@@ -110,9 +154,47 @@ describe("series grouping", () => {
   });
 
   test("marked videos with no repeating stem form one numbered set", () => {
-    const result = detectChannelSeries([video("How to use a squat rack Pt 1", 144_000), video("Beginner's guide | treadmill PT 1", 304_000), video("No gym needed Pt 1", 3_900), ...others(8, 7_400)]);
+    const result = detectChannelSeries([video("How to use a squat rack Pt 1", 144_000), video("Beginner's guide | treadmill PT 2", 304_000), video("No gym needed Pt 3", 3_900), ...others(8, 7_400)]);
     expect(result.series).toHaveLength(1);
-    expect(result.series[0]).toMatchObject({ key: "#numbered", grouping: "numbered-set", parts: 3, stem: "how to use", lift: 144_000 / 7_400 });
+    expect(result.series[0]).toMatchObject({ key: "#numbered", grouping: "numbered-set", parts: 3, partNumbers: [1, 2, 3], stem: "no gym needed", lift: 144_000 / 7_400 });
+  });
+
+  test("a numbered set is one marker kind with minParts distinct part numbers (#593)", () => {
+    // Three "Pt 1" videos, and parts 1, 2, 2 of three topics: too few part numbers.
+    expect(detectChannelSeries([video("How to use a squat rack Pt 1", 1), video("Treadmill PT 1", 1), video("No gym needed Pt 1", 1), ...others(8)]).reason).toBe("no-series");
+    expect(detectChannelSeries([video("this gym is playground themed - part 2", 529_226), video("What's the best way to learn an exercise? (part 1)", 40_000), video("Which Wild Pullup Bar is Best?  Part 2", 490_000), ...others(8)]).series).toEqual([]);
+    // Three kinds (episode, number, day) are not one set.
+    expect(detectChannelSeries([video("How to Plan Your Calisthenics Workout | EP. 2", 1), video("What Is Calisthenics? | Calisthenics Level Up #1", 1), video("Day 1 vs Day 94 of Bulking", 1), ...others(8)]).series).toEqual([]);
+    // The largest qualifying kind wins; the stray other-kind part is neither in the set nor in the baseline.
+    const mixed = detectChannelSeries([video("Day 3 home workout", 10), video("Day 4 fat loss", 10), video("Day 5 belly burn", 10), video("Q&A part 2", 999), ...others(6, 1)]);
+    expect(mixed.series[0]).toMatchObject({ grouping: "numbered-set", parts: 3, partNumbers: [3, 4, 5], markerKinds: ["day"], other: 6 });
+  });
+
+  test("the 2026-10-30 fake series are gone: a rating, a rank, and one real part (#593)", () => {
+    const abhasa = detectChannelSeries([video("10/10 Habits That Build an Unshakeable Mind", 109_983), video("The #1 Skill School Never Taught You", 120_000), video("Narcissist - what they say Vs what they mean (Part 2)", 33_000), ...others(57, 65_000)]);
+    expect(abhasa).toMatchObject({ marked: 1, other: 59, reason: "no-series", series: [] });
+    const jayhoovy = detectChannelSeries([video("How to be a 10/10 Founder", 7_087), video("Day in the life filming a TV show for Founders (Day 1 of 14)", 2_800), video("Everything I Learned At Goldman Sachs | Lesson 6", 15_000), ...others(57, 3_600)]);
+    expect(jayhoovy).toMatchObject({ marked: 2, reason: "no-series", series: [] });
+    const ranks = detectChannelSeries([video("The #1 Skill for Combining Claude Code + Codex", 11_357), video("The #1 Claude skill for design just got upgraded", 16_000), video("The #1 Trending Github Repo", 30_000), ...others(8)]);
+    expect(ranks).toMatchObject({ marked: 0, reason: "no-series" });
+  });
+
+  test("weak markers count with channel context: an episode list, one total, several 'series N' (#593)", () => {
+    const habits = detectChannelSeries([video("Habits For Good Mental Health #10 Daily Routines", 50), video("Habits For Good Mental Health #2 Good Sleep", 50), video("Habits For Good Mental Health #3 Healthy Eating", 50), ...others(5, 10)]);
+    expect(habits.series[0]).toMatchObject({ stem: "habits for good", grouping: "stem", partNumbers: [2, 3, 10], markerKinds: ["number"], lift: 5 });
+    const TIP = "\u0421\u043e\u0432\u0435\u0442 \u0434\u043d\u044f"; // "tip of the day"
+    expect(detectChannelSeries([video(`#1 ${TIP}: a`, 1), video(`#2 ${TIP}: b`, 1), video(`#3 ${TIP}: c`, 1), ...others(5)]).series[0]).toMatchObject({ parts: 3, partNumbers: [1, 2, 3] });
+    // 1/15 and 5/15 have a date shape; the channel's other parts over 15 make them parts.
+    const QUALITY = "\u043a\u0430\u0447\u0435\u0441\u0442\u0432\u043e"; // "quality"
+    expect(detectChannelSeries([video(`1/15 ${QUALITY}`, 1), video(`5/15 ${QUALITY}`, 1), video(`14/15 ${QUALITY}`, 1), ...others(5)]).series[0]).toMatchObject({ parts: 3, partNumbers: [1, 5, 14], markerKinds: ["fraction"] });
+    expect(detectChannelSeries([video("Get Glass Skin (Tip 1/100)", 1), video("Hair Look Better! (Tip 2/100)", 1), video("The Long Coat Trick (Tip 5/100)", 1), ...others(5)]).series[0]).toMatchObject({ partNumbers: [1, 2, 5] });
+    // Dates over different totals stay unmarked and join the baseline.
+    expect(detectChannelSeries([video("Crypto Market Update 10/28", 1), video("Bitcoin Analysis 10/17", 1), video("Market Update 8/19", 1), ...others(5)])).toMatchObject({ marked: 0, other: 8, reason: "no-series" });
+    // Apple Watch generations 10 and 11 are two numbers: not markers, so those videos are the baseline.
+    const watch = detectChannelSeries([video("Apple Watch Series 11 VS Apple Watch SE 3", 27_000), video("Series 11 46mm vs 42mm", 51_000), video("Apple Watch Ultra 2 vs series 10", 193_000), video("Apple Watch Apps PT #3", 9_000), ...others(5)]);
+    expect(watch).toMatchObject({ marked: 1, other: 8, reason: "no-series" });
+    expect(detectChannelSeries([video("Kettle bells Series 1", 1), video("Kettle bells Series 2", 1), video("Kettle bells Series 3", 1), ...others(5)]).series[0]).toMatchObject({ stem: "kettle bells", markerKinds: ["series"] });
+    expect([...weakMarkerContext(parseSeriesMarkers("#1 x; #2 y; #3 z; 10/10", { weak: true }), 3)]).toEqual(["number"]);
   });
 
   test("several stem series; the largest is primary, the first seen wins a tie", () => {
@@ -218,21 +300,32 @@ const FIXTURE = JSON.parse(fs.readFileSync(path.join(import.meta.dir, "..", "fix
 /** Research doc rows: parts, median views (series vs other), lift as printed, and the post date of the digested part (owner correction). */
 const RESEARCH: Record<string, { parts: number; series: number; other: number; lift: number; digits: number; posted: string; fresh: boolean }> = {
   "@MarketPowerYT": { parts: 4, series: 1_550_000, other: 25_000, lift: 62, digits: 0, posted: "2025-05-18", fresh: false },
-  "@naomikong": { parts: 3, series: 144_000, other: 7_400, lift: 19, digits: 0, posted: "2024-08-29", fresh: false },
-  "@StrategicWealthDesigners": { parts: 3, series: 17_000, other: 1_850, lift: 9, digits: 0, posted: "2022-11-16", fresh: false },
-  "@HybridCalisthenics": { parts: 3, series: 490_000, other: 65_000, lift: 7.5, digits: 1, posted: "2026-10-15", fresh: true },
-  "@HotshotTek": { parts: 6, series: 39_000, other: 8_150, lift: 4.8, digits: 1, posted: "2024-10-10", fresh: false },
+  // #593: "What is the #1 rule in the stock market?" is a rank, so it joins the baseline (1,850 -> 1,800; the lift still prints 9x).
+  "@StrategicWealthDesigners": { parts: 3, series: 17_000, other: 1_800, lift: 9, digits: 0, posted: "2022-11-16", fresh: false },
   "@lifeactuator": { parts: 22, series: 88_000, other: 19_000, lift: 4.6, digits: 1, posted: "2026-10-23", fresh: true },
   "@brandonclearminds": { parts: 4, series: 13_500, other: 3_300, lift: 4.1, digits: 1, posted: "2026-07-16", fresh: false },
-  "@JeffSu": { parts: 4, series: 66_500, other: 24_000, lift: 2.8, digits: 1, posted: "2026-03-26", fresh: false },
 };
 
-describe("acceptance: the research doc's 8 series are detected with the same lift", () => {
+/** Manual-pass rows that #593 retires: the caption reason they are not a numbered series. */
+const RETIRED: Record<string, string> = {
+  "@naomikong": "three 'Pt 1' videos: one part number",
+  "@HybridCalisthenics": "parts 1, 2, 2 of three topics: two part numbers",
+  "@HotshotTek": "'Series 11' / 'series 10' are Apple Watch generations (two numbers), leaving one 'PT #3'",
+  "@JeffSu": "two of the four are ranks ('The #1 Thing To Know'), leaving Part 1 and Part 2",
+};
+
+describe("acceptance: the research doc's 8 series (4 detected with the same lift, 4 retired by #593)", () => {
   test("fixture holds all 8 channels", () => {
-    expect(FIXTURE.map((channel) => channel.channel).sort()).toEqual(Object.keys(RESEARCH).sort());
+    expect(FIXTURE.map((channel) => channel.channel).sort()).toEqual([...Object.keys(RESEARCH), ...Object.keys(RETIRED)].sort());
   });
 
-  for (const channel of FIXTURE) {
+  for (const channel of FIXTURE.filter((entry) => RETIRED[entry.channel])) {
+    test(`${channel.channel}: no series (${RETIRED[channel.channel]})`, () => {
+      expect(detectChannelSeries(channel.videos, DEFAULT_SERIES_OPTIONS).series).toEqual([]);
+    });
+  }
+
+  for (const channel of FIXTURE.filter((entry) => RESEARCH[entry.channel])) {
     const expected = RESEARCH[channel.channel]!;
     test(`${channel.channel}: ${expected.parts} parts at ${expected.lift}x`, () => {
       const result = detectChannelSeries(channel.videos, DEFAULT_SERIES_OPTIONS);
