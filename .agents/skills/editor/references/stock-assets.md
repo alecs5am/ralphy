@@ -42,6 +42,8 @@ ralphy stock credits --project <id> --markdown
 
 Monotone Iconify icons draw in `currentColor`: inline the SVG and set `color` in CSS, or edit its fill; as an `<img>` they render black. A Lottie file needs a Lottie player in the composition (the `lottie` skill); for a plain `<img>`, pull the WebP or GIF id of the same emoji instead. Animated SVG and GIF play in a browser; check them in a test render, since a render seeks time frame by frame.
 
+For a poster-collage explainer, `ralphy editor poster` takes the pulled files by their `path` in its scenes file's `ASSETS`, inlines every Lottie JSON it uses and plays each one from its own start ([poster-collage.md](./poster-collage.md), #598). Cut out photo subjects with `ralphy matte subject --model birefnet` before placing them.
+
 ## Pinterest: import only, reference only
 
 `ralphy stock pull pinterest:<pin-or-board-url> --project <id> --license any [--max 30]` reads a pin or a board with the local `yt-dlp` (no cookies, no login, no proxies; private pins and boards cannot be imported), takes at most `--max` pins from a board (default 30) and pauses between downloads. There is no Pinterest search.

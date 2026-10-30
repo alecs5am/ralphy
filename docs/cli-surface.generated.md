@@ -576,7 +576,7 @@ ____        __      __
 Usage: ralphy editor [options] [command]
 
 Editor-stage observability — preflight clip checks, trim-analysis, composition
-QA.
+QA — and the poster-collage builder.
 
 Options:
   -h, --help                           display help for command
@@ -607,6 +607,19 @@ Commands:
                                        text element plus anything tagged
                                        data-safe-zone. Exit 1 on errors. Local,
                                        zero provider calls.
+  poster [options] <project>           Assemble a poster-collage explainer
+                                       (faceless 9:16 montage: condensed titles
+                                       with letter reveals, kicker labels,
+                                       handwritten notes, cut-outs, stickers,
+                                       Lottie, micro-effects) into
+                                       <project>/index.html from a scenes file,
+                                       with the embedded engine. Validates every
+                                       asset the scenes use, inlines the
+                                       referenced Lottie JSON, copies the
+                                       licensed Oswald / Caveat / Inter fonts
+                                       when missing, snapshots the previous
+                                       index.html first, then lints. Local, zero
+                                       provider calls.
   help [command]                       display help for command
 ```
 

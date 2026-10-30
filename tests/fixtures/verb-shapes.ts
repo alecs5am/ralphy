@@ -671,6 +671,33 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         warnings: [],
       },
     },
+    {
+      label: "editor.poster",
+      shape: {
+        dryRun: false,
+        project: "demo-001",
+        projectDir: ".ralphy/workspaces/default/projects/demo-001",
+        compositionId: "demo-001",
+        title: "demo-001",
+        lang: "en",
+        duration: 12.4,
+        durationSource: "audio",
+        audio: { src: "artifacts/voiceover/vo.mp3", durationSec: 12.4 },
+        scenes: { file: "poster-scenes.js", sha256: "a".repeat(64), count: 6, items: 31 },
+        assets: {
+          referenced: [{ key: "hero", path: "artifacts/images/hero.png", remote: false, uses: 2 }],
+          missing: [{ key: "dog", path: null, reason: "not in ASSETS", uses: ["scene 2 (t=1.4) item 3 (img)"] }],
+          unused: ["spare"],
+        },
+        lottie: { inlined: [{ key: "lot-fire", path: "artifacts/animations/lot-fire.json", bytes: 48211 }], bytes: 48211 },
+        fonts: [{ file: "fonts/oswald.ttf", from: ".ralphy/catalog/fonts/oswald/oswald.ttf", action: "copy" }],
+        index: { path: "index.html", action: "update", bytes: 98123 },
+        snapshot: { kind: "file", path: "compositions/v1.html", action: "write" },
+        files: [{ path: "compositions/v1.html", action: "write" }, { path: "index.html", action: "update" }],
+        lint: { ok: true, inRepo: { ok: true, errors: [], warnings: [] }, upstream: { ran: true, ok: true, errorCount: 0, warningCount: 1, findings: [{ code: "composition_file_too_large", severity: "warning", message: "This HTML composition file has 812 lines." }] } },
+        warnings: [],
+      },
+    },
   ],
   eval: [
     {

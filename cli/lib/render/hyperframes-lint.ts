@@ -31,7 +31,10 @@
 // Origin: `ralphy-vs-higgsfield-001` postmortem (workflow-fixes #2, #3).
 // Issue: notes/issues/done/047-hyperframes-edge-case-rules.md.
 
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { resolve as resolvePath } from "node:path";
 
 export type HyperframesLintError = {
   code: "media_missing_id" | "media_missing_data_start" | "media_attrs_on_wrapper";
@@ -188,6 +191,50 @@ export function formatHyperframesLintReport(result: HyperframesLintResult): stri
     }
   }
   return lines.join("\n");
+}
+
+export type UpstreamLintFinding = { code: string; severity: string; message: string };
+
+export type UpstreamLintResult =
+  | { ran: true; ok: boolean; errorCount: number; warningCount: number; findings: UpstreamLintFinding[] }
+  | { ran: false; error: string };
+
+/**
+ * Run the upstream `hyperframes lint <dir> --json` (static, offline) and
+ * return its summary (#598). From a checkout it uses the pinned binary in
+ * node_modules; a compiled CLI uses `bunx hyperframes`, as `ralphy render`
+ * does. Never throws: a lint that cannot run is reported as `ran: false`.
+ */
+export function runUpstreamHyperframesLint(projectDir: string, opts: { timeoutMs?: number } = {}): UpstreamLintResult {
+  const pinned = resolvePath(import.meta.dir, "..", "..", "..", "node_modules", ".bin", "hyperframes");
+  const argv = existsSync(pinned) ? [pinned] : ["bunx", "hyperframes"];
+  const r = spawnSync(argv[0]!, [...argv.slice(1), "lint", projectDir, "--json"], {
+    encoding: "utf8",
+    timeout: opts.timeoutMs ?? 120_000,
+    env: { ...process.env, HYPERFRAMES_NO_UPDATE_CHECK: "1", HYPERFRAMES_NO_TELEMETRY: "1" },
+  });
+  if (r.error) return { ran: false, error: `${argv.join(" ")} lint: ${r.error.message}` };
+  const stdout = r.stdout ?? "";
+  const start = stdout.indexOf("{");
+  try {
+    const report = JSON.parse(start >= 0 ? stdout.slice(start) : stdout) as {
+      ok?: unknown;
+      errorCount?: unknown;
+      warningCount?: unknown;
+      findings?: Array<{ code?: unknown; severity?: unknown; message?: unknown }>;
+    };
+    const errorCount = Number(report.errorCount ?? 0);
+    return {
+      ran: true,
+      ok: report.ok === true && errorCount === 0,
+      errorCount,
+      warningCount: Number(report.warningCount ?? 0),
+      findings: (report.findings ?? []).map((f) => ({ code: String(f.code ?? ""), severity: String(f.severity ?? ""), message: String(f.message ?? "") })),
+    };
+  } catch {
+    const tail = `${stdout}\n${r.stderr ?? ""}`.trim().slice(-300);
+    return { ran: false, error: `hyperframes lint exit ${r.status ?? "?"}: ${tail || "no JSON report"}` };
+  }
 }
 
 // ---------- helpers (HTML regex parsing, intentionally narrow) ----------

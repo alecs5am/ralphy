@@ -34,6 +34,7 @@ export const USAGE_EXAMPLES: Readonly<Record<string, string>> = Object.freeze({
   "stock search": 'ralphy stock search "<query>" --kind image|video|audio|logo|animation|sticker|icon',
   "stock pull": "ralphy stock pull <candidate-id from stock search> --project <project>",
   "stock credits": "ralphy stock credits --project <project>",
+  "editor poster": "ralphy editor poster <project> --scenes poster-scenes.js --audio artifacts/voiceover/vo.mp3 --dry-run",
 });
 
 const USAGE_ERROR = /^error: (required option '[^']+' not specified|missing required argument '[^']+'|option '[^']+' argument missing)/;

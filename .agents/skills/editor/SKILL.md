@@ -79,6 +79,9 @@ ralphy stock search <query> --kind image|video|audio|logo|animation|sticker|icon
 ralphy stock pull <candidate-id...> --project <id>    # Artifact revision + artifacts/<images|animations|videos|sfx|music>/, $0
 ralphy stock credits --project <id> --markdown        # attribution block for the post copy
 
+# Poster-collage explainer from a scenes file (#598) — see references/poster-collage.md
+ralphy editor poster <id> --scenes poster-scenes.js --audio artifacts/voiceover/vo.mp3 [--dry-run]   # validate, inline Lottie, fonts, snapshot, write index.html, lint
+
 # Inspect inputs / outputs
 ralphy project show <id> --assets        # asset-manifest before composing
 ralphy project show <id> --status        # what's done / missing
@@ -100,6 +103,7 @@ Extend a toon / painterly clip by anchoring a new `bytedance/seedance-2.0` i2v c
 | [editor/captions.md](./references/captions.md) | Wiring `captions.json` into a caption component; captions-first before writing timing constants |
 | [editor/transitions.md](./references/transitions.md) | Crossfade / push / wipe patterns |
 | [editor/motion-catalog.md](./references/motion-catalog.md) | Pick a ready transition / motion element / SFX: `ralphy catalog list --kind transition --mood energetic` (#563); insert it with `ralphy catalog use <id> --project <id> --at <sec>` (#594) |
+| [editor/poster-collage.md](./references/poster-collage.md) | Faceless poster-collage explainers (condensed titles with letter reveals, kickers, handwritten notes, cut-outs, stickers, Lottie, versus splits, stamps, counters): transcript → `ralphy stock` → BiRefNet cut-outs → scenes file → `ralphy editor poster <id> --scenes <file> --audio <src>` → frame QA → `ralphy render` (#598) |
 | [editor/stock-assets.md](./references/stock-assets.md) | Overlay assets someone else made (logos, photos, b-roll, SFX, music beds, animated emoji and Lottie, stickers, icons, Pinterest references): `ralphy stock search` → `ralphy stock pull` → `ralphy stock credits` in the post copy (#596, #597) |
 | [editor/audio-mixing.md](./references/audio-mixing.md) | VO + music + SFX levels, ducking, fades |
 | [editor/green-zone.md](./references/green-zone.md) | Text/overlay placement inside 1080×1920 safe zone |

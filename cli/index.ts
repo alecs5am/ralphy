@@ -626,6 +626,7 @@ function positionalProjectId(command: Command): string | undefined {
     command.name() === "render" || command.name() === "compose" ||
     (command.parent?.name() === "workspace" && command.name() === "eval") ||
     (command.parent?.name() === "hyperframes" && command.name() === "save-version") ||
+    (command.parent?.name() === "editor" && command.name() === "poster") ||
     command.parent?.name() === "storyboard"
   ) {
     const value = command.processedArgs[0];

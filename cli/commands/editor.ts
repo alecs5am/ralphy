@@ -13,6 +13,10 @@
 //   - `lint-safe-zones`: probe the composition in headless Chromium and flag
 //                     text, captions, CTAs, faces and products that sit under
 //                     TikTok / Reels / Shorts UI (#564)
+//   - `poster`:       assemble a poster-collage explainer into index.html from
+//                     a scenes file with the embedded engine (cli/lib/poster/,
+//                     #598): validate assets, inline Lottie, copy the licensed
+//                     fonts, snapshot the previous index.html, lint
 //
 // These verbs make the agent's editor-stage workflow CLI-native and keep
 // AGENTS.md invariant #2 honest (no raw ffmpeg loops outside cli/). Helpers
@@ -29,6 +33,8 @@ import { raiseError } from "../lib/errors/index.js";
 import { checkSafeZones, PLATFORM_SAFE_ZONES, SAFE_ZONE_PLATFORMS, type SafeZonePlatform } from "../lib/editor/safe-zones.js";
 import { probeFile, ensureFfprobe } from "../lib/ffprobe.js";
 import type { ProbeResult } from "../lib/ffprobe.js";
+import { getCommandContext } from "../lib/context-state.js";
+import { findCompatibilityProject } from "../lib/project-lookup.js";
 import {
   buildPreflightRow,
   computeMusicGap,
@@ -79,9 +85,231 @@ async function readScenario(projectDir: string): Promise<ScenarioLike | null> {
   }
 }
 
+// ── poster (#598) ───────────────────────────────────────────────────────────
+
+const POSTER_VERB = "editor poster";
+
+type PosterOpts = {
+  scenes: string;
+  audio: string;
+  duration?: string;
+  lang: string;
+  title?: string;
+  lint: boolean;
+  dryRun?: boolean;
+};
+
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * `ralphy editor poster` (#598). Validates the scenes file, the assets it uses
+ * and the audio first; then (unless --dry-run) snapshots the previous
+ * index.html, copies missing fonts, writes the new index.html and lints it.
+ * The library half lives in cli/lib/poster/.
+ */
+async function editorPoster(project: string, opts: PosterOpts): Promise<void> {
+  const { planPoster, applyPosterPlan, fileSnapshot, assetLocation, PosterAssetError, PosterScenesError } = await import("../lib/poster/project.js");
+  const { formatSeconds } = await import("../lib/poster/assemble.js");
+  const { planFileSnapshot } = await import("../lib/catalog/use.js");
+  const { fontsDataDir } = await import("../lib/catalog/fonts.js");
+
+  // ── the project ──────────────────────────────────────────────────────────
+  const commandContext = getCommandContext();
+  const found = await findCompatibilityProject(project);
+  let dir = found?.dir ?? null;
+  if (dir === null && commandContext === null) {
+    const guess = projectDir(project);
+    if (await pathExists(guess)) dir = guess;
+  }
+  if (dir === null) raiseError("E_NOT_FOUND", { kind: "Project", id: project });
+  // A store Project without a tree yet: the scenes and assets live in the tree.
+  if (!(await pathExists(dir))) raiseError("E_FILE_UNREADABLE", { path: dir });
+  const slug = found?.slug ?? path.basename(dir);
+  const compositionId = slug.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "main";
+
+  // ── flags ────────────────────────────────────────────────────────────────
+  if (!/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(opts.lang)) {
+    raiseError("E_INPUT_INVALID", { field: "lang", detail: `expected a BCP 47 language tag such as en or pt-BR, got '${opts.lang}'`, verb: POSTER_VERB });
+  }
+  const audioSrc = opts.audio.replace(/\\/g, "/");
+  const audioAt = assetLocation(dir, audioSrc);
+  if (audioAt.kind !== "local" || /["<>]/.test(audioSrc)) {
+    raiseError("E_INPUT_INVALID", { field: "audio", detail: `expected a path inside the project (e.g. artifacts/voiceover/vo.mp3), got '${opts.audio}'`, verb: POSTER_VERB });
+  }
+  if (!(await pathExists(audioAt.abs))) raiseError("E_FILE_UNREADABLE", { path: audioAt.abs });
+  let duration: number;
+  let durationSource: "flag" | "audio";
+  let audioDuration: number | null = null;
+  if (opts.duration !== undefined) {
+    const n = opts.duration.trim() === "" ? Number.NaN : Number(opts.duration);
+    if (!Number.isFinite(n) || n <= 0) raiseError("E_INPUT_INVALID", { field: "duration", detail: `expected a positive number of seconds, got '${opts.duration}'`, verb: POSTER_VERB });
+    duration = n;
+    durationSource = "flag";
+  } else {
+    try {
+      ensureFfprobe();
+    } catch {
+      raiseError("E_DEP_MISSING", { dep: "ffprobe (FFmpeg); or pass --duration <sec>" });
+    }
+    const probe = await probeFile(audioAt.abs);
+    if (probe.duration_s === undefined || !(probe.duration_s > 0)) {
+      raiseError("E_FILE_MALFORMED", { format: "audio", path: audioAt.abs, detail: probe.error ?? "ffprobe reported no duration; pass --duration <sec>" });
+    }
+    duration = probe.duration_s;
+    audioDuration = probe.duration_s;
+    durationSource = "audio";
+  }
+
+  // ── the scenes file ──────────────────────────────────────────────────────
+  const candidates = path.isAbsolute(opts.scenes) ? [opts.scenes] : [path.resolve(process.cwd(), opts.scenes), path.join(dir, opts.scenes)];
+  let scenesPath: string | null = null;
+  for (const c of candidates) if (scenesPath === null && (await pathExists(c))) scenesPath = c;
+  if (scenesPath === null) raiseError("E_FILE_UNREADABLE", { path: candidates[candidates.length - 1]! });
+  let scenesSource: string;
+  try {
+    scenesSource = await fs.readFile(scenesPath, "utf-8");
+  } catch {
+    raiseError("E_FILE_UNREADABLE", { path: scenesPath });
+  }
+
+  // ── plan ─────────────────────────────────────────────────────────────────
+  let plan: Awaited<ReturnType<typeof planPoster>>;
+  try {
+    plan = await planPoster({
+      projectDir: dir,
+      scenesFile: scenesPath,
+      scenesSource,
+      compositionId,
+      duration,
+      lang: opts.lang,
+      title: opts.title ?? slug,
+      audioSrc,
+      fontsDataDir: fontsDataDir(),
+    });
+  } catch (e) {
+    if (e instanceof PosterScenesError) raiseError("E_FILE_MALFORMED", { format: "poster scenes file", path: scenesPath, detail: e.detail });
+    if (e instanceof PosterAssetError) raiseError("E_FILE_MALFORMED", { format: e.format, path: e.file, detail: e.detail });
+    throw e;
+  }
+  const missing = plan.assets.missing;
+  if (!opts.dryRun && missing.length > 0) {
+    const unknown = missing.filter((m) => m.reason === "not in ASSETS");
+    if (unknown.length > 0) {
+      raiseError("E_FILE_MALFORMED", {
+        format: "poster scenes file",
+        path: scenesPath,
+        detail: unknown.map((m) => `'${m.key}' (${m.uses[0]}) is not in ASSETS`).join("; "),
+      });
+    }
+    const outside = missing.filter((m) => m.reason === "outside the project");
+    if (outside.length > 0) {
+      raiseError("E_INPUT_INVALID", {
+        field: `ASSETS.${outside[0]!.key}`,
+        detail: `${outside.map((m) => m.path).join(", ")} must be a path inside the project (pull or copy the file into artifacts/)`,
+        verb: POSTER_VERB,
+      });
+    }
+    raiseError("E_FILE_UNREADABLE", { path: missing.map((m) => path.join(dir, m.path!)).join(", ") });
+  }
+
+  // ── snapshot of the previous index.html ──────────────────────────────────
+  // Store root: the #591 project-tree Composition records the tree as a
+  // sealed, append-only revision (what `render` builds), exactly as
+  // `catalog use` does (#594). Tree-only root: append-only compositions/v<N>.html.
+  const storeSnapshot = async (dryRun: boolean): Promise<Record<string, unknown>> => {
+    const { renderCompositionForProject } = await import("../lib/project-tree-composition.js");
+    const context = commandContext!;
+    const query = context.kind === "session"
+      ? { sessionId: context.sessionId }
+      : { workspaceId: context.workspaceId, ...(context.projectId ? { projectId: context.projectId } : {}) };
+    const resolved = await renderCompositionForProject({
+      context: query,
+      workspaceId: context.workspaceId,
+      projectId: context.projectId ?? found!.id,
+      treeDir: dir,
+      reference: project,
+      verb: POSTER_VERB,
+      dryRun,
+      ...(context.kind === "session" ? { authoredBySessionId: context.sessionId } : {}),
+    });
+    if (resolved.projectTree === null) {
+      raiseError("E_INPUT_INVALID", {
+        field: "project",
+        detail: `the video Composition of ${project} (revision ${resolved.revisionId}) was authored outside its Project tree, so render does not read ${path.join(dir, "index.html")}; edit that Composition instead`,
+        verb: POSTER_VERB,
+      });
+    }
+    return { kind: "composition-revision", compositionId: resolved.compositionId, revisionId: resolved.revisionId, revision: resolved.projectTree.revision };
+  };
+
+  let snapshot: Record<string, unknown> | null = null;
+  let files: Array<{ path: string; action: string }>;
+  let lint: Record<string, unknown> | null = null;
+  const warnings = [...plan.warnings];
+  if (opts.dryRun) {
+    if (plan.previousIndex !== null) {
+      snapshot = commandContext !== null
+        ? await storeSnapshot(true)
+        : { kind: "file", ...(await planFileSnapshot(dir, plan.previousIndex)) };
+    }
+    files = [
+      ...(snapshot && typeof snapshot.path === "string" ? [{ path: snapshot.path, action: String(snapshot.action) }] : []),
+      ...plan.fonts.filter((f) => f.action === "copy").map((f) => ({ path: f.file, action: "copy" })),
+      { path: "index.html", action: plan.index.action },
+    ];
+  } else {
+    const applied = await applyPosterPlan(dir, plan, commandContext !== null ? () => storeSnapshot(false) : fileSnapshot(dir));
+    snapshot = applied.snapshot;
+    files = applied.files;
+    const { lintHyperframesHtml, runUpstreamHyperframesLint } = await import("../lib/render/hyperframes-lint.js");
+    const inRepo = lintHyperframesHtml(plan.html);
+    const upstream = opts.lint ? runUpstreamHyperframesLint(dir) : null;
+    if (upstream && !upstream.ran) warnings.push(`upstream hyperframes lint did not run: ${upstream.error}`);
+    const lintOk = inRepo.ok && (upstream === null || !upstream.ran || upstream.ok);
+    lint = {
+      ok: lintOk,
+      inRepo: { ok: inRepo.ok, errors: inRepo.errors.map((e) => `${e.code}: ${e.message}`), warnings: inRepo.warnings.map((w) => `${w.code}: ${w.message}`) },
+      upstream: upstream === null ? null : upstream.ran
+        ? { ran: true, ok: upstream.ok, errorCount: upstream.errorCount, warningCount: upstream.warningCount, findings: upstream.findings }
+        : { ran: false, error: upstream.error },
+    };
+    if (!lintOk) process.exitCode = 1;
+    ok(`poster -> ${project} index.html: ${plan.scenes.count} scenes, ${plan.scenes.items} items, ${formatSeconds(duration)}s (${plan.lottie.inlined.length} Lottie inlined)`);
+  }
+  if (opts.dryRun && missing.length > 0) process.exitCode = 1;
+
+  out({
+    dryRun: Boolean(opts.dryRun),
+    project,
+    projectDir: dir,
+    compositionId,
+    title: opts.title ?? slug,
+    lang: opts.lang,
+    duration: Number(formatSeconds(duration)),
+    durationSource,
+    audio: { src: audioSrc, durationSec: audioDuration },
+    scenes: plan.scenes,
+    assets: plan.assets,
+    lottie: plan.lottie,
+    fonts: plan.fonts,
+    index: plan.index,
+    snapshot,
+    files,
+    lint,
+    warnings,
+  });
+}
+
 export function editorCmd(): Command {
   const cmd = new Command("editor").description(
-    "Editor-stage observability — preflight clip checks, trim-analysis, composition QA.",
+    "Editor-stage observability — preflight clip checks, trim-analysis, composition QA — and the poster-collage builder.",
   );
 
   // ── preflight ───────────────────────────────────────────────────────────
@@ -513,6 +741,32 @@ data-safe-zone="ignore" skips decorative or intentionally off-frame elements.`,
         if (!ok) process.exitCode = 1;
       },
     );
+
+  // ── poster (#598) ─────────────────────────────────────────────────────────
+  cmd
+    .command("poster <project>")
+    .description(
+      "Assemble a poster-collage explainer (faceless 9:16 montage: condensed titles with letter reveals, kicker labels, handwritten notes, cut-outs, stickers, Lottie, micro-effects) into <project>/index.html from a scenes file, with the embedded engine. Validates every asset the scenes use, inlines the referenced Lottie JSON, copies the licensed Oswald / Caveat / Inter fonts when missing, snapshots the previous index.html first, then lints. Local, zero provider calls.",
+    )
+    .requiredOption("--scenes <file>", "Scenes file: JavaScript defining `const ASSETS` and `const SCENES` (absolute, or relative to the cwd or the project)")
+    .requiredOption("--audio <src>", "Audio track, project-relative (e.g. artifacts/voiceover/vo.mp3); its length is the default duration")
+    .option("--duration <sec>", "Composition length in seconds (default: the audio duration, via ffprobe)")
+    .option("--lang <code>", "Page language (html lang attribute)", "en")
+    .option("--title <text>", "Page title (default: the project slug)")
+    .option("--no-lint", "Skip the upstream `hyperframes lint` (the in-repo lint still runs)")
+    .option("--dry-run", "Print the plan (scenes, referenced and missing assets, inlined Lottie bytes, fonts, snapshot) and write nothing")
+    .addHelpText(
+      "after",
+      `
+Examples:
+  ralphy editor poster my-explainer --scenes poster-scenes.js --audio artifacts/voiceover/vo.mp3 --dry-run
+  ralphy editor poster my-explainer --scenes poster-scenes.js --audio artifacts/voiceover/vo.mp3 --title "Dogs vs cats"
+  ralphy editor poster my-explainer --scenes poster-scenes.js --audio artifacts/refs/source.mp4 --duration 84.6 --lang pt-BR
+
+Scene schema, item types, effect recipes and the QA loop:
+  .agents/skills/editor/references/poster-collage.md`,
+    )
+    .action((project: string, opts: PosterOpts) => editorPoster(project, opts));
 
   return cmd;
 }
