@@ -198,8 +198,9 @@ with engine `hyperframes` and engine config `{"source": "project-tree"}`; a
 later render records a child revision when the tree changed and otherwise
 builds the same sealed revision again; unchanged files keep their Objects. A
 Composition whose latest revision was authored any other way (Desktop,
-`composition revise`, `hyperframes save-version`, migration) is built as it is,
-without reading the tree. Sources are the tree's non-empty regular files except
+`composition revise`, migration) is built as it is, without reading the tree.
+`hyperframes save-version` on a tree Project records the tree the same way
+(#595), so the snapshot before an edit keeps render reading the tree. Sources are the tree's non-empty regular files except
 `render/`, `logs/`, `units/`, `postmortem/`, `compositions/snapshots/`,
 `compositions/frames/`, dot-entries, and symbolic links. The Composition is
 recorded at render, not at creation, because the sources do not exist when the

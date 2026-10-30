@@ -240,9 +240,37 @@ describe("store root: CLI-created Projects render by slug and by id (#591)", () 
       const hyperframes = ralphy(["hyperframes", "render", "beta-001"]);
       expect(hyperframes.exitCode, hyperframes.stderr).toBe(0);
       expect(hyperframes.json.compositionRevisionId).toBe(rendered.json.compositionRevisionId);
+      // An unchanged tree is already its own snapshot: the rendered revision (#595).
       const saved = ralphy(["hyperframes", "save-version", "beta-001"]);
       expect(saved.exitCode, saved.stderr).toBe(0);
-      expect(saved.json.parentRevisionId).toBe(rendered.json.compositionRevisionId);
+      expect(saved.json).toMatchObject({ revisionId: rendered.json.compositionRevisionId, projectTree: { revision: "unchanged" } });
+    },
+    120_000,
+  );
+
+  test.skipIf(!renderToolsAvailable())(
+    "save-version records the tree, so an index.html edit after the snapshot still renders (#595)",
+    () => {
+      expect(ralphy(["new", "--id", "seed-001"]).exitCode).toBe(0);
+      expect(ralphy(["project", "create", "--id", "beta-001"]).exitCode).toBe(0);
+      writeHyperframesTree(projectTree("beta-001"));
+      const first = ralphy(["render", "beta-001"]);
+      expect(first.exitCode, first.stderr).toBe(0);
+
+      // A snapshot after an edit records the edited tree as a child revision.
+      fs.writeFileSync(path.join(projectTree("beta-001"), "index.html"), INDEX_V1.replace("version one", "version two"));
+      const saved = ralphy(["hyperframes", "save-version", "beta-001"]);
+      expect(saved.exitCode, saved.stderr).toBe(0);
+      expect(saved.stderr).not.toContain("Deprecated");
+      expect(saved.json.projectTree.revision).toBe("revise");
+      expect(saved.json.revisionId).not.toBe(first.json.compositionRevisionId);
+
+      // The next edit renders: render still reads the tree after the snapshot.
+      fs.writeFileSync(path.join(projectTree("beta-001"), "index.html"), INDEX_V1.replace("version one", "version three"));
+      const next = ralphy(["render", "beta-001"]);
+      expect(next.exitCode, next.stderr).toBe(0);
+      expect(next.json.compositionRevisionId).not.toBe(saved.json.revisionId);
+      expect(fs.readFileSync(seen, "utf8")).toContain("version three");
     },
     120_000,
   );

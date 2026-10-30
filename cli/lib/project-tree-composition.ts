@@ -15,8 +15,9 @@
 //     revision when the tree changed since, else build that sealed revision
 //     again;
 //   - the latest revision was authored any other way (Desktop, `composition
-//     revise`, `hyperframes save-version`, migration): build it as it is; the
-//     tree is not consulted.
+//     revise`, migration): build it as it is; the tree is not consulted.
+//     `hyperframes save-version` records the tree for a tree Project (#595),
+//     so a snapshot before an edit never stops render reading the tree.
 // Each recording is an ordinary append-only, sealed Composition revision with
 // engine `hyperframes` and engine config `{ "source": "project-tree" }`;
 // unchanged files keep the Object of the revision they were recorded in.

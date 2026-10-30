@@ -20,7 +20,7 @@ This mode produces a HyperFrames composition, so the "spine" is the build patter
 1. **One opacity-gated composition.** A multi-scene piece is ONE composition with opacity-gated scene divs on a single paused GSAP timeline registered on `window.__timelines` — NOT `data-composition-src` sub-comps (they do not time-gate reliably). See `MEMORY.md` hyperframes-multiscene-gating.
 2. **Build modular, ship one comp.** For any hand-authored build-script composition: per-scene modules + a components module + real `styles.css` + real `timeline.js` + a thin orchestrator — never a monolith. Output stays one opacity-gated composition. See `MEMORY.md` modular-composition-build.
 3. **Seek-deterministic motion.** No `Date.now()` / unseeded `Math.random()` / render-time `fetch()`. CSS `@keyframes` are NOT reliably seek-captured by the renderer — drive motion via GSAP/WAAPI on the timeline.
-4. **Snapshot before restructure.** `ralphy hyperframes save-version <project>` before any non-trivial `index.html` edit (`compositions/v<N>.html`, append-only).
+4. **Snapshot before restructure.** `ralphy hyperframes save-version <project>` before any non-trivial `index.html` edit (an append-only Composition revision of the Project tree, #595).
 
 ## Model recommendations
 

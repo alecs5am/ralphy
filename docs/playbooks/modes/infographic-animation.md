@@ -21,7 +21,7 @@ This mode produces a HyperFrames composition, so the "spine" is the build patter
 2. **Build modular, ship one comp.** Per-beat modules (one per stat / chart) + a components module (the reusable chart / counter / callout primitives) + real `styles.css` + real `timeline.js` + a thin orchestrator — never a monolith. Output stays one opacity-gated composition. See `MEMORY.md` modular-composition-build.
 3. **Chart / overlay components + fallback visuals.** Reach for the data-in-motion primitives the `/hyperframes` + `/gsap` skills supply — animated bar / column charts, line / area draws, donut / pie reveals, count-up number tickers, progress rings, comparison bars, and labelled callout / annotation overlays. When a data shape has no chart primitive (a single headline metric, a ratio, a yes/no), fall back to a **big-number counter card** or a **comparison callout** rather than forcing an ill-fitting chart. Drive every value with GSAP (e.g. tween a counter from 0 to its value, `drawSVG` a line, scale a bar to its height) so the figure is the animation.
 4. **Seek-deterministic motion.** No `Date.now()` / unseeded `Math.random()` / render-time `fetch()`. CSS `@keyframes` are NOT reliably seek-captured by the renderer — drive motion via GSAP/WAAPI on the timeline.
-5. **Snapshot before restructure.** `ralphy hyperframes save-version <project>` before any non-trivial `index.html` edit (`compositions/v<N>.html`, append-only).
+5. **Snapshot before restructure.** `ralphy hyperframes save-version <project>` before any non-trivial `index.html` edit (an append-only Composition revision of the Project tree, #595).
 
 ## Model recommendations
 

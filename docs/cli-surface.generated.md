@@ -536,7 +536,11 @@ Commands:
                                       wrapper over `ralphy render` that adds the
                                       --require-snapshot-review staleness gate
                                       and a hyperframes.render gen-log row.
-  save-version <project>              Deprecated alias for composition revise
+  save-version <project>              Snapshot a Project's HyperFrames tree as
+                                      the Composition revision render builds
+                                      (#595); for a Composition authored outside
+                                      its tree, a deprecated alias for
+                                      composition revise
   extract-frames [options] <project>  Extract still frames from a
                                       rendered/source video for QA via ffmpeg.
                                       Standalone helper — issue #012 may later

@@ -10,7 +10,8 @@
 //                  `--at` selection from STORYBOARD beats / scenario.json
 //   render         delegates to `ralphy render` underneath; adds the
 //                  `--require-snapshot-review` staleness gate (issue #016)
-//   save-version   deprecated alias for a Composition revision
+//   save-version   snapshot a Project tree as a Composition revision (#595);
+//                  deprecated alias for composition revise otherwise
 //   extract-frames frame-extract via ffmpeg for QA (defers to ralphy video
 //                  when that verb lands per issue #012)
 //   watch          passthrough to `bunx hyperframes watch` (live preview)
@@ -474,14 +475,33 @@ Examples:
   cmd
     .command("save-version")
     .argument("<project>", "Project ID")
-    .description("Deprecated alias for composition revise")
+    .description("Snapshot a Project's HyperFrames tree as the Composition revision render builds (#595); for a Composition authored outside its tree, a deprecated alias for composition revise")
     .action(async (projectId: string) => {
-      process.stderr.write("Deprecated: use `ralphy composition revise <id> --engine hyperframes`.\n");
       const context = getCommandContext();
-      if (context === null) throw new Error("hyperframes save-version requires a migrated domain-store context");
-      const query = context.kind === "session" ? { sessionId: context.sessionId } : {
+      const query = context === null ? null : context.kind === "session" ? { sessionId: context.sessionId } : {
         workspaceId: context.workspaceId, ...(context.projectId ? { projectId: context.projectId } : {}),
       };
+      if (context !== null && query !== null) {
+        // A Project that lives in its tree (#591) is snapshotted by recording
+        // the tree, the same revision `render` builds. A checkout revision here
+        // would be authored outside the tree, so render would stop reading it
+        // and every later index.html edit would silently not render (#595).
+        const resolved = await renderCompositionForProject({
+          context: query,
+          workspaceId: context.workspaceId,
+          projectId: context.projectId ?? projectId,
+          treeDir: (await findCompatibilityProject(projectId))?.dir ?? null,
+          reference: projectId,
+          verb: "hyperframes save-version",
+          ...(context.kind === "session" ? { authoredBySessionId: context.sessionId } : {}),
+        });
+        if (resolved.projectTree !== null) {
+          out(resolved);
+          return;
+        }
+      }
+      process.stderr.write("Deprecated: use `ralphy composition revise <id> --engine hyperframes`.\n");
+      if (context === null || query === null) throw new Error("hyperframes save-version requires a migrated domain-store context");
       // The scope resolved the positional id or slug; the store takes the id (#591).
       const composition = videoCompositionForProject(query, context.projectId ?? projectId);
       out(await reviseCompositionCheckout({
