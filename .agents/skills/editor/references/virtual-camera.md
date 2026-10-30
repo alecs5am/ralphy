@@ -4,7 +4,7 @@
 
 ## The recipes
 
-Twelve recipes are catalog items of kind `camera` (`ralphy catalog list --kind camera`, `ralphy catalog show <id>`). Each is `function catalog_<id>(tl, o)` that adds tweens to your timeline. `o.target` is the element the camera moves: wrap the shot (video, image or layer stack) in its own container and pass that, never the scene root that also holds captions.
+Twelve recipes are catalog items of kind `camera` (`ralphy catalog list --kind camera`, `ralphy catalog show <id>`). Each is `function catalog_<id>(tl, o)` that adds tweens to your timeline. `o.target` is the element the camera moves: wrap the shot (video, image or layer stack) in its own container and pass that, never the scene root that also holds captions. Insert a recipe with `ralphy catalog use <id> --project <id> --at <sec> --target "#shot"` (#594; the layer recipes take `--bind bg=... --bind subject=...` instead of `--target`, see [`motion-catalog.md`](./motion-catalog.md)); `cam-follow` needs a point track and is wired by hand.
 
 | Recipe | Helps when | Distracts when |
 |---|---|---|

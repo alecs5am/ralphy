@@ -55,6 +55,8 @@ bunx hyperframes add <block-slug> .ralphy/workspaces/<ws>/projects/<id>
 # Ready transitions, motion elements and SFX (#563) — see references/motion-catalog.md
 ralphy catalog list --kind transition --mood energetic
 ralphy catalog show <item-id>
+# Insert one into index.html (snapshot first, copy, typed params, SFX, usage record, #594)
+ralphy catalog use <item-id> --project <id> --at <sec> [--from "#s1" --to "#s2" | --target <sel> | --words <file>] [--param k=v] [--dry-run]
 
 # Fonts, font pairs, caption presets (#565) — see references/caption-presets.md
 ralphy catalog fonts pairs
@@ -92,7 +94,7 @@ Extend a toon / painterly clip by anchoring a new `bytedance/seedance-2.0` i2v c
 | [editor/vo-sync.md](./references/vo-sync.md) | Aligned-to-VO cuts — stitch → scribe → slice; reverse-areverse + concat demuxer (AGENTS invariant #16) |
 | [editor/captions.md](./references/captions.md) | Wiring `captions.json` into a caption component; captions-first before writing timing constants |
 | [editor/transitions.md](./references/transitions.md) | Crossfade / push / wipe patterns |
-| [editor/motion-catalog.md](./references/motion-catalog.md) | Pick a ready transition / motion element / SFX: `ralphy catalog list --kind transition --mood energetic` (#563) |
+| [editor/motion-catalog.md](./references/motion-catalog.md) | Pick a ready transition / motion element / SFX: `ralphy catalog list --kind transition --mood energetic` (#563); insert it with `ralphy catalog use <id> --project <id> --at <sec>` (#594) |
 | [editor/audio-mixing.md](./references/audio-mixing.md) | VO + music + SFX levels, ducking, fades |
 | [editor/green-zone.md](./references/green-zone.md) | Text/overlay placement inside 1080×1920 safe zone |
 | [editor/caption-presets.md](./references/caption-presets.md) | Free licensed fonts (`ralphy catalog fonts list`), 10 font pairs by register, 12 caption presets (1 / 3 / 5 words, highlight, entry, contrast), pacing defaults, `ralphy eval captions <id> --caption-preset <preset>` (#565) |

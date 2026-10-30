@@ -254,7 +254,11 @@ program
       /* And `track`: the tracking engine is a per-machine venv and reads only
          the video path it is given (#559). */
       /* And `catalog`: the motion catalog is repo-tracked definitions plus a
-         cross-workspace SFX pack and previews under the data root (#563). */
+         cross-workspace SFX pack and previews under the data root (#563).
+         Except `catalog use`, which edits a Project tree and resolves scope
+         like any project verb (#594). */
+      const catalogScopeFree = sub === "catalog" &&
+        !(actionCommand.name() === "use" && actionCommand.parent?.name() === "catalog");
       /* And `matte` without `--project`: the matting engine is a per-machine
          venv and reads only the media path it is given (#560). With
          `--project` it resolves scope like any project verb. */
@@ -267,7 +271,7 @@ program
       const originalityOnPaths = sub === "unit" && actionCommand.name() === "originality" && isPathArg(actionCommand.args[0])
         && Array.isArray(actionCommand.opts().against) && actionCommand.opts().against.length > 0
         && (actionCommand.opts().against as unknown[]).every(isPathArg);
-      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || sub === "catalog" || matteWithoutProject || safeZonesOnPath || originalityOnPaths || explicitCredentialProbe) {
+      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || catalogScopeFree || matteWithoutProject || safeZonesOnPath || originalityOnPaths || explicitCredentialProbe) {
         setDataRoot(identity.dataRoot);
         return true;
       }

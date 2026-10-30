@@ -45,6 +45,8 @@ Both faces of every pair cover Latin and Cyrillic. Latin-only faces (Anton, Beba
 
 Twelve presets are catalog items of kind `caption` (`ralphy catalog list --kind caption`). Each is a HyperFrames fragment, `function catalog_<id>(tl, o)`, that takes the word-level timings (`o.words = [{ text, start, end }]`, composition seconds, from `ralphy generate captions`: AGENTS.md #16) and builds the chunks, entries and highlights on your timeline.
 
+Insert one with `ralphy catalog use <preset> --project <id> --at <vo-start> --words artifacts/captions/<slot>.json` (#594, see [`motion-catalog.md`](./motion-catalog.md)): the word timings are seconds from the clip start, so the captions JSON of a voice-over that starts at `--at` fits as is.
+
 | Words per screen | Presets |
 |---|---|
 | 1 | `cap-one-word-pop`, `cap-one-word-color-cycle`, `cap-one-word-slam`, `cap-one-word-arcade` |

@@ -511,6 +511,37 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
     {
+      label: "catalog.use",
+      shape: {
+        dryRun: false,
+        project: "demo-001",
+        projectDir: ".ralphy/workspaces/default/projects/demo-001",
+        item: "flash-white",
+        kind: "transition",
+        useId: "catalog-flash-white-1",
+        clip: {
+          id: "catalog-flash-white-1",
+          start: 2.8,
+          duration: 0.4,
+          end: 3.2,
+          track: 2,
+          swapAt: 3,
+          markup: '<div id="catalog-flash-white-1" data-composition-id="catalog-flash-white-1" data-composition-src="compositions/catalog/flash-white.html" data-start="2.8"></div>',
+        },
+        params: { duration: 0.4, peak: 3, color: "#fff8ec" },
+        context: { from: "#s1", to: "#s2" },
+        copy: { path: "compositions/catalog/flash-white.html", action: "write", sha256: "404403738dcb3718d9cab174ede0d1e520f8e79bb7a6346b32cb840ab3803683" },
+        sfx: null,
+        snapshot: { kind: "file", path: "compositions/v1.html", action: "write" },
+        files: [
+          { path: "compositions/v1.html", action: "write" },
+          { path: "index.html", action: "update" },
+        ],
+        record: { path: "logs/catalog-uses.jsonl", entry: { schema: "ralphy.catalog-use/v1", item: "flash-white", start: 2.8, duration: 0.4, params: { peak: 3 }, sfx: null } },
+        warnings: ["SFX pack not found at .ralphy/catalog/sfx; the clip is silent"],
+      },
+    },
+    {
       label: "catalog.sfx.harvest",
       shape: {
         dryRun: false,

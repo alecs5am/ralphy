@@ -23,7 +23,31 @@ Browse visually: `ralphy catalog page`, then open `.ralphy/catalog/index.html` i
 
 ## Use an item in a composition
 
-Every fragment has three parts: `<style data-catalog-css>`, `<template data-catalog-markup>` and `<script data-catalog-js>` defining `function catalog_<id>(tl, o)`. The function only adds tweens to the timeline you pass; it never builds its own, so it pastes into any composition.
+Insert items with `ralphy catalog use` (#594); do not paste fragments by hand. One call puts the item into the project's `index.html` and records the use, which the motion eval later joins with hit rate and retention:
+
+```bash
+ralphy catalog use flash-white --project <id> --at 2.8 --from "#s1" --to "#s2" --dry-run   # print the plan, write nothing
+ralphy catalog use flash-white --project <id> --at 2.8 --from "#s1" --to "#s2" --param peak=4
+ralphy catalog use cap-three-word-box --project <id> --at 0 --words artifacts/captions/vo.json
+ralphy catalog use cam-punch-in --project <id> --at 5 --target "#shot-3"
+ralphy catalog use lower-third --project <id> --at 1.2 --duration 3 --param name="Ada Lovelace"
+```
+
+What it does, in order:
+
+1. Snapshots `index.html` first: on a store root the #591 project-tree Composition revision (the one `render` builds), on a tree-only root an append-only `compositions/v<N>.html`.
+2. Copies the item to `compositions/catalog/<id>.html` as a HyperFrames sub-composition. Every use of the item shares that copy; if you edited it, the next use writes `<id>.v2.html` instead of overwriting your edit.
+3. Validates `--param key=value` against the manifest (type, min / max, enum options, `#rrggbb` colours) and inserts a host `<div data-composition-src>` into the root composition with its own `data-composition-id`, the params in `data-variable-values`, `z-index: 50` above the scenes.
+4. Copies the item's SFX from the pack into `artifacts/sfx/` with an `<audio>` clip at the cue (a warning, not a failure, when the pack is missing).
+5. Appends the use (item, content hash, params, start, duration, track, snapshot) to `logs/catalog-uses.jsonl`.
+
+Timing: `--at` defaults to the end of the last clip on the target track (0 when it is empty), so uses without `--at` append back to back; `--track` defaults to the first free track above every non-catalog clip. `--duration` defaults to the manifest duration, which for elements is only the entrance: pass `--duration` for the on-screen hold. Captions default to the last word's end plus 0.6 s. A transition's `swapAt` in the output is where the scenes swap.
+
+Host elements: transitions need `--from` / `--to` (scene selectors; the incoming scene starts at `opacity: 0`), camera recipes need `--target` (the layer recipes `cam-parallax` and `cam-dolly-zoom` need `--bind bg=...` instead), captions need `--words` (timings in seconds from the clip start, or `ralphy generate captions` JSON for a voice-over that starts at `--at`). `--bind stage=...` (and `subject` / `bg` / `mid` / `fg` for camera recipes) names any other host element. `cam-follow` needs a point track and is still wired by hand.
+
+### Wiring by hand
+
+Every fragment has three parts: `<style data-catalog-css>`, `<template data-catalog-markup>` and `<script data-catalog-js>` defining `function catalog_<id>(tl, o)`. The function only adds tweens to the timeline you pass; it never builds its own, so it pastes into any composition. Use this only for what `catalog use` does not cover (a point track, a fragment you are rewriting); a hand-pasted item leaves no usage record.
 
 1. Copy the CSS into the composition `<style>`, the markup into the overlay layer (above the scenes), and the function into the main `<script>`.
 2. Call it at the beat, with params from `catalog show`:

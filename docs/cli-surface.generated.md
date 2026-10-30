@@ -1325,6 +1325,12 @@ Commands:
                             flags)
   show <id>                 Show one catalog item: params, when to use / not
                             use, SFX cue, fragment and preview paths
+  use [options] <item-id>   Insert a catalog item into a project's index.html as
+                            a HyperFrames sub-composition clip: snapshot
+                            index.html first, copy the fragment to
+                            compositions/catalog/, validate --param against the
+                            manifest, copy its SFX into artifacts/sfx/, and
+                            append the use to logs/catalog-uses.jsonl (#594)
   sfx                       Shared SFX pack harvested from past projects (copies
                             only; sources untouched)
   build-previews [options]  Assemble each item into a standalone 1080x1920
@@ -1340,6 +1346,8 @@ Examples:
   ralphy catalog list --kind transition --mood energetic
   ralphy catalog list --kind element --energy calm
   ralphy catalog show zoom-punch
+  ralphy catalog use flash-white --project demo-001 --at 2.8 --from "#s1" --to "#s2" --dry-run
+  ralphy catalog use cap-one-word-pop --project demo-001 --at 0 --words artifacts/captions/vo.json
   ralphy catalog sfx harvest --dry-run
   ralphy catalog sfx list --tag whoosh
   ralphy catalog build-previews --id zoom-punch whip-pan
