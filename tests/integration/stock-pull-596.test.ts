@@ -252,7 +252,7 @@ function ralphy(cwd: string, args: string[]): { exitCode: number; stdout: string
   const r = spawnSync("bun", ["run", CLI, "--json", ...args], {
     cwd,
     encoding: "utf8",
-    env: { ...process.env, HOME: cwd, RALPHY_PROJECT_DIR: "", RALPHY_SKIP_LEGACY_HINT: "1", NO_COLOR: "1", PEXELS_API_KEY: "" },
+    env: { ...process.env, HOME: cwd, RALPHY_PROJECT_DIR: "", RALPHY_SKIP_LEGACY_HINT: "1", NO_COLOR: "1", PEXELS_API_KEY: "", PIXABAY_API_KEY: "" },
     timeout: 60_000,
   });
   let json: unknown = null;
@@ -288,7 +288,7 @@ describe("stock through the CLI entry (#596)", () => {
       expect(credits.exitCode, credits.stderr).toBe(0);
       expect(credits.json).toMatchObject({ project: projectId, count: 0, credits: [], markdown: "" });
 
-      const badId = ralphy(root, ["stock", "pull", "pinterest:123", "--project", "alpha-001"]);
+      const badId = ralphy(root, ["stock", "pull", "flickr:123", "--project", "alpha-001"]);
       expect(badId.exitCode).not.toBe(0);
       expect(errorCode(badId.stderr)).toBe("E_INPUT_INVALID");
 

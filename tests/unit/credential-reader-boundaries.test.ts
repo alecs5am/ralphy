@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const DIRECT_CREDENTIAL_READ =
-  /process\.env(?:\??\.(?:OPENROUTER_API_KEY|ELEVENLABS_API_KEY|FAL_KEY|FIRECRAWL_API_KEY|APIFY_TOKEN|POSTIZ_API_KEY|YOUTUBE_API_KEY|DEVTO_API_KEY|HASHNODE_TOKEN|PEXELS_API_KEY)|\[[^\]]*(?:envVar|ENV_VAR)[^\]]*\])/u;
+  /process\.env(?:\??\.(?:OPENROUTER_API_KEY|ELEVENLABS_API_KEY|FAL_KEY|FIRECRAWL_API_KEY|APIFY_TOKEN|POSTIZ_API_KEY|YOUTUBE_API_KEY|DEVTO_API_KEY|HASHNODE_TOKEN|PEXELS_API_KEY|PIXABAY_API_KEY)|\[[^\]]*(?:envVar|ENV_VAR)[^\]]*\])/u;
 
 describe("explicit credential reader boundaries", () => {
   test("the required command and pipeline files do not read credentials directly", () => {
@@ -32,6 +32,7 @@ describe("explicit credential reader boundaries", () => {
       "cli/lib/providers/devto.ts",
       "cli/lib/providers/hashnode.ts",
       "cli/lib/providers/pexels.ts",
+      "cli/lib/providers/pixabay.ts",
       "cli/lib/providers/llm.ts",
       "cli/lib/providers/openai-compatible.ts",
       "cli/lib/providers/shared.ts",

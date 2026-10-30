@@ -457,6 +457,13 @@ export function svgCacheDir() {
   return path.join(workspace(), "cache", "svg");
 }
 
+// Stock source indexes and response caches (#597): the Fluent UI Emoji keyword
+// index at its pinned commit, the Iconify collection list, Pixabay responses
+// (its API terms require a 24 h cache). Safe to wipe; a miss refetches.
+export function stockCacheDir() {
+  return path.join(workspace(), "cache", "stock");
+}
+
 // Reference digest bundles (#557) built without --project, keyed by a content
 // hash. Append-only: an existing bundle is never rewritten (`<hash>.v2`, …).
 export function digestCacheDir() {

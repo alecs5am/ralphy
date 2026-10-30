@@ -1,0 +1,167 @@
+{
+ "sha": "1ffb34c752ecf5d402f04cfb4b392c77f57c54bc",
+ "truncated": false,
+ "tree": [
+  {
+   "path": "assets/Cat face",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Cat face/3D",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Cat face/3D/cat_face_3d.png",
+   "type": "blob",
+   "size": 37653
+  },
+  {
+   "path": "assets/Cat face/Flat",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Cat face/Flat/cat_face_flat.svg",
+   "type": "blob",
+   "size": 2636
+  },
+  {
+   "path": "assets/Cat face/metadata.json",
+   "type": "blob",
+   "size": 195
+  },
+  {
+   "path": "assets/Cat",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Cat/3D",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Cat/3D/cat_3d.png",
+   "type": "blob",
+   "size": 33603
+  },
+  {
+   "path": "assets/Cat/Flat",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Cat/Flat/cat_flat.svg",
+   "type": "blob",
+   "size": 3210
+  },
+  {
+   "path": "assets/Cat/metadata.json",
+   "type": "blob",
+   "size": 257
+  },
+  {
+   "path": "assets/Dog",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Dog/3D",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Dog/3D/dog_3d.png",
+   "type": "blob",
+   "size": 33878
+  },
+  {
+   "path": "assets/Dog/Flat",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Dog/Flat/dog_flat.svg",
+   "type": "blob",
+   "size": 2255
+  },
+  {
+   "path": "assets/Dog/metadata.json",
+   "type": "blob",
+   "size": 292
+  },
+  {
+   "path": "assets/Pi\u00f1ata",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Pi\u00f1ata/3D",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Pi\u00f1ata/3D/pi\u00f1ata_3d.png",
+   "type": "blob",
+   "size": 34787
+  },
+  {
+   "path": "assets/Pi\u00f1ata/Flat",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Pi\u00f1ata/Flat/pi\u00f1ata_flat.svg",
+   "type": "blob",
+   "size": 11654
+  },
+  {
+   "path": "assets/Pi\u00f1ata/metadata.json",
+   "type": "blob",
+   "size": 291
+  },
+  {
+   "path": "assets/Waving hand",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Waving hand/Default",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Waving hand/Default/3D",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Waving hand/Default/3D/waving_hand_3d_default.png",
+   "type": "blob",
+   "size": 34079
+  },
+  {
+   "path": "assets/Waving hand/Default/Flat",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Waving hand/Default/Flat/waving_hand_flat_default.svg",
+   "type": "blob",
+   "size": 4893
+  },
+  {
+   "path": "assets/Waving hand/Light",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Waving hand/Light/3D",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Waving hand/Light/3D/waving_hand_3d_light.png",
+   "type": "blob",
+   "size": 30539
+  },
+  {
+   "path": "assets/Waving hand/Light/Flat",
+   "type": "tree"
+  },
+  {
+   "path": "assets/Waving hand/Light/Flat/waving_hand_flat_light.svg",
+   "type": "blob",
+   "size": 4893
+  },
+  {
+   "path": "assets/Waving hand/metadata.json",
+   "type": "blob",
+   "size": 458
+  }
+ ]
+}

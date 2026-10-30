@@ -1,0 +1,107 @@
+{
+  "host": "",
+  "asset_url_pattern": "",
+  "families": [
+    "Animated Emoji"
+  ],
+  "icons": [
+    {
+      "name": "emoji_u1f600",
+      "version": 1,
+      "popularity": 881,
+      "codepoint": "1f600",
+      "unsupported_families": [],
+      "categories": [
+        "Smileys and emotions"
+      ],
+      "tags": [
+        ":smile:"
+      ],
+      "sizes_px": []
+    },
+    {
+      "name": "emoji_u1f63a",
+      "version": 1,
+      "popularity": 757,
+      "codepoint": "1f63a",
+      "unsupported_families": [],
+      "categories": [
+        "Smileys and emotions"
+      ],
+      "tags": [
+        ":smiley-cat:"
+      ],
+      "sizes_px": []
+    },
+    {
+      "name": "emoji_u1f638",
+      "version": 1,
+      "popularity": 756,
+      "codepoint": "1f638",
+      "unsupported_families": [],
+      "categories": [
+        "Smileys and emotions"
+      ],
+      "tags": [
+        ":smile-cat:"
+      ],
+      "sizes_px": []
+    },
+    {
+      "name": "emoji_u2665_fe0f",
+      "version": 1,
+      "popularity": 713,
+      "codepoint": "2665_fe0f",
+      "unsupported_families": [],
+      "categories": [
+        "Smileys and emotions"
+      ],
+      "tags": [
+        ":heart:"
+      ],
+      "sizes_px": []
+    },
+    {
+      "name": "emoji_u1f415",
+      "version": 1,
+      "popularity": 312,
+      "codepoint": "1f415",
+      "unsupported_families": [],
+      "categories": [
+        "Animals and nature"
+      ],
+      "tags": [
+        ":dog:"
+      ],
+      "sizes_px": []
+    },
+    {
+      "name": "emoji_u1f9ae",
+      "version": 1,
+      "popularity": 311,
+      "codepoint": "1f9ae",
+      "unsupported_families": [],
+      "categories": [
+        "Animals and nature"
+      ],
+      "tags": [
+        ":guide-dog:"
+      ],
+      "sizes_px": []
+    },
+    {
+      "name": "emoji_u1f415_200d_1f9ba",
+      "version": 1,
+      "popularity": 310,
+      "codepoint": "1f415_200d_1f9ba",
+      "unsupported_families": [],
+      "categories": [
+        "Animals and nature"
+      ],
+      "tags": [
+        ":service-dog:"
+      ],
+      "sizes_px": []
+    }
+  ]
+}

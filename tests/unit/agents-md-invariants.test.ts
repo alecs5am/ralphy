@@ -232,12 +232,23 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
       hostRe: /https?:\/\/[a-z0-9.-]*pexels\.com\b/i,
       hostLabel: "pexels.com",
     },
+    // #597 stock source connector with a key — same file-scoped discipline.
+    {
+      providerId: "pixabay",
+      file: path.join("cli", "lib", "providers", "pixabay.ts"),
+      envVar: "PIXABAY_API_KEY",
+      hostRe: /https?:\/\/[a-z0-9.-]*pixabay\.com\b/i,
+      hostLabel: "pixabay.com",
+    },
   ];
 
   // #596 keyless stock source connectors: no env var, but each source host is
   // sanctioned ONLY inside its own connector file, and must appear there (a
   // non-vacuous allowlist). Simple Icons is scoped to the pinned jsDelivr
-  // package path, since jsDelivr also serves unrelated scripts (gsap).
+  // package path, since jsDelivr also serves unrelated scripts (gsap). #597:
+  // Noto Animated Emoji is scoped to its site path and asset path, Fluent UI
+  // Emoji to its repository on jsDelivr and the GitHub API (both also serve
+  // unrelated packages, and update-check.ts calls the GitHub API).
   const STOCK_SOURCE_CONNECTORS: Array<{ file: string; hostRe: RegExp; hostLabel: string }> = [
     {
       file: path.join("cli", "lib", "providers", "openverse.ts"),
@@ -258,6 +269,26 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
       file: path.join("cli", "lib", "providers", "simple-icons.ts"),
       hostRe: /https?:\/\/(?:cdn\.jsdelivr\.net\/npm\/simple-icons\b|[a-z0-9.-]*simpleicons\.org\b)/i,
       hostLabel: "jsdelivr simple-icons / simpleicons.org",
+    },
+    {
+      file: path.join("cli", "lib", "providers", "noto-emoji.ts"),
+      hostRe: /https?:\/\/(?:googlefonts\.github\.io\/noto-emoji-animation\b|fonts\.gstatic\.com\/s\/e\/notoemoji\b)/i,
+      hostLabel: "Noto Animated Emoji site / gstatic notoemoji",
+    },
+    {
+      file: path.join("cli", "lib", "providers", "fluent-emoji.ts"),
+      hostRe: /https?:\/\/(?:cdn\.jsdelivr\.net\/gh\/microsoft\/fluentui-emoji\b|api\.github\.com\/repos\/microsoft\/fluentui-emoji\b|github\.com\/microsoft\/fluentui-emoji\b)/i,
+      hostLabel: "jsdelivr / GitHub microsoft/fluentui-emoji",
+    },
+    {
+      file: path.join("cli", "lib", "providers", "iconify.ts"),
+      hostRe: /https?:\/\/[a-z0-9.-]*iconify\.design\b/i,
+      hostLabel: "iconify.design",
+    },
+    {
+      file: path.join("cli", "lib", "providers", "pinterest.ts"),
+      hostRe: /https?:\/\/(?:[a-z0-9-]+\.)*(?:pinterest\.[a-z]{2,3}(?:\.[a-z]{2})?|pinimg\.com|pin\.it)\b/i,
+      hostLabel: "pinterest / pinimg.com / pin.it",
     },
   ];
 

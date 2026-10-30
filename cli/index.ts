@@ -261,8 +261,9 @@ program
       const catalogScopeFree = sub === "catalog" &&
         !(actionCommand.name() === "use" && actionCommand.parent?.name() === "catalog");
       /* And `stock search`: it queries public licensed sources and writes
-         nothing (#596). With an explicit --workspace / --project it resolves
-         scope, so a Workspace-stored PEXELS_API_KEY is visible. `stock pull`
+         nothing but source caches under the data root (#596, #597). With an
+         explicit --workspace / --project it resolves scope, so a
+         Workspace-stored PEXELS_API_KEY / PIXABAY_API_KEY is visible. `stock pull`
          and `stock credits` edit or read a Project and resolve scope like any
          project verb. */
       const stockSearchScopeFree = sub === "stock" && actionCommand.name() === "search" &&

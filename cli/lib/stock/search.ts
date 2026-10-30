@@ -1,5 +1,5 @@
-// `ralphy stock search` (#596): fan one query out to the stock sources, apply
-// the license and orientation filters, and interleave the results.
+// `ralphy stock search` (#596, #597): fan one query out to the stock sources,
+// apply the license and orientation filters, and interleave the results.
 //
 // A source that cannot run (Pexels without a key) is skipped with a note; a
 // source that fails or misses its deadline is reported in `sources` and the
@@ -52,7 +52,7 @@ export type StockSearchResult = {
 
 /** Whether a candidate's known frame matches the orientation; unknown frames pass. */
 export function matchesOrientation(candidate: Pick<StockCandidate, "width" | "height" | "kind">, orientation: StockOrientation): boolean {
-  if (orientation === "any" || candidate.kind === "audio" || candidate.kind === "logo") return true;
+  if (orientation === "any" || ["audio", "logo", "sticker", "icon"].includes(candidate.kind)) return true;
   if (!candidate.width || !candidate.height) return true;
   return orientation === "vertical" ? candidate.height > candidate.width : candidate.width > candidate.height;
 }
@@ -88,6 +88,14 @@ export async function searchStock(input: {
   if (!query) throw new DomainError("E_INPUT_INVALID", undefined, { field: "query", detail: "the search query is empty", verb: "stock search" });
   const limit = Math.max(1, Math.min(STOCK_LIMIT_MAX, Math.floor(input.limit)));
   const requested = input.sources && input.sources.length > 0 ? [...new Set(input.sources)] : [...DEFAULT_STOCK_SOURCES[input.kind]];
+  const importOnly = requested.filter((id) => STOCK_CONNECTORS[id].searchable === false);
+  if (importOnly.length > 0) {
+    throw new DomainError("E_INPUT_INVALID", undefined, {
+      field: "source",
+      detail: importOnly.map((id) => `${id} has no search: pull a URL with \`ralphy stock pull ${id}:<url> --project <id>\``).join("; "),
+      verb: "stock search",
+    });
+  }
   const unsupported = requested.filter((id) => !STOCK_CONNECTORS[id].kinds.includes(input.kind));
   if (unsupported.length > 0) {
     throw new DomainError("E_INPUT_INVALID", undefined, {
@@ -109,15 +117,19 @@ export async function searchStock(input: {
     }
     // Each source gets its own deadline: at it, every request of that source
     // is aborted (so no socket or timer outlives the search) and the source
-    // reports a timeout while the others answer.
+    // reports a timeout while the others answer. A source that still has to
+    // build its cached index gets its longer cold-start deadline once.
+    const coldStart = connector.coldStartTimeoutMs?.() ?? null;
+    const budgetMs = Math.max(timeoutMs, coldStart ?? 0);
+    if (coldStart !== null) notes.push(`${id}: building its search index once (cached under .ralphy/cache/stock/; up to ${formatSeconds(coldStart)})`);
     const deadline = new AbortController();
-    const reason = new StockSourceError(connector.label, 0, `${connector.label}: no answer within ${formatSeconds(timeoutMs)} (pass --timeout to wait longer)`);
+    const reason = new StockSourceError(connector.label, 0, `${connector.label}: no answer within ${formatSeconds(budgetMs)} (pass --timeout to wait longer)`);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const expired = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         deadline.abort(reason);
         reject(reason);
-      }, timeoutMs);
+      }, budgetMs);
     });
     expired.catch(() => undefined);
     try {

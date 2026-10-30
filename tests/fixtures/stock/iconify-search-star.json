@@ -1,0 +1,250 @@
+{
+  "icons": [
+    "mdi:star",
+    "tabler:star",
+    "solar:star-bold",
+    "typcn:star",
+    "gridicons:star",
+    "circum:star",
+    "mdi-light:star",
+    "line-md:star",
+    "unlisted:star"
+  ],
+  "total": 9,
+  "limit": 32,
+  "start": 0,
+  "collections": {
+    "mdi": {
+      "name": "Material Design Icons",
+      "total": 7447,
+      "author": {
+        "name": "Pictogrammers",
+        "url": "https://github.com/Templarian/MaterialDesign"
+      },
+      "license": {
+        "title": "Apache 2.0",
+        "spdx": "Apache-2.0",
+        "url": "https://github.com/Templarian/MaterialDesign/blob/master/LICENSE"
+      },
+      "samples": [
+        "account-check",
+        "bell-alert-outline",
+        "calendar-edit",
+        "skip-previous",
+        "home-variant",
+        "lock-open-outline"
+      ],
+      "height": 24,
+      "category": "Material",
+      "tags": [
+        "Precise Shapes",
+        "Has Padding"
+      ],
+      "palette": false
+    },
+    "mdi-light": {
+      "name": "Material Design Light",
+      "total": 284,
+      "author": {
+        "name": "Pictogrammers",
+        "url": "https://github.com/Templarian/MaterialDesignLight"
+      },
+      "license": {
+        "title": "Open Font License",
+        "spdx": "OFL-1.1",
+        "url": "https://github.com/Templarian/MaterialDesignLight/blob/master/LICENSE.md"
+      },
+      "samples": [
+        "cart",
+        "bell",
+        "login",
+        "skip-previous",
+        "home",
+        "lock-open"
+      ],
+      "height": 24,
+      "category": "Material",
+      "tags": [
+        "Precise Shapes",
+        "Has Padding"
+      ],
+      "palette": false
+    },
+    "line-md": {
+      "name": "Material Line Icons",
+      "total": 1218,
+      "version": "3.0.5",
+      "author": {
+        "name": "Vjacheslav Trushkin",
+        "url": "https://github.com/cyberalien/line-md"
+      },
+      "license": {
+        "title": "MIT",
+        "spdx": "MIT",
+        "url": "https://github.com/cyberalien/line-md/blob/main/license.txt"
+      },
+      "samples": [
+        "loading-twotone-loop",
+        "beer-alt-twotone-loop",
+        "image-twotone",
+        "account",
+        "cloud-alt-upload-twotone-loop",
+        "cog-loop"
+      ],
+      "height": 24,
+      "category": "Material",
+      "tags": [
+        "Precise Shapes",
+        "Has Padding",
+        "Uses Stroke",
+        "Contains Animations"
+      ],
+      "palette": false
+    },
+    "solar": {
+      "name": "Solar",
+      "total": 8706,
+      "author": {
+        "name": "480 Design",
+        "url": "https://www.figma.com/community/file/1166831539721848736"
+      },
+      "license": {
+        "title": "CC BY 4.0",
+        "spdx": "CC-BY-4.0",
+        "url": "https://creativecommons.org/licenses/by/4.0/"
+      },
+      "samples": [
+        "magnifier-zoom-out-broken",
+        "armchair-2-bold-duotone",
+        "traffic-economy-line-duotone",
+        "user-rounded-bold-duotone",
+        "soundwave-linear",
+        "hamburger-menu-broken"
+      ],
+      "height": 24,
+      "category": "UI 24px",
+      "tags": [
+        "Precise Shapes",
+        "Has Padding",
+        "Uses Stroke"
+      ],
+      "palette": false
+    },
+    "tabler": {
+      "name": "Tabler Icons",
+      "total": 6257,
+      "version": "3.50.0",
+      "author": {
+        "name": "Paweł Kuna",
+        "url": "https://github.com/tabler/tabler-icons"
+      },
+      "license": {
+        "title": "MIT",
+        "spdx": "MIT",
+        "url": "https://github.com/tabler/tabler-icons/blob/master/LICENSE"
+      },
+      "samples": [
+        "alien",
+        "device-desktop",
+        "photo",
+        "chevron-right",
+        "check",
+        "square-root"
+      ],
+      "height": 24,
+      "category": "UI 24px",
+      "tags": [
+        "Precise Shapes",
+        "Has Padding",
+        "Uses Stroke"
+      ],
+      "palette": false
+    },
+    "typcn": {
+      "name": "Typicons",
+      "total": 336,
+      "version": "2.1.2",
+      "author": {
+        "name": "Stephen Hutchings",
+        "url": "https://github.com/stephenhutchings/typicons.font"
+      },
+      "license": {
+        "title": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "samples": [
+        "pin-outline",
+        "cloud-storage",
+        "bell",
+        "media-eject",
+        "adjust-contrast",
+        "css3"
+      ],
+      "height": 24,
+      "category": "UI 24px",
+      "tags": [
+        "Precise Shapes",
+        "Has Padding"
+      ],
+      "palette": false
+    },
+    "circum": {
+      "name": "Circum Icons",
+      "total": 288,
+      "version": "1.0.0",
+      "author": {
+        "name": "Klarr Agency",
+        "url": "https://github.com/Klarr-Agency/Circum-Icons"
+      },
+      "license": {
+        "title": "Mozilla Public License 2.0",
+        "spdx": "MPL-2.0",
+        "url": "https://github.com/Klarr-Agency/Circum-Icons/blob/main/LICENSE"
+      },
+      "samples": [
+        "text",
+        "pill",
+        "zoom-out",
+        "voicemail",
+        "no-waiting-sign",
+        "crop"
+      ],
+      "height": 24,
+      "category": "UI 24px",
+      "tags": [
+        "Has Padding"
+      ],
+      "palette": false
+    },
+    "gridicons": {
+      "name": "Gridicons",
+      "total": 207,
+      "version": "3.4.3",
+      "author": {
+        "name": "Automattic",
+        "url": "https://github.com/Automattic/gridicons"
+      },
+      "license": {
+        "title": "GPL 2.0",
+        "spdx": "GPL-2.0-only",
+        "url": "https://github.com/Automattic/gridicons/blob/trunk/LICENSE.md"
+      },
+      "samples": [
+        "code",
+        "multiple-users",
+        "types",
+        "dropdown",
+        "filter",
+        "offline"
+      ],
+      "height": 24,
+      "category": "UI 24px",
+      "tags": [
+        "Precise Shapes",
+        "Has Padding"
+      ],
+      "palette": false
+    }
+  }
+}

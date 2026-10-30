@@ -141,6 +141,7 @@ describe("provider credential descriptors", () => {
       "devto",
       "hashnode",
       "pexels",
+      "pixabay",
     ]);
   });
 

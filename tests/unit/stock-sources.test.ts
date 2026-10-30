@@ -617,6 +617,6 @@ describe("stock search", () => {
     expect(error.code).toBe("E_INPUT_INVALID");
     expect(stockSourceOf("simple-icons:nvidia")).toBe("simple-icons");
     expect(stockSourceOf("commons:File:X.jpg")).toBe("commons");
-    expect(stockSourceOf("pinterest:123")).toBeNull();
+    expect(stockSourceOf("flickr:123")).toBeNull();
   });
 });

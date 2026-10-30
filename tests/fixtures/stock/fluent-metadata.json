@@ -1,0 +1,94 @@
+{
+ "Cat": {
+  "cldr": "cat",
+  "fromVersion": "0.7",
+  "glyphAsUtfInEmoticons": [
+   "cat"
+  ],
+  "group": "Animals & Nature",
+  "keywords": [
+   "cat",
+   "pet"
+  ],
+  "mappedToEmoticons": [
+   "cat"
+  ],
+  "tts": "cat",
+  "unicode": "1f408"
+ },
+ "Cat face": {
+  "cldr": "cat face",
+  "fromVersion": "0.6",
+  "group": "Animals & Nature",
+  "keywords": [
+   "cat",
+   "face",
+   "pet"
+  ],
+  "tts": "cat face",
+  "unicode": "1f431"
+ },
+ "Dog": {
+  "cldr": "dog",
+  "fromVersion": "0.7",
+  "glyphAsUtfInEmoticons": [
+   "1f415_200d_1f9ba_servicedog",
+   "dog"
+  ],
+  "group": "Animals & Nature",
+  "keywords": [
+   "dog",
+   "pet"
+  ],
+  "mappedToEmoticons": [
+   "dog"
+  ],
+  "tts": "dog",
+  "unicode": "1f415"
+ },
+ "Waving hand": {
+  "cldr": "waving hand",
+  "fromVersion": "0.6",
+  "glyphAsUtfInEmoticons": [
+   "1f44b_wavinghand",
+   "hi"
+  ],
+  "group": "People & Body",
+  "keywords": [
+   "hand",
+   "wave",
+   "waving"
+  ],
+  "mappedToEmoticons": [
+   "1f44b_wavinghand"
+  ],
+  "tts": "waving hand",
+  "unicode": "1f44b",
+  "unicodeSkintones": [
+   "1f44b",
+   "1f44b 1f3fb",
+   "1f44b 1f3fc",
+   "1f44b 1f3fd",
+   "1f44b 1f3fe",
+   "1f44b 1f3ff"
+  ]
+ },
+ "Pi\u00f1ata": {
+  "cldr": "pi\u00f1ata",
+  "fromVersion": "13.0",
+  "glyphAsUtfInEmoticons": [
+   "pinata"
+  ],
+  "group": "Activities",
+  "keywords": [
+   "celebration",
+   "party",
+   "pi\u00f1ata"
+  ],
+  "mappedToEmoticons": [
+   "pinata"
+  ],
+  "tts": "pi\u00f1ata",
+  "unicode": "1fa85"
+ }
+}

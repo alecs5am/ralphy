@@ -1,4 +1,4 @@
-// Shared shapes of the stock asset collector (#596).
+// Shared shapes of the stock asset collector (#596, #597).
 //
 // `ralphy stock search` asks free, licensed sources (one connector file per
 // source under cli/lib/providers/) for candidates; `ralphy stock pull`
@@ -10,10 +10,25 @@
 
 import { VERSION } from "../version.js";
 
-export const STOCK_KINDS = ["image", "video", "audio", "logo"] as const;
+/**
+ * `animation`: Lottie JSON, animated WebP / GIF, short WebM (#597).
+ * `sticker`: transparent PNG / SVG objects and emoji. `icon`: SVG icons.
+ */
+export const STOCK_KINDS = ["image", "video", "audio", "logo", "animation", "sticker", "icon"] as const;
 export type StockKind = (typeof STOCK_KINDS)[number];
 
-export const STOCK_SOURCES = ["openverse", "commons", "archive", "simple-icons", "pexels"] as const;
+export const STOCK_SOURCES = [
+  "openverse",
+  "commons",
+  "archive",
+  "simple-icons",
+  "pexels",
+  "noto-emoji",
+  "fluent-emoji",
+  "iconify",
+  "pixabay",
+  "pinterest",
+] as const;
 export type StockSourceId = (typeof STOCK_SOURCES)[number];
 
 export const STOCK_ORIENTATIONS = ["vertical", "horizontal", "any"] as const;
@@ -75,7 +90,11 @@ export type StockCandidate = StockLicense & {
   attribution: string;
   /** Caveats the license name does not carry (trademark, GFDL, ShareAlike). */
   notes: string[];
-  /** Source-specific facts worth keeping (brand hex, audio category, upstream provider). */
+  /**
+   * Source-specific facts worth keeping (brand hex, audio category, upstream
+   * provider, alternate format ids). `referenceOnly: true` marks an item whose
+   * rights are not cleared for publishing (a Pinterest pin).
+   */
   extra: Record<string, string | number | boolean | null>;
 };
 
@@ -102,6 +121,28 @@ export type StockConnector = {
   kinds: readonly StockKind[];
   /** The environment variable of the key this source needs, when it needs one. */
   requiredKey?: string;
+  /** The local binary this source needs (`yt-dlp`), when it needs one. */
+  requiredBinary?: string;
+  /** False for an import-only source (Pinterest): `stock search` refuses it, `stock pull` takes its URLs. */
+  searchable?: boolean;
+  /** Every item of this source is unlicensed (Pinterest): `stock pull` needs `--license any` before any request. */
+  referenceOnly?: boolean;
+  /** Candidate ids this source accepts; `stock pull` refuses others before any request. */
+  idPattern?: RegExp;
+  /** The id shape shown when `idPattern` refuses an id. */
+  idHint?: string;
+  /**
+   * A longer search deadline for the first search, while the source still
+   * builds its cached index (Fluent UI Emoji); null once the index is cached.
+   */
+  coldStartTimeoutMs?(): number | null;
+  /**
+   * Expand a collection id (a Pinterest board) into the ids of its items, at
+   * most `max`; null when the id names one item.
+   */
+  expand?(id: string, fetchImpl: FetchLike, options: { max: number }): Promise<string[] | null>;
+  /** Pause between two downloads from this source in one `stock pull`. */
+  pullPauseMs?(): number;
   /** Null when usable; otherwise the one-line note printed when the source is skipped. */
   unavailableNote(): string | null;
   search(request: StockSearchRequest, fetchImpl: FetchLike): Promise<StockCandidate[]>;

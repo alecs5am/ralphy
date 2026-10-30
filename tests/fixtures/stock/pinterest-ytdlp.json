@@ -1,0 +1,99 @@
+{
+  "_comment": "yt-dlp -J output shapes for Pinterest (yt_dlp/extractor/pinterest.py, 2026.08.19): an image pin (no formats; printed with --ignore-no-formats-error), a video pin, a board (PinterestCollection playlist) and a pin that embeds another site's video. Values are illustrative, not captured.",
+  "imagePin": {
+    "id": "112233445566778899",
+    "title": "Hand-drawn doodle sticker sheet",
+    "description": "Cute doodle stickers for planners and edits",
+    "timestamp": 1729000000,
+    "upload_date": "20241015",
+    "uploader": "Doodle Studio",
+    "uploader_id": "998877665544",
+    "repost_count": 12,
+    "comment_count": 0,
+    "categories": ["Art", "Illustration"],
+    "tags": [],
+    "thumbnails": [
+      { "url": "https://i.pinimg.com/236x/ab/cd/ef/abcdef0123456789.jpg", "width": 236, "height": 354, "id": "0" },
+      { "url": "https://i.pinimg.com/736x/ab/cd/ef/abcdef0123456789.jpg", "width": 736, "height": 1104, "id": "1" },
+      { "url": "https://i.pinimg.com/originals/ab/cd/ef/abcdef0123456789.png", "width": 1000, "height": 1500, "id": "2" },
+      { "url": "https://example.test/not-a-pin-image.png", "width": 4000, "height": 6000, "id": "3" }
+    ],
+    "formats": [],
+    "duration": null,
+    "webpage_url": "https://www.pinterest.com/pin/112233445566778899/",
+    "extractor_key": "Pinterest",
+    "extractor": "Pinterest",
+    "_type": "video"
+  },
+  "videoPin": {
+    "id": "664281013778109217",
+    "title": "Origami",
+    "description": "Paper folding in one minute",
+    "uploader": "Paper Craft Daily",
+    "uploader_id": "123123123",
+    "thumbnails": [
+      { "url": "https://i.pinimg.com/originals/12/34/56/123456abcdef.jpg", "width": 720, "height": 1280 }
+    ],
+    "formats": [
+      { "format_id": "V_HLSV3_MOBILE-1296", "url": "https://v1.pinimg.com/videos/mc/hls/12/34/56/123456.m3u8", "protocol": "m3u8_native", "ext": "mp4", "width": 720, "height": 1280, "vcodec": "avc1.4d401f" },
+      { "format_id": "V_720P", "url": "https://v1.pinimg.com/videos/mc/720p/12/34/56/123456.mp4", "protocol": "https", "ext": "mp4", "width": 720, "height": 1280, "vcodec": null }
+    ],
+    "duration": 57.7,
+    "webpage_url": "https://www.pinterest.com/pin/664281013778109217/",
+    "extractor_key": "Pinterest",
+    "_type": "video"
+  },
+  "embedPin": {
+    "id": "111691128",
+    "title": "Tonite Let's All Make Love In London (1967)",
+    "uploader": "Vimeo",
+    "formats": [{ "format_id": "http-720p", "url": "https://vod.example.test/111691128.mp4", "width": 1280, "height": 720 }],
+    "extractor_key": "Vimeo",
+    "_type": "video"
+  },
+  "board": {
+    "_type": "playlist",
+    "id": "585890301462791043",
+    "title": "sticker ideas",
+    "webpage_url": "https://www.pinterest.com/doodlestudio/sticker-ideas/",
+    "extractor_key": "PinterestCollection",
+    "entries": [
+      {
+        "id": "200000000000000001",
+        "title": "Star sticker",
+        "uploader": "Doodle Studio",
+        "thumbnails": [{ "url": "https://i.pinimg.com/originals/01/01/01/0101.png", "width": 800, "height": 800 }],
+        "formats": [],
+        "extractor_key": "Pinterest",
+        "_type": "video"
+      },
+      {
+        "id": "111691128",
+        "title": "Embedded film",
+        "uploader": "Vimeo",
+        "formats": [{ "format_id": "http-720p", "url": "https://vod.example.test/111691128.mp4", "width": 1280, "height": 720 }],
+        "extractor_key": "Vimeo",
+        "_type": "video"
+      },
+      {
+        "id": "200000000000000002",
+        "title": "",
+        "description": "Heart sticker with a white border",
+        "uploader": "Doodle Studio",
+        "thumbnails": [{ "url": "https://i.pinimg.com/originals/02/02/02/0202.png", "width": 600, "height": 600 }],
+        "formats": [],
+        "extractor_key": "Pinterest",
+        "_type": "video"
+      },
+      {
+        "id": "200000000000000003",
+        "title": "Moon sticker",
+        "uploader": "Doodle Studio",
+        "thumbnails": [{ "url": "https://i.pinimg.com/originals/03/03/03/0303.png", "width": 600, "height": 600 }],
+        "formats": [],
+        "extractor_key": "Pinterest",
+        "_type": "video"
+      }
+    ]
+  }
+}

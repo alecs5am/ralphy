@@ -143,6 +143,12 @@ export const PEXELS_CREDENTIAL: CredentialDescriptor = Object.freeze({
   environmentVariable: "PEXELS_API_KEY",
 });
 
+export const PIXABAY_CREDENTIAL: CredentialDescriptor = Object.freeze({
+  providerId: "pixabay",
+  kind: "api-key",
+  environmentVariable: "PIXABAY_API_KEY",
+});
+
 export const STATIC_CREDENTIAL_DESCRIPTORS: readonly CredentialDescriptor[] =
   Object.freeze([
     OPENROUTER_CREDENTIAL,
@@ -156,6 +162,7 @@ export const STATIC_CREDENTIAL_DESCRIPTORS: readonly CredentialDescriptor[] =
     DEVTO_CREDENTIAL,
     HASHNODE_CREDENTIAL,
     PEXELS_CREDENTIAL,
+    PIXABAY_CREDENTIAL,
   ]);
 
 class ImmutableCredentialMap extends Map<string, string> {

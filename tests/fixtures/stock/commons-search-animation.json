@@ -1,0 +1,865 @@
+{
+ "gif": {
+  "query": {
+   "pages": [
+    {
+     "pageid": 848661,
+     "ns": 6,
+     "title": "File:Hund003.gif",
+     "index": 7,
+     "imagerepository": "local",
+     "videoinfo": [
+      {
+       "size": 59431,
+       "width": 114,
+       "height": 78,
+       "duration": 3.2000000000000006,
+       "thumburl": "https://upload.wikimedia.org/wikipedia/commons/0/05/Hund003.gif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+       "thumbwidth": 1920,
+       "thumbheight": 1314,
+       "thumbattribs": {
+        "src": "https://upload.wikimedia.org/wikipedia/commons/0/05/Hund003.gif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 1920,
+        "height": 1314
+       },
+       "url": "https://upload.wikimedia.org/wikipedia/commons/0/05/Hund003.gif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+       "descriptionurl": "https://commons.wikimedia.org/wiki/File:Hund003.gif",
+       "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=848661",
+       "metadata": [
+        {
+         "name": "frameCount",
+         "value": 16
+        },
+        {
+         "name": "looped",
+         "value": true
+        },
+        {
+         "name": "duration",
+         "value": 3.2000000000000006
+        }
+       ],
+       "extmetadata": {
+        "DateTime": {
+         "value": "2006-06-07 17:01:58"
+        },
+        "ObjectName": {
+         "value": "Hund003"
+        },
+        "CommonsMetadataExtension": {
+         "value": 1.2
+        },
+        "Categories": {
+         "value": "GFDL|Animated GIF files|License migration completed|Dog icons|Sleeping dogs|Template Unknown (author)|Animations of dogs"
+        },
+        "Assessments": {
+         "value": ""
+        },
+        "ImageDescription": {
+         "value": "animierter Hundecomic"
+        },
+        "DateTimeOriginal": {
+         "value": "2006-01"
+        },
+        "Credit": {
+         "value": "<a rel=\"nofollow\" class=\"external free\" href=\"http://www.GifArchiv.com\">http://www.GifArchiv.com</a>"
+        },
+        "Artist": {
+         "value": "Unknown author<span style=\"display: none;\">Unknown author</span>"
+        },
+        "Permission": {
+         "value": "<i>Selbstverst\u00e4ndlich kannst du dann ein Gif von GifArchiv.com f\u00fcr Wikipedia verwenden</i>, Marcel Rosenberger"
+        },
+        "LicenseShortName": {
+         "value": "CC BY-SA 3.0"
+        },
+        "UsageTerms": {
+         "value": "Creative Commons Attribution-Share Alike 3.0"
+        },
+        "AttributionRequired": {
+         "value": "true"
+        },
+        "LicenseUrl": {
+         "value": "http://creativecommons.org/licenses/by-sa/3.0/"
+        },
+        "Copyrighted": {
+         "value": "True"
+        },
+        "Restrictions": {
+         "value": ""
+        },
+        "License": {
+         "value": "cc-by-sa-3.0"
+        }
+       },
+       "mime": "image/gif",
+       "derivatives": []
+      }
+     ]
+    },
+    {
+     "pageid": 3851183,
+     "ns": 6,
+     "title": "File:Dog galloping slow motion.gif",
+     "index": 3,
+     "imagerepository": "local",
+     "videoinfo": [
+      {
+       "size": 114674,
+       "width": 213,
+       "height": 105,
+       "duration": 2.5,
+       "thumburl": "https://upload.wikimedia.org/wikipedia/commons/6/66/Dog_galloping_slow_motion.gif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+       "thumbwidth": 1920,
+       "thumbheight": 946,
+       "thumbattribs": {
+        "src": "https://upload.wikimedia.org/wikipedia/commons/6/66/Dog_galloping_slow_motion.gif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 1920,
+        "height": 946
+       },
+       "url": "https://upload.wikimedia.org/wikipedia/commons/6/66/Dog_galloping_slow_motion.gif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+       "descriptionurl": "https://commons.wikimedia.org/wiki/File:Dog_galloping_slow_motion.gif",
+       "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=3851183",
+       "metadata": [
+        {
+         "name": "frameCount",
+         "value": 5
+        },
+        {
+         "name": "looped",
+         "value": true
+        },
+        {
+         "name": "duration",
+         "value": 2.5
+        }
+       ],
+       "extmetadata": {
+        "DateTime": {
+         "value": "2008-04-08 23:35:03"
+        },
+        "ObjectName": {
+         "value": "Dog galloping slow motion"
+        },
+        "CommonsMetadataExtension": {
+         "value": 1.2
+        },
+        "Categories": {
+         "value": "Animated GIF files|PD Old|Eadweard Muybridge animations|Slow motion animations|CC-PD-Mark|Animations of dogs|PD-old missing SDC copyright status|Dog Maggie galloping"
+        },
+        "Assessments": {
+         "value": ""
+        },
+        "ImageDescription": {
+         "value": "Animated sequence of a dog galloping (slow motion). Photos taken by <a href=\"//commons.wikimedia.org/wiki/Eadweard_Muybridge\" title=\"Eadweard Muybridge\">Eadweard Muybridge</a> (died 1904), first published in 1887 at Philadelphia (<i>Animal Locomotion</i>)."
+        },
+        "DateTimeOriginal": {
+         "value": "<p>Photos: &lt; 1887 <br> \n</p>\nAnimation: 2008-4-9"
+        },
+        "Credit": {
+         "value": "The sequence is set to motion using frames of \"Human and Animal Locomotion\", plate 710, \"Maggie\" galloping)"
+        },
+        "Artist": {
+         "value": "<p>Photos made by <a href=\"//commons.wikimedia.org/wiki/Eadweard_Muybridge\" title=\"Eadweard Muybridge\">Eadweard Muybridge</a> <br>\n</p>\nAnimation by User <a href=\"//commons.wikimedia.org/wiki/User:Waugsberg\" title=\"User:Waugsberg\">Waugsberg</a>"
+        },
+        "Permission": {
+         "value": "<table class=\"licensetpl\" style=\"display:none\">\n<tbody><tr>\n<td><span class=\"licensetpl_short\">Public domain</span><span class=\"licensetpl_long\">Public domain</span><span class=\"licensetpl_link_req\">false</span><span class=\"licensetpl_attr_req\">false</span>\n</td></tr></tbody></table>\n<table style=\"w"
+        },
+        "LicenseShortName": {
+         "value": "Public domain"
+        },
+        "UsageTerms": {
+         "value": "Public domain"
+        },
+        "AttributionRequired": {
+         "value": "false"
+        },
+        "Copyrighted": {
+         "value": "False"
+        },
+        "Restrictions": {
+         "value": ""
+        },
+        "License": {
+         "value": "pd"
+        }
+       },
+       "mime": "image/gif",
+       "derivatives": []
+      }
+     ]
+    },
+    {
+     "pageid": 3851219,
+     "ns": 6,
+     "title": "File:Dog galloping.gif",
+     "index": 2,
+     "imagerepository": "local",
+     "videoinfo": [
+      {
+       "size": 114674,
+       "width": 213,
+       "height": 105,
+       "duration": 0.75,
+       "thumburl": "https://upload.wikimedia.org/wikipedia/commons/9/91/Dog_galloping.gif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+       "thumbwidth": 1920,
+       "thumbheight": 946,
+       "thumbattribs": {
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/91/Dog_galloping.gif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 1920,
+        "height": 946
+       },
+       "url": "https://upload.wikimedia.org/wikipedia/commons/9/91/Dog_galloping.gif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+       "descriptionurl": "https://commons.wikimedia.org/wiki/File:Dog_galloping.gif",
+       "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=3851219",
+       "metadata": [
+        {
+         "name": "frameCount",
+         "value": 5
+        },
+        {
+         "name": "looped",
+         "value": true
+        },
+        {
+         "name": "duration",
+         "value": 0.75
+        }
+       ],
+       "extmetadata": {
+        "DateTime": {
+         "value": "2008-04-09 14:23:25"
+        },
+        "ObjectName": {
+         "value": "Dog galloping"
+        },
+        "CommonsMetadataExtension": {
+         "value": 1.2
+        },
+        "Categories": {
+         "value": "Animated GIF files|PD Old|Eadweard Muybridge animations|Slow motion animations|CC-PD-Mark|Animations of dogs|PD-old missing SDC copyright status|Galloping dogs|Animations of running|Dog Maggie galloping"
+        },
+        "Assessments": {
+         "value": ""
+        },
+        "ImageDescription": {
+         "value": "Animated sequence of a dog galloping. Photos taken by <a href=\"//commons.wikimedia.org/wiki/Eadweard_Muybridge\" title=\"Eadweard Muybridge\">Eadweard Muybridge</a> (died 1904), first published in 1887 at Philadelphia (<i>Animal Locomotion</i>)."
+        },
+        "DateTimeOriginal": {
+         "value": "<p>Photos: &lt; 1887 <br> \n</p>\nAnimation: 2008-4-9"
+        },
+        "Credit": {
+         "value": "The sequence is set to motion using frames of \"Human and Animal Locomotion\", plate 710, \"Maggie\" galloping)"
+        },
+        "Artist": {
+         "value": "<p>Photos made by <a href=\"//commons.wikimedia.org/wiki/Eadweard_Muybridge\" title=\"Eadweard Muybridge\">Eadweard Muybridge</a> <br>\n</p>\nAnimation by User <a href=\"//commons.wikimedia.org/wiki/User:Waugsberg\" title=\"User:Waugsberg\">Waugsberg</a>"
+        },
+        "Permission": {
+         "value": "<table class=\"licensetpl\" style=\"display:none\">\n<tbody><tr>\n<td><span class=\"licensetpl_short\">Public domain</span><span class=\"licensetpl_long\">Public domain</span><span class=\"licensetpl_link_req\">false</span><span class=\"licensetpl_attr_req\">false</span>\n</td></tr></tbody></table>\n<table style=\"w"
+        },
+        "LicenseShortName": {
+         "value": "Public domain"
+        },
+        "UsageTerms": {
+         "value": "Public domain"
+        },
+        "AttributionRequired": {
+         "value": "false"
+        },
+        "Copyrighted": {
+         "value": "False"
+        },
+        "Restrictions": {
+         "value": ""
+        },
+        "License": {
+         "value": "pd"
+        }
+       },
+       "mime": "image/gif",
+       "derivatives": []
+      }
+     ]
+    },
+    {
+     "pageid": 95008012,
+     "ns": 6,
+     "title": "File:Measures-for-preventing-dog-bites CDC m226a1b.gif",
+     "index": 5,
+     "imagerepository": "local",
+     "videoinfo": [
+      {
+       "size": 28053,
+       "width": 338,
+       "height": 664,
+       "thumburl": "https://upload.wikimedia.org/wikipedia/commons/2/25/Measures-for-preventing-dog-bites_CDC_m226a1b.gif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+       "thumbwidth": 1920,
+       "thumbheight": 3772,
+       "thumbattribs": {
+        "src": "https://upload.wikimedia.org/wikipedia/commons/2/25/Measures-for-preventing-dog-bites_CDC_m226a1b.gif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 1920,
+        "height": 3772
+       },
+       "url": "https://upload.wikimedia.org/wikipedia/commons/2/25/Measures-for-preventing-dog-bites_CDC_m226a1b.gif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+       "descriptionurl": "https://commons.wikimedia.org/wiki/File:Measures-for-preventing-dog-bites_CDC_m226a1b.gif",
+       "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=95008012",
+       "metadata": [
+        {
+         "name": "frameCount",
+         "value": 1
+        },
+        {
+         "name": "looped",
+         "value": false
+        },
+        {
+         "name": "duration",
+         "value": 0
+        }
+       ],
+       "extmetadata": {
+        "DateTime": {
+         "value": "2020-10-13 02:11:20"
+        },
+        "ObjectName": {
+         "value": "Measures-for-preventing-dog-bites CDC m226a1b"
+        },
+        "CommonsMetadataExtension": {
+         "value": 1.2
+        },
+        "Categories": {
+         "value": "Dog bites|PD US HHS CDC"
+        },
+        "Assessments": {
+         "value": ""
+        },
+        "ImageDescription": {
+         "value": "Advice from the CDC"
+        },
+        "DateTimeOriginal": {
+         "value": "2003-07-03"
+        },
+        "Credit": {
+         "value": "<a rel=\"nofollow\" class=\"external free\" href=\"https://www.cdc.gov/mmwr/preview/mmwrhtml/mm5226a1.htm\">https://www.cdc.gov/mmwr/preview/mmwrhtml/mm5226a1.htm</a>"
+        },
+        "Artist": {
+         "value": "Centers for Disease Control and Prevention"
+        },
+        "LicenseShortName": {
+         "value": "Public domain"
+        },
+        "UsageTerms": {
+         "value": "Public domain"
+        },
+        "AttributionRequired": {
+         "value": "false"
+        },
+        "Copyrighted": {
+         "value": "False"
+        },
+        "Restrictions": {
+         "value": ""
+        },
+        "License": {
+         "value": "pd"
+        }
+       },
+       "mime": "image/gif",
+       "derivatives": []
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "webm": {
+  "query": {
+   "pages": [
+    {
+     "pageid": 32548141,
+     "ns": 6,
+     "title": "File:Angry dog.webm",
+     "index": 3,
+     "imagerepository": "local",
+     "videoinfo": [
+      {
+       "size": 5277989,
+       "width": 352,
+       "height": 288,
+       "duration": 59.067,
+       "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d0/Angry_dog.webm/330px--Angry_dog.webm.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo",
+       "thumbwidth": 352,
+       "thumbheight": 288,
+       "thumbattribs": [],
+       "url": "https://upload.wikimedia.org/wikipedia/commons/d/d0/Angry_dog.webm?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+       "descriptionurl": "https://commons.wikimedia.org/wiki/File:Angry_dog.webm",
+       "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=32548141",
+       "metadata": [],
+       "extmetadata": {
+        "DateTime": {
+         "value": "2014-05-03 20:43:22"
+        },
+        "ObjectName": {
+         "value": "Angry dog"
+        },
+        "CommonsMetadataExtension": {
+         "value": 1.2
+        },
+        "Categories": {
+         "value": "WebM videos|Dogs of Italy|Self-published work|Videos of dogs|Videos of 2014 from Italy|Video display resolution 352 x 288|Files with coordinates missing SDC location of creation|Photographs by Nicholas Frisardi aka Nicholas Gemini"
+        },
+        "Assessments": {
+         "value": ""
+        },
+        "GPSLatitude": {
+         "value": "41.892388"
+        },
+        "GPSLongitude": {
+         "value": "12.574825"
+        },
+        "GPSMapDatum": {
+         "value": "WGS-84"
+        },
+        "ImageDescription": {
+         "value": "Angry dog \u200b\u200bin Rome"
+        },
+        "DateTimeOriginal": {
+         "value": "2014-05-03 22:39:44"
+        },
+        "Credit": {
+         "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>"
+        },
+        "Artist": {
+         "value": "<a href=\"//commons.wikimedia.org/wiki/User:Nicholas_Gemini\" title=\"User:Nicholas Gemini\">Nicholas Gemini</a>"
+        },
+        "LicenseShortName": {
+         "value": "CC BY-SA 3.0"
+        },
+        "UsageTerms": {
+         "value": "Creative Commons Attribution-Share Alike 3.0"
+        },
+        "AttributionRequired": {
+         "value": "true"
+        },
+        "LicenseUrl": {
+         "value": "https://creativecommons.org/licenses/by-sa/3.0"
+        },
+        "Copyrighted": {
+         "value": "True"
+        },
+        "Restrictions": {
+         "value": ""
+        },
+        "License": {
+         "value": "cc-by-sa-3.0"
+        }
+       },
+       "mime": "video/webm",
+       "derivatives": [
+        {
+         "src": "https://upload.wikimedia.org/wikipedia/commons/transcoded/d/d0/Angry_dog.webm/Angry_dog.webm.240p.vp9.webm",
+         "type": "video/webm; codecs=\"vp9, opus\"",
+         "width": 294,
+         "height": 240,
+         "transcodekey": "240p.vp9.webm"
+        },
+        {
+         "src": "https://upload.wikimedia.org/wikipedia/commons/transcoded/d/d0/Angry_dog.webm/Angry_dog.webm.360p.mpeg4.mov",
+         "type": "video/quicktime; codecs=\"mp4v\"",
+         "width": 352,
+         "height": 288,
+         "transcodekey": "360p.mpeg4.mov"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "pageid": 59841789,
+     "ns": 6,
+     "title": "File:Dog wagging tail.webm",
+     "index": 7,
+     "imagerepository": "local",
+     "videoinfo": [
+      {
+       "size": 1087275,
+       "width": 1280,
+       "height": 720,
+       "duration": 3.6,
+       "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/38/Dog_wagging_tail.webm/1280px--Dog_wagging_tail.webm.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo",
+       "thumbwidth": 1280,
+       "thumbheight": 720,
+       "thumbattribs": [],
+       "url": "https://upload.wikimedia.org/wikipedia/commons/3/38/Dog_wagging_tail.webm?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+       "descriptionurl": "https://commons.wikimedia.org/wiki/File:Dog_wagging_tail.webm",
+       "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=59841789",
+       "metadata": [],
+       "extmetadata": {
+        "DateTime": {
+         "value": "2017-06-11 22:57:07"
+        },
+        "ObjectName": {
+         "value": "Dog wagging tail"
+        },
+        "CommonsMetadataExtension": {
+         "value": 1.2
+        },
+        "Categories": {
+         "value": "Self-published work|Videos of dogs|Uploaded with video2commons|LiAnna Davis's dog Ada"
+        },
+        "Assessments": {
+         "value": ""
+        },
+        "ImageDescription": {
+         "value": "A dog wags her tail."
+        },
+        "DateTimeOriginal": {
+         "value": "2017-06-11"
+        },
+        "Credit": {
+         "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>"
+        },
+        "Artist": {
+         "value": "<a href=\"//commons.wikimedia.org/wiki/User:Liannadavis\" title=\"User:Liannadavis\">Liannadavis</a>"
+        },
+        "LicenseShortName": {
+         "value": "CC BY-SA 4.0"
+        },
+        "UsageTerms": {
+         "value": "Creative Commons Attribution-Share Alike 4.0"
+        },
+        "AttributionRequired": {
+         "value": "true"
+        },
+        "LicenseUrl": {
+         "value": "https://creativecommons.org/licenses/by-sa/4.0"
+        },
+        "Copyrighted": {
+         "value": "True"
+        },
+        "Restrictions": {
+         "value": ""
+        },
+        "License": {
+         "value": "cc-by-sa-4.0"
+        }
+       },
+       "mime": "video/webm",
+       "derivatives": [
+        {
+         "src": "https://upload.wikimedia.org/wikipedia/commons/transcoded/3/38/Dog_wagging_tail.webm/Dog_wagging_tail.webm.240p.vp9.webm",
+         "type": "video/webm; codecs=\"vp9, opus\"",
+         "width": 426,
+         "height": 240,
+         "transcodekey": "240p.vp9.webm"
+        },
+        {
+         "src": "https://upload.wikimedia.org/wikipedia/commons/transcoded/3/38/Dog_wagging_tail.webm/Dog_wagging_tail.webm.360p.mpeg4.mov",
+         "type": "video/quicktime; codecs=\"mp4v\"",
+         "width": 640,
+         "height": 360,
+         "transcodekey": "360p.mpeg4.mov"
+        },
+        {
+         "src": "https://upload.wikimedia.org/wikipedia/commons/transcoded/3/38/Dog_wagging_tail.webm/Dog_wagging_tail.webm.480p.vp9.webm",
+         "type": "video/webm; codecs=\"vp9, opus\"",
+         "width": 854,
+         "height": 480,
+         "transcodekey": "480p.vp9.webm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "pageid": 192907275,
+     "ns": 6,
+     "title": "File:Dog Stream video MRD.webm",
+     "index": 2,
+     "imagerepository": "local",
+     "videoinfo": [
+      {
+       "size": 6724845,
+       "width": 608,
+       "height": 1080,
+       "duration": 4.3340000000000005,
+       "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1a/Dog_Stream_video_MRD.webm/500px--Dog_Stream_video_MRD.webm.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo",
+       "thumbwidth": 608,
+       "thumbheight": 1080,
+       "thumbattribs": [],
+       "url": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Dog_Stream_video_MRD.webm?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+       "descriptionurl": "https://commons.wikimedia.org/wiki/File:Dog_Stream_video_MRD.webm",
+       "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=192907275",
+       "metadata": [],
+       "extmetadata": {
+        "DateTime": {
+         "value": "2026-05-28 03:07:09"
+        },
+        "ObjectName": {
+         "value": "Dog Stream video MRD"
+        },
+        "CommonsMetadataExtension": {
+         "value": 1.2
+        },
+        "Categories": {
+         "value": "Self-published work|Dog Stream|Uploaded with clip2commons"
+        },
+        "Assessments": {
+         "value": ""
+        },
+        "ImageDescription": {
+         "value": "Dog Stream, Hanmer Springs, New Zealand"
+        },
+        "DateTimeOriginal": {
+         "value": "2025-10-27"
+        },
+        "Credit": {
+         "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>"
+        },
+        "Artist": {
+         "value": "<bdi><a href=\"https://en.wikipedia.org/wiki/en:Mike_Dickison\" class=\"extiw\" title=\"w:en:Mike Dickison\"><span title=\"New Zealand Wikipedian, zoologist, and museum curator\">Mike Dickison</span></a></bdi>"
+        },
+        "LicenseShortName": {
+         "value": "CC BY 4.0"
+        },
+        "UsageTerms": {
+         "value": "Creative Commons Attribution 4.0"
+        },
+        "AttributionRequired": {
+         "value": "true"
+        },
+        "LicenseUrl": {
+         "value": "https://creativecommons.org/licenses/by/4.0"
+        },
+        "Copyrighted": {
+         "value": "True"
+        },
+        "Restrictions": {
+         "value": ""
+        },
+        "License": {
+         "value": "cc-by-4.0"
+        }
+       },
+       "mime": "video/webm",
+       "derivatives": [
+        {
+         "src": "https://upload.wikimedia.org/wikipedia/commons/transcoded/1/1a/Dog_Stream_video_MRD.webm/Dog_Stream_video_MRD.webm.240p.vp9.webm",
+         "type": "video/webm; codecs=\"vp9, opus\"",
+         "width": 136,
+         "height": 240,
+         "transcodekey": "240p.vp9.webm"
+        },
+        {
+         "src": "https://upload.wikimedia.org/wikipedia/commons/transcoded/1/1a/Dog_Stream_video_MRD.webm/Dog_Stream_video_MRD.webm.360p.mpeg4.mov",
+         "type": "video/quicktime; codecs=\"mp4v\"",
+         "width": 202,
+         "height": 360,
+         "transcodekey": "360p.mpeg4.mov"
+        },
+        {
+         "src": "https://upload.wikimedia.org/wikipedia/commons/transcoded/1/1a/Dog_Stream_video_MRD.webm/Dog_Stream_video_MRD.webm.480p.vp9.webm",
+         "type": "video/webm; codecs=\"vp9, opus\"",
+         "width": 270,
+         "height": 480,
+         "transcodekey": "480p.vp9.webm"
+        },
+        {
+         "src": "https://upload.wikimedia.org/wikipedia/commons/transcoded/1/1a/Dog_Stream_video_MRD.webm/Dog_Stream_video_MRD.webm.1080p.vp9.webm",
+         "type": "video/webm; codecs=\"vp9, opus\"",
+         "width": 608,
+         "height": 1080,
+         "transcodekey": "1080p.vp9.webm"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "webp": {
+  "query": {
+   "pages": [
+    {
+     "pageid": 116433364,
+     "ns": 6,
+     "title": "File:Street cat.webp",
+     "imagerepository": "local",
+     "videoinfo": [
+      {
+       "size": 625196,
+       "width": 1080,
+       "height": 1920,
+       "thumburl": "https://upload.wikimedia.org/wikipedia/commons/b/b0/Street_cat.webp?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+       "thumbwidth": 1920,
+       "thumbheight": 3413,
+       "thumbattribs": {
+        "src": "https://upload.wikimedia.org/wikipedia/commons/b/b0/Street_cat.webp?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 1920,
+        "height": 3413
+       },
+       "url": "https://upload.wikimedia.org/wikipedia/commons/b/b0/Street_cat.webp?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+       "descriptionurl": "https://commons.wikimedia.org/wiki/File:Street_cat.webp",
+       "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=116433364",
+       "metadata": [
+        {
+         "name": "animated",
+         "value": false
+        }
+       ],
+       "extmetadata": {
+        "DateTime": {
+         "value": "2022-03-26 18:43:51"
+        },
+        "ObjectName": {
+         "value": "Street cat"
+        },
+        "CommonsMetadataExtension": {
+         "value": 1.2
+        },
+        "Categories": {
+         "value": "Self-published work|Cats of Egypt|Red tabby cats|Images from Wiki Loves Africa 2022|Images from Wiki Loves Africa 2022 to check|Uploaded via Campaign:wlafrica|Images from Wiki Loves Africa 2022 in Egypt"
+        },
+        "Assessments": {
+         "value": ""
+        },
+        "ImageDescription": {
+         "value": "This is an image with the theme \"<i>Home + Habitat in Africa</i>\" from:"
+        },
+        "DateTimeOriginal": {
+         "value": "2022-03-25"
+        },
+        "Credit": {
+         "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>"
+        },
+        "Artist": {
+         "value": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Sara_Ashraf_2002&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Sara Ashraf 2002 (page does not exist)\">Sara Ashraf 2002</a>"
+        },
+        "LicenseShortName": {
+         "value": "CC BY-SA 4.0"
+        },
+        "UsageTerms": {
+         "value": "Creative Commons Attribution-Share Alike 4.0"
+        },
+        "AttributionRequired": {
+         "value": "true"
+        },
+        "LicenseUrl": {
+         "value": "https://creativecommons.org/licenses/by-sa/4.0"
+        },
+        "Copyrighted": {
+         "value": "True"
+        },
+        "Restrictions": {
+         "value": ""
+        },
+        "License": {
+         "value": "cc-by-sa-4.0"
+        }
+       },
+       "mime": "image/webp",
+       "derivatives": []
+      }
+     ],
+     "index": 1
+    },
+    {
+     "pageid": 117670030,
+     "ns": 6,
+     "title": "File:T-Midori3.webp",
+     "imagerepository": "local",
+     "videoinfo": [
+      {
+       "size": 51252,
+       "width": 185,
+       "height": 160,
+       "thumburl": "https://upload.wikimedia.org/wikipedia/commons/0/0d/T-Midori3.webp?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+       "thumbwidth": 1920,
+       "thumbheight": 1661,
+       "thumbattribs": {
+        "src": "https://upload.wikimedia.org/wikipedia/commons/0/0d/T-Midori3.webp?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 1920,
+        "height": 1661
+       },
+       "url": "https://upload.wikimedia.org/wikipedia/commons/0/0d/T-Midori3.webp?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+       "descriptionurl": "https://commons.wikimedia.org/wiki/File:T-Midori3.webp",
+       "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=117670030",
+       "metadata": [
+        {
+         "name": "animated",
+         "value": true
+        }
+       ],
+       "extmetadata": {
+        "DateTime": {
+         "value": "2022-05-04 11:14:01"
+        },
+        "ObjectName": {
+         "value": "T-Midori3"
+        },
+        "CommonsMetadataExtension": {
+         "value": 1.2
+        },
+        "Categories": {
+         "value": "Animations|Self-published work"
+        },
+        "Assessments": {
+         "value": ""
+        },
+        "ImageDescription": {
+         "value": "sobbing."
+        },
+        "DateTimeOriginal": {
+         "value": "2022-05-04"
+        },
+        "Credit": {
+         "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>"
+        },
+        "Artist": {
+         "value": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:CAMapfel&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:CAMapfel (page does not exist)\">CAMapfel</a>"
+        },
+        "LicenseShortName": {
+         "value": "CC BY-SA 4.0"
+        },
+        "UsageTerms": {
+         "value": "Creative Commons Attribution-Share Alike 4.0"
+        },
+        "AttributionRequired": {
+         "value": "true"
+        },
+        "LicenseUrl": {
+         "value": "https://creativecommons.org/licenses/by-sa/4.0"
+        },
+        "Copyrighted": {
+         "value": "True"
+        },
+        "Restrictions": {
+         "value": ""
+        },
+        "License": {
+         "value": "cc-by-sa-4.0"
+        }
+       },
+       "mime": "image/webp",
+       "derivatives": []
+      }
+     ],
+     "index": 2
+    }
+   ]
+  }
+ }
+}

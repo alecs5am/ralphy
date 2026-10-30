@@ -1,8 +1,9 @@
-// License normalization for stock candidates (#596).
+// License normalization for stock candidates (#596, #597).
 //
-// Sources describe licenses three ways: a Creative Commons code plus version
+// Sources describe licenses four ways: a Creative Commons code plus version
 // (Openverse: `by-sa` + `4.0`), a license URL (Internet Archive `licenseurl`),
-// or a free-text short name (Wikimedia Commons `LicenseShortName`). All three
+// a free-text short name (Wikimedia Commons `LicenseShortName`), or an SPDX id
+// (Iconify icon sets: `MIT`, `CC-BY-SA-4.0`, `GPL-3.0`, `OFL-1.1`). All four
 // end up as one StockLicense with explicit commercial / modification /
 // attribution flags. Anything this module does not recognize is UNKNOWN and
 // fails the default `--license commercial` filter: an unknown license is never
@@ -142,11 +143,57 @@ export function licenseFromShortName(nameRaw: string | null | undefined, urlRaw?
   return licenseFromUrl(url) ?? { ...UNKNOWN_LICENSE, license: name || UNKNOWN_LICENSE.license, licenseUrl: url };
 }
 
+/** Permissive licenses whose one condition is keeping the copyright and license notice. */
+const NOTICE_LICENSES: Record<string, string> = {
+  "MIT": "MIT",
+  "ISC": "ISC",
+  "Apache-2.0": "Apache 2.0",
+  "BSD-2-Clause": "BSD 2-Clause",
+  "BSD-3-Clause": "BSD 3-Clause",
+  "Zlib": "zlib",
+};
+/** Licenses with no condition at all. */
+const NO_CONDITION_LICENSES: Record<string, string> = { "Unlicense": "Unlicense", "0BSD": "0BSD", "WTFPL": "WTFPL" };
+
+/** A permissive license that asks only for its notice (MIT, Apache 2.0, ISC, BSD). */
+export function noticeLicense(name: string, url: string | null): StockLicense {
+  return { license: name, licenseUrl: url, commercialOk: true, modificationOk: true, attributionRequired: true, shareAlike: false };
+}
+
+/**
+ * A license from its SPDX id (Iconify icon sets). Permissive notice licenses
+ * and CC licenses map to their flags; MPL is ShareAlike (file-level
+ * copyleft). GPL-family and OFL licenses are software and font licenses whose
+ * terms for artwork placed in a video are unclear, so they are not cleared for
+ * commercial use (`--license any` still pulls them). Anything else is UNKNOWN.
+ */
+export function spdxLicense(spdxRaw: string | null | undefined, titleRaw?: string | null, urlRaw?: string | null): StockLicense {
+  const spdx = (spdxRaw ?? "").trim();
+  const title = (titleRaw ?? "").replace(/\s+/g, " ").trim();
+  const url = cleanUrl(urlRaw);
+  if (/^CC0-1\.0$/i.test(spdx)) return ccLicense("cc0", "1.0", url);
+  const cc = /^CC-(BY(?:-(?:NC|ND|SA))*)-(\d+(?:\.\d+)?)$/i.exec(spdx);
+  if (cc) return ccLicense(cc[1]!.toLowerCase(), cc[2]!, url);
+  if (spdx in NOTICE_LICENSES) return noticeLicense(NOTICE_LICENSES[spdx]!, url);
+  if (spdx in NO_CONDITION_LICENSES) {
+    return { license: NO_CONDITION_LICENSES[spdx]!, licenseUrl: url, commercialOk: true, modificationOk: true, attributionRequired: false, shareAlike: false };
+  }
+  if (/^MPL-/i.test(spdx)) {
+    return { license: title || spdx, licenseUrl: url, commercialOk: true, modificationOk: true, attributionRequired: true, shareAlike: true };
+  }
+  if (/^(?:A|L)?GPL-/i.test(spdx) || /^OFL-/i.test(spdx)) {
+    return { license: title || spdx, licenseUrl: url, commercialOk: false, modificationOk: true, attributionRequired: true, shareAlike: /GPL/i.test(spdx) };
+  }
+  return { ...UNKNOWN_LICENSE, license: title || spdx || UNKNOWN_LICENSE.license, licenseUrl: url };
+}
+
 /** License caveats a short name does not carry, for `StockCandidate.notes`. */
 export function licenseNotes(license: StockLicense): string[] {
   const notes: string[] = [];
-  if (license.shareAlike) notes.push(`${license.license} is ShareAlike: an adaptation that builds on this item must be shared under the same license.`);
+  if (license.shareAlike && !/GPL/i.test(license.license)) notes.push(`${license.license} is ShareAlike: an adaptation that builds on this item must be shared under the same license.`);
   if (/^GFDL\b/i.test(license.license)) notes.push("GFDL requires the full license text with the work; prefer a CC or public domain item when one exists.");
+  if (/GPL/i.test(license.license)) notes.push(`${license.license} is a copyleft software license; its terms for artwork in a video are unclear, so Ralphy does not clear it for commercial use. Prefer an MIT, Apache, CC BY or CC0 set.`);
+  if (/^OFL\b|Open Font/i.test(license.license)) notes.push(`${license.license} is a font license; Ralphy does not clear icons cut from a font for commercial video use. Prefer an MIT, Apache, CC BY or CC0 set.`);
   if (license.license === "unknown") notes.push("The source states no license Ralphy recognizes; treat it as all rights reserved.");
   return notes;
 }

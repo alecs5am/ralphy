@@ -66,3 +66,39 @@ export function mp4Bytes(tag: string): Uint8Array {
 }
 
 export const NVIDIA_SVG = '<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>NVIDIA</title><path d="M8.948 8.798v-1.43"/></svg>';
+
+/** A byte string that sniffs as PNG (#597). */
+export function pngBytes(tag: string): Uint8Array {
+  return new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...new TextEncoder().encode(`fixture-${tag}`)]);
+}
+
+/** A byte string that sniffs as GIF (#597). */
+export function gifBytes(tag: string): Uint8Array {
+  return new TextEncoder().encode(`GIF89afixture-${tag}`);
+}
+
+/** A minimal Lottie (bodymovin) document (#597). */
+export function lottieJson(name = "dog"): string {
+  return JSON.stringify({ v: "5.7.4", fr: 30, ip: 0, op: 90, w: 512, h: 512, nm: name, ddd: 0, assets: [], layers: [], markers: [{ tm: 0, cm: "rest", dr: 0 }] });
+}
+
+export const STAR_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2L9.19 8.63L2 9.24l5.46 4.73L5.82 21z"/></svg>';
+
+/** A fake yt-dlp runner (#597): answers by URL, records every argument list, writes `-o` files on demand. */
+export function fakeYtdlp(answers: Record<string, { stdout?: unknown; code?: number; stderr?: string; writeBytes?: Uint8Array }>) {
+  const calls: string[][] = [];
+  const run = async (args: string[], _options: { timeoutMs: number }) => {
+    calls.push(args);
+    const url = args[args.length - 1]!;
+    const answer = answers[url];
+    if (!answer) return { code: 1, stdout: "", stderr: `ERROR: no fixture for ${url}`, ms: 1, timedOut: false };
+    const out = args.indexOf("-o");
+    if (out >= 0 && answer.writeBytes) {
+      const target = args[out + 1]!.replace("%(ext)s", "mp4");
+      fs.writeFileSync(target, answer.writeBytes);
+    }
+    const stdout = answer.stdout === undefined ? "" : typeof answer.stdout === "string" ? answer.stdout : JSON.stringify(answer.stdout);
+    return { code: answer.code ?? 0, stdout, stderr: answer.stderr ?? "", ms: 1, timedOut: false };
+  };
+  return { run, calls };
+}

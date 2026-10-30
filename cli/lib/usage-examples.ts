@@ -31,7 +31,7 @@ export const USAGE_EXAMPLES: Readonly<Record<string, string>> = Object.freeze({
   "generate image": 'ralphy generate image --project <project> --slot <slot> --prompt "<prompt>"',
   "generate video": 'ralphy generate video --project <project> --slot <slot> --duration 5 --prompt "<prompt>"',
   "activity list": "ralphy activity list --workspace <workspace> --since 0",
-  "stock search": 'ralphy stock search "<query>" --kind image|video|audio|logo',
+  "stock search": 'ralphy stock search "<query>" --kind image|video|audio|logo|animation|sticker|icon',
   "stock pull": "ralphy stock pull <candidate-id from stock search> --project <project>",
   "stock credits": "ralphy stock credits --project <project>",
 });

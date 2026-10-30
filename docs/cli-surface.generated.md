@@ -1378,7 +1378,8 @@ ____        __      __
 Usage: ralphy stock [options] [command]
 
 Find free, licensed overlay assets (brand logos, photos, b-roll, SFX, music
-beds) and pull them into a Project with their license and attribution (#596)
+beds, animated emoji and Lottie, stickers, icons) and pull them into a Project
+with their license and attribution (#596, #597)
 
 Options:
   -h, --help                   display help for command
@@ -1394,12 +1395,16 @@ Commands:
                                with provenance (source, page URL, license,
                                author, attribution) and a copy in the Project
                                tree for index.html: artifacts/images/ (images,
-                               logos), artifacts/videos/ (video), artifacts/sfx/
+                               logos, stickers, icons), artifacts/animations/
+                               (Lottie JSON, animated WebP / GIF / SVG, short
+                               WebM), artifacts/videos/ (video), artifacts/sfx/
                                (sound effects and audio of 30 s or less),
                                artifacts/music/ (audio the source calls music,
                                or longer than 30 s). Append-only: an existing
                                file is never overwritten (a <slot>.v2 name is
-                               written), nothing is deleted.
+                               written), nothing is deleted. Also imports
+                               Pinterest pins and boards by URL
+                               (pinterest:<url>, reference only).
   credits [options]            Print the attribution block for every stock item
                                pulled into a Project, for the post caption or
                                description (markdown in `markdown`; required
