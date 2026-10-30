@@ -3,7 +3,7 @@
 > **Status:** plan only, not run. **Paid; needs owner approval of the estimate below before any call.**
 > **Filed:** 2026-10-30.
 > **Verifies:** [`guidelines/camera-language-video/`](../../guidelines/camera-language-video/guideline.md) (`ralphy guideline show camera-language-video`), where every row is `untested` today.
-> **Issue:** [`notes/issues/566-camera-language-for-generation-prompts.md`](../../notes/issues/566-camera-language-for-generation-prompts.md). Post-production camera moves are a separate track: [`notes/issues/done/567-post-production-virtual-camera.md`](../../notes/issues/done/567-post-production-virtual-camera.md).
+> **Issue:** [`notes/issues/done/566-camera-language-for-generation-prompts.md`](../../notes/issues/done/566-camera-language-for-generation-prompts.md). Post-production camera moves are a separate track: [`notes/issues/done/567-post-production-virtual-camera.md`](../../notes/issues/done/567-post-production-virtual-camera.md).
 
 ## What the matrix answers
 
