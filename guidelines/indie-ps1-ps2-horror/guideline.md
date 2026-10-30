@@ -52,7 +52,7 @@ keep the Chilla's-Art wording in the prompt. Generate scene anchors SEQUENTIALLY
 For a faux let's-play, put first-person POV hands in EVERY frame (the model drops
 them unless each prompt demands them).
 
-Does **NOT** apply to: `google/gemini-3-pro-image-preview` (different bias,
+Does **NOT** apply to: `google/gemini-3-pro-image` (different bias,
 better multi-ref — use it once a register-correct frame exists to ref); the PS2
 doomer register below; polished cinematic realism. Note gpt-image still tends to
 crop legs in 9:16 with a foreground POV hand — add "wide shot, head-to-boots, do
@@ -61,7 +61,7 @@ not crop legs" and expect occasional re-rolls.
 ### Trick — a real person in crude PS1 (identity photo + a Low Poly Shorts frame)
 
 To turn a REAL person into a crude-PS1 ("Low Poly Shorts") character, pass TWO
-refs on `google/gemini-3-pro-image-preview` multi-ref: the identity photo as one
+refs on `google/gemini-3-pro-image` multi-ref: the identity photo as one
 `--ref`, and an actual "Low Poly Shorts"-style video FRAME as a SECOND, STYLE
 `--ref`. Prompt a baked / dithered painted PS1 face TEXTURE integrated into a
 low-poly head, with NORMAL body proportions. The style frame is what carries the
@@ -125,7 +125,7 @@ Prompt formula (validated on a melancholy heavy-rain piece):
 - Mood device: a large window with HEAVY RAIN streaking the glass + blurred city
   lights bleeding through; a lone static figure, hollow / defeated expression.
 - Refs: pass a real example FROM THE GENRE as the dominant style ref + the
-  character ref for identity (`google/gemini-3-pro-image-preview` multi-ref).
+  character ref for identity (`google/gemini-3-pro-image` multi-ref).
 - **Do the grain / grade ON the generation — do NOT post-crunch.** A PS1-crunch
   downscale effect is the WRONG tool here; it is a different look.
 

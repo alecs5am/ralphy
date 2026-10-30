@@ -26,7 +26,7 @@ bars look like a clip someone reposted from TV.
   prefer pillar-padding a square master over a tall crop.
 - Conversely, for content whose premise IS portrait (studio-shot lifestyle,
   influencer portrait-camera, mobile-phone POV), force 9:16 explicitly — use
-  `google/gemini-3-pro-image-preview`, which honours the `--size` hint and gives
+  `google/gemini-3-pro-image`, which honours the `--size` hint and gives
   a real 9:16 (768×1376).
 
 Does **NOT** apply to:

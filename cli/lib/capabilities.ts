@@ -37,7 +37,7 @@ export const CAPABILITIES: Capability[] = [
     id: "llm-openrouter",
     label: "OpenRouter",
     description:
-      "Unified key — covers image generation (gemini-3-pro-image-preview, gpt-5.4-image-2), " +
+      "Unified key — covers image generation (gemini-3-pro-image, gpt-5.4-image-2), " +
       "video (kling-v3.0-pro, veo-3.1, seedance-2.0), LLM/vision (gemini, claude, gpt), " +
       "and transcription (whisper-1).",
     envVar: "OPENROUTER_API_KEY",

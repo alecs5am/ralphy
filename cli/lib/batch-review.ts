@@ -264,7 +264,8 @@ function detectRepeatedModelFailures(
 
   for (const { id, rows } of perProject) {
     for (const row of rows) {
-      if (row.status !== "error") continue;
+      // #592: a provider refusal ("blocked") is a model failure too.
+      if (row.status !== "error" && row.status !== "blocked") continue;
       const model = row.model || row.endpoint || "unknown";
       const error = (row.error ?? "unknown").trim() || "unknown";
       const key = `${model} ${error}`;

@@ -22,7 +22,7 @@ Format-first flow: the chat matches the brief to a media format / template (`ral
 
 **Flow:**
 1. Match the video format / template (`ralphy template suggest "<brief>" --format video`), `ralphy project create --id <slug>-001 --name "<human>"`, and load the matching content-niche craft-overlay skill on top (or work freeform in the AI-vegetables niche). *Remix variant: if the user pointed at the `ai-vegetables` style template to reproduce → `ralphy template use ai-vegetables --project <slug>-001 --brief "<the swap>"`.*
-2. `art-director playbook` → keyframe (gemini-3-pro-image-preview) → i2v (kling-v3.0-pro)
+2. `art-director playbook` → keyframe (gemini-3-pro-image) → i2v (kling-v3.0-pro)
 3. `editor playbook` → captions (whisper-1) → render
 4. `ralphy render <id>` → mp4 path
 

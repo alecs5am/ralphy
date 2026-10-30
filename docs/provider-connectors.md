@@ -51,11 +51,11 @@ An invalid entry is rejected with a reason (surfaced by `ralphy provider test`);
 A model id may carry a `<provider>:<model>` prefix to route to a specific connector:
 
 ```bash
-ralphy generate image --model openrouter:google/gemini-3-pro-image-preview
-# routes to the `openrouter` connector, sends `google/gemini-3-pro-image-preview`
+ralphy generate image --model openrouter:google/gemini-3-pro-image
+# routes to the `openrouter` connector, sends `google/gemini-3-pro-image`
 ```
 
-`parseModelId(id)` (in `cli/lib/providers/registry.ts`) treats `id` as prefixed **only** when the substring before the first `:` is a **registered** connector id. So bare ids that contain `/` (e.g. `google/gemini-3-pro-image-preview`) are untouched — full backwards compatibility. When prefixed, resolution targets that provider and the bare model (prefix stripped) is sent to the API.
+`parseModelId(id)` (in `cli/lib/providers/registry.ts`) treats `id` as prefixed **only** when the substring before the first `:` is a **registered** connector id. So bare ids that contain `/` (e.g. `google/gemini-3-pro-image`) are untouched — full backwards compatibility. When prefixed, resolution targets that provider and the bare model (prefix stripped) is sent to the API.
 
 ## Judge / gate model selection
 

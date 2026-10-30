@@ -83,7 +83,7 @@ features, no extra people, no extra products, no fake logo, no watermark.
 ## Model recommendation
 
 - **Default — `openai/gpt-5.4-image-2`**. Better holds hands (less extra fingers), more accurate face, cleaner skin texture.
-- **For consistency across 3-5 scenes** (same model in 5 different environments with the same product) — mandatory `google/gemini-3-pro-image-preview` with `--ref model.png --ref product.png` on each generation. This is nano-banana lineage, it is the best at multi-ref consistency.
+- **For consistency across 3-5 scenes** (same model in 5 different environments with the same product) — mandatory `google/gemini-3-pro-image` with `--ref model.png --ref product.png` on each generation. This is nano-banana lineage, it is the best at multi-ref consistency.
 - **Real brand ambassador** — `--ref` with a real photo of the model is mandatory. Without it Hard invariant #3 (reference-required gate) is violated.
 
 ## Caveats

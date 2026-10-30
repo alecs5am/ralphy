@@ -8,8 +8,8 @@
 //     (`image_urls`, the @Image1 convention). $0.3034/s 720p, ×0.6 with video
 //     inputs (= $0.1814/s), $0.682/s 1080p.
 //   - fal-ai/kling-video/o3/pro/reference-to-video (Kling O3 omni) — `elements`
-//     (@Element1) + `image_urls` (@Image1), NO video input, 3-15s, 16:9/9:16/1:1.
-//     $0.112/s audio-off, $0.14/s audio-on.
+//     (@Element1, `--element`, #592) + `image_urls` (@Image1), NO video input,
+//     3-15s, 16:9/9:16/1:1. $0.112/s audio-off, $0.14/s audio-on.
 //
 // THIS IS THE ONLY SOURCE FILE PERMITTED TO READ `FAL_KEY` OR HIT `fal.run` /
 // `fal.ai` HOSTS (AGENTS.md invariant #1, amended for #402). The agents-md
@@ -28,6 +28,7 @@ import {
   providerOutputPath,
   providerHttpError,
   logFailure,
+  logRefusalFailure,
   requireProviderKey,
   retryTransient,
   TerminalProviderError,
@@ -42,6 +43,7 @@ import type {
   RalphyConnector,
   GenerateVideoInput,
   GenerateResult,
+  VideoElementInput,
 } from "./types.js";
 import {
   credentialConfigured,
@@ -111,6 +113,88 @@ export const FAL_VIDEO_MODELS: Record<string, FalVideoModel> = {
 /** True iff `model` is a model this connector serves. */
 export function isFalVideoModel(model: string | undefined): boolean {
   return Boolean(model && model in FAL_VIDEO_MODELS);
+}
+
+/** True iff `model` is a fal model that takes Kling `elements` (#592). */
+export function falModelAcceptsElements(model: string | undefined): boolean {
+  return Boolean(model && FAL_VIDEO_MODELS[model]?.acceptsElements);
+}
+
+// ─── Kling elements (#592) ───────────────────────────────────────────────────
+//
+// fal schema `KlingV3ComboElementInput` (fetched 2026-10-30 from
+// fal.ai/api/openapi/queue/openapi.json?endpoint_id=fal-ai/kling-video/o3/pro/reference-to-video):
+// `{ frontal_image_url, reference_image_urls: 1-3 extra angles (at least one
+// required), video_url?, voice_id? }`. Referenced in the prompt as @Element1,
+// @Element2, … in flag order. The `video_url` / `voice_id` variants are not wired.
+
+/** Images per element: one frontal view plus 1-3 extra angles. */
+export const ELEMENT_IMAGES_MIN = 2;
+export const ELEMENT_IMAGES_MAX = 4;
+
+/**
+ * Parse one `--element <frontal,angle[,angle...]>` value. The first file is the
+ * frontal (main) view; the rest are extra angles. Throws on a count outside 2-4.
+ */
+export function parseElementFlag(value: string): VideoElementInput {
+  const files = value.split(",").map((f) => f.trim()).filter(Boolean);
+  if (files.length < ELEMENT_IMAGES_MIN || files.length > ELEMENT_IMAGES_MAX) {
+    throw new Error(
+      `--element takes ${ELEMENT_IMAGES_MIN}-${ELEMENT_IMAGES_MAX} comma-separated images (frontal view first, then 1-3 extra angles); got ${files.length}: "${value}"`,
+    );
+  }
+  return { frontal: files[0]!, references: files.slice(1) };
+}
+
+/** Resolved (uploaded or URL) inputs for {@link buildFalVideoBody}. */
+export type FalBodyInputs = {
+  prompt: string;
+  durationSec: number;
+  aspectRatio: string;
+  resolution: string;
+  generateAudio: boolean;
+  videoUrls?: string[];
+  imageUrls?: string[];
+  startImageUrl?: string;
+  endImageUrl?: string;
+  elements?: VideoElementInput[];
+};
+
+/**
+ * Build the fal queue request body for one model. Pure (no upload, no network)
+ * so `--dry-run` can print it and the unit tests can pin it. Callers pass URLs
+ * for a live submit and local paths for a dry run.
+ */
+export function buildFalVideoBody(model: string, inputs: FalBodyInputs): Record<string, unknown> {
+  const spec = FAL_VIDEO_MODELS[model];
+  if (!spec) {
+    throw new TerminalProviderError(
+      `fal connector cannot serve model '${model}'. Known: ${Object.keys(FAL_VIDEO_MODELS).join(", ")}.`,
+    );
+  }
+  if (inputs.elements && inputs.elements.length > 0 && !spec.acceptsElements) {
+    throw new TerminalProviderError(
+      `model '${model}' does not accept Kling elements (--element). Use fal-ai/kling-video/o3/pro/reference-to-video.`,
+    );
+  }
+  const body: Record<string, unknown> = {
+    prompt: inputs.prompt,
+    duration: String(Math.round(inputs.durationSec)),
+    aspect_ratio: inputs.aspectRatio,
+    generate_audio: inputs.generateAudio,
+  };
+  if (spec.supportedResolutions.includes(inputs.resolution)) body.resolution = inputs.resolution;
+  if (inputs.videoUrls && inputs.videoUrls.length > 0) body.video_urls = inputs.videoUrls;
+  if (inputs.imageUrls && inputs.imageUrls.length > 0) body.image_urls = inputs.imageUrls;
+  if (inputs.startImageUrl) body.start_image_url = inputs.startImageUrl;
+  if (inputs.endImageUrl) body.end_image_url = inputs.endImageUrl;
+  if (inputs.elements && inputs.elements.length > 0) {
+    body.elements = inputs.elements.map((e) => ({
+      frontal_image_url: e.frontal,
+      reference_image_urls: e.references,
+    }));
+  }
+  return body;
 }
 
 // ─── cost computation (#402 pricing) ─────────────────────────────────────────
@@ -260,6 +344,13 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     );
   }
 
+  // #592: Kling elements — refuse before any upload on a model without them.
+  if (input.elements && input.elements.length > 0 && !spec.acceptsElements) {
+    throw new TerminalProviderError(
+      `model '${model}' does not accept Kling elements (--element). Use fal-ai/kling-video/o3/pro/reference-to-video.`,
+    );
+  }
+
   const videoUrls: string[] = [];
   const preprocess: Record<string, unknown> = {};
   if (refVideoPaths.length > 0) {
@@ -312,21 +403,28 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   if (firstFrameRef) startImageUrl = await uploadLocalRef(firstFrameRef);
   let endImageUrl: string | undefined;
   if (input.lastFrame) endImageUrl = await uploadLocalRef(input.lastFrame);
+  const elements: VideoElementInput[] = [];
+  for (const element of input.elements ?? []) {
+    elements.push({
+      frontal: await uploadLocalRef(element.frontal),
+      references: await Promise.all(element.references.map((r) => uploadLocalRef(r))),
+    });
+  }
 
   // ── Build the per-model request body. seedance: video_urls + image_urls;
-  // kling o3: image_urls + elements (we map refs → image_urls; elements stay
-  // unset until a dedicated --element flag lands).
-  const body: Record<string, unknown> = {
+  // kling o3: image_urls (`--ref`, @Image1) + elements (`--element`, @Element1).
+  const body = buildFalVideoBody(model, {
     prompt: input.prompt,
-    duration: String(durationSec),
-    aspect_ratio: aspectRatio,
-    generate_audio: generateAudio,
-  };
-  if (spec.supportedResolutions.includes(resolution)) body.resolution = resolution;
-  if (videoUrls.length > 0) body.video_urls = videoUrls;
-  if (imageUrls.length > 0) body.image_urls = imageUrls;
-  if (startImageUrl) body.start_image_url = startImageUrl;
-  if (endImageUrl) body.end_image_url = endImageUrl;
+    durationSec,
+    aspectRatio,
+    resolution,
+    generateAudio,
+    videoUrls,
+    imageUrls,
+    startImageUrl,
+    endImageUrl,
+    elements,
+  });
 
   const submitUrl = `${QUEUE_BASE}/${spec.endpoint}`;
 
@@ -356,6 +454,9 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
       noRetry: input.noRetry,
       onTransientFailure: async (err, attempt) => {
         await logFailure(input, ID, model, "video", body, err, t0, attempt);
+      },
+      onTerminalFailure: async (err, attempt) => {
+        await logRefusalFailure(input, ID, model, "video", body, err, t0, attempt);
       },
     },
   );

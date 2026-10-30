@@ -53,7 +53,7 @@ Virality principles to bake in: **problem-mirror hook**, **hope loop** (transfor
 ## Default model stack (verify against MODELS.md)
 
 - **Script:** the scenarist LLM (`callLLM`) — feed it max context (product, target pains, the niche's viral patterns, the chosen hook framework).
-- **Creator + product keyframes:** `google/gemini-3-pro-image-preview` (nano-banana-pro). Generate 3-5 variants, pick the most realistic.
+- **Creator + product keyframes:** `google/gemini-3-pro-image` (nano-banana-pro). Generate 3-5 variants, pick the most realistic.
 - **i2v (multi-shot talking creator):** `kwaivgi/kling-v3.0-pro` — direct it shot-by-shot (each cut = creator speaks → product close-up → reaction → CTA). Kling `--audio` carries the EN VO + lipsync; for non-EN, VO via ElevenLabs (confirm target language at intake — see `MEMORY.md` Kling-no-RU-audio).
 - **Music:** separate ElevenLabs Music pass, instrumental, post-mixed in the editor (no artist names — `MEMORY.md`).
 - **Captions:** per-slot on the locked VO.

@@ -71,9 +71,44 @@ describe("models registry — index and detail agree (#574)", () => {
 describe("models registry — lookup", () => {
   test("resolves an exact id, an alias, and a bare ElevenLabs model id", () => {
     expect(findRegistryEntry("kwaivgi/kling-v3.0-pro")?.id).toBe("kwaivgi/kling-v3.0-pro");
-    expect(findRegistryEntry("nano banana pro")?.id).toBe("google/gemini-3-pro-image-preview");
+    expect(findRegistryEntry("nano banana pro")?.id).toBe("google/gemini-3-pro-image");
     expect(findRegistryEntry("eleven_v3")?.id).toBe("elevenlabs/eleven_v3");
     expect(findRegistryEntry("does-not/exist")).toBeNull();
+  });
+
+  test("#592: the retired Gemini preview id resolves to the GA default and keeps its notes", () => {
+    const e = findRegistryEntry("google/gemini-3-pro-image-preview")!;
+    expect(e.id).toBe("google/gemini-3-pro-image");
+    expect(e.role.startsWith("Default")).toBe(true);
+    expect(e.aliases).toContain("google/gemini-3-pro-image-preview");
+    // The append-only dropped table still names the preview id; it reaches the GA entry.
+    expect(e.related.some((r) => r.from.startsWith("dropped.md") && r.text.includes("smudges typography"))).toBe(true);
+  });
+
+  test("#592: every model seen in the 2026-09/10 logs has an index row and a detail section", () => {
+    const ids: Array<[string, "image" | "video"]> = [
+      ["google/gemini-nano-banana-2.1", "image"],
+      ["bytedance-seed/seedream-5-0-pro", "image"],
+      ["black-forest-labs/flux-3-image", "image"],
+      ["openai/gpt-image-2.5-sunburst", "image"],
+      ["bytedance/seedance-2.5", "video"],
+      ["alibaba/wan-3.0", "video"],
+      ["minimax/hailuo-3-max", "video"],
+      ["minimax/hailuo-3", "video"],
+      ["heygen/avatar-iv", "video"],
+      ["fal-ai/kling-video/ai-avatar/v2/pro", "video"],
+    ];
+    for (const [id, kind] of ids) {
+      const e = findRegistryEntry(id);
+      expect(e?.id).toBe(id);
+      expect(e?.kind).toBe(kind);
+      expect(e?.price).toMatch(/\$/);
+      expect(e?.detail?.length ?? 0).toBeGreaterThan(80);
+    }
+    // Refusal rows are a shared video note that reaches the models it names.
+    for (const id of ["bytedance/seedance-2.5", "alibaba/wan-3.0", "minimax/hailuo-3-max"]) {
+      expect(findRegistryEntry(id)!.related.some((r) => r.from.includes("Refusals"))).toBe(true);
+    }
   });
 
   test("an entry carries role + price from the index and detail from its section", () => {

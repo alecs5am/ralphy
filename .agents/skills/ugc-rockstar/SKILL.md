@@ -45,7 +45,7 @@ A generalized **style** overlay, not a finished video. It tells the scenarist an
 
 ## Default model stack (verify against MODELS.md)
 
-- **Keyframes:** `google/gemini-3-pro-image-preview` (premium typography for fake-brand billboards / on-screen text: `openai/gpt-5.4-image-2`).
+- **Keyframes:** `google/gemini-3-pro-image` (premium typography for fake-brand billboards / on-screen text: `openai/gpt-5.4-image-2`).
 - **i2v:** `kwaivgi/kling-v3.0-pro` for default cinematic motion; `bytedance/seedance-2.0` for non-default physics (vehicle stunts, falls, chaotic action — per `MEMORY.md` VG model picks).
 - **VO / music:** ElevenLabs; music a separate post-mix pass.
 

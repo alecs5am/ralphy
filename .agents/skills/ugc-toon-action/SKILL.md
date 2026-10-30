@@ -76,12 +76,12 @@ seedance recognizes named style references baked into the hair/outfit line and u
 
 ### OPTIONAL — VS character-select poster (one output format, skippable)
 
-If — and only if — the user wants a marketing card alongside the cut, generate a fighting-game VS character-select poster with `google/gemini-3-pro-image-preview`, passing the user's layout reference as `--ref` (gemini holds multi-ref layout 1:1; ~$0.15, ~46s). The poster register is intentionally **photoreal 3D-render lookbook**, a different register from the painterly video — it is a marketing surface, not the point of the skill. Skip this entire stage for a video-only deliverable. The full poster prompt lives in [`templates/cinematic-narrative/comic-spiderverse-action/prompt-cookbook.md`](../../../templates/cinematic-narrative/comic-spiderverse-action/prompt-cookbook.md).
+If — and only if — the user wants a marketing card alongside the cut, generate a fighting-game VS character-select poster with `google/gemini-3-pro-image`, passing the user's layout reference as `--ref` (gemini holds multi-ref layout 1:1; ~$0.15, ~46s). The poster register is intentionally **photoreal 3D-render lookbook**, a different register from the painterly video — it is a marketing surface, not the point of the skill. Skip this entire stage for a video-only deliverable. The full poster prompt lives in [`templates/cinematic-narrative/comic-spiderverse-action/prompt-cookbook.md`](../../../templates/cinematic-narrative/comic-spiderverse-action/prompt-cookbook.md).
 
 ## Default model stack (verify against MODELS.md)
 
 - **Character design + script:** the scenarist LLM (`callLLM`) — produces the SUBJECTS blocks + shot beats.
-- **Optional VS poster:** `google/gemini-3-pro-image-preview`, `--ref` to a layout reference. Skip if video-only.
+- **Optional VS poster:** `google/gemini-3-pro-image`, `--ref` to a layout reference. Skip if video-only.
 - **Action video:** `bytedance/seedance-2.0` t2v, 1080p, `--audio` ON, AUDIO-POLICY banning music. ~$0.14/s (≈$2.10 per 15s clip). NOT kling, NOT veo (5-6× pricier for no gain on painterly).
 - **Music:** post-render ElevenLabs Music pass, instrumental, genre+BPM+instrumentation only, no artist names. On `400 bad_prompt`, resubmit the API's `prompt_suggestion` verbatim.
 - **Editor:** `ralphy video concat` the clips, then `ralphy video add-music --duck` (sidechain duck under the diegetic SFX), then `ralphy render <id>`.

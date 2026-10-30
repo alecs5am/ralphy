@@ -64,7 +64,7 @@ The original ran on Atlas Cloud model ids. On OUR stack the equivalents are:
 
 | Job | vox-director (Atlas) | **ralphy verb + model** | Note |
 |---|---|---|---|
-| Keyframe / collage poster | `google/nano-banana-2/text-to-image` | `ralphy generate image --model google/gemini-3-pro-image-preview` | nano-banana-pro lineage — closest match; renders EN headline text well + rich collage. **Default.** |
+| Keyframe / collage poster | `google/nano-banana-2/text-to-image` | `ralphy generate image --model google/gemini-3-pro-image` | nano-banana-pro lineage — closest match; renders EN headline text well + rich collage. **Default.** |
 | Poster with perfect headline typography | (same) | `ralphy generate image --model openai/gpt-5.4-image-2` | **Fallback** when the baked wood-type headline must be pixel-crisp / perfectly spelled. |
 | Animate (living poster, non-real content) | `google/gemini-omni-flash/image-to-video` | `ralphy generate video --model bytedance/seedance-2.0 --first-frame <poster>` | with the flat-safe constrained prompt below. Craft overlay: [`/seedance-prompts`](../seedance-prompts/SKILL.md). |
 | Animate (real people / brand logos) | `kwaivgi/kling-video-o3-pro/image-to-video` | `ralphy generate video --model kwaivgi/kling-v3.0-pro --first-frame <poster>` | seedance/veo block photoreal-human + celebrity anchors (MEMORY.md); kling is the route. |
@@ -132,7 +132,7 @@ ralphy project log-prompt --project <id> --stage "beat-map" --text "<the arc + b
 
 # Step 3 — posters (one dense collage per beat). Default gemini; gpt-image for perfect headlines.
 ralphy generate image --project <id> --slot beat-01-wide \
-  --model google/gemini-3-pro-image-preview --aspect 9:16 \
+  --model google/gemini-3-pro-image --aspect 9:16 \
   --prompt-file prompts/beat-01-wide.txt
 # Verify it's a real layered collage before animating (re-roll is cheap here, not after motion).
 

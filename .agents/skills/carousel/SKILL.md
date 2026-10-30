@@ -102,7 +102,7 @@ In every prompt body, name the ONE accent color in hex AND add the source hue to
 ## Default model stack (verify against MODELS.md)
 
 - **Default — `openai/gpt-5.4-image-2`.** Best at baked text (30/30 slides spelled right). Serialize per style (1 concurrent per key for the loop on that style); parallel across styles is fine. Aspect via `--size 1080x1350` (4:5 IG / LinkedIn carousel default), `--size 1080x1080` for 1:1, `--size 1080x1920` for Stories.
-- **Fallback — `google/gemini-3-pro-image-preview`.** Faster, but smudges small embedded typography. Use ONLY for fast palette / cover exploration; finalize on gpt-image.
+- **Fallback — `google/gemini-3-pro-image`.** Faster, but smudges small embedded typography. Use ONLY for fast palette / cover exploration; finalize on gpt-image.
 
 ## Failure modes
 

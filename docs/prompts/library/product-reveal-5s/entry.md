@@ -2,7 +2,7 @@
 goal: Reveal the product in a 3-5s beat after a pain-state setup, with the hand entering frame from screen-right.
 applies_to: [video, image]
 tags: [product-reveal, hand-in-frame, dtc, before-after, conversion]
-models_known_good: [kwaivgi/kling-v3.0-pro, google/gemini-3-pro-image-preview, openai/gpt-5.4-image-2]
+models_known_good: [kwaivgi/kling-v3.0-pro, google/gemini-3-pro-image, openai/gpt-5.4-image-2]
 models_known_bad: [pika/pika-2-turbo]
 references:
   - https://www.tiktok.com/@dtcbrand/video/7456789012

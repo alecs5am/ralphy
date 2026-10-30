@@ -6,11 +6,11 @@
 
 Three small rules every `ralphy generate` call should clear before submit. Each is a one-liner; each saves one regen cycle (~$0.15–$1) per occurrence and was filed from a real postmortem. See [notes/issues/done/050-anti-mockup-and-prompt-hygiene.md](../../../../notes/issues/done/050-anti-mockup-and-prompt-hygiene.md) for the bundle.
 
-### 1. Anti-mockup directive (nano-banana / gemini-3-pro-image-preview)
+### 1. Anti-mockup directive (nano-banana / gemini-3-pro-image)
 
 `nano-banana` defaults to a **tiny iPhone-mockup-in-corner** composition unless the prompt explicitly forbids it. Without the forbid-string, even a clearly full-bleed brief (poster, hero, magazine layout) comes back with a postage-stamp phone floating in the lower third. Validated on `appstore-takeaminute-001` (`screen-01-hero-v2`/`-v4` both leaked mockups; 2 paid regens at $0.15 each before the directive went in; ~8 further regens prevented across the run).
 
-**Rule.** Any full-bleed slot prompt for nano-banana / gemini-3-pro-image-preview MUST lead with the verbatim block below. The HERO / TROPE / CTA register from `appstore-takeaminute-001` is the canonical wording:
+**Rule.** Any full-bleed slot prompt for nano-banana / gemini-3-pro-image MUST lead with the verbatim block below. The HERO / TROPE / CTA register from `appstore-takeaminute-001` is the canonical wording:
 
 ```
 CRITICAL: This is a FULL-BLEED MAGAZINE POSTER LAYOUT — NO iPhone

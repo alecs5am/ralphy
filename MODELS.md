@@ -1,10 +1,10 @@
 # Models registry
 
-A short, opinionated list of the models we actually use. **Two API keys only:** `OPENROUTER_API_KEY` for media / LLM / transcription, `ELEVENLABS_API_KEY` for voice and music (plus the registered `fal` connector's `FAL_KEY` for the two fal reference-to-video models). Everything else is out of scope.
+A short, opinionated list of the models we actually use. **Two API keys only:** `OPENROUTER_API_KEY` for media / LLM / transcription, `ELEVENLABS_API_KEY` for voice and music (plus the registered `fal` connector's `FAL_KEY` for the fal models). Everything else is out of scope.
 
 This file is the **index**: one row per model with its role and price. Per-model detail (capabilities, limits, quirks, lessons) lives in [`docs/models/`](docs/models/image.md), one file per kind, and `ralphy models show <id>` prints it one model at a time.
 
-> **Last reviewed: 2026-05-08** (video prices, 4K availability and the Sora retirement rechecked against the OpenRouter catalog on 2026-10-30, #568). If this file is older than 30 days, recheck OpenRouter — model versions change without notice. The catalog is the source of truth for video parameters; pull it with `ralphy models list` (24h cached).
+> **Last reviewed: 2026-05-08** (video prices, 4K availability and the Sora retirement rechecked against the OpenRouter catalog on 2026-10-30, #568; Gemini GA default and the models seen in 2026-09/10 project logs added from the OR image + video catalogs on 2026-10-30, #592). If this file is older than 30 days, recheck OpenRouter — model versions change without notice. The catalog is the source of truth for video parameters; pull it with `ralphy models list` (24h cached).
 
 ## How to use this file
 
@@ -21,10 +21,14 @@ Detail: [`docs/models/image.md`](docs/models/image.md).
 
 | Model | Role | Price |
 |---|---|---|
-| `google/gemini-3-pro-image-preview` | **Default** — multi-ref / character consistency (nano-banana-pro lineage); photoreal scientific / medical imaging | ~$0.15 / image |
+| `google/gemini-3-pro-image` | **Default** — multi-ref / character consistency (nano-banana-pro lineage, GA id; `google/gemini-3-pro-image-preview` resolves here); photoreal scientific / medical imaging | ~$0.15 / image |
 | `openai/gpt-5.4-image-2` | Premium typography / label accuracy; body-horror anchor frames | ~$0.20 / image |
 | `openai/gpt-5-image-mini` | Budget OpenAI — cheap iteration during prompt exploration | ~$0.08 / image |
 | `google/gemini-2.5-flash-image` | Cheapest viable — smoke tests only | ~$0.02 / image |
+| `google/gemini-nano-banana-2.1` | Flash-tier Gemini, ≤14 refs, extreme aspects (1:8 to 8:1) | ~$0.04 / image (logged) |
+| `bytedance-seed/seedream-5-0-pro` | Identity packs and edits, ≤14 refs; image-only output | $0.045 / image, +$0.003 / extra ref, $0.09 high-res |
+| `black-forest-labs/flux-3-image` | Edit of one original photo, ≤10 refs; image-only output | $0.048 (1K) to $0.607 (4K) / image |
+| `openai/gpt-image-2.5-sunburst` | Precision OpenAI tier, ≤16 refs, transparent background; image-only output | token-billed, $0.042-0.091 / image (logged) |
 
 ## Video
 
@@ -46,7 +50,13 @@ Detail: [`docs/models/video.md`](docs/models/video.md). Prices are per second of
 | `bytedance/seedance-2.0-fast` | Cheapest viable in the pick table | $0.14/s ✓ |
 | `bytedance/seedance-1-5-pro` | Older seedance tier (4-12 s) | ~$0.10/s |
 | `bytedance/seedance-2.0/reference-to-video` | fal connector — reference-VIDEO restyle, accepts real-human-face reference video | $0.3034/s @720p (×0.6 with video refs) |
-| `fal-ai/kling-video/o3/pro/reference-to-video` | fal connector — Kling O3 omni, character consistency via elements; no video input | $0.112/s audio-off, $0.14/s audio-on |
+| `fal-ai/kling-video/o3/pro/reference-to-video` | fal connector — Kling O3 omni, character consistency via `--element` packs; no video input | $0.112/s audio-off, $0.14/s audio-on |
+| `bytedance/seedance-2.5` | 4-30 s clips, first + last frame, 21:9; output copyright filter | ~$0.23/s 720p, ~$0.10/s 480p (video tokens) |
+| `alibaba/wan-3.0` | 2-30 s clips, first + last frame, 3:4 / 4:3 | $0.05 / $0.10 / $0.20 per s at 480p / 720p / 1080p |
+| `minimax/hailuo-3-max` | Fast 5-15 s, 480p / 768p, first + last frame, no audio | $0.08/s 768p, $0.05/s 480p |
+| `minimax/hailuo-3` | 2K only, 5-15 s, native audio | $0.13/s + $0.04 / ref image |
+| `heygen/avatar-iv` | Photo-to-talking-head lip sync; voice params not wired | $0.05/s |
+| `fal-ai/kling-video/ai-avatar/v2/pro` | fal — image + audio lip-sync avatar; **not routed** by the fal connector | $0.115/s |
 
 ## Voiceover
 

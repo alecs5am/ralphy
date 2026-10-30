@@ -233,8 +233,8 @@ Commands:
                          attempt without automatic retries. Cost remains unknown
                          unless the provider reports it.
   image [options]        Generate one image via OpenRouter (default:
-                         google/gemini-3-pro-image-preview — nano-banana-pro,
-                         multi-ref consistency, ≥4 concurrent). Pass --model
+                         google/gemini-3-pro-image — nano-banana-pro, multi-ref
+                         consistency, ≥4 concurrent). Pass --model
                          openai/gpt-5.4-image-2 when label typography matters
                          more than ref consistency. Pass --import <file> to
                          register a host-generated image (Codex / Claude host

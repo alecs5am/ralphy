@@ -305,7 +305,8 @@ describe("CLI surface (#573)", () => {
     expect(list.json.source).toBe("MODELS.md");
     const show = await cli(["--root", f.dataRoot, "models", "show", "google/gemini-3-pro-image-preview"]);
     expect(show.exitCode, show.stderr).toBe(0);
-    expect(show.json.id).toBe("google/gemini-3-pro-image-preview");
+    // #592: the retired preview id resolves to the GA default.
+    expect(show.json.id).toBe("google/gemini-3-pro-image");
   });
 
   test("a missing required flag prints one example invocation", async () => {

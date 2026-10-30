@@ -86,7 +86,7 @@ describe("storyboard data contract", () => {
     const [first, second] = view.scenes;
     expect(first).toMatchObject({ vo: "Stop scrolling.", durationSec: 3, camera: "selfie 35mm, eye-level", state: "pending" });
     expect(first!.frame).toMatchObject({ source: "file", mime: "image/png" });
-    expect(first!.models).toEqual({ image: "google/gemini-3-pro-image-preview", video: "kwaivgi/kling-v3.0-pro" });
+    expect(first!.models).toEqual({ image: "google/gemini-3-pro-image", video: "kwaivgi/kling-v3.0-pro" });
     expect(second!.models).toEqual({ image: "openai/gpt-5.4-image-2", video: "google/veo-3.1-fast" });
     expect(second!.frame).toBeNull();
     expect(second!.estimatedCostUsd).toBeGreaterThan(0);

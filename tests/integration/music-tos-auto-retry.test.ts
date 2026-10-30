@@ -5,8 +5,8 @@
 // connector, then drives `submitMusicWithToSAutoRetry` — the helper the CLI
 // action handler calls. Asserts the canonical gen-log schema (#032):
 //
-//   row 1: status=error,  error=/^tos_rejected:/, attempt=1,
-//          input.prompt_suggestion="<rewrite>"
+//   row 1: status=blocked, error=/^blocked:tos-content:/, attempt=1,
+//          cost_source=unknown, input.prompt_suggestion="<rewrite>" (#592)
 //   row 2: status=ok,     kind=music,           attempt=N (connector-supplied)
 //   row 3: status=ok,     attempt=2,            input.prompt_suggestion_used=true,
 //          input.original_prompt + input.resubmit_prompt set
@@ -58,7 +58,7 @@ afterEach(() => {
 });
 
 describe("submitMusicWithToSAutoRetry — end-to-end against mocked EL", () => {
-  test("400 ToS with prompt_suggestion → log tos_rejected then resubmit success", async () => {
+  test("400 ToS with prompt_suggestion → log a blocked refusal row then resubmit success", async () => {
     const suggestion = "trap beat, 140 BPM, 808 sub-bass, dark minor-key piano, no vocals";
     let calls = 0;
     globalThis.fetch = (async () => {
@@ -107,10 +107,13 @@ describe("submitMusicWithToSAutoRetry — end-to-end against mocked EL", () => {
 
     // ── row 1: ToS-rejected original ────────────────────────────────────────
     const tosRejected = rows.find(
-      (r) => r.status === "error" && /^tos_rejected:/.test(r.error ?? ""),
+      (r) => r.status === "blocked" && /^blocked:tos-content:/.test(r.error ?? ""),
     );
     expect(tosRejected).toBeDefined();
     expect(tosRejected!.attempt).toBe(1);
+    expect(tosRejected!.cost_source).toBe("unknown");
+    expect(tosRejected!.cost_usd).toBeUndefined();
+    expect(tosRejected!.note).toContain("tos_rejected (#006)");
     expect(tosRejected!.kind).toBe("music");
     expect(tosRejected!.provider).toBe("elevenlabs");
     expect(tosRejected!.input.slot).toBe("bed-01");

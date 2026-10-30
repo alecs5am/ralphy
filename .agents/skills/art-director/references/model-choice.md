@@ -6,7 +6,7 @@
 
 ```
 need: image
-  → multi-ref (consistency between scenes) → google/gemini-3-pro-image-preview
+  → multi-ref (consistency between scenes) → google/gemini-3-pro-image
   → premium photorealism without strict consistency → openai/gpt-5.4-image-2
 
 need: video (i2v)
@@ -37,7 +37,7 @@ After picking the model, read the guideline that covers the prompt you are about
 
 Before a batch — **always** state the estimate out loud:
 
-> "N keyframes × gemini-3-pro-image-preview ≈ $X.XX, M × kling-v3.0-pro × Ts ≈ $Y.YY, K VO calls ≈ $Z.ZZ, music 1× ≈ $W. Total ≈ $T. Run?"
+> "N keyframes × gemini-3-pro-image ≈ $X.XX, M × kling-v3.0-pro × Ts ≈ $Y.YY, K VO calls ≈ $Z.ZZ, music 1× ≈ $W. Total ≈ $T. Run?"
 
 Pull prices from the `MODELS.md` index (or `ralphy models show <id>`). Real totals — from `generations.jsonl.cost_usd` of previous runs (Claude pricing knowledge stale).
 

@@ -80,14 +80,20 @@ export type CommonInput = {
 };
 
 export type GenerateImageInput = CommonInput & {
-  /** Model id, e.g. `google/gemini-3-pro-image-preview` (default, nano-banana-pro) or `openai/gpt-5.4-image-2` for premium typography on labels. */
+  /** Model id, e.g. `google/gemini-3-pro-image` (default, nano-banana-pro) or `openai/gpt-5.4-image-2` for premium typography on labels. */
   model?: string;
   prompt: string;
-  /** Optional multi-ref URLs. Both gemini-3-pro-image-preview and gpt-5.4-image-2 accept image inputs; gemini is materially stronger at multi-ref character consistency. */
+  /** Optional multi-ref URLs. Both gemini-3-pro-image and gpt-5.4-image-2 accept image inputs; gemini is materially stronger at multi-ref character consistency. */
   refs?: string[];
   size?: ImageSize;
   /** Negative prompt where supported. */
   negativePrompt?: string;
+};
+
+/** One Kling O3 element (#592): a frontal view plus 1-3 extra angles (URL or local path). */
+export type VideoElementInput = {
+  frontal: string;
+  references: string[];
 };
 
 export type GenerateVideoInput = CommonInput & {
@@ -116,6 +122,14 @@ export type GenerateVideoInput = CommonInput & {
    * into `artifacts/refs/`, #402). Models without video-ref support reject it.
    */
   refVideos?: string[];
+  /**
+   * Kling O3 `elements` (#592): each element is one character or object as
+   * a frontal image plus 1-3 extra angles (2-4 images in all). Order maps to
+   * `@Element1`, `@Element2`, … in the prompt. Honored ONLY by the fal
+   * connector's `fal-ai/kling-video/o3/pro/reference-to-video`; other models
+   * refuse it.
+   */
+  elements?: VideoElementInput[];
   prompt: string;
   durationSec: number;
   /** Enable model-native audio (Veo 3.x only). Default false. */

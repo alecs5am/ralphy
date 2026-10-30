@@ -10,7 +10,7 @@
   "scope": ["image", "video", "horror", "ps1", "ps2", "retro-game", "doomer"],
   "models": [
     "openai/gpt-5.4-image-2",
-    "google/gemini-3-pro-image-preview",
+    "google/gemini-3-pro-image",
     "bytedance/seedance-2.0"
   ],
   "tags": ["ps1", "ps2", "horror", "found-footage", "doomer", "retro-game", "silent-hill"],

@@ -40,7 +40,7 @@ Build the prompt with the [`/json-prompt-engine`](../../../.agents/skills/json-p
 ## Model recommendations
 
 Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
-- **Default / scene anchor + multi-ref cohesion — `google/gemini-3-pro-image-preview`.** Best at honouring `--ref` for identity lock (product + recurring person + location) with low drift across shots; the strongest pick when the same model / product / location must repeat.
+- **Default / scene anchor + multi-ref cohesion — `google/gemini-3-pro-image`.** Best at honouring `--ref` for identity lock (product + recurring person + location) with low drift across shots; the strongest pick when the same model / product / location must repeat.
 - **Master-portrait of a new person (no ref) — `openai/gpt-5.4-image-2`.** Strongest at "real person, plain backdrop" from text alone; generate the portrait here, then carry it as `--ref` into the scene.
 
 ## Style / visual constraints

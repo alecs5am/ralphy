@@ -148,6 +148,33 @@ const RULES: Rule[] = [
     ],
   },
   {
+    id: "ip-infringement",
+    // #592: IP / protected-content filters seen on newer OR video models
+    // (wan-3.0 "Input data is suspected of being involved in IP infringement",
+    // flux-3-video "Protected Content") and Gemini's PROHIBITED_CONTENT finish
+    // on IP-coded characters.
+    any: ["ip infringement", "protected content", "prohibited_content"],
+    class: "moderation",
+    severity: "fail",
+    retryPolicy: "ask-user",
+    filterClass: "copyright",
+    nextActions: [
+      "the provider flagged the input or output as protected IP — this is a rights question, not a prompt problem; redesign the subject away from the known character, or reroute only the blocked clip (kwaivgi/kling-v3.0-pro per MODELS.md)",
+    ],
+  },
+  {
+    id: "output-sensitive",
+    // #592: MiniMax Hailuo output filter ("output new_sensitive (1027)").
+    any: ["new_sensitive", "output sensitive"],
+    class: "moderation",
+    severity: "fail",
+    retryPolicy: "ask-user",
+    filterClass: "safety-output",
+    nextActions: [
+      "the provider's output filter blocked the generated clip — change the shot (wider framing, a stylized register) or reroute only this clip to another model (MODELS.md routing rules)",
+    ],
+  },
+  {
     id: "responsible-ai-input",
     // veo prompt/frame filter (memory feedback_i2v_provider_filters: Google's
     // filter scans BOTH the prompt and the input frame).

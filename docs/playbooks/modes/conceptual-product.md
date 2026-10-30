@@ -27,7 +27,7 @@ Use the [`/json-prompt-engine`](../../../.agents/skills/json-prompt-engine/SKILL
 ## Model recommendations
 
 Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
-- **Default — `google/gemini-3-pro-image-preview`.** Strong at surreal composition + multi-ref product consistency; cheaper / faster for concept exploration.
+- **Default — `google/gemini-3-pro-image`.** Strong at surreal composition + multi-ref product consistency; cheaper / faster for concept exploration.
 - **Premium — `openai/gpt-5.4-image-2`.** Use when the concept bakes legible typography or a precise wordmark into the key-visual.
 - For safety-sensitive registers (body-horror / cryptid concept art) gpt-image clears prompts gemini returns `IMAGE_SAFETY` on — see `MEMORY.md` image-safety-thresholds.
 

@@ -48,13 +48,18 @@ import type { LedgerEvidenceIndex } from "../analytics/report.js";
 
 /** Per-image USD ballpark by model id (mirrors MODELS.md image-model table). */
 const IMAGE_PRICE_USD: Record<string, number> = {
+  "google/gemini-3-pro-image": 0.15,
   "google/gemini-3-pro-image-preview": 0.15,
   "openai/gpt-5.4-image-2": 0.2,
   "openai/gpt-5-image-mini": 0.08,
   "google/gemini-2.5-flash-image": 0.02,
+  "google/gemini-nano-banana-2.1": 0.04,
+  "bytedance-seed/seedream-5-0-pro": 0.045,
+  "black-forest-labs/flux-3-image": 0.05,
+  "openai/gpt-image-2.5-sunburst": 0.06,
 };
 
-const DEFAULT_IMAGE_MODEL = "google/gemini-3-pro-image-preview";
+const DEFAULT_IMAGE_MODEL = "google/gemini-3-pro-image";
 const DEFAULT_VIDEO_MODEL = "kwaivgi/kling-v3.0-pro";
 /** Article drafting LLM (#526) — MODELS.md scenarist/rewrite row. Verify per run. */
 const DEFAULT_TEXT_MODEL = "anthropic/claude-sonnet-4.6";

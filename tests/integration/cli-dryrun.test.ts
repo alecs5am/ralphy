@@ -86,7 +86,7 @@ describe("ralphy models list", () => {
     expect(kling.durations).toContain("5");
     expect(kling.aspects).toContain("9:16");
     expect(kling.frames).toContain("first_frame");
-    expect(kling.priceUsd5s).toBeCloseTo(0.7, 4);
+    expect(kling.priceUsd5s).toBeCloseTo(0.56, 4); // $0.112/s silent (2026-10-30 catalog)
   });
 });
 
@@ -154,7 +154,7 @@ describe("ralphy generate video --dry-run", () => {
     const r = ralphy([...baseArgs, "--model", "kwaivgi/kling-v3.0-pro"]);
     expect(r.exitCode).toBe(0);
     expect(r.json.dryRun).toBe(true);
-    expect(r.json.estimatedCostUsd).toBeCloseTo(0.7, 4);
+    expect(r.json.estimatedCostUsd).toBeCloseTo(0.56, 4); // $0.112/s silent (2026-10-30 catalog)
   });
 
   test("--no-validate bypasses rejection", () => {

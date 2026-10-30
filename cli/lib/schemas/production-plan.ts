@@ -64,7 +64,7 @@ export type PlanFormatTemplate = z.infer<typeof PlanFormatTemplateSchema>;
 export const PlanModelSchema = z.object({
   /** What this model produces in the stack. */
   role: z.enum(["image", "video", "voiceover", "music", "sfx", "llm"]),
-  /** Model id (e.g. `google/gemini-3-pro-image-preview`) or pipeline label (e.g. `elevenlabs-tts`). */
+  /** Model id (e.g. `google/gemini-3-pro-image`) or pipeline label (e.g. `elevenlabs-tts`). */
   model: z.string().min(1),
   /** Best-effort per-unit USD cost (per image / per second of video / per VO pass). */
   unitCostUsd: z.number().nonnegative().default(0),

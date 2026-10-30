@@ -83,7 +83,7 @@ One real edit at a time. If you want two changes — do two iteration-edits sequ
 ## Model recommendation
 
 - **Default — `openai/gpt-5.4-image-2`**. Cleaner holds the source object — better for surgical edits.
-- **Alternative — `google/gemini-3-pro-image-preview`**. Sometimes iteration via gemini is more pliable (especially for colour swap and lighting tweak), because nano-banana is specifically trained on multi-ref edit tasks.
+- **Alternative — `google/gemini-3-pro-image`**. Sometimes iteration via gemini is more pliable (especially for colour swap and lighting tweak), because nano-banana is specifically trained on multi-ref edit tasks.
 
 Makes sense to try both if the first render does not preserve identity.
 

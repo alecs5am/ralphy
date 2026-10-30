@@ -132,6 +132,10 @@ export const MODEL_CONSTRAINTS: Record<string, ModelConstraint> = {
     supportedInputs: ["text", "refs"],
     aspectSizeBehavior: "ignores arbitrary --size; snaps to a fixed grid per aspect (use --aspect, not --size)", // #051
   },
+  "google/gemini-3-pro-image": {
+    supportedInputs: ["text", "refs"],
+    aspectSizeBehavior: "ignores arbitrary --size; snaps to a natural grid per aspect (use --aspect, not --size)", // #051
+  },
   "google/gemini-3-pro-image-preview": {
     supportedInputs: ["text", "refs"],
     aspectSizeBehavior: "ignores arbitrary --size; snaps to a natural grid per aspect (use --aspect, not --size)", // #051

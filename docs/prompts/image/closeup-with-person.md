@@ -111,7 +111,7 @@ no watermark.
 ## Model recommendation
 
 - **Default — `openai/gpt-5.4-image-2`**. Cleaner hands (less "warped hands" / extra fingers), more accurate skin texture, better typography of label under fingers.
-- If the same model/hands across 3-5 scenes is needed (consistency) — `google/gemini-3-pro-image-preview` with `--ref hand-reference.png` + `--ref product.png`.
+- If the same model/hands across 3-5 scenes is needed (consistency) — `google/gemini-3-pro-image` with `--ref hand-reference.png` + `--ref product.png`.
 - **Never give just a text prompt with a specific real person** — reference is mandatory, otherwise face-similarity is not guaranteed (see AGENTS.md "Reference-required gate").
 
 ## Caveats

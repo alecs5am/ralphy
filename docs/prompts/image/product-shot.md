@@ -120,7 +120,7 @@ no text, no watermark, no random branding, no reflections showing a room.
 ## Model recommendation
 
 - **Default — `openai/gpt-5.4-image-2`**. Better label typography, more accurate text, fewer hallucinations of small details. This is what is needed for marketplace where the label must be readable.
-- Multi-ref (bottle + texture + brand-color swatch simultaneously) — `google/gemini-3-pro-image-preview` with 2-3 `--ref`.
+- Multi-ref (bottle + texture + brand-color swatch simultaneously) — `google/gemini-3-pro-image` with 2-3 `--ref`.
 - If experimenting with style — try both, in gpt-image-2 studio is cleaner, in gemini light is more pliable.
 
 ## Caveats

@@ -30,7 +30,7 @@ Build the prompt with the [`/json-prompt-engine`](../../../.agents/skills/json-p
 ## Model recommendations
 
 Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
-- **Default — `google/gemini-3-pro-image-preview`.** Renders precise device geometry from a textual product-DNA description; best for the hero anchor and clean compositions; multi-ref product consistency.
+- **Default — `google/gemini-3-pro-image`.** Renders precise device geometry from a textual product-DNA description; best for the hero anchor and clean compositions; multi-ref product consistency.
 - **Premium / series continuation — `openai/gpt-5.4-image-2`.** Stronger at preserving exact device geometry across multiple shots once the hero is locked, and at crisp embedded typography / labels where a wordmark must read legibly.
 - Pass the hero anchor as `--ref` on every downstream angle.
 

@@ -2,7 +2,7 @@
 name: json-prompt-engine
 namespace: user
 description: >-
-  Analyze a reference image (or video frame) and emit a ready-to-paste structured JSON prompt that captures every visual quality needed to reproduce it through `ralphy generate image --prompt-file`. The reverse of the prompt cookbook: image in -> dense JSON prompt out (scene / style / technical / materials / environment / composition / quality blocks; add a `motion` block for image-to-video). Adapts the schema to ralphy's model stack — `gemini-3-pro-image-preview` for multi-ref consistency, `gpt-5.4-image-2` for crisp typography — and folds any matching `@guideline:<slug>` rules into the quality block.
+  Analyze a reference image (or video frame) and emit a ready-to-paste structured JSON prompt that captures every visual quality needed to reproduce it through `ralphy generate image --prompt-file`. The reverse of the prompt cookbook: image in -> dense JSON prompt out (scene / style / technical / materials / environment / composition / quality blocks; add a `motion` block for image-to-video). Adapts the schema to ralphy's model stack — `gemini-3-pro-image` for multi-ref consistency, `gpt-5.4-image-2` for crisp typography — and folds any matching `@guideline:<slug>` rules into the quality block.
   USE WHEN the user uploads or points at a reference image and asks for a prompt, "JSON prompt", "image-to-prompt", "reverse-engineer this image", "recreate this image", "describe this in prompt format", "give me the prompt for this style/look", or wants a per-slide JSON prompt for a carousel.
   DO NOT FIRE for conversational "what is in this image" questions, image editing, or when the user already has a brief and only wants generation (that is the art-director playbook). This runs THROUGH `ralphy generate`, it does not bypass the reference-required gate or the quality gate.
 ---
@@ -24,7 +24,7 @@ The inverse of `docs/prompts/image/` (the mode-by-mode prompt cookbook). The coo
 ## Hard invariants
 
 - **Route through `ralphy generate image --prompt-file <path>`.** Never paste raw provider API code, never `curl` openrouter, never call a model SDK directly (AGENTS.md invariant #1/#2). The JSON you emit is the *prompt body* — JSON-structured prompts are an established ralphy pattern (the carousel and fb-creatives skills use the same STYLE + QUALITY block shape).
-- **Run `ralphy models show <id>` (index: `MODELS.md`) before naming any model id.** The stack below is the default as of 2026-05-20, not a hardcode. Default image model: `google/gemini-3-pro-image-preview` (multi-ref consistency). Premium typography / legible-label work: `openai/gpt-5.4-image-2`. Match the model to the `quality` profile you write (see Cookbook).
+- **Run `ralphy models show <id>` (index: `MODELS.md`) before naming any model id.** The stack below is the default as of 2026-05-20, not a hardcode. Default image model: `google/gemini-3-pro-image` (multi-ref consistency). Premium typography / legible-label work: `openai/gpt-5.4-image-2`. Match the model to the `quality` profile you write (see Cookbook).
 - **Reference-required gate still fires.** If the recovered prompt names a real person, a recognizable branded product, or an IP (AGENTS.md invariant #3), the *source image itself* is the ref — pass it on the generate call with `--ref <path>`. If the user only wants the JSON text and no generation, that is fine; the gate fires when they ask to *generate*.
 - **Fold in the matching guideline.** If the reference sits in a register the guideline library covers (photoreal humans, broadcast realism, anti-AI-slop), run `ralphy guideline show <slug>` and merge its `avoid` cluster and required tokens into the JSON `quality` block before handing the prompt off (AGENTS.md invariant #13). The `quality.avoid` array is exactly where the anti-AI-slop negative cluster belongs.
 - **Quality gate refuses, not warns.** When you do generate, two failed `scoreImage` in a row -> stop and report concrete options. Do not keep re-rolling silently.
@@ -168,11 +168,11 @@ ralphy generate image \
   --model openai/gpt-5.4-image-2 \
   --ref <source-image>            # ref required only for a named real entity
 
-#    multi-ref / character-consistency reference (default) -> gemini-3-pro-image-preview
+#    multi-ref / character-consistency reference (default) -> gemini-3-pro-image
 ralphy generate image \
   --project <id> \
   --prompt-file .ralphy/workspaces/<ws>/projects/<id>/prompts/<slot>.json \
-  --model google/gemini-3-pro-image-preview
+  --model google/gemini-3-pro-image
 
 # 3. fold a guideline into the quality block before generating, when one applies
 ralphy guideline list

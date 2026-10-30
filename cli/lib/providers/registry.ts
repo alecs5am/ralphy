@@ -67,7 +67,7 @@ export function connectorsFor(cap: Capability): RalphyConnector[] {
 /**
  * Split a model id into `{ provider, model }`. A `<provider>:<model>` prefix is
  * honored ONLY when the substring before the FIRST `:` is a REGISTERED connector
- * id — so bare ids that contain `/` (e.g. `google/gemini-3-pro-image-preview`)
+ * id — so bare ids that contain `/` (e.g. `google/gemini-3-pro-image`)
  * or a `:` that isn't a provider (none today) stay untouched. This keeps every
  * existing bare model id backwards-compatible.
  */

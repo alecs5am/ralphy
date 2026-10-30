@@ -70,7 +70,7 @@ Before writing any prompt:
 ## Default model stack (verify against MODELS.md)
 
 - **Default — `openai/gpt-5.4-image-2`.** Production-grade parallel (validated 23-concurrent at $0.20/img). Crisp typography (the wordmarks, price stacks, code-cards, syntax coloring). Use for all 5 sets. Aspect via `--size` (FB feed `--size 1080x1350`, IG feed `--size 1080x1080`, Stories `--size 1080x1920`).
-- **Fallback — `google/gemini-3-pro-image-preview`.** Faster, cheaper, tolerates ≥4 concurrent, but smudges small embedded typography. Use ONLY for fast palette/composition exploration; finalize on gpt-image.
+- **Fallback — `google/gemini-3-pro-image`.** Faster, cheaper, tolerates ≥4 concurrent, but smudges small embedded typography. Use ONLY for fast palette/composition exploration; finalize on gpt-image.
 
 ## Failure modes
 

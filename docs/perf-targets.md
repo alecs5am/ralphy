@@ -31,7 +31,7 @@ Realistic expectations for individual API calls:
 
 | Operation | Median | P95 |
 |---|---|---|
-| `ralphy generate image` (gemini-3-pro-image-preview) | 15s | 35s |
+| `ralphy generate image` (gemini-3-pro-image) | 15s | 35s |
 | `ralphy generate video` (kling-v3.0-pro 5s) | 60s | 120s |
 | `ralphy generate video` (veo-3.1 5s) | 90s | 180s |
 | `ralphy generate voiceover` (eleven_multilingual_v2, 1 sentence) | 4s | 8s |

@@ -68,7 +68,7 @@ Tables grouped by media type. Each row: use case, model, why it won *in this ses
 | Use case | Model | Why | Cost |
 |---|---|---|---|
 | **Product fidelity** (real device, branding, internals) | `openai/gpt-5.4-image-2` | Holds brand text + correct topology | $0.20 |
-| **Photoreal humans** | `google/gemini-3-pro-image-preview` | Best photoreal — needs "documentary photography, 50mm prime, ISO 1600 grain" cues | $0.15 |
+| **Photoreal humans** | `google/gemini-3-pro-image` | Best photoreal — needs "documentary photography, 50mm prime, ISO 1600 grain" cues | $0.15 |
 | ... | ... | ... | ... |
 
 ### Video generation

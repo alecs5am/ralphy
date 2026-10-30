@@ -9,7 +9,7 @@
   "cover": "master-boy-portrait",
   "scope": ["image", "portrait", "ugc", "talking-head", "lifestyle"],
   "models": [
-    "google/gemini-3-pro-image-preview",
+    "google/gemini-3-pro-image",
     "openai/gpt-5.4-image-2"
   ],
   "tags": ["photoreal", "portrait", "anti-ai-slop", "image", "humans"],

@@ -30,7 +30,7 @@ The piece is orchestrated from `ralphy` primitives — the "spine" is the workfl
 Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Transcript:** ElevenLabs Scribe (`ralphy generate captions`) — word-level.
 - **Claim segmentation / overlay planning:** the LLM via `callLLM`.
-- **Meme / image overlays:** `google/gemini-3-pro-image-preview` default; `openai/gpt-5.4-image-2` for crisp baked text.
+- **Meme / image overlays:** `google/gemini-3-pro-image` default; `openai/gpt-5.4-image-2` for crisp baked text.
 - **Music + SFX:** ElevenLabs Music + SFX; no artist names.
 - **Render:** HyperFrames → `ralphy render <id>` (the only render path).
 

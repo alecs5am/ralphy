@@ -246,9 +246,10 @@ export async function routeFailureLessons(opts: {
     const j = await readJson(path.join(dir, file));
     if (j) sections.push({ label: file, body: asJson(j) });
   }
-  // Generation failure rows only (#424 failureClass when present).
+  // Generation failure rows only (#424 failureClass when present; #592
+  // refusals land as "blocked").
   const errorRows = (await readGenerations(opts.projectId))
-    .filter((r) => r.status === "error")
+    .filter((r) => r.status === "error" || r.status === "blocked")
     .map((r) => ({ endpoint: r.endpoint, model: r.model, error: r.error, failureClass: r.failureClass, slot: r.input?.slot }));
   if (errorRows.length) sections.push({ label: "generations.jsonl (error rows)", body: asJson(errorRows) });
 

@@ -736,7 +736,7 @@ export function projectCmd() {
       for (const g of gens) rows.push({
         timestamp: g.timestamp,
         kind: `gen:${g.kind}[${g.provider}]`,
-        summary: `${g.endpoint} ${g.status === "ok" ? "✓" : "✗"}${g.note ? " — " + g.note : ""}`,
+        summary: `${g.endpoint} ${g.status === "ok" ? "✓" : g.status === "blocked" ? "✗ blocked" : "✗"}${g.note ? " — " + g.note : ""}`,
       });
       rows.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
       out(rows);
@@ -1241,6 +1241,7 @@ export function projectCmd() {
         expired: s.expired,
         activeApproval: s.activeApproval,
         approvals: s.approvals,
+        unknownCostCalls: s.unknownCostCalls,
       });
     });
 

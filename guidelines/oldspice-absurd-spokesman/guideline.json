@@ -10,7 +10,7 @@
   "scope": ["image", "video", "ugc", "ad", "comedy", "i2v"],
   "models": [
     "openai/gpt-5.4-image-2",
-    "google/gemini-3-pro-image-preview",
+    "google/gemini-3-pro-image",
     "kwaivgi/kling-v3.0-pro"
   ],
   "tags": ["oldspice", "spokesman", "comedy", "ad", "high-key", "absurd", "i2v", "motion-delta"],

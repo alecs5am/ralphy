@@ -25,7 +25,7 @@ key-art.
 | Goal | Model | Why |
 |---|---|---|
 | Final poster (the wordmark + small copy must read crisp) | `openai/gpt-5.4-image-2` | Premium typography: the beveled wordmark, the footer strip, and the 4-line body copy all stay sharp. Caps at 1 concurrent — serialize batches. |
-| Fast palette / composition exploration | `google/gemini-3-pro-image-preview` | Cheaper, ~half the latency, tolerates 4+ concurrent — but smudges small embedded text, so finalize the chosen variant on gpt-image. |
+| Fast palette / composition exploration | `google/gemini-3-pro-image` | Cheaper, ~half the latency, tolerates 4+ concurrent — but smudges small embedded text, so finalize the chosen variant on gpt-image. |
 
 **Aspect ratio:** pass `--size 1080x1920` for a vertical landing poster or
 `--size 1080x1080` for a square social post. `ralphy generate image` forwards

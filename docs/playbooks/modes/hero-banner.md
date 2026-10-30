@@ -26,7 +26,7 @@ No reference required when the brand is the user's own / fictional and the subje
 
 Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Default — `openai/gpt-5.4-image-2`.** Crisp headline + CTA + any small label. `--size` is honored (lands on nearest native bucket). Serialize (1 concurrent).
-- **Fallback — `google/gemini-3-pro-image-preview`.** Fast palette/composition exploration only; smudges small type — finalize the winner on gpt-image.
+- **Fallback — `google/gemini-3-pro-image`.** Fast palette/composition exploration only; smudges small type — finalize the winner on gpt-image.
 
 ## Style / visual constraints
 

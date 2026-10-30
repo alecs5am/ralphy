@@ -26,7 +26,7 @@ import musicMd from "../../../docs/models/music.md" with { type: "text" };
 import transcriptionMd from "../../../docs/models/transcription.md" with { type: "text" };
 import llmMd from "../../../docs/models/llm.md" with { type: "text" };
 import droppedMd from "../../../docs/models/dropped.md" with { type: "text" };
-import { lookupAlias, aliasesFor } from "../model-aliases.js";
+import { lookupAlias, aliasesFor, retiredIdsFor } from "../model-aliases.js";
 
 export const MODEL_KINDS = ["image", "video", "voiceover", "music", "transcription", "llm"] as const;
 export type ModelKind = (typeof MODEL_KINDS)[number];
@@ -225,9 +225,13 @@ function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** The id strings a mention may use: the full id, plus the bare ElevenLabs model id. */
+/**
+ * The id strings a mention may use: the full id, the bare ElevenLabs model id,
+ * and any retired id that redirects to it (#592: notes written about
+ * `google/gemini-3-pro-image-preview` still reach `google/gemini-3-pro-image`).
+ */
 function mentionIds(id: string): string[] {
-  const ids = [id];
+  const ids = [id, ...retiredIdsFor(id)];
   if (id.startsWith("elevenlabs/")) ids.push(id.slice("elevenlabs/".length));
   return ids;
 }

@@ -36,7 +36,7 @@ Between "scenario approved" and "assets on disk for the editor" — that's my zo
 **Every model call goes through `ralphy generate`. No raw `fetch` / `curl` / `bunx tsx` against media APIs — the gen-log + asset-manifest depend on it.** Confirm any `--model` override with `ralphy models show <id>`.
 
 ```bash
-# Image (default model: google/gemini-3-pro-image-preview)
+# Image (default model: google/gemini-3-pro-image)
 ralphy generate image --project <id> --slot scene-01-bg --prompt "<text>" \
   [--ref <url> ...] [--model <id>] [--size 1080x1920] [--negative "<text>"]
 
@@ -148,7 +148,7 @@ Before writing a prompt for any slot, run `ralphy prompts library lookup --goal 
 
 Three checks before every submit (verbatim blocks and postmortem evidence in [`references/prompt-hygiene.md`](./references/prompt-hygiene.md)):
 
-1. **Anti-mockup directive** — every full-bleed slot on nano-banana / `google/gemini-3-pro-image-preview` leads with the `CRITICAL: This is a FULL-BLEED … NO iPhone device frame` block (player-UI variant for video stills); when the phone IS the subject, name the mockup explicitly.
+1. **Anti-mockup directive** — every full-bleed slot on nano-banana / `google/gemini-3-pro-image` leads with the `CRITICAL: This is a FULL-BLEED … NO iPhone device frame` block (player-UI variant for video stills); when the phone IS the subject, name the mockup explicitly.
 2. **No markdown emphasis in quoted on-screen copy** — strip `**`, `__`, `~~`, stray `*` / `_`; the model bakes them into the glyphs.
 3. **Background-job file hygiene** (AGENTS #17) — while a `ralphy generate` job runs, its `--prompt-file`, `--ref`, and `prompts/` paths are read-only; kill and relaunch to swap a prompt.
 

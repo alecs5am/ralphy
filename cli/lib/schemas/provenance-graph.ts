@@ -68,7 +68,7 @@ export type ProvenanceNodeKind = (typeof PROVENANCE_NODE_KINDS)[number];
 export const ProvenanceModelCallSchema = z.object({
   /** Connector / provider id ("openrouter", "elevenlabs", "fal", "ffmpeg"). */
   provider: z.string().optional(),
-  /** Fully-qualified model id ("google/gemini-3-pro-image-preview"). */
+  /** Fully-qualified model id ("google/gemini-3-pro-image"). */
   model: z.string().optional(),
   /** Best-effort USD cost of the call(s) behind this node. */
   costUsd: z.number().optional(),

@@ -70,7 +70,7 @@ Top-down flat lay product photography of {{subject}} on {{surface}},
 ## Model recommendation
 
 - **Default — `openai/gpt-5.4-image-2`**. More accurate layout of objects, better label sharpness on each element.
-- For very complex flat lay with 5+ items of one brand-system — `google/gemini-3-pro-image-preview` with `--ref` of the entire set better holds consistency.
+- For very complex flat lay with 5+ items of one brand-system — `google/gemini-3-pro-image` with `--ref` of the entire set better holds consistency.
 
 ## Caveats
 

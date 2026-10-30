@@ -11,6 +11,7 @@ import {
 } from "./store/runs.js";
 import type { ArtifactKind, JsonValue } from "./store/types.js";
 import { out as emitOutput } from "./output.js";
+import { logRefusal } from "./providers/refusal.js";
 
 type ProviderEvidence = Record<string, unknown>;
 
@@ -39,10 +40,28 @@ export async function produceArtifactRevision(input: {
   });
   const outputPath = path.join(ralphDir(), "tmp", run.id, `${slug}${extension.toLowerCase()}`);
   let produced: unknown;
+  const startedAt = Date.now();
   try {
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
     produced = await input.produce(outputPath, run.id);
   } catch (error) {
+    // #592: a provider refusal inside a produced Run (e.g. `video extend`)
+    // appends one blocked generations.jsonl row, from the raw error.
+    await logRefusal(
+      "projectId" in input.scope
+        ? { kind: "project", id: input.scope.projectId }
+        : { kind: "workspace", id: input.scope.workspaceId },
+      {
+        provider: input.provider,
+        model: input.model,
+        kind: input.artifactKind === "image" || input.artifactKind === "video" || input.artifactKind === "audio"
+          ? input.artifactKind
+          : "other",
+        slot: slug,
+        err: error,
+        latencyMs: Date.now() - startedAt,
+      },
+    );
     const projected = projectRunFailure(error, { provider: input.provider });
     finishRunAttempt(attempt.id, { state: "failed", error: projected });
     finishRun(run.id, { state: "failed", error: projected });

@@ -10,7 +10,7 @@
   "scope": ["image", "video", "trend", "broadcast", "aspect-ratio", "palette"],
   "models": [
     "openai/gpt-5.4-image-2",
-    "google/gemini-3-pro-image-preview",
+    "google/gemini-3-pro-image",
     "kwaivgi/kling-v3.0-pro"
   ],
   "tags": ["broadcast", "trend", "aspect-ratio", "square", "palette", "no-neon", "realism"],

@@ -22,7 +22,7 @@ different register entirely.
 
 | Goal | Model | Why |
 |---|---|---|
-| Hero anchor + clean compositions | `google/gemini-3-pro-image-preview` | Best at rendering precise device geometry from a textual product DNA description. |
+| Hero anchor + clean compositions | `google/gemini-3-pro-image` | Best at rendering precise device geometry from a textual product DNA description. |
 | Series continuation, alt palettes, kawaii-pink variant | `openai/gpt-5.4-image-2` | Stronger at preserving exact device geometry across multiple shots once the hero is locked. |
 
 Always pass the hero anchor as `--ref` on every downstream shot. Device
@@ -221,7 +221,7 @@ Apple / Teenage Engineering reveal feel like a *reveal*.
 
 ## Worked example — front hero (Palette A)
 
-Model: `google/gemini-3-pro-image-preview`.
+Model: `google/gemini-3-pro-image`.
 
 ```
 Ultra-realistic CGI product render of the Flipper Zero device. Product

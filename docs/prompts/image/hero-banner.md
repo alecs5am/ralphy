@@ -84,7 +84,7 @@ added in post), no fake logos, no extra products, no watermarks.
 ## Model recommendation
 
 - **Default — `openai/gpt-5.4-image-2`**. Better label typography, more accurate layout, more reliable holds the "negative space on the right" instruction.
-- For a series of banners with one product — `google/gemini-3-pro-image-preview` with `--ref product.png` better holds consistency.
+- For a series of banners with one product — `google/gemini-3-pro-image` with `--ref product.png` better holds consistency.
 
 ## Caveats
 

@@ -57,7 +57,7 @@ Derived from `.ralphy/workspaces/<ws>/projects/<id>/logs/generations.jsonl`. Eve
 | Use case | Model (endpoint) | Why it won in this session | Cost/call | Calls | $ |
 |---|---|---|---|---|---|
 | Product fidelity (real device / branding / topology) | `openai/gpt-5.4-image-2` | Holds brand text + correct topology | $0.20 | 8 | $1.60 |
-| Photoreal humans | `google/gemini-3-pro-image-preview` | Best photoreal — needs "documentary photography, 50mm prime, ISO 1600 grain" cues | $0.15 | 4 | $0.60 |
+| Photoreal humans | `google/gemini-3-pro-image` | Best photoreal — needs "documentary photography, 50mm prime, ISO 1600 grain" cues | $0.15 | 4 | $0.60 |
 | ... | ... | ... | ... | ... | ... |
 
 ## Model picks — video generation

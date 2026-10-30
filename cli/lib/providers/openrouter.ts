@@ -2,7 +2,7 @@
 //
 // Implements the `RalphyConnector` contract (cli/lib/providers/types.ts). One
 // OpenRouter key unlocks chat-completions (LLM + vision), image generation
-// (gemini-3-pro-image-preview, gpt-5.4-image-2, …), and async video generation
+// (gemini-3-pro-image, gpt-5.4-image-2, …), and async video generation
 // (kling, veo, seedance, …). The connector gates on its OWN env var — no
 // hardcoded capability id — so the call path doesn't know or care that this is
 // the "default" provider.
@@ -19,6 +19,7 @@ import {
   resolveImageRef,
   resolveImageRefForVideo,
   logFailure,
+  logRefusalFailure,
   rewriteUpstreamError,
   requireProviderKey,
   retryTransient,
@@ -29,6 +30,7 @@ import {
 } from "./shared.js";
 import { withConcurrency } from "./concurrency.js";
 import { videoPricePerSec } from "../or-catalog.js";
+import { attachProviderCost, markRefusal } from "./refusal.js";
 import type {
   RalphyConnector,
   CallLLMOptions,
@@ -103,8 +105,16 @@ const NATURAL_SIZE_BY_MODEL: Record<string, NaturalSizeTable> = {
     "3:4": "1024x1536",
     "4:3": "1536x1024",
   },
-  // gemini-3-pro-image-preview: nano-banana-pro lineage. 768x1376 portrait,
-  // 1376x768 landscape, 1024² square. Other ratios round to the nearest.
+  // gemini-3-pro-image (GA successor of -preview, #592): nano-banana-pro
+  // lineage. 768x1376 portrait, 1376x768 landscape, 1024² square. Other ratios
+  // round to the nearest. The -preview row stays for old logs and explicit ids.
+  "google/gemini-3-pro-image": {
+    "1:1": "1024x1024",
+    "9:16": "768x1376",
+    "16:9": "1376x768",
+    "3:4": "768x1024",
+    "4:3": "1024x768",
+  },
   "google/gemini-3-pro-image-preview": {
     "1:1": "1024x1024",
     "9:16": "768x1376",
@@ -271,10 +281,13 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
 
 // ─── image ───────────────────────────────────────────────────────────────────
 
-// Default flipped back to google/gemini-3-pro-image-preview ("nano banana pro") on 2026-05-20 —
-// multi-ref consistency + cheaper per-image + ≥4 concurrent. Pass --model openai/gpt-5.4-image-2
-// when typography on labels / small detail accuracy matters more than ref consistency.
-const DEFAULT_IMAGE_MODEL = "google/gemini-3-pro-image-preview";
+// Default flipped back to the nano-banana-pro lineage on 2026-05-20 — multi-ref
+// consistency + cheaper per-image + ≥4 concurrent. Moved from the shut-down
+// `-preview` id to the GA `google/gemini-3-pro-image` on 2026-10-30 (#592); the
+// old id resolves to it through `resolveModelAlias()`. Pass --model
+// openai/gpt-5.4-image-2 when typography on labels / small detail accuracy
+// matters more than ref consistency.
+const DEFAULT_IMAGE_MODEL = "google/gemini-3-pro-image";
 
 // Per-image cost lookup. OR bills per generation (one image per call); these are
 // ballparks from MODELS.md until OR returns billed cost in the response payload.
@@ -283,12 +296,55 @@ const IMAGE_PRICE_PER_GEN: Record<string, number> = {
   "openai/gpt-5.4-image-2": 0.20,             // premium tier
   "openai/gpt-5-image": 0.25,                 // most expensive OpenAI tier
   "openai/gpt-5-image-mini": 0.08,            // budget OpenAI
-  "google/gemini-3-pro-image-preview": 0.15,  // nano-banana lineage, multi-ref champ
+  "google/gemini-3-pro-image": 0.15,          // nano-banana lineage, multi-ref champ (default)
+  "google/gemini-3-pro-image-preview": 0.15,  // retired id; resolves to the GA id above
   "google/gemini-3.1-flash-image-preview": 0.04,
   "google/gemini-2.5-flash-image": 0.02,      // cheapest
+  // #592: catalog-sourced (OR images catalog 2026-10-30) + observed billing.
+  "google/gemini-nano-banana-2.1": 0.04,      // $30/M output-image tokens; logged $0.037-0.045
+  "bytedance-seed/seedream-5-0-pro": 0.045,   // flat; +$0.003 per extra ref; $0.09 high-res
+  "black-forest-labs/flux-3-image": 0.05,     // logged $0.05 (1K tier $0.048); 2K $0.10, 4K $0.607
+  "openai/gpt-image-2.5-sunburst": 0.06,      // token-billed; logged $0.042-0.091 (median $0.059)
   "recraft/recraft-v4.1-pro": 0.25,           // raster ~2K; image-only modality; max 1 ref
   "recraft/recraft-v4.1-pro-vector": 0.30,    // SVG vector output; image-only modality; max 1 ref
 };
+
+// Image-only models (the OR images catalog lists `output_modalities: ["image"]`)
+// reject `modalities: ["image","text"]` with 404 "No endpoints found that support
+// the requested output modalities"; send `["image"]` to them instead.
+const IMAGE_ONLY_MODEL_PREFIXES = [
+  "recraft/",
+  "bytedance-seed/seedream-",
+  "black-forest-labs/flux",
+  "openai/gpt-image-",
+];
+
+/** The chat-completions `modalities` value an image model accepts (#592). */
+export function imageOutputModalities(model: string): string[] {
+  return IMAGE_ONLY_MODEL_PREFIXES.some((p) => model.startsWith(p)) ? ["image"] : ["image", "text"];
+}
+
+// Finish reasons that mean the model REFUSED the image (a safety / policy
+// block), not a transient empty payload. Gemini reports them on
+// `native_finish_reason`; OpenAI-shaped models use `content_filter`. Re-firing
+// the same prompt is a guaranteed refusal, so these are terminal (#592).
+const REFUSAL_FINISH_REASONS = new Set([
+  "image_safety",
+  "image_prohibited_content",
+  "prohibited_content",
+  "safety",
+  "content_filter",
+  "blocklist",
+  "spii",
+]);
+
+/** The refusal finish reason in an image response, or null when it is not a refusal. */
+export function imageRefusalReason(choice: { finish_reason?: string | null; native_finish_reason?: string | null } | undefined): string | null {
+  for (const r of [choice?.native_finish_reason, choice?.finish_reason]) {
+    if (typeof r === "string" && REFUSAL_FINISH_REASONS.has(r.toLowerCase())) return r;
+  }
+  return null;
+}
 const IMAGE_PRICE_FALLBACK = 0.15;
 
 export async function generateImage(input: GenerateImageInput): Promise<GenerateResult> {
@@ -298,7 +354,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   const size = input.size ?? "1080x1920";
   const apiKey = credentialValue(ID)!;
 
-  // OpenRouter image-generation models (gemini-3-pro-image-preview,
+  // OpenRouter image-generation models (gemini-3-pro-image,
   // gpt-5.4-image-2, …) are exposed via /api/v1/chat/completions with
   // `modalities: ["image", "text"]`. The legacy /api/v1/images/generations
   // path returns 404. Per OR docs the response carries the bytes on
@@ -326,9 +382,10 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     }
   }
 
-  // Recraft v4.1 vector is image-only — chat-completions rejects ["image","text"]
-  // for it with 404 "No endpoints found that support the requested output modalities".
-  const modalities = isRecraft ? ["image"] : ["image", "text"];
+  // Image-only models (Recraft, Seedream, FLUX, GPT Image) — chat-completions
+  // rejects ["image","text"] for them with 404 "No endpoints found that support
+  // the requested output modalities" (#592: was Recraft-only).
+  const modalities = imageOutputModalities(model);
 
   const body: Record<string, unknown> = {
     model,
@@ -395,6 +452,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
             images?: Array<{ image_url?: { url?: string }; url?: string }>;
           };
           finish_reason?: string;
+          native_finish_reason?: string;
         }>;
       };
       const imgEntry = json.choices?.[0]?.message?.images?.[0];
@@ -403,6 +461,18 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
         const finish = json.choices?.[0]?.finish_reason ?? "unknown";
         const text = json.choices?.[0]?.message?.content ?? "";
         const rawDump = JSON.stringify(json).slice(0, 1500);
+        // #592: an explicit safety / policy finish is a refusal, not a blip —
+        // terminal (a retry re-bills the same refusal) and logged as blocked
+        // with the cost OpenRouter reported for the refused call.
+        const refused = imageRefusalReason(json.choices?.[0]);
+        if (refused) {
+          throw markRefusal(
+            new TerminalProviderError(
+              `OpenRouter image refused (model=${model}, finish_reason=${refused}). Message text: ${text.slice(0, 600) || "<empty>"}. Raw response: ${rawDump}`,
+            ),
+            { costUsd: json.usage?.cost },
+          );
+        }
         // Skeleton / empty `images[]` on 200 — transient (gpt-image + gemini
         // both surface this when the upstream pool blips).
         throw new TransientPayloadError(
@@ -416,6 +486,9 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
       noRetry: input.noRetry,
       onTransientFailure: async (err, attempt) => {
         await logFailure(input, ID, model, "image", body, err, t0, attempt);
+      },
+      onTerminalFailure: async (err, attempt) => {
+        await logRefusalFailure(input, ID, model, "image", body, err, t0, attempt);
       },
     },
   );
@@ -610,6 +683,9 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
       onTransientFailure: async (err, attempt) => {
         await logFailure(input, ID, model, "video", body, err, t0, attempt);
       },
+      onTerminalFailure: async (err, attempt) => {
+        await logRefusalFailure(input, ID, model, "video", body, err, t0, attempt);
+      },
     },
   );
   let job = submitResult.job;
@@ -622,7 +698,8 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
         typeof job.error === "string"
           ? job.error
           : job.error?.message ?? `video job ${job.status}`;
-      const err = new Error(`OpenRouter video ${job.status}: ${detail}`);
+      // #592: keep the billed cost of a failed / refused job when OR reports it.
+      const err = attachProviderCost(new Error(`OpenRouter video ${job.status}: ${detail}`), job.usage?.cost);
       await logFailure(input, ID, model, "video", body, err, t0);
       throw err;
     }

@@ -28,7 +28,7 @@ A prompt consists of four layers in strict order:
 ### Image
 
 - Size always `1080x1920` (9:16). No square_hd / landscape — our pipeline is vertical.
-- If there's a persona/brand reference in `artifacts/refs/` — push the URL into `image_urls` (multi-ref for gemini-3-pro-image-preview).
+- If there's a persona/brand reference in `artifacts/refs/` — push the URL into `image_urls` (multi-ref for gemini-3-pro-image).
 - Negative ALWAYS contains "no text overlays, no watermarks" — captions are done in the HyperFrames composition separately.
 
 ### Video (i2v)

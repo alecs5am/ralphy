@@ -18,8 +18,8 @@ cartoon, 3D-render, or anything where you _want_ the polished-AI look.
 | Goal | Model | Why |
 |---|---|---|
 | Master-portrait of a new character (no ref) | `openai/gpt-5.4-image-2` | Strongest at "real person, plain backdrop" from text alone. |
-| Scene anchor / close-up that must match an existing character | `google/gemini-3-pro-image-preview` | Best at honouring `--ref` for identity lock; lower drift across angles. |
-| Location-master-plate (room + characters together) | `google/gemini-3-pro-image-preview` | Multi-ref reconciliation (characters + composition) is its strength. |
+| Scene anchor / close-up that must match an existing character | `google/gemini-3-pro-image` | Best at honouring `--ref` for identity lock; lower drift across angles. |
+| Location-master-plate (room + characters together) | `google/gemini-3-pro-image` | Multi-ref reconciliation (characters + composition) is its strength. |
 
 Pass every recurring character or location as `--ref` on every downstream
 generate call. The model will not magically remember faces between turns.

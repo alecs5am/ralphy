@@ -34,7 +34,7 @@ Hand the scenarist these five beats (default ~15-30s, 9:16). One idea per beat; 
 
 Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Script:** the scenarist LLM (`callLLM`) — feed it the product, the pain, the persona, the one honest objection.
-- **Creator master + beat keyframes:** `openai/gpt-5.4-image-2` for the from-text master portrait of a new creator; `google/gemini-3-pro-image-preview` for beat anchors that must match the locked master via `--ref` (lower identity drift across angles). Generate 3-5 creator variants, pick the most real.
+- **Creator master + beat keyframes:** `openai/gpt-5.4-image-2` for the from-text master portrait of a new creator; `google/gemini-3-pro-image` for beat anchors that must match the locked master via `--ref` (lower identity drift across angles). Generate 3-5 creator variants, pick the most real.
 - **i2v:** `kwaivgi/kling-v3.0-pro` — the talking-head default; the only viable route for photoreal-human i2v (seedance's privacy filter blocks photoreal-human anchors, per `MEMORY.md`). Kling `--audio` carries EN VO + lipsync; non-EN VO via ElevenLabs (confirm target language — `MEMORY.md` Kling-no-RU-audio).
 - **Music:** separate ElevenLabs Music pass, low instrumental bed or none, post-mixed in the editor — banned inside the Kling prompt; no artist names.
 - **Captions:** per-beat on the locked VO; scribe-first timing (AGENTS #16).

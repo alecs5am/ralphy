@@ -24,7 +24,7 @@ any brief whose comedy is dry / deadpan rather than loud / intense.
 
 | Goal | Model | Why |
 |---|---|---|
-| Spokesman master + scene frames | `openai/gpt-5.4-image-2` or `google/gemini-3-pro-image-preview` | Both produce credible high-key commercial frames; gemini for multi-ref identity lock once a master exists. |
+| Spokesman master + scene frames | `openai/gpt-5.4-image-2` or `google/gemini-3-pro-image` | Both produce credible high-key commercial frames; gemini for multi-ref identity lock once a master exists. |
 | The actual motion (talking-head + comedic beats) | `kwaivgi/kling-v3.0-pro` | Photoreal-human i2v with `--audio` (EN only). Seedance rejects photoreal-human anchors. |
 
 Lock a spokesman master shot and pass it as `--ref` on every downstream frame

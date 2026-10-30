@@ -27,7 +27,7 @@ Feed the Ads-Manager A/B engine with N visually-distinct creatives that all read
 
 Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Default — `openai/gpt-5.4-image-2`.** Production-grade true-parallel (validated 23-concurrent via bash `&`) and crisp typography for wordmarks / price stacks / code-cards. Use for all 5 sets.
-- **Fallback — `google/gemini-3-pro-image-preview`.** Fast palette exploration only; smudges small type.
+- **Fallback — `google/gemini-3-pro-image`.** Fast palette exploration only; smudges small type.
 
 ## Style / visual constraints
 

@@ -138,12 +138,13 @@ export const PROVIDER_COVERAGE: CoverageEntry[] = [
       "firstFrame",
       "lastFrame",
       "refs",
+      "elements",
       "generateAudio",
     ],
     unsupportedParams: ["refVideos"],
     source: "hand-curated",
     notes:
-      "Kling O3 omni (#402): image refs (@Image1) + upstream `elements` (@Element1, no CLI flag yet); NO video input — use fal seedance r2v for video-anchored restyles.",
+      "Kling O3 omni (#402): image refs (@Image1) + `elements` (@Element1, `--element`, #592); NO video input — use fal seedance r2v for video-anchored restyles.",
   },
 
   // ── veo ───────────────────────────────────────────────────────────────────
@@ -170,7 +171,7 @@ export const PROVIDER_COVERAGE: CoverageEntry[] = [
   // ── image models ──────────────────────────────────────────────────────────
   {
     provider: "openrouter",
-    model: "google/gemini-3-pro-image-preview",
+    model: "google/gemini-3-pro-image",
     capability: "image",
     family: "gemini-3-pro-image",
     supportedParams: ["prompt", "refs", "size", "negativePrompt"],

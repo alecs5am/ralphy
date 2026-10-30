@@ -164,7 +164,7 @@ export const MediaArtifactSchema = z
     id: z.string().optional(),
 
     // ── generation attribution ──
-    /** Model id that produced it (e.g. "google/gemini-3-pro-image-preview"). */
+    /** Model id that produced it (e.g. "google/gemini-3-pro-image"). */
     model: z.string().optional(),
     /** Provider/connector that ran the call (e.g. "openrouter", "elevenlabs", "fal"). */
     provider: z.string().optional(),

@@ -69,10 +69,10 @@ Weathered olive skin is part of the description but not a scored marker.
 
 | Kind | Models |
 |---|---|
-| Image | `google/gemini-3-pro-image-preview` (`gem`), `openai/gpt-5.4-image-2` (`gpt`) |
+| Image | `google/gemini-3-pro-image` (`gem`; the plan was written against the `-preview` id, which now resolves here, #592), `openai/gpt-5.4-image-2` (`gpt`) |
 | Video | `kwaivgi/kling-v3.0-pro`, `bytedance/seedance-2.0`, `google/veo-3.1`, `alibaba/wan-2.7`, and `fal-ai/kling-video/o3/pro/reference-to-video` (fal) |
 
-**Tier B** (optional, separate approval). These models appear in 2026-09 and 2026-10 project logs, but have no registry row or route on `main`:
+**Tier B** (optional, separate approval). These models appear in 2026-09 and 2026-10 project logs. Since #592 each has a registry row; all route through `ralphy generate` except `fal-ai/kling-video/ai-avatar/v2/pro` (no fal connector route) and `heygen/avatar-iv` (voice parameters not wired):
 
 - `google/gemini-nano-banana-2.1`
 - `bytedance-seed/seedream-5-0-pro`
@@ -84,7 +84,7 @@ Weathered olive skin is part of the description but not a scored marker.
 - `heygen/avatar-iv`
 - `fal-ai/kling-video/ai-avatar/v2/pro`
 
-Each needs a `MODELS.md` row, a `docs/models/<kind>.md` section and a connector route first (the model discipline in [`developing-ralphy.md`](../developing-ralphy.md)).
+Run `ralphy models show <id>` before a Tier B call; the two unrouted models still need a connector route first (the model discipline in [`developing-ralphy.md`](../developing-ralphy.md)).
 
 ## Exact commands
 

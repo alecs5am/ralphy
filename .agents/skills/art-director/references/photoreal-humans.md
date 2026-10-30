@@ -64,7 +64,7 @@ For UGC selfie / product review / multi-scene projects with one persona:
 | Stage | Winner | Why |
 |---|---|---|
 | Persona master portrait (1 character, single scene) | `openai/gpt-5.4-image-2` | Best photoreal skin + natural features at single-portrait scale |
-| Scene anchors (multi-ref, identity continuity) | `google/gemini-3-pro-image-preview` | Multi-ref consistency is the killer feature; locks character + location + lighting across 30+ gens |
+| Scene anchors (multi-ref, identity continuity) | `google/gemini-3-pro-image` | Multi-ref consistency is the killer feature; locks character + location + lighting across 30+ gens |
 | Product label fidelity inside a photoreal scene | `openai/gpt-5.4-image-2` | Holds small typography + brand glyphs through 3 redos |
 | Reference video analysis for register matching | `google/gemini-3.1-pro-preview` via `ralphy ref analyze-video` | Natively reads mp4; pulls "still-photo register" cues from a sibling project's final cut |
 | Human i2v with lip-sync (EN dialog) | `kwaivgi/kling-v3.0-pro --audio` | Only viable choice for photoreal-human i2v with natural lip-sync. **EN only** — non-English produces accent slip + voice-age drift. |

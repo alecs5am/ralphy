@@ -58,7 +58,7 @@ Scale beats up/down with the user's duration. Keep the hook ≤3s regardless.
 
 ## Default model stack (verify against MODELS.md)
 
-- **Keyframes:** `google/gemini-3-pro-image-preview` (nano-banana-pro) for the product + hands anchors.
+- **Keyframes:** `google/gemini-3-pro-image` (nano-banana-pro) for the product + hands anchors.
 - **i2v:** `kwaivgi/kling-v3.0-pro` — the hand-on-object motion and tactile micro-gestures are its strength. Each beat needs a distinct physical action (peel, lift, rotate) — start/end frames must show a real motion delta (see `MEMORY.md` start-end-frame note), or clips read static.
 - **VO:** Kling `--audio` for EN; ElevenLabs for non-EN (confirm target language at intake).
 - **Captions:** per-slot on the locked VO.

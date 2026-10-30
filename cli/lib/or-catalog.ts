@@ -211,6 +211,18 @@ export const VIDEO_PRICE_PER_SEC: Record<string, { silent: number; audio?: numbe
   "bytedance/seedance-2.0": { silent: 0.14 },
   "bytedance/seedance-2.0-fast": { silent: 0.14 },
   "bytedance/seedance-1-5-pro": { silent: 0.1 },
+  // #592 (catalog 2026-10-30 + observed billing). Seedance 2.5 bills video
+  // tokens ($0.0000107 each, audio included): 720p ≈ $0.23/s (logged
+  // $1.17 per 5 s at 4:3), 480p ≈ $0.10/s. The 720p rate is the estimate.
+  "bytedance/seedance-2.5": { silent: 0.23, audio: 0.23 },
+  // Wan 3.0: $0.05 / $0.10 / $0.20 per s at 480p / 720p / 1080p, audio included.
+  "alibaba/wan-3.0": { silent: 0.1, audio: 0.1 },
+  // MiniMax H3 Max: $0.08/s at 768p, $0.05/s at 480p; no native audio.
+  "minimax/hailuo-3-max": { silent: 0.08 },
+  // MiniMax H3: $0.13/s (2K only, audio included) + $0.04 per reference image.
+  "minimax/hailuo-3": { silent: 0.13, audio: 0.13 },
+  // HeyGen Avatar IV: $0.05/s; the clip length follows the speech, not --duration.
+  "heygen/avatar-iv": { silent: 0.05 },
 };
 
 const DEFAULT_VIDEO_PRICE_PER_SEC = 0.14;

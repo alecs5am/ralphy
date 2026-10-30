@@ -88,7 +88,7 @@ Same `--queue / --depends-on / --queue-tag / --queue-priority` flags exist on ev
 
 ### `generate image` / `voiceover` / `music` / `captions`
 
-- `image` — default `gemini-3-pro-image-preview`. Returns PNG or JPEG (gemini sometimes returns JPEG even for `.png` slots).
+- `image` — default `gemini-3-pro-image`. Returns PNG or JPEG (gemini sometimes returns JPEG even for `.png` slots).
 - `--ref` / `--first-frame` / `--audio` path resolution (#025/#108): cwd → `<project>/` → `<project>/artifacts/refs/` → the project's workspace `shared/` tier. `--ref shared/cast/nurse.png` targets `.ralphy/workspaces/<ws>/shared/cast/nurse.png` explicitly — the way to reuse workspace-level assets without copying.
 - `voiceover` — ElevenLabs, default `eleven_multilingual_v2` (RU). Use `eleven_v3` for premium English only.
 - `music` — ElevenLabs `music_v1`, instrumental by default.

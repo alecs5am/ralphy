@@ -22,7 +22,7 @@ product renders, CGI hypermotion, anything that wants a digital register.
 
 | Goal | Model | Why |
 |---|---|---|
-| Hero anchor / opener (the visual that sets the grade) | `google/gemini-3-pro-image-preview` | Handles the "scanned print" instruction without resorting to literal film perforations / gate weave at the edges. |
+| Hero anchor / opener (the visual that sets the grade) | `google/gemini-3-pro-image` | Handles the "scanned print" instruction without resorting to literal film perforations / gate weave at the edges. |
 | Repeat scene anchors that must match a hero | `openai/gpt-5.4-image-2` | More consistent palette + grade across a series once the hero is locked. |
 
 Either way: pin the aspect (`16:9 widescreen cinematic` or letterboxed-into-9:16)
@@ -168,7 +168,7 @@ The bars sell the film-print fiction. Worth using.
 
 ## Worked example — pastoral wide (hero anchor)
 
-Model: `google/gemini-3-pro-image-preview`. Aspect: 16:9 widescreen.
+Model: `google/gemini-3-pro-image`. Aspect: 16:9 widescreen.
 
 ```
 A 1999 Japanese 35mm film print frame, scanned via telecine to NTSC, faded

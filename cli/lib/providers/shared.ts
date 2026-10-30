@@ -13,6 +13,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { logGeneration } from "../gen-log.js";
+import { compactRequestBody, refusalRow } from "./refusal.js";
 import {
   destinationAssetPath,
   destinationInputFields,
@@ -551,6 +552,17 @@ export async function logFailure(
 ): Promise<void> {
   if (input.runId) return;
   const destination = generationDestination(input);
+  // #592: a refusal is a blocked row with the provider-reported cost or an
+  // unknown cost, never a $0 error row. Run-backed calls (runId set) get the
+  // same row from the command layer instead (cli/commands/generate.ts).
+  const refusal = refusalRow(destination, {
+    provider, model, kind, slot: input.slot, input: compactRequestBody(body), err,
+    latencyMs: Date.now() - t0, attempt, note: input.note ?? input.slot,
+  });
+  if (refusal) {
+    await logGeneration(destination, refusal);
+    return;
+  }
   await logGeneration(destination, {
     slot: input.slot,
     provider,
@@ -565,6 +577,31 @@ export async function logFailure(
     attempt,
     note: input.note ?? input.slot,
   });
+}
+
+/**
+ * #592: log a TERMINAL failure only when it is a refusal (submit-time HTTP 400
+ * privacy / policy blocks never reach `logFailure`). Non-refusal terminal errors
+ * stay unlogged, as before. No-op for Run-backed calls: the command layer
+ * writes their blocked row.
+ */
+export async function logRefusalFailure(
+  input: CommonInput,
+  provider: string,
+  model: string,
+  kind: "image" | "video" | "voiceover" | "music" | "sfx",
+  body: Record<string, unknown>,
+  err: unknown,
+  t0: number,
+  attempt = 1,
+): Promise<void> {
+  if (input.runId) return;
+  const destination = generationDestination(input);
+  const refusal = refusalRow(destination, {
+    provider, model, kind, slot: input.slot, input: compactRequestBody(body), err,
+    latencyMs: Date.now() - t0, attempt, note: input.note ?? input.slot,
+  });
+  if (refusal) await logGeneration(destination, refusal);
 }
 
 // ─── transient-error retry helper (#005) ────────────────────────────────────
@@ -746,6 +783,12 @@ export type RetryOptions = {
    * plumbing inside `retryTransient`.
    */
   onTransientFailure?: (err: unknown, attempt: number) => Promise<void> | void;
+  /**
+   * Called once before a terminal error is rethrown (#592) — connectors use it
+   * to log submit-time refusals (`logRefusalFailure`). Best-effort, like
+   * `onTransientFailure`.
+   */
+  onTerminalFailure?: (err: unknown, attempt: number) => Promise<void> | void;
   /** Injectable sleeper. Default uses real `setTimeout`. Tests pass a fake. */
   sleep?: (ms: number) => Promise<void>;
 };
@@ -783,7 +826,16 @@ export async function retryTransient<T>(
     } catch (err) {
       lastErr = err;
       const klass = classifyError(err);
-      if (klass === "terminal") throw err;
+      if (klass === "terminal") {
+        if (opts.onTerminalFailure) {
+          try {
+            await opts.onTerminalFailure(err, attempt);
+          } catch {
+            /* logging is best-effort — never let it mask the original */
+          }
+        }
+        throw err;
+      }
       if (attempt > retries) throw err;
       if (opts.onTransientFailure) {
         try {

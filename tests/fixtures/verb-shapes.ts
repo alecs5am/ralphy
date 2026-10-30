@@ -614,7 +614,7 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
     { label: "compose.plan", shape: { project: "demo-001", scenes: 6, durationSec: 32, written: "index.html" } },
   ],
   config: [
-    { label: "config.list", shape: { defaultModel: "google/gemini-3-pro-image-preview", workspace: "default", quiet: false } },
+    { label: "config.list", shape: { defaultModel: "google/gemini-3-pro-image", workspace: "default", quiet: false } },
     { label: "config.set", shape: { defaultModel: "openai/gpt-5.4-image-2" } },
   ],
   document: [
@@ -907,10 +907,40 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       shape: {
         dryRun: true,
         would_call: [
-          { stage: "image", model_id: "google/gemini-3-pro-image-preview", slot: "scene-01-bg-image", variants: 1, est_usd: 0.15 },
+          { stage: "image", model_id: "google/gemini-3-pro-image", slot: "scene-01-bg-image", variants: 1, est_usd: 0.15 },
         ],
         cost_estimate_usd: 0.15,
         would_write: [".ralphy/workspaces/default/projects/demo-001/artifacts/images/scene-01-bg-image.png"],
+      },
+    },
+    {
+      // #592: fal Kling O3 dry run with `--element` packs + the resolved body.
+      label: "generate.videoDryRunFal",
+      shape: {
+        dryRun: true,
+        model: "fal-ai/kling-video/o3/pro/reference-to-video",
+        slot: "cast-walk",
+        prompt: "@Element1 walks past @Element2",
+        durationSec: 5,
+        aspectRatio: "9:16",
+        resolution: "720p",
+        firstFrame: null,
+        lastFrame: null,
+        refs: ["artifacts/refs/style.png"],
+        refVideos: null,
+        elements: [{ frontal: "artifacts/refs/hero-front.png", references: ["artifacts/refs/hero-left.png"] }],
+        generateAudio: false,
+        estimatedCostUsd: 0.56,
+        requestBody: {
+          prompt: "@Element1 walks past @Element2",
+          duration: "5",
+          aspect_ratio: "9:16",
+          generate_audio: false,
+          resolution: "720p",
+          image_urls: ["artifacts/refs/style.png"],
+          elements: [{ frontal_image_url: "artifacts/refs/hero-front.png", reference_image_urls: ["artifacts/refs/hero-left.png"] }],
+        },
+        requestBodyNote: "local paths upload to the fal CDN on a live run; the body then carries the returned file URLs",
       },
     },
     {
@@ -918,7 +948,7 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       shape: {
         project: "demo-001",
         slot: "scene-01-bg-image",
-        model: "google/gemini-3-pro-image-preview",
+        model: "google/gemini-3-pro-image",
         variants: [
           { path: "artifacts/images/scene-01-bg-image.png", bytes: 884512, cost_usd: 0.15 },
         ],
@@ -930,7 +960,7 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       label: "guideline.list",
       shape: [
         { slug: "photoreal-humans", kind: "image", models: ["openai/gpt-5.4-image-2"] },
-        { slug: "anti-ai-slop", kind: "image", models: ["google/gemini-3-pro-image-preview"] },
+        { slug: "anti-ai-slop", kind: "image", models: ["google/gemini-3-pro-image"] },
       ],
     },
     { label: "guideline.show", shape: { slug: "photoreal-humans", tag: "@guideline:photoreal-humans", name: "Photoreal humans", kind: "image", models: ["openai/gpt-5.4-image-2"], body: "Name the camera + lens; demand skin pores..." } },
@@ -1047,7 +1077,7 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         source: "MODELS.md",
         count: 2,
         models: [
-          { id: "google/gemini-3-pro-image-preview", kind: "image", role: "Default — multi-ref / character consistency", price: "~$0.15 / image" },
+          { id: "google/gemini-3-pro-image", kind: "image", role: "Default — multi-ref / character consistency", price: "~$0.15 / image" },
           { id: "elevenlabs/music_v1", kind: "music", role: "Default — instrumental beds", price: "subscription" },
         ],
         next: "ralphy models show <id>",
@@ -1215,6 +1245,7 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
           reason: "approved batch run",
           approvedAt: "2026-06-16T00:00:00.000Z",
         },
+        unknownCostCalls: 1,
         approvals: [
           {
             scope: "project",
@@ -1871,8 +1902,8 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         approvedAll: false,
         estimatedCostUsd: 0.92,
         sheet: [
-          { scene: "scene-01", state: "approved", seconds: 3, vo: "Stop scrolling.", camera: "selfie 35mm", model: "google/gemini-3-pro-image-preview + kwaivgi/kling-v3.0-pro", costUsd: 0.46, frame: "storyboard-scene-01" },
-          { scene: "scene-02", state: "pending", seconds: 3, vo: "Meet the bottle.", camera: "macro push-in", model: "google/gemini-3-pro-image-preview + kwaivgi/kling-v3.0-pro", costUsd: 0.46, frame: null },
+          { scene: "scene-01", state: "approved", seconds: 3, vo: "Stop scrolling.", camera: "selfie 35mm", model: "google/gemini-3-pro-image + kwaivgi/kling-v3.0-pro", costUsd: 0.46, frame: "storyboard-scene-01" },
+          { scene: "scene-02", state: "pending", seconds: 3, vo: "Meet the bottle.", camera: "macro push-in", model: "google/gemini-3-pro-image + kwaivgi/kling-v3.0-pro", costUsd: 0.46, frame: null },
         ],
       },
     },

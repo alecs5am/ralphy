@@ -5,7 +5,7 @@ Tested prompt-templates for production-grade image and video generation. Mined f
 ## Default model
 
 - Premium / typography / clear label — **`openai/gpt-5.4-image-2`** (CLI default since 2026-05-12).
-- Multi-ref character/face consistency (2+ refs) — **`google/gemini-3-pro-image-preview`** (pass `--model` explicitly).
+- Multi-ref character/face consistency (2+ refs) — **`google/gemini-3-pro-image`** (pass `--model` explicitly).
 - Price: gpt-5.4-image-2 ≈ $0.20/image, gemini-3-pro ≈ $0.15/image (see MODELS.md).
 
 ## Intent → mode mapping
@@ -44,7 +44,7 @@ Each mode-file is structured the same way:
 6. Result: premium-generation via openai/gpt-5.4-image-2 (default)
 ```
 
-If for multi-ref character consistency is needed (model + product, the same model in several scenes) — the agent explicitly writes `--model google/gemini-3-pro-image-preview --ref model.png --ref product.png`.
+If for multi-ref character consistency is needed (model + product, the same model in several scenes) — the agent explicitly writes `--model google/gemini-3-pro-image --ref model.png --ref product.png`.
 
 ## Sources
 

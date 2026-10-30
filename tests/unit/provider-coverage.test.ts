@@ -44,7 +44,7 @@ describe("coverageFor lookup", () => {
       "fal:bytedance/seedance-2.0/reference-to-video:video",
       "openrouter:kwaivgi/kling-v3.0-pro:video",
       "openrouter:google/veo-3.1:video",
-      "openrouter:google/gemini-3-pro-image-preview:image",
+      "openrouter:google/gemini-3-pro-image:image", // #592: GA id (was -preview)
       "openrouter:openai/gpt-5.4-image-2:image",
       "elevenlabs:eleven_multilingual_v2:voice",
       "elevenlabs:elevenlabs-music:music",

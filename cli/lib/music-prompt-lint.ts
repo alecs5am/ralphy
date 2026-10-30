@@ -179,6 +179,8 @@ export function formatMusicPromptLintReport(result: MusicPromptLintResult): stri
 
 import { TerminalProviderError } from "./providers/shared.js";
 import { logGeneration } from "./gen-log.js";
+import { refusalRow } from "./providers/refusal.js";
+import type { GenerationDestination } from "./generation-destination.js";
 
 /**
  * Inputs the helper needs that mirror the music command arguments. The submit
@@ -187,6 +189,8 @@ import { logGeneration } from "./gen-log.js";
  */
 export type ToSAutoRetryDeps = {
   projectId: string;
+  /** Where the refusal row lands; defaults to the `projectId` Project (#592). */
+  destination?: GenerationDestination;
   runId?: string;
   slot: string;
   prompt: string;
@@ -217,8 +221,9 @@ export type ToSAutoRetryResult = {
  *  - the resubmit itself fails
  *
  * Logging contract (issue 032 canonical schema):
- *  - Original ToS failure → `status: "error"`, `error: "tos_rejected: ..."`,
- *    `attempt: 1`, `input.prompt_suggestion: "<rewrite>"`.
+ *  - Original ToS failure → a #592 refusal row on every path (Run-backed
+ *    included): `status: "blocked"`, `error: "blocked:tos-content: ..."`,
+ *    `cost_source: "unknown"`, `attempt: 1`, `input.prompt_suggestion`.
  *  - Successful resubmit → connector logs `status: "ok"` internally; this
  *    helper appends a second annotation row with
  *    `input.prompt_suggestion_used: true`, `attempt: 2`,
@@ -237,26 +242,31 @@ export async function submitMusicWithToSAutoRetry(
       throw err;
     }
     const musicLengthMs = Math.max(3000, Math.min(600000, Math.round(deps.durationSec * 1000)));
-    if (!deps.runId) {
-      await logGeneration(deps.projectId, {
-      slot: deps.slot,
+    // #592: the swallowed ToS rejection is still a refusal — one blocked row,
+    // cost unknown, whether or not the call is Run-backed.
+    const destination = deps.destination ?? { kind: "project" as const, id: deps.projectId };
+    const blocked = refusalRow(destination, {
       provider: "elevenlabs",
       model: "music_v1",
       endpoint: "music",
       kind: "music",
+      slot: deps.slot,
       input: {
-        slot: deps.slot,
-        project: deps.projectId,
         prompt: deps.prompt,
         music_length_ms: musicLengthMs,
         force_instrumental: deps.forceInstrumental,
         prompt_suggestion: suggestion,
       },
-      status: "error",
-      error: `tos_rejected: ${(err as Error).message.slice(0, 300)}`,
+      err,
       attempt: 1,
       note: `tos_rejected (#006) — auto-resubmit with provider rewrite`,
-      });
+    });
+    if (blocked) {
+      try {
+        await logGeneration(destination, blocked);
+      } catch {
+        /* logging is best-effort — never block the resubmit */
+      }
     }
     const result = await deps.submit(suggestion);
     if (!deps.runId) {

@@ -42,13 +42,18 @@ export type Provider =
  *
  * Schema invariants — all writers MUST emit these keys, no aliases:
  * - `provider` (top-level)         — connector id ("openrouter", "elevenlabs", "ffmpeg", …)
- * - `model`    (top-level)         — fully-qualified model id ("google/gemini-3-pro-image-preview").
+ * - `model`    (top-level)         — fully-qualified model id ("google/gemini-3-pro-image").
  *                                     For non-LLM endpoints (ffmpeg, ffprobe), mirror the endpoint slug.
  * - `endpoint` (top-level)         — provider-specific endpoint slug ("tts/eleven_multilingual_v2",
  *                                     "openrouter/chat-completions"). Same as `model` for LLM calls.
  * - `kind`     (top-level)         — coarse classifier ("image", "video", "voiceover", "music",
  *                                     "sfx", "text", "video-analysis", "embed", "other").
- * - `cost_usd` (top-level)         — best-effort USD estimate. NEVER `costUsd`.
+ * - `cost_usd` (top-level)         — best-effort USD estimate. NEVER `costUsd`. Absent (not 0)
+ *                                     when the cost is unknown; `cost_source` then says "unknown".
+ * - `status`   (top-level)         — "ok" | "error" | "blocked". "blocked" is a provider refusal
+ *                                     (safety / privacy / IP / ToS filter, #592): `error` reads
+ *                                     `blocked:<reason>: <provider message>` and `failureClass` is
+ *                                     "moderation". Written by cli/lib/providers/refusal.ts.
  * - `attempt`  (top-level)         — 1-indexed retry attempt counter (default 1).
  * - `input.slot`                   — asset slot this generation targets ("scene-01-bg-image").
  *                                     Persisted INSIDE input so per-slot cost rollups work
@@ -83,10 +88,12 @@ export type GenerationEntry = {
     bytes?: number;
     job_id?: string;
   };
-  status: "ok" | "error";
+  status: GenerationStatus;
   error?: string;
   latency_ms?: number;
   cost_usd?: number;             // best-effort estimate, optional
+  /** Where `cost_usd` came from (#592): billed by the provider, estimated, or unknown (no `cost_usd`). */
+  cost_source?: GenerationCostSource;
   /** Provider-reported token counts for LLM calls (#583). Optional, additive. */
   tokens?: GenerationTokens;
   attempt?: number;              // 1-indexed retry attempt counter (default 1)
@@ -105,6 +112,12 @@ export type GenerationEntry = {
   failureClass?: string;         // "moderation" | "constraint" | "transient" | "provider-semantic"
 };
 
+/** Outcome of one generation call. "blocked" = a provider refusal (#592). */
+export type GenerationStatus = "ok" | "error" | "blocked";
+
+/** Provenance of a row's `cost_usd` (#592). "unknown" rows carry no `cost_usd`. */
+export type GenerationCostSource = "provider" | "estimate" | "unknown";
+
 /** Token counts for one LLM call, as the provider reported them (#583). */
 export type GenerationTokens = { prompt?: number; completion?: number; total?: number };
 
@@ -122,9 +135,10 @@ export type RawGenerationEntry = Partial<GenerationEntry> & {
   slot?: string;
   input?: Record<string, unknown>;
   output?: GenerationEntry["output"];
-  status?: "ok" | "error";
+  status?: GenerationStatus;
   error?: string;
   latency_ms?: number;
+  cost_source?: GenerationCostSource;
   // legacy alias seen in some early rows
   // eslint-disable-next-line @typescript-eslint/naming-convention
   costUsd?: number;
@@ -176,6 +190,7 @@ export function normalizeGenerationEntry(row: RawGenerationEntry): GenerationEnt
     error: row.error,
     latency_ms: row.latency_ms,
     cost_usd: cost,
+    cost_source: row.cost_source,
     tokens: row.tokens,
     attempt: row.attempt ?? 1,
     request_id: row.request_id,
@@ -273,6 +288,7 @@ export async function logGeneration(
     error: entry.error,
     latency_ms: entry.latency_ms,
     cost_usd: entry.cost_usd,
+    cost_source: entry.cost_source,
     tokens: entry.tokens,
     attempt: entry.attempt ?? 1,
     request_id: entry.request_id,

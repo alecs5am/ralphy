@@ -59,7 +59,7 @@ Finish layer (always on): subtle film grain + slight vignette + faint CRT warmth
 ## Model stack (verify against MODELS.md every run)
 
 - **Default — `openai/gpt-5.4-image-2`.** Premium typography / label accuracy: the beveled wordmark, the small footer strip, and the 4 lines of body copy all read crisp. This is the whole reason it beats the consistency-first default for posters. **Caps at 1 concurrent** — serialize batches (`--concurrency 1`), never fire parallel poster gens on this model.
-- **Fallback — `google/gemini-3-pro-image-preview`.** ~½ the latency and cheaper, tolerates ≥4 concurrent, but **smudges small embedded typography** (flipper postmortem; confirmed again on loud-kids-poster-001 — the 4-line body copy went soft). Use only for fast palette/composition exploration, then finalize the chosen variant on gpt-image.
+- **Fallback — `google/gemini-3-pro-image`.** ~½ the latency and cheaper, tolerates ≥4 concurrent, but **smudges small embedded typography** (flipper postmortem; confirmed again on loud-kids-poster-001 — the 4-line body copy went soft). Use only for fast palette/composition exploration, then finalize the chosen variant on gpt-image.
 
 ## Aspect ratio — solved, use `--size`
 
@@ -86,7 +86,7 @@ ralphy generate image --project <id> --slot poster-01 \
 
 # Fast palette/composition exploration (finalize the winner on gpt-image after)
 ralphy generate image --project <id> --slot poster-explore --variants 3 \
-  --model google/gemini-3-pro-image-preview --size 1080x1920 --prompt "<...>"
+  --model google/gemini-3-pro-image --size 1080x1920 --prompt "<...>"
 
 # Square social-post cut of the same poster
 ralphy generate image --project <id> --slot poster-01-sq \

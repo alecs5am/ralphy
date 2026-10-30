@@ -36,7 +36,7 @@ When a reference exists:
 - Copy the file to `artifacts/refs/<purpose>-<NN>.<ext>` (if it isn't there already).
 - Log it via `logUserAsset(id, { kind: "photo", source, purpose: "persona-ref" })`.
 - In `prompts.json` for each slot that should use the ref, set `image_urls: [...]`.
-- During generation (gemini-3-pro-image-preview) — multi-ref is passed in `image_urls`.
+- During generation (gemini-3-pro-image) — multi-ref is passed in `image_urls`.
 
 ## Brand consistency
 

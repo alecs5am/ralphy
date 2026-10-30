@@ -66,7 +66,7 @@ When in doubt: SPEECH = veo (EN) / kling-EN-only / silent+ElevenLabs (everything
    - `elevenlabs/tts` — **3 concurrent** (choose-your-guide-001: 9 parallel → 6 hard-failed 429).
    - `elevenlabs/music_v1` — **2 concurrent** (tokyo-y2k-001: 3 parallel → 1 hard-failed 429).
    - `openrouter:openai/gpt-5.4-image-2` — **2 concurrent** (validated 2026-05-29; appstore-takeaminute-001 hit 73/73 403 on uncapped fan-out).
-   - `openrouter:google/gemini-3-pro-image-preview` — **2 concurrent** (catalog tolerates ≥4, kept at 2 for shared-key safety).
+   - `openrouter:google/gemini-3-pro-image` — **2 concurrent** (catalog tolerates ≥4, kept at 2 for shared-key safety; the retired `-preview` id keeps the same cap).
    - `openrouter:bytedance/seedance-2.0` — **1 concurrent** (queue depth + multi-block extend is inherently sequential).
    - `openrouter:kwaivgi/kling-v3.0-pro` — **2 concurrent**.
    - LLM chat-completions default — **4 concurrent**.
@@ -82,6 +82,10 @@ When in doubt: SPEECH = veo (EN) / kling-EN-only / silent+ElevenLabs (everything
 | Model | Failure mode | Workaround |
 |---|---|---|
 | `kling` + `seedance` (both) | **`--duration` overshoots by ~1s** (video lesson 12 above). | Pre-shorten at art-director stage OR budget a vision-trim pass in the editor. See [`.agents/skills/editor/references/render-pipeline.md`](../../.agents/skills/editor/references/render-pipeline.md#source-clip-duration-overshoot-kling--seedance) + [`notes/issues/042`](../../notes/issues/done/042-clip-duration-overshoot-undocumented.md). |
+
+### Refusals (all providers, #592)
+
+A provider refusal — a privacy, safety, IP / copyright or ToS block — appends **one** `generations.jsonl` row: `status: "blocked"`, `error: "blocked:<reason>: <provider message>"` (`reason` is `safety-input`, `safety-output`, `copyright` or `tos-content`), `failureClass: "moderation"`. Its `cost_usd` is what the provider reported (`cost_source: "provider"`); when the provider reported nothing the row has **no** `cost_usd` and `cost_source: "unknown"`, never a made-up $0. This covers submit-time HTTP 400s (the `bytedance/seedance-2.0` privacy filter) and poll-time failures (output copyright on `bytedance/seedance-2.5`, IP infringement on `alibaba/wan-3.0`, `new_sensitive` on `minimax/hailuo-3-max`). Run-backed calls write the row from the generate wrapper; the Run Attempt in SQLite records the failure without a cost, so a billed refusal is counted once. `ralphy project budget` reports `unknownCostCalls`: while it is above 0, `spentUsd` is a floor. Observed refusal rows before #592 were logged at $0 after 4-5 min of rendering (seedance-2.5), so treat them as possibly billed (U).
 
 ### fal connector (`--provider fal`, #402)
 
@@ -197,6 +201,45 @@ Snapshot: durations 4-15 s · 480p, 720p · 7 aspects · first + last frame anch
 
 Snapshot: durations 4-12 s · 480p, 720p, 1080p · 7 aspects · first + last frame anchors · ~$0.10/s.
 
+## `bytedance/seedance-2.5`
+
+Snapshot (catalog 2026-10-30): durations 4-30 s · 480p, 720p · 16:9, 4:3, 1:1, 3:4, 9:16, 21:9 · first + last frame anchors · native audio · seed · billed per video token ($0.0000107; audio included, $0.0000064 with video input). That is ≈ $0.23/s at 720p and ≈ $0.10/s at 480p; `VIDEO_PRICE_PER_SEC` estimates at the 720p rate.
+
+- **Logged billing** matches the token price: $1.17 per 5 s at 720p 4:3, $0.41 per 4 s and $0.62 per 6 s at 480p 9:16 (O: 18 calls, 2026-10-09 to 2026-10-24; the 2026-09-09 rows at $0.14/s were the fallback estimate).
+- **Output copyright filter:** "the output video may be related to copyright restrictions", returned after 4-5 min of rendering (O: 2 calls, `seoul-bus-storyboard-20261008`). The fal-hosted `bytedance/seedance-2.5/reference-to-video` (not registered) hit the same filter once (O: `avatar-dm-niches-001`). Reroute the blocked clip; see Refusals above.
+- First-frame anchors were auto-resized to 720 px and C2PA-stripped before submit (O); first + last frame worked once (O).
+
+## `alibaba/wan-3.0`
+
+Snapshot (catalog 2026-10-30): durations 2-30 s · 480p, 720p, 1080p · 16:9, 4:3, 1:1, 3:4, 9:16 · first + last frame anchors · native audio · seed · $0.05 / $0.10 / $0.20 per s at 480p / 720p / 1080p. A faster sibling, `alibaba/wan-3.0-prime`, is listed at $0.068 / $0.14 / $0.28 (not registered).
+
+- **Logged billing ran ~15% under the catalog with a 5 s floor:** $0.2125 for 2 s and 4 s at 480p, $0.255 for 6 s at 480p, $0.51 for 6 s at 720p (O: 13 calls). Budget with the catalog rate.
+- **IP filter:** "Input data is suspected of being involved in IP infringement", 2 of 2 calls on one character (O: `seoul-bus-storyboard-20261008`).
+- Latency 79 s to 18 min (O).
+
+## `minimax/hailuo-3-max`
+
+MiniMax H3 Max, a faster derivative of H3 released with fal (D). Snapshot (catalog 2026-10-30): durations 5-15 s · 480p, 768p · 21:9, 16:9, 4:3, 1:1, 3:4, 9:16 · first + last frame anchors · **no native audio** · no seed · $0.08/s at 768p, $0.05/s at 480p.
+
+- **Logged** $0.25 for 5 s at 480p (O), matching the catalog.
+- **Output filter:** "output new_sensitive (1027)" (O: `seoul-bus-storyboard-20261008`).
+- Fast: 22-38 s per clip (O, 3 calls).
+
+## `minimax/hailuo-3`
+
+MiniMax H3, open-weights, aimed at instruction-guided edits and text / brand rendering (D). Snapshot (catalog 2026-10-30): durations 5-15 s · **2K only** · 6 aspects incl. 21:9 · first + last frame anchors · native audio · $0.13/s plus $0.04 per reference image.
+
+- One 10 s 2K call took 6.7 min (O: `passport-model-comparison-20260909`; its $1.40 was the fallback estimate, not billing).
+
+## `heygen/avatar-iv`
+
+HeyGen photo-to-talking-head: one photo becomes a lip-synced presenter (D). Snapshot (catalog 2026-10-30): 720p, 1080p · 16:9, 9:16, 1:1 · no duration list (the clip follows the speech) · $0.05/s · passthroughs `voice_id`, `voice_settings`, `motion_prompt`, `expressiveness`, `fit`, `remove_background`, `background`, `caption`, `title`.
+
+- **`ralphy generate video` does not send the passthroughs** (no voice id, no motion prompt); the observed call set `voice_id` and `motion_prompt` outside the CLI (O). Treat it as not yet routable for a real script.
+- **Logged** $0.92 for an 18.5 s clip requested as 26 s: billing follows the delivered speech length (O: `gamgee-omni-guide-test-20260930`). Identity, room and outfit held.
+- Did not accept an audio file sent as a `data:` URL; it needs HTTPS (O).
+- Consent: a photo avatar gets no consent check from HeyGen, so it is our responsibility (D: HeyGen docs; see `.agents/skills/art-director/references/characters-and-backgrounds.md`).
+
 ## `bytedance/seedance-2.0/reference-to-video`
 
 fal connector (`--provider fal`). Snapshot: durations 4-15 s · 480p, 720p, 1080p · auto, 21:9, 16:9, 4:3, 1:1, 3:4, 9:16 · ref inputs: `--ref-video` (≤3, 2-15s combined, ≤50MB, 640x640..834x1112) + `--ref` images (`@Image1`) + first/last frame · $0.3034/s @720p, **×0.6 with video refs = $0.1814/s**, $0.682/s @1080p.
@@ -225,3 +268,21 @@ Kling O3 omni, fal connector (`--provider fal`). Snapshot: durations 3-15 s · 7
 - **Kling O3 omni takes NO video input** — `--ref-video` on it refuses
   (`TerminalProviderError`). It is the character-consistency tier (`elements` /
   `@Element1`) + style refs (`@Image1`); use seedance r2v for video-anchored restyles.
+- **`--element <frontal,angle[,angle...]>`** (#592, repeatable) builds one Kling
+  element per flag: the first image is `frontal_image_url`, the next 1-3 are
+  `reference_image_urls` (2-4 images per element, D: fal schema
+  `KlingV3ComboElementInput`). Flag order is `@Element1`, `@Element2`, … in the
+  prompt; `--ref` images stay `@Image1`. The element `video_url` / `voice_id`
+  variants are not wired. `--dry-run` prints the resolved `requestBody` with
+  local paths in place of the fal CDN URLs. Other models refuse `--element`.
+  fal documents a cap of 4 total (elements + images) only for requests with a
+  video; the cap without one is not documented (U). No live call yet (U).
+
+## `fal-ai/kling-video/ai-avatar/v2/pro`
+
+Kling AI Avatar v2 Pro on fal: one image plus one audio file become a lip-synced avatar (humans, animals, cartoons, stylized characters). Request: `image_url` + `audio_url` (both required), optional `prompt`; output length follows the audio (D: fal model page, $0.115/s).
+
+- **Not routed:** the fal connector serves only the two reference-to-video models, so `ralphy generate video --provider fal --model fal-ai/kling-video/ai-avatar/v2/pro` refuses. The 24 logged calls (2026-09-08 to 2026-10-24, 6 projects) ran outside the current connector (O).
+- **Logged billing:** $0.115/s with a floor of about $0.245 for clips under ~2.1 s (O: a 0.56 s clip billed $0.2453).
+- Latency 2-17 min; a 47 s clip took 17 min (O).
+- A CGI presenter take from Seedance 2.5 image + audio was preferred over this model once, at 4× the cost (O: `ralphy-app-demo-20260917`).

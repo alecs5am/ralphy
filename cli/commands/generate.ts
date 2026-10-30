@@ -24,7 +24,7 @@ import {
   captionsToSrt,
   captionsToDrawtextFilter,
 } from "../lib/captions/helpers.js";
-import { logUserPrompt } from "../lib/gen-log.js";
+import { logUserPrompt, type GenerationEntry } from "../lib/gen-log.js";
 import { enforceStoryboardGate, readStoryboardConsent } from "../lib/storyboard/gate.js";
 import { checkSpend, estimatedCallCostUsd } from "../lib/spend.js";
 import {
@@ -43,7 +43,14 @@ import {
 import { resolveConnector } from "../lib/providers/registry.js";
 import { emitCoverageWarnings } from "../lib/providers/coverage.js";
 import { naturalSizeFor } from "../lib/providers/openrouter.js";
-import { isFalVideoModel, falVideoPricePerSec } from "../lib/providers/fal.js";
+import {
+  isFalVideoModel,
+  falVideoPricePerSec,
+  falModelAcceptsElements,
+  parseElementFlag,
+  buildFalVideoBody,
+} from "../lib/providers/fal.js";
+import { logRefusal } from "../lib/providers/refusal.js";
 import { TerminalProviderError } from "../lib/providers/shared.js";
 import {
   lintMusicPrompt,
@@ -81,10 +88,10 @@ import {
   generationProjectCompatibilityDir,
   generationRunScope,
 } from "../lib/generation-scope.js";
-import type { GenerateResult } from "../lib/providers/types.js";
+import type { GenerateResult, VideoElementInput } from "../lib/providers/types.js";
 import type { ArtifactKind } from "../lib/store/types.js";
 import { providerCompletionFacts } from "../lib/artifact-production.js";
-import { generationInput, generationParameter } from "../lib/generation-input.js";
+import { generationInput, generationParameter, readGenerationInput } from "../lib/generation-input.js";
 import {
   IMAGE_IMPORT_SOURCES,
   importImageArtifact,
@@ -346,9 +353,22 @@ async function executeGeneratedArtifact(input: {
   });
   const outputPath = path.join(ralphDir(), "tmp", run.id, `${input.slot}${input.extension}`);
   let result: GenerateResult;
+  const startedAt = Date.now();
   try {
     result = await input.invoke(run.id, outputPath);
   } catch (error) {
+    // #592: a provider refusal (submit-time 400 included) appends one blocked
+    // generations.jsonl row with the reported or unknown cost. Logged from the
+    // raw error, before projection strips the provider's reason.
+    await logRefusal(input.destination, {
+      provider: input.provider,
+      model: input.model,
+      kind: generationLogKind(input.runKind, input.artifactKind),
+      slot: input.slot,
+      input: generationLogInput(input.generationInput),
+      err: error,
+      latencyMs: Date.now() - startedAt,
+    });
     const projected = projectRunFailure(error, { provider: input.provider });
     finishRunAttempt(attempt.id, { state: "failed", error: projected });
     finishRun(run.id, { state: "failed", error: projected });
@@ -366,6 +386,41 @@ async function executeGeneratedArtifact(input: {
     costUsd: result.costUsd,
   });
   return { result, completed };
+}
+
+/** gen-log `kind` for a generate Run (`generate.voiceover` -> `voiceover`). */
+function generationLogKind(runKind: string, artifactKind: ArtifactKind): GenerationEntry["kind"] {
+  const fromRun = runKind.startsWith("generate.") ? runKind.slice("generate.".length) : "";
+  const known: readonly string[] = ["image", "video", "voiceover", "music", "sfx", "audio"];
+  if (known.includes(fromRun)) return fromRun as GenerationEntry["kind"];
+  return known.includes(artifactKind) ? artifactKind as GenerationEntry["kind"] : "other";
+}
+
+/** Flatten the sanitized generation input (texts + parameters) into a gen-log `input`. */
+function generationLogInput(value: ReturnType<typeof generationInput>): Record<string, unknown> {
+  const dto = readGenerationInput(value);
+  if (!dto) return {};
+  const flat: Record<string, unknown> = {};
+  for (const t of dto.texts) flat[t.role === "negative-prompt" ? "negative_prompt" : t.role] = t.value;
+  for (const p of dto.parameters) flat[p.name] = p.value;
+  return flat;
+}
+
+/** Parse every `--element` value (#592); raises E_INPUT_INVALID on a bad image count. */
+function readElementFlags(values: unknown, destination: GenerationDestination): VideoElementInput[] {
+  if (!Array.isArray(values) || values.length === 0) return [];
+  return values.map((value) => {
+    let element: VideoElementInput;
+    try {
+      element = parseElementFlag(String(value));
+    } catch (e) {
+      raiseError("E_INPUT_INVALID", { field: "element", detail: (e as Error).message, verb: "generate video" });
+    }
+    return {
+      frontal: intakeDestinationPath(element.frontal, destination, "element"),
+      references: element.references.map((r) => intakeDestinationPath(r, destination, "element")),
+    };
+  });
 }
 
 function intakeDestinationPath(
@@ -831,13 +886,13 @@ export function generateCmd() {
   // ── image ───────────────────────────────────────────────────────────────
   const imageCmd = cmd
     .command("image")
-    .description("Generate one image via OpenRouter (default: google/gemini-3-pro-image-preview — nano-banana-pro, multi-ref consistency, ≥4 concurrent). Pass --model openai/gpt-5.4-image-2 when label typography matters more than ref consistency. Pass --import <file> to register a host-generated image (Codex / Claude host image tool, or any local PNG / JPEG / WebP) into the slot as a new revision with provenance at $0 — no provider call (#572).")
+    .description("Generate one image via OpenRouter (default: google/gemini-3-pro-image — nano-banana-pro, multi-ref consistency, ≥4 concurrent). Pass --model openai/gpt-5.4-image-2 when label typography matters more than ref consistency. Pass --import <file> to register a host-generated image (Codex / Claude host image tool, or any local PNG / JPEG / WebP) into the slot as a new revision with provenance at $0 — no provider call (#572).")
     .option("--project <id>", "Project ID")
     .option("--workspace <slug>", "Workspace shared-asset destination")
     .option("--slot <slot>", "Asset slot id (e.g. scene-01-bg-image). Required unless --batch <jsonl> is passed (the jsonl carries per-line slots).")
     .option("--prompt <prompt>", "Text prompt — see docs/prompts/image/ for mode-specific master templates")
     .option("--prompt-file <path>", "Read the prompt from a file (#025). Symmetric with --prompt; inline wins when both are passed. Path resolves project-relative when --project is set.")
-    .option("--model <model>", "OpenRouter model id (default google/gemini-3-pro-image-preview, the nano-banana-pro lineage; switch to openai/gpt-5.4-image-2 for premium typography on labels)", "google/gemini-3-pro-image-preview")
+    .option("--model <model>", "OpenRouter model id (default google/gemini-3-pro-image, the nano-banana-pro lineage; switch to openai/gpt-5.4-image-2 for premium typography on labels)", "google/gemini-3-pro-image")
     .option("--provider <id>", "Provider connector to use (e.g. openrouter). Default: first available provider that supports image. See `ralphy provider list`.")
     .option(
       "--ref <ref...>",
@@ -854,7 +909,7 @@ export function generateCmd() {
     )
     .option(
       "--aspect <aspect>",
-      "Aspect-ratio alias (9:16 | 16:9 | 1:1 | 3:4 | 4:3 | 2:3 | 3:2). Resolves to the chosen model's natural pixel grid (e.g. 9:16 on gpt-5.4-image-2 → 1024x1536, on gemini-3-pro-image-preview → 768x1376). Wins over --size when both are passed. #051",
+      "Aspect-ratio alias (9:16 | 16:9 | 1:1 | 3:4 | 4:3 | 2:3 | 3:2). Resolves to the chosen model's natural pixel grid (e.g. 9:16 on gpt-5.4-image-2 → 1024x1536, on gemini-3-pro-image → 768x1376). Wins over --size when both are passed. #051",
     )
     .option("--negative <prompt>", "Negative prompt")
     .option("--note <note>", "Free-form note for generations.jsonl")
@@ -903,7 +958,7 @@ Example (register a host-generated image in one call, $0, no provider call):
       if (opts.queue) rejectProjectOnlyMode(destination, "--queue");
       if (maybeEnqueue(opts, "generate.image", opts.project)) return;
 
-      const resolvedDefaultModel = resolveModelAlias(opts.model) ?? "google/gemini-3-pro-image-preview";
+      const resolvedDefaultModel = resolveModelAlias(opts.model) ?? "google/gemini-3-pro-image";
       const resolvedSize = resolveImageSize({ model: resolvedDefaultModel, size: opts.size, aspect: opts.aspect });
       const variants = opts.variants ?? 1;
 
@@ -1166,7 +1221,7 @@ Example (register a host-generated image in one call, $0, no provider call):
     .description("Fan out N image gens from a directory of `*.txt` prompt files (each file → one slot named by stem). Shares --model / --ref / --size across the batch; respects #007 per-endpoint concurrency. #024")
     .requiredOption("--project <id>", "Project ID")
     .requiredOption("--prompts-dir <dir>", "Directory containing `*.txt` prompt files. Each file → one slot named by stem (e.g. `scene-01.txt` → slot `scene-01`).")
-    .option("--model <model>", "OpenRouter model id (default google/gemini-3-pro-image-preview)", "google/gemini-3-pro-image-preview")
+    .option("--model <model>", "OpenRouter model id (default google/gemini-3-pro-image)", "google/gemini-3-pro-image")
     .option("--provider <id>", "Provider connector to use (e.g. openrouter). Default: first available provider that supports image.")
     .option(
       "--ref <ref...>",
@@ -1213,7 +1268,7 @@ Example (register a host-generated image in one call, $0, no provider call):
       }
 
       await maybeStoryboardGate(opts, { kind: "project", id: opts.project }, items.map((item) => item.slot), "generate image-batch");
-      const resolvedModel = resolveModelAlias(opts.model) ?? "google/gemini-3-pro-image-preview";
+      const resolvedModel = resolveModelAlias(opts.model) ?? "google/gemini-3-pro-image";
       const resolvedSize = resolveImageSize({ model: resolvedModel, size: opts.size, aspect: opts.aspect });
       const sharedRefs = await readRefsOrFile({
         refs: opts.ref,
@@ -1292,6 +1347,11 @@ Example (register a host-generated image in one call, $0, no provider call):
       "Reference VIDEO(s) for video-anchored reference-to-video (fal `--provider fal --model bytedance/seedance-2.0/reference-to-video` only, #402). Maps to seedance `video_urls`; order → `Video 1`, `Video 2`, … in the prompt. Constraints (auto-fixed where possible): <=3 files, combined 2-15s, <=50MB, each 640x640..834x1112 — 1080x1920 sources are auto-downscaled into artifacts/refs/ with a stderr note. Same path resolution as --first-frame (#025).",
     )
     .option(
+      "--element <images>",
+      "Kling O3 element (#592): one character or object as comma-separated images, frontal view first, then 1-3 extra angles (2-4 images). Repeat the flag per element; order maps to @Element1, @Element2, ... in the prompt. fal `--provider fal --model fal-ai/kling-video/o3/pro/reference-to-video` only. Same path resolution as --first-frame (#025).",
+      (value: string, previous: string[] = []) => [...previous, value],
+    )
+    .option(
       "--aspect-ratio <ratio>",
       "Aspect ratio. Per-model whitelist: kling 9:16/16:9/1:1, veo 9:16/16:9, hailuo 16:9 only, seedance/wan up to 7 ratios. See `ralphy models show <id>`",
       "9:16"
@@ -1357,6 +1417,15 @@ Example (register a host-generated image in one call, $0, no provider call):
       if (opts.refVideo && opts.refVideo.length > 0) {
         opts.refVideo = (opts.refVideo as string[]).map((r) => intakeDestinationPath(r, destination, "ref-video"));
       }
+      // #592: Kling O3 elements (fal). Refuse on any other model before spending.
+      const elements = readElementFlags(opts.element, destination);
+      if (elements.length > 0 && !falModelAcceptsElements(resolveModelAlias(opts.model) ?? opts.model)) {
+        raiseError("E_INPUT_INVALID", {
+          field: "element",
+          detail: `--element needs --provider fal --model fal-ai/kling-video/o3/pro/reference-to-video; ${opts.model} has no Kling elements`,
+          verb: "generate video",
+        });
+      }
 
       const firstFrameRef = opts.firstFrame ?? opts.image;
       const lastFrameRef = opts.lastFrame;
@@ -1399,6 +1468,7 @@ Example (register a host-generated image in one call, $0, no provider call):
           lastFrame: lastFrameRef ? "[ref-supplied]" : null,
           refs: opts.ref && opts.ref.length > 0 ? opts.ref : null,
           refVideos: opts.refVideo && opts.refVideo.length > 0 ? opts.refVideo : null,
+          elements: elements.length > 0 ? elements : null,
           generateAudio: opts.audio,
           // fal models aren't in the OR catalog — price them via the fal
           // connector's pricing helper (#402); everything else via the OR
@@ -1415,6 +1485,25 @@ Example (register a host-generated image in one call, $0, no provider call):
                 ).toFixed(4),
               )
             : estimateVideoCostUsd(opts.model, opts.duration),
+          // #592: the resolved fal request body. Local paths stand in for the
+          // fal CDN URLs a live run uploads them to.
+          ...(isFalVideoModel(opts.model)
+            ? {
+                requestBody: buildFalVideoBody(opts.model, {
+                  prompt: opts.prompt,
+                  durationSec: opts.duration,
+                  aspectRatio: opts.aspectRatio ?? "9:16",
+                  resolution: opts.resolution ?? "720p",
+                  generateAudio: Boolean(opts.audio),
+                  videoUrls: opts.refVideo,
+                  imageUrls: opts.ref,
+                  startImageUrl: firstFrameRef,
+                  endImageUrl: lastFrameRef,
+                  elements,
+                }),
+                requestBodyNote: "local paths upload to the fal CDN on a live run; the body then carries the returned file URLs",
+              }
+            : {}),
         });
         return;
       }
@@ -1449,6 +1538,7 @@ Example (register a host-generated image in one call, $0, no provider call):
           ...(lastFrameRef ? ["lastFrame"] : []),
           ...(opts.ref && opts.ref.length > 0 ? ["refs"] : []),
           ...(opts.refVideo && opts.refVideo.length > 0 ? ["refVideos"] : []),
+          ...(elements.length > 0 ? ["elements"] : []),
           ...(opts.audio ? ["generateAudio"] : []),
         ],
       });
@@ -1491,7 +1581,7 @@ Example (register a host-generated image in one call, $0, no provider call):
             ...providerDestination(destination), runId, outputPath, slot: opts.slot,
             prompt: opts.prompt, durationSec: opts.duration, model: resolvedVideoModel,
             firstFrame: opts.firstFrame, lastFrame: opts.lastFrame, image: opts.image,
-            refs: opts.ref, refVideos: opts.refVideo, aspectRatio: opts.aspectRatio,
+            refs: opts.ref, refVideos: opts.refVideo, elements, aspectRatio: opts.aspectRatio,
             resolution: opts.resolution, generateAudio: opts.audio,
             pollIntervalMs: opts.pollIntervalMs, pollMaxAttempts: opts.pollMaxAttempts,
             note: opts.note, noRetry: opts.retry === false,
@@ -1806,6 +1896,7 @@ Example (register a host-generated image in one call, $0, no provider call):
             const retried = await submitMusicWithToSAutoRetry({
           runId,
           projectId: opts.project,
+          destination,
           slot: opts.slot,
           prompt: opts.prompt,
           durationSec: opts.duration,

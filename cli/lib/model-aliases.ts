@@ -26,16 +26,25 @@ const ALIASES: Record<string, string> = {
   "gpt-image-mini": "openai/gpt-5-image-mini",
   "gpt5-mini-image": "openai/gpt-5-image-mini",
 
-  "banana": "google/gemini-3-pro-image-preview",
-  "nano-banana": "google/gemini-3-pro-image-preview",
-  "nano banana": "google/gemini-3-pro-image-preview",
-  "nano-banana-pro": "google/gemini-3-pro-image-preview",
-  "nano banana pro": "google/gemini-3-pro-image-preview",
-  "gemini-image": "google/gemini-3-pro-image-preview",
-  "gemini-3-pro-image": "google/gemini-3-pro-image-preview",
-  "gemini-3-image": "google/gemini-3-pro-image-preview",
+  "banana": "google/gemini-3-pro-image",
+  "nano-banana": "google/gemini-3-pro-image",
+  "nano banana": "google/gemini-3-pro-image",
+  "nano-banana-pro": "google/gemini-3-pro-image",
+  "nano banana pro": "google/gemini-3-pro-image",
+  "gemini-image": "google/gemini-3-pro-image",
+  "gemini-3-pro-image": "google/gemini-3-pro-image",
+  "gemini-3-pro-image-preview": "google/gemini-3-pro-image",
+  "gemini-3-image": "google/gemini-3-pro-image",
   "gemini-flash-image": "google/gemini-3.1-flash-image-preview",
   "gemini-2.5-flash-image": "google/gemini-2.5-flash-image",
+  "nano-banana-2.1": "google/gemini-nano-banana-2.1",
+  "nano banana 2.1": "google/gemini-nano-banana-2.1",
+  "seedream": "bytedance-seed/seedream-5-0-pro",
+  "seedream-5-pro": "bytedance-seed/seedream-5-0-pro",
+  "flux-3": "black-forest-labs/flux-3-image",
+  "flux3": "black-forest-labs/flux-3-image",
+  "sunburst": "openai/gpt-image-2.5-sunburst",
+  "gpt-image-2.5-sunburst": "openai/gpt-image-2.5-sunburst",
 
   "recraft": "recraft/recraft-v4.1-pro",
   "recraft-pro": "recraft/recraft-v4.1-pro",
@@ -53,6 +62,7 @@ const ALIASES: Record<string, string> = {
   "seedance-2": "bytedance/seedance-2.0",
   "seedance-pro": "bytedance/seedance-2.0",
   "seedance-fast": "bytedance/seedance-2.0-fast",
+  "seedance-2.5": "bytedance/seedance-2.5",
 
   "veo": "google/veo-3.1",
   "veo-3": "google/veo-3.1",
@@ -64,8 +74,14 @@ const ALIASES: Record<string, string> = {
   "wan": "alibaba/wan-2.7",
   "wan-2.6": "alibaba/wan-2.6",
   "wan-2.7": "alibaba/wan-2.7",
+  "wan-3": "alibaba/wan-3.0",
+  "wan-3.0": "alibaba/wan-3.0",
 
   "hailuo": "minimax/hailuo-2.3",
+  "hailuo-3": "minimax/hailuo-3",
+  "hailuo-3-max": "minimax/hailuo-3-max",
+
+  "avatar-iv": "heygen/avatar-iv",
 
   // ── Vision / LLM models (for ralphy ref / synthesis) ───────────────
   "gemini-flash": "google/gemini-2.5-flash",
@@ -74,21 +90,36 @@ const ALIASES: Record<string, string> = {
 };
 
 /**
+ * Full provider ids that were retired or superseded and now resolve to a live
+ * successor (#592). Unlike ALIASES, the keys are complete `provider/model`
+ * slugs, so old commands, prompts.json files and memory entries keep working
+ * after a default moves. Historical logs keep the id they were written with.
+ */
+const ID_REDIRECTS: Record<string, string> = {
+  // Gemini API shut the preview id down on 2026-06-25; OpenRouter lists the GA
+  // `google/gemini-3-pro-image` (canonical slug -20260528) at the same price.
+  "google/gemini-3-pro-image-preview": "google/gemini-3-pro-image",
+};
+
+/**
  * Normalize a user-supplied model string by stripping whitespace and lowercasing,
  * then look up against the alias table. Canonical OR slugs (containing a `/`) pass
- * through unchanged. Unknown bare strings (no `/`) also pass through — the caller
- * gets the upstream 404 with the original input preserved in the message.
+ * through unchanged unless ID_REDIRECTS names a successor for them. Unknown bare
+ * strings (no `/`) also pass through — the caller gets the upstream 404 with the
+ * original input preserved in the message.
  *
  * Returns the canonical slug; emits a stderr breadcrumb when a substitution
  * happened so the user / agent learns the canonical form.
  */
 export function resolveModelAlias(input: string | undefined): string | undefined {
   if (!input) return input;
-  // Pass through canonical OR slugs (provider/model form) untouched.
-  if (input.includes("/")) return input;
-
   const key = input.trim().toLowerCase();
-  const canonical = ALIASES[key];
+  // Canonical OR slugs (provider/model form) pass through, except retired ids
+  // — with or without a `<connector>:` prefix (`openrouter:google/...`).
+  const prefixed = /^([a-z][a-z0-9-]*):([^:]+\/.+)$/.exec(key);
+  const canonical = prefixed
+    ? (ID_REDIRECTS[prefixed[2]!] ? `${prefixed[1]}:${ID_REDIRECTS[prefixed[2]!]}` : undefined)
+    : input.includes("/") ? ID_REDIRECTS[key] : ALIASES[key];
   if (!canonical) return input;
   if (canonical === input) return input;
   // eslint-disable-next-line no-console
@@ -103,7 +134,7 @@ export function resolveModelAlias(input: string | undefined): string | undefined
  * to show the user what shorthand they can use.
  */
 export function aliasesFor(canonical: string): string[] {
-  return Object.entries(ALIASES)
+  return [...Object.entries(ALIASES), ...Object.entries(ID_REDIRECTS)]
     .filter(([, v]) => v === canonical)
     .map(([k]) => k)
     .sort();
@@ -122,8 +153,20 @@ export function lookupAlias(input: string): { canonical: string | undefined; mat
 }
 
 /**
+ * Retired full ids that redirect to `canonical` (#592) — the registry treats a
+ * mention of one as a mention of its successor, so older shared notes still
+ * reach the live model.
+ */
+export function retiredIdsFor(canonical: string): string[] {
+  return Object.entries(ID_REDIRECTS)
+    .filter(([, v]) => v === canonical)
+    .map(([k]) => k)
+    .sort();
+}
+
+/**
  * All canonical models reachable via at least one alias.
  */
 export function canonicalSlugs(): string[] {
-  return Array.from(new Set(Object.values(ALIASES))).sort();
+  return Array.from(new Set([...Object.values(ALIASES), ...Object.values(ID_REDIRECTS)])).sort();
 }

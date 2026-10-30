@@ -34,7 +34,7 @@ import {
   type StoryboardSceneDraft,
 } from "./model.js";
 
-export const DEFAULT_IMAGE_MODEL = "google/gemini-3-pro-image-preview";
+export const DEFAULT_IMAGE_MODEL = "google/gemini-3-pro-image";
 export const DEFAULT_VIDEO_MODEL = "kwaivgi/kling-v3.0-pro";
 
 const FRAME_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"];

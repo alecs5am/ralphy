@@ -26,7 +26,7 @@ No reference required for a no-name mascot + fictional brand. The reference-requ
 
 Verify with `ralphy models show <id>` every run (pick from the `MODELS.md` index).
 - **Default — `openai/gpt-5.4-image-2`.** Best baked text (validated 30/30 slides spelled right). Serialize per style (1 concurrent inside a style); parallel ACROSS styles is fine — never run two gen-loops on one key writing the same prompt files.
-- **Fallback — `google/gemini-3-pro-image-preview`.** Fast cover exploration only; smudges small type — finalize on gpt-image.
+- **Fallback — `google/gemini-3-pro-image`.** Fast cover exploration only; smudges small type — finalize on gpt-image.
 
 ## Style / visual constraints
 

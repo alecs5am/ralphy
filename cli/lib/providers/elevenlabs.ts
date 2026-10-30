@@ -15,6 +15,7 @@ import {
   providerOutputPath,
   providerHttpError,
   logFailure,
+  logRefusalFailure,
   requireProviderKey,
   retryTransient,
   TerminalProviderError,
@@ -423,6 +424,9 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
           noRetry: input.noRetry,
           onTransientFailure: async (err, attempt) => {
             await logFailure(input, ID, modelId, "voiceover", body, err, t0, attempt);
+          },
+          onTerminalFailure: async (err, attempt) => {
+            await logRefusalFailure(input, ID, modelId, "voiceover", body, err, t0, attempt);
           },
         },
       );
@@ -905,6 +909,8 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
       onTransientFailure: async (err, attempt) => {
         await logFailure(input, ID, modelId, "music", body, err, t0, attempt);
       },
+      // No onTerminalFailure here: a ToS rejection is logged once by its owner
+      // — submitMusicWithToSAutoRetry() or the generate Run wrapper (#592).
     },
   );
   const buf = music.buf;

@@ -115,7 +115,7 @@ extra products, no warped perspective, no surreal props.
 ## Model recommendation
 
 - **Default — `openai/gpt-5.4-image-2`**. Photoreal natural light comes out cleaner in it than in Gemini, better handling of real interiors.
-- If you want more "magic" / drama / surreal nightside vibe — `google/gemini-3-pro-image-preview` sometimes gives a more cinematic light.
+- If you want more "magic" / drama / surreal nightside vibe — `google/gemini-3-pro-image` sometimes gives a more cinematic light.
 - For consistency across scenes (same product in 5 different environments) — gemini with `--ref product.png` on each generation.
 
 ## Caveats

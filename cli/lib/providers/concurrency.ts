@@ -45,9 +45,11 @@ const CAPS: Record<string, number> = {
   // 73/73 403 on uncapped fan-out; 2-in-flight stays under the OR per-key
   // limit while leaving room for the retry-outside-semaphore re-acquire.
   "openrouter:openai/gpt-5.4-image-2": 2,
-  // gemini-3-pro-image-preview: nano-banana lineage tolerates ≥4 in practice;
-  // keep a conservative 2 to match the gpt-image neighbour and avoid the OR
-  // "total limit" 403 class on shared-key accounts.
+  // gemini-3-pro-image (GA id since #592; -preview kept for explicit callers):
+  // nano-banana lineage tolerates ≥4 in practice; keep a conservative 2 to
+  // match the gpt-image neighbour and avoid the OR "total limit" 403 class on
+  // shared-key accounts.
+  "openrouter:google/gemini-3-pro-image": 2,
   "openrouter:google/gemini-3-pro-image-preview": 2,
 
   // ── OpenRouter video models ─────────────────────────────────────────────

@@ -9,7 +9,7 @@
   "cover": "scene-14-platform",
   "scope": ["image", "cinematic", "landscape", "atmosphere", "letterbox"],
   "models": [
-    "google/gemini-3-pro-image-preview",
+    "google/gemini-3-pro-image",
     "openai/gpt-5.4-image-2"
   ],
   "tags": ["cinematic", "film", "35mm", "1990s", "iwai", "letterbox", "narrative"],

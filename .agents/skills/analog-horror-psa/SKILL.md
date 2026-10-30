@@ -151,7 +151,7 @@ Validated on `analog-horror-fridge-001`:
 ## Default model stack (verify against MODELS.md)
 
 - **Style-discovery prototype:** `openai/gpt-5.4-image-2` with `--ref <genre-frame>`. Best at "match a reference image exactly" with verbose style prompts. One prototype, one yes/no, iterate ONLY this slot.
-- **Style-locked batch (after prototype approved):** `google/gemini-3-pro-image-preview` (nano-banana). With `--ref <approved-prototype>` + per-icon subject prompt, holds the locked style across all 9 siblings reliably. Cheaper + faster than gpt-5.4 for consistency-across-batch.
+- **Style-locked batch (after prototype approved):** `google/gemini-3-pro-image` (nano-banana). With `--ref <approved-prototype>` + per-icon subject prompt, holds the locked style across all 9 siblings reliably. Cheaper + faster than gpt-5.4 for consistency-across-batch.
 - **VO:** ElevenLabs `eleven_multilingual_v2`, voice "Alerter" (or equivalent broadcaster-style community voice). Verify voice exists first.
 - **SFX:** ElevenLabs `sound_generation_v2` via `ralphy generate sfx`. 4 variants per climax growl, layered.
 - **Music:** `ralphy ref pull <yt-music-url> --audio-only` for a synth-tension bed. Generated music (ElevenLabs Music) wasn't tried on the reference project; yt-dlp pull from a user-supplied YouTube reference is the validated 2-minute path.
@@ -174,7 +174,7 @@ Validated on `analog-horror-fridge-001`:
 2. **Reference pull.** `ralphy ref pull <reference-shorts-url>` → frames → transcribe → analyze-video → blueprint. Save one canonical pictogram frame as the prototype `--ref`.
 3. **Scenario lock.** Write `scenario.json` with 10 scenes × ~3s, IF / DO-NOT / BUT / AND structure, angle `"storytime"` (passes the virality rubric — `"analog-horror-psa"` doesn't). `ralphy project score <id> --strict`. Get explicit user "go" on the VO lines BEFORE any generation.
 4. **Style lock.** ONE prototype icon on `gpt-5.4-image-2 --ref <genre-frame>`. Show user; get yes/no; iterate ONLY this slot until yes.
-5. **Batch the 9 sibling icons** via sequential bash for-loop on `gemini-3-pro-image-preview --ref <approved-prototype>`.
+5. **Batch the 9 sibling icons** via sequential bash for-loop on `gemini-3-pro-image --ref <approved-prototype>`.
 6. **Chroma-key** the 10 icons to `artifacts/images-keyed/`.
 7. **Voiceover.** Verify voice exists. Sequential generation. ALL CAPS input. Loudnorm pass AFTER.
 8. **SFX.** Sequential. 4 climax-growl variants for layering.
@@ -196,7 +196,7 @@ ralphy generate image --project <id> --slot scene-02-PROTO \
 # 5. Batch 9 siblings — sequential, nano-banana, ref the approved master
 for slot in scene-01 scene-03 scene-04 scene-05 scene-06 scene-07 scene-08 scene-09 scene-10; do
   ralphy generate image --project <id> --slot "$slot" \
-    --model google/gemini-3-pro-image-preview --size 1080x1920 \
+    --model google/gemini-3-pro-image --size 1080x1920 \
     --ref artifacts/refs/icon-master.png \
     --prompt "$(cat prompts/$slot.txt)"
   sleep 2

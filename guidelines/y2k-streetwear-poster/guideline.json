@@ -10,7 +10,7 @@
   "scope": ["image", "poster", "typography", "streetwear", "collage"],
   "models": [
     "openai/gpt-5.4-image-2",
-    "google/gemini-3-pro-image-preview"
+    "google/gemini-3-pro-image"
   ],
   "tags": ["poster", "streetwear", "y2k", "typography", "collage", "branding", "key-art"],
   "patterns": ["beveled-slab-wordmark", "chest-up-hero-with-prop", "vinyl-sticker-collage", "poster-as-landing", "original-blob-glyph"]

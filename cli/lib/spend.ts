@@ -159,12 +159,25 @@ export async function recordApproval(
   return recordApprovalAt(ledgerPath(projectId), projectId, approval);
 }
 
-/** Domain Run Attempt spend plus exact legacy gen-log compatibility rows. */
+/**
+ * Domain Run Attempt spend plus exact legacy gen-log compatibility rows. A
+ * refusal row with an unknown cost (#592) carries no `cost_usd` and adds 0 —
+ * see {@link unknownCostCalls} for how many such rows the total leaves out.
+ */
 export async function actualSpendUsd(projectId: string): Promise<number> {
   const rows = await readGenerations(projectId);
   let total = projectRunAttemptSpendUsd(projectId);
   for (const r of rows) total += r.cost_usd ?? 0;
   return Number(total.toFixed(6));
+}
+
+/**
+ * Gen-log rows whose cost the provider did not report (#592): blocked
+ * refusals logged with `cost_source: "unknown"`. The spend total is a floor
+ * while this is above 0. Pure.
+ */
+export function unknownCostCalls(rows: GenerationEntry[]): number {
+  return rows.filter((r) => r.cost_source === "unknown" && typeof r.cost_usd !== "number").length;
 }
 
 /**
@@ -323,6 +336,8 @@ export interface BudgetSummary {
   activeApproval: Approval | null;
   expired: boolean;
   approvals: Approval[];
+  /** Calls whose cost is unknown (#592 refusals); `spentUsd` excludes them. */
+  unknownCostCalls: number;
 }
 
 /** Build the budget summary from the ledger + actual spend. */
@@ -342,6 +357,7 @@ export async function budgetSummary(projectId: string, now: Date = new Date()): 
     activeApproval: approval,
     expired,
     approvals: ledger?.approvals ?? [],
+    unknownCostCalls: unknownCostCalls(await readGenerations(projectId)),
   };
 }
 
