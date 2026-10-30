@@ -137,6 +137,12 @@ export const HASHNODE_CREDENTIAL: CredentialDescriptor = Object.freeze({
   environmentVariable: "HASHNODE_TOKEN",
 });
 
+export const PEXELS_CREDENTIAL: CredentialDescriptor = Object.freeze({
+  providerId: "pexels",
+  kind: "api-key",
+  environmentVariable: "PEXELS_API_KEY",
+});
+
 export const STATIC_CREDENTIAL_DESCRIPTORS: readonly CredentialDescriptor[] =
   Object.freeze([
     OPENROUTER_CREDENTIAL,
@@ -149,6 +155,7 @@ export const STATIC_CREDENTIAL_DESCRIPTORS: readonly CredentialDescriptor[] =
     YOUTUBE_CREDENTIAL,
     DEVTO_CREDENTIAL,
     HASHNODE_CREDENTIAL,
+    PEXELS_CREDENTIAL,
   ]);
 
 class ImmutableCredentialMap extends Map<string, string> {

@@ -1,0 +1,22 @@
+{
+  "page": 1,
+  "per_page": 20,
+  "total_results": 1,
+  "url": "https://www.pexels.com/videos/",
+  "videos": [
+    {
+      "id": 7579577,
+      "width": 2160,
+      "height": 3840,
+      "duration": 14,
+      "url": "https://www.pexels.com/video/trader-looking-at-charts-7579577/",
+      "image": "https://images.pexels.com/videos/7579577/pexels-photo-7579577.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=630&w=1200",
+      "user": { "id": 3305413, "name": "Tima Miroshnichenko", "url": "https://www.pexels.com/@tima-miroshnichenko" },
+      "video_files": [
+        { "id": 1, "quality": "uhd", "file_type": "video/mp4", "width": 2160, "height": 3840, "fps": 25, "link": "https://videos.pexels.com/video-files/7579577/7579577-uhd_2160_3840_25fps.mp4" },
+        { "id": 2, "quality": "hd", "file_type": "video/mp4", "width": 1080, "height": 1920, "fps": 25, "link": "https://videos.pexels.com/video-files/7579577/7579577-hd_1080_1920_25fps.mp4" },
+        { "id": 3, "quality": "sd", "file_type": "video/mp4", "width": 540, "height": 960, "fps": 25, "link": "https://videos.pexels.com/video-files/7579577/7579577-sd_540_960_25fps.mp4" }
+      ]
+    }
+  ]
+}

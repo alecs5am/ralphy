@@ -1,0 +1,41 @@
+[
+  {
+    "title": "NVIDIA",
+    "hex": "76B900",
+    "source": "https://www.nvidia.com/en-us",
+    "guidelines": "https://www.nvidia.com/en-us/about-nvidia/legal-info/logo-brand-usage/"
+  },
+  {
+    "title": "Nvidia Shield",
+    "hex": "1A1A1A",
+    "source": "https://www.nvidia.com/shield"
+  },
+  {
+    "title": ".NET",
+    "hex": "512BD4",
+    "source": "https://github.com/dotnet/brand"
+  },
+  {
+    "title": "C++",
+    "hex": "00599C",
+    "source": "https://github.com/isocpp/logos"
+  },
+  {
+    "title": "AT&T",
+    "hex": "009FDB",
+    "source": "https://www.att.com",
+    "aliases": { "aka": ["American Telephone and Telegraph"] }
+  },
+  {
+    "title": "Visa",
+    "hex": "1A1F71",
+    "source": "https://merchantsignageeu.visa.com",
+    "license": { "type": "custom", "url": "https://www.visa.co.uk/about-visa/legal-privacy.html" }
+  },
+  {
+    "title": "Robinhood",
+    "slug": "robinhood",
+    "hex": "CCFF00",
+    "source": "https://robinhood.com"
+  }
+]

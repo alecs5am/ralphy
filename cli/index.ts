@@ -126,6 +126,7 @@ import { storyboardCmd } from "./commands/storyboard.js";
 import { bridgeCmd } from "./commands/bridge.js";
 import { guidelineCmd } from "./commands/guideline.js";
 import { catalogCmd } from "./commands/catalog.js";
+import { stockCmd } from "./commands/stock.js";
 import { benchmarkCmd } from "./commands/benchmark.js";
 import { memoryCmd } from "./commands/memory.js";
 import { lessonsCmd } from "./commands/lessons.js";
@@ -259,6 +260,13 @@ program
          like any project verb (#594). */
       const catalogScopeFree = sub === "catalog" &&
         !(actionCommand.name() === "use" && actionCommand.parent?.name() === "catalog");
+      /* And `stock search`: it queries public licensed sources and writes
+         nothing (#596). With an explicit --workspace / --project it resolves
+         scope, so a Workspace-stored PEXELS_API_KEY is visible. `stock pull`
+         and `stock credits` edit or read a Project and resolve scope like any
+         project verb. */
+      const stockSearchScopeFree = sub === "stock" && actionCommand.name() === "search" &&
+        actionCommand.parent?.name() === "stock" && !opts.workspace && !opts.project;
       /* And `matte` without `--project`: the matting engine is a per-machine
          venv and reads only the media path it is given (#560). With
          `--project` it resolves scope like any project verb. */
@@ -271,7 +279,7 @@ program
       const originalityOnPaths = sub === "unit" && actionCommand.name() === "originality" && isPathArg(actionCommand.args[0])
         && Array.isArray(actionCommand.opts().against) && actionCommand.opts().against.length > 0
         && (actionCommand.opts().against as unknown[]).every(isPathArg);
-      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || catalogScopeFree || matteWithoutProject || safeZonesOnPath || originalityOnPaths || explicitCredentialProbe) {
+      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || catalogScopeFree || stockSearchScopeFree || matteWithoutProject || safeZonesOnPath || originalityOnPaths || explicitCredentialProbe) {
         setDataRoot(identity.dataRoot);
         return true;
       }
@@ -390,6 +398,7 @@ program.addCommand(libraryCmd());
 program.addCommand(templateCmd());
 program.addCommand(guidelineCmd());
 program.addCommand(catalogCmd());
+program.addCommand(stockCmd());
 program.addCommand(benchmarkCmd());
 program.addCommand(memoryCmd());
 program.addCommand(lessonsCmd());

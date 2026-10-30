@@ -1,0 +1,106 @@
+{
+  "batchcomplete": true,
+  "continue": { "gsroffset": 3, "continue": "gsroffset||" },
+  "query": {
+    "pages": [
+      {
+        "pageid": 1001,
+        "ns": 6,
+        "title": "File:NYSE trading floor.jpg",
+        "index": 2,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 2481152,
+            "width": 4000,
+            "height": 2667,
+            "thumburl": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/NYSE_trading_floor.jpg/1920px-NYSE_trading_floor.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 1280,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/a/ab/NYSE_trading_floor.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:NYSE_trading_floor.jpg",
+            "mime": "image/jpeg",
+            "extmetadata": {
+              "ObjectName": { "value": "NYSE trading floor", "source": "mediawiki-metadata" },
+              "Categories": { "value": "New York Stock Exchange|Trading floors", "source": "commons-categories", "hidden": "" },
+              "Artist": { "value": "<a href=\"//commons.wikimedia.org/wiki/User:Jane_Doe\" title=\"User:Jane Doe\">Jane Doe</a>", "source": "commons-desc-page" },
+              "LicenseShortName": { "value": "CC BY-SA 4.0", "source": "commons-desc-page", "hidden": "" },
+              "LicenseUrl": { "value": "https://creativecommons.org/licenses/by-sa/4.0", "source": "commons-desc-page", "hidden": "" },
+              "AttributionRequired": { "value": "true", "source": "commons-desc-page", "hidden": "" },
+              "Restrictions": { "value": "personality", "source": "commons-desc-page", "hidden": "" }
+            }
+          }
+        ]
+      },
+      {
+        "pageid": 1002,
+        "ns": 6,
+        "title": "File:Stock certificate 1910.tif",
+        "index": 1,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 48211002,
+            "width": 6000,
+            "height": 4000,
+            "thumburl": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Stock_certificate_1910.tif/lossy-page1-1920px-Stock_certificate_1910.tif.jpg",
+            "thumbwidth": 1920,
+            "thumbheight": 1280,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/c/cd/Stock_certificate_1910.tif",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Stock_certificate_1910.tif",
+            "mime": "image/tiff",
+            "extmetadata": {
+              "Artist": { "value": "Unknown author" },
+              "LicenseShortName": { "value": "Public domain" },
+              "AttributionRequired": { "value": "false" }
+            }
+          }
+        ]
+      },
+      {
+        "pageid": 1003,
+        "ns": 6,
+        "title": "File:Company album cover.jpg",
+        "index": 3,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 120000,
+            "width": 600,
+            "height": 600,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/e/ef/Company_album_cover.jpg",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Company_album_cover.jpg",
+            "mime": "image/jpeg",
+            "extmetadata": {
+              "LicenseShortName": { "value": "Fair use" },
+              "NonFree": { "value": "true" },
+              "ImageDescription": { "value": "Album cover of a <b>stock exchange</b> themed record" }
+            }
+          }
+        ]
+      },
+      {
+        "pageid": 1004,
+        "ns": 6,
+        "title": "File:Aurora borealis over Tromso.jpg",
+        "index": 4,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 900000,
+            "width": 3000,
+            "height": 2000,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/1/12/Aurora_borealis_over_Tromso.jpg",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Aurora_borealis_over_Tromso.jpg",
+            "mime": "image/jpeg",
+            "extmetadata": {
+              "LicenseShortName": { "value": "CC BY 4.0" },
+              "LicenseUrl": { "value": "https://creativecommons.org/licenses/by/4.0" },
+              "ImageDescription": { "value": "Northern lights above the city, seen from the exchange building" }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

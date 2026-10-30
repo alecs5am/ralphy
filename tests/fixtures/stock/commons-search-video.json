@@ -1,0 +1,60 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "pages": [
+      {
+        "pageid": 2001,
+        "ns": 6,
+        "title": "File:Philippine Stock Exchange bell ringing.webm",
+        "index": 1,
+        "imagerepository": "local",
+        "videoinfo": [
+          {
+            "size": 98000000,
+            "width": 1920,
+            "height": 1080,
+            "duration": 344.56,
+            "thumburl": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Philippine_Stock_Exchange_bell_ringing.webm/1920px--Philippine_Stock_Exchange_bell_ringing.webm.jpg",
+            "url": "https://upload.wikimedia.org/wikipedia/commons/2/20/Philippine_Stock_Exchange_bell_ringing.webm",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Philippine_Stock_Exchange_bell_ringing.webm",
+            "mime": "video/webm",
+            "extmetadata": {
+              "ObjectName": { "value": "Philippine Stock Exchange bell ringing" },
+              "Artist": { "value": "Presidential Communications Office" },
+              "LicenseShortName": { "value": "Public domain" }
+            },
+            "derivatives": [
+              { "src": "https://upload.wikimedia.org/wikipedia/commons/2/20/Philippine_Stock_Exchange_bell_ringing.webm", "type": "video/webm; codecs=\"vp9, opus\"", "transcodekey": "", "width": 1920, "height": 1080 },
+              { "src": "https://upload.wikimedia.org/wikipedia/commons/transcoded/2/20/Philippine_Stock_Exchange_bell_ringing.webm/Philippine_Stock_Exchange_bell_ringing.webm.480p.vp9.webm", "type": "video/webm; codecs=\"vp9, opus\"", "transcodekey": "480p.vp9.webm", "width": 854, "height": 480 },
+              { "src": "https://upload.wikimedia.org/wikipedia/commons/transcoded/2/20/Philippine_Stock_Exchange_bell_ringing.webm/Philippine_Stock_Exchange_bell_ringing.webm.720p.vp9.webm", "type": "video/webm; codecs=\"vp9, opus\"", "transcodekey": "720p.vp9.webm", "width": 1280, "height": 720 },
+              { "src": "https://upload.wikimedia.org/wikipedia/commons/transcoded/2/20/Philippine_Stock_Exchange_bell_ringing.webm/Philippine_Stock_Exchange_bell_ringing.webm.120p.vp9.webm", "type": "video/webm; codecs=\"vp9, opus\"", "transcodekey": "120p.vp9.webm", "width": 213, "height": 120 },
+              { "src": "https://upload.wikimedia.org/wikipedia/commons/transcoded/2/20/Philippine_Stock_Exchange_bell_ringing.webm/Philippine_Stock_Exchange_bell_ringing.webm.1440p.vp9.webm", "type": "video/webm; codecs=\"vp9, opus\"", "transcodekey": "1440p.vp9.webm", "width": 2560, "height": 1440 }
+            ]
+          }
+        ]
+      },
+      {
+        "pageid": 2002,
+        "ns": 6,
+        "title": "File:Old newsreel.ogv",
+        "index": 2,
+        "imagerepository": "local",
+        "videoinfo": [
+          {
+            "size": 5000000,
+            "width": 640,
+            "height": 480,
+            "duration": 60,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Old_newsreel.ogv",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Old_newsreel.ogv",
+            "mime": "application/ogg",
+            "extmetadata": { "LicenseShortName": { "value": "Public domain" } },
+            "derivatives": [
+              { "src": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Old_newsreel.ogv", "type": "video/ogg; codecs=\"theora, vorbis\"", "width": 640, "height": 480 }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

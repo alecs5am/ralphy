@@ -1,0 +1,14 @@
+{
+  "responseHeader": { "status": 0, "QTime": 101, "params": { "rows": 12, "start": 0, "wt": "json" } },
+  "response": {
+    "numFound": 4,
+    "start": 0,
+    "docs": [
+      { "creator": "Lambros Klouvidakis", "identifier": "EurUsd", "licenseurl": "http://creativecommons.org/licenses/by-nc-nd/3.0/", "title": "EUR USD" },
+      { "identifier": "youtube-7dqZ2-X6TQA", "licenseurl": "https://creativecommons.org/licenses/by/3.0/legalcode", "title": "Stock exchange explained", "creator": ["Example Channel", "Second Creator"] },
+      { "identifier": "capf2022", "licenseurl": "https://creativecommons.org/licenses/by-sa/4.0/", "title": "CAPF 2022" },
+      { "identifier": "prelinger-wall-street", "licenseurl": "http://creativecommons.org/publicdomain/mark/1.0/", "title": "Wall Street 1955", "year": 1955 },
+      { "identifier": "no-license-film", "title": "No license film" }
+    ]
+  }
+}

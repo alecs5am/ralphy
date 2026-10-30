@@ -140,6 +140,7 @@ describe("provider credential descriptors", () => {
       "youtube",
       "devto",
       "hashnode",
+      "pexels",
     ]);
   });
 

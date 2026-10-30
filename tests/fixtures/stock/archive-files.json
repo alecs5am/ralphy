@@ -1,0 +1,22 @@
+{
+  "youtube-7dqZ2-X6TQA": {
+    "result": [
+      { "name": "7dqZ2-X6TQA.webm", "source": "original", "format": "WebM", "size": "90000000", "length": "1161.81", "width": "1920", "height": "1080" },
+      { "name": "7dqZ2-X6TQA.mp4", "source": "derivative", "format": "h.264", "size": "40000000", "length": "1161.81", "width": "854", "height": "480" },
+      { "name": "7dqZ2-X6TQA.thumbs/7dqZ2-X6TQA_000001.jpg", "source": "derivative", "format": "Thumbnail" }
+    ]
+  },
+  "capf2022": {
+    "result": [
+      { "name": "FR-CAPF2022.mov", "source": "original", "format": "QuickTime", "size": "4000000000" },
+      { "name": "mp4/FR-CAPF2022.mp4", "source": "original", "format": "MPEG4", "size": "300000000", "length": "01:36:47.4", "width": "1920", "height": "1080" },
+      { "name": "mp4/FR-CAPF2022 4k.mp4", "source": "original", "format": "MPEG4", "size": "450000000", "length": "01:36:47.4", "width": "3840", "height": "2160" }
+    ]
+  },
+  "prelinger-wall-street": {
+    "result": [
+      { "name": "WallStreet1955.mpeg", "source": "original", "format": "MPEG2" },
+      { "name": "WallStreet1955.ogv", "source": "derivative", "format": "Ogg Video" }
+    ]
+  }
+}

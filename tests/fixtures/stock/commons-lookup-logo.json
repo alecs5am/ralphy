@@ -1,0 +1,41 @@
+{
+  "continue": { "vistart": "2021-11-08T02:52:00Z", "continue": "||" },
+  "query": {
+    "pages": [
+      {
+        "pageid": 53138542,
+        "ns": 6,
+        "title": "File:Nvidia logo.svg",
+        "imagerepository": "local",
+        "videoinfo": [
+          {
+            "size": 665,
+            "width": 512,
+            "height": 96,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/21/Nvidia_logo.svg/1920px-Nvidia_logo.svg.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 360,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/2/21/Nvidia_logo.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Nvidia_logo.svg",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=53138542",
+            "extmetadata": {
+              "DateTime": { "value": "2022-05-19 06:38:32", "source": "mediawiki-metadata", "hidden": "" },
+              "ObjectName": { "value": "Nvidia logo", "source": "mediawiki-metadata" },
+              "Categories": { "value": "With trademark|PD textlogo|SVG text logos|Nvidia logos", "source": "commons-categories", "hidden": "" },
+              "ImageDescription": { "value": "Wordmark of \"Nvidia\" (text only).", "source": "commons-desc-page" },
+              "Credit": { "value": "<a rel=\"nofollow\" class=\"external free\" href=\"https://www.nvidia.com/content/gpu-applications/PDF/gpu-applications-catalog.pdf\">https://www.nvidia.com/content/gpu-applications/PDF/gpu-applications-catalog.pdf</a>", "source": "commons-desc-page" },
+              "Artist": { "value": "Nvidia", "source": "commons-desc-page" },
+              "LicenseShortName": { "value": "Public domain", "source": "commons-desc-page", "hidden": "" },
+              "UsageTerms": { "value": "Public domain", "source": "commons-desc-page", "hidden": "" },
+              "AttributionRequired": { "value": "false", "source": "commons-desc-page", "hidden": "" },
+              "Copyrighted": { "value": "False", "source": "commons-desc-page", "hidden": "" },
+              "Restrictions": { "value": "trademarked", "source": "commons-desc-page", "hidden": "" },
+              "License": { "value": "pd", "source": "commons-templates", "hidden": "" }
+            },
+            "mime": "image/svg+xml"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -74,6 +74,11 @@ ralphy matte key <green.mp4|green.png> [--project <id>]   # chroma screen -> VP9
 ralphy matte subject <clip.mp4> [--model rvm|birefnet]    # no screen -> text-behind-subject cutout
 ralphy matte setup                                        # once per machine, for `matte subject`
 
+# Stock overlays: brand logos, photos, b-roll, SFX, music beds (#596) — see references/stock-assets.md
+ralphy stock search <query> --kind image|video|audio|logo [--orientation vertical]   # licensed candidates, no download
+ralphy stock pull <candidate-id...> --project <id>    # Artifact revision + artifacts/<images|videos|sfx|music>/, $0
+ralphy stock credits --project <id> --markdown        # attribution block for the post copy
+
 # Inspect inputs / outputs
 ralphy project show <id> --assets        # asset-manifest before composing
 ralphy project show <id> --status        # what's done / missing
@@ -95,6 +100,7 @@ Extend a toon / painterly clip by anchoring a new `bytedance/seedance-2.0` i2v c
 | [editor/captions.md](./references/captions.md) | Wiring `captions.json` into a caption component; captions-first before writing timing constants |
 | [editor/transitions.md](./references/transitions.md) | Crossfade / push / wipe patterns |
 | [editor/motion-catalog.md](./references/motion-catalog.md) | Pick a ready transition / motion element / SFX: `ralphy catalog list --kind transition --mood energetic` (#563); insert it with `ralphy catalog use <id> --project <id> --at <sec>` (#594) |
+| [editor/stock-assets.md](./references/stock-assets.md) | Overlay assets someone else made (logos, photos, b-roll, SFX, music beds): `ralphy stock search` → `ralphy stock pull` → `ralphy stock credits` in the post copy (#596) |
 | [editor/audio-mixing.md](./references/audio-mixing.md) | VO + music + SFX levels, ducking, fades |
 | [editor/green-zone.md](./references/green-zone.md) | Text/overlay placement inside 1080×1920 safe zone |
 | [editor/caption-presets.md](./references/caption-presets.md) | Free licensed fonts (`ralphy catalog fonts list`), 10 font pairs by register, 12 caption presets (1 / 3 / 5 words, highlight, entry, contrast), pacing defaults, `ralphy eval captions <id> --caption-preset <preset>` (#565) |
@@ -139,7 +145,9 @@ Extend a toon / painterly clip by anchoring a new `bytedance/seedance-2.0` i2v c
 7. **MUST log every user feedback turn on the render** via `ralphy project log-prompt <id> --text "<verbatim>" --stage <feedback|approval|critique|rejection>` — push-back on a cut, caption fix, audio re-mix, "ship it" approval, render-killer critique. Same MUST-log discipline as the scenarist playbook (see [`scenarist.md` → "User-prompt logging"](../scenarist/SKILL.md#user-prompt-logging-must-every-turn)). Sparse logs leave the postmortem layer guessing about which render version the user actually approved.
 8. **Kling + seedance overshoot `--duration` by ~1s** (video lesson 12 in `ralphy models show kwaivgi/kling-v3.0-pro`). Before a multi-clip cut, either request `--duration` 1s shorter at the art-director stage or budget a per-clip trim (`ralphy editor trim-analyze <id>`). Recipe and numbers: [editor/render-pipeline.md → Source-clip duration overshoot](./references/render-pipeline.md#source-clip-duration-overshoot-kling--seedance).
 
-9. **Free before paid (#559).** An overlay that follows a point, a face, or a planar surface (screen, sign, label) is a local track plus composition code: `ralphy track point|planar|face <video> --at <t> --box x,y,w,h --js`, then `ralphy track helper` and `RalphyTrack.follow` / `RalphyTrack.cornerPin` in `index.html`. Escalate to a paid generation only with a stated reason (occluded insert, relighting, fast blur the track cannot hold; see `docs/research/local-tracking.md`).
+9. **Collected overlays come from `ralphy stock` (#596).** Logos, photos, b-roll, SFX and music beds that are not generated are found with `ralphy stock search` and pulled with `ralphy stock pull` (license-checked, recorded as Artifact revisions with provenance), never saved from a browser by hand. Put `ralphy stock credits --project <id> --markdown` into the post caption / description whenever a pulled item requires attribution. See [editor/stock-assets.md](./references/stock-assets.md).
+
+10. **Free before paid (#559).** An overlay that follows a point, a face, or a planar surface (screen, sign, label) is a local track plus composition code: `ralphy track point|planar|face <video> --at <t> --box x,y,w,h --js`, then `ralphy track helper` and `RalphyTrack.follow` / `RalphyTrack.cornerPin` in `index.html`. Escalate to a paid generation only with a stated reason (occluded insert, relighting, fast blur the track cannot hold; see `docs/research/local-tracking.md`).
 
 ## Pixels vs code
 

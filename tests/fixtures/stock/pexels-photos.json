@@ -1,0 +1,35 @@
+{
+  "total_results": 2,
+  "page": 1,
+  "per_page": 20,
+  "photos": [
+    {
+      "id": 6801648,
+      "width": 3000,
+      "height": 4500,
+      "url": "https://www.pexels.com/photo/stock-market-chart-on-a-phone-6801648/",
+      "photographer": "Tima Miroshnichenko",
+      "photographer_url": "https://www.pexels.com/@tima-miroshnichenko",
+      "photographer_id": 3305413,
+      "avg_color": "#2B2C2E",
+      "src": {
+        "original": "https://images.pexels.com/photos/6801648/pexels-photo-6801648.jpeg",
+        "large2x": "https://images.pexels.com/photos/6801648/pexels-photo-6801648.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "large": "https://images.pexels.com/photos/6801648/pexels-photo-6801648.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+        "medium": "https://images.pexels.com/photos/6801648/pexels-photo-6801648.jpeg?auto=compress&cs=tinysrgb&h=350",
+        "small": "https://images.pexels.com/photos/6801648/pexels-photo-6801648.jpeg?auto=compress&cs=tinysrgb&h=130"
+      },
+      "liked": false,
+      "alt": "Stock market chart on a phone screen"
+    },
+    {
+      "id": 7,
+      "width": 800,
+      "height": 600,
+      "url": "https://www.pexels.com/photo/7/",
+      "photographer": null,
+      "src": {}
+    }
+  ],
+  "next_page": "https://api.pexels.com/v1/search/?page=2&per_page=20&query=stock+market"
+}

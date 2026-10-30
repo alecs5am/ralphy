@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **64**
+Verbs registered: **65**
 
 ## Top-level verbs
 
@@ -1362,6 +1362,49 @@ Examples:
   ralphy catalog fonts sync --write
   ralphy catalog fonts lint
   ralphy catalog fonts preview --pair bold-creator
+```
+
+### `ralphy stock`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy stock [options] [command]
+
+Find free, licensed overlay assets (brand logos, photos, b-roll, SFX, music
+beds) and pull them into a Project with their license and attribution (#596)
+
+Options:
+  -h, --help                   display help for command
+
+Commands:
+  search [options] <query...>  Search free licensed sources for candidates
+                               (JSON: id, source, kind, title, pageUrl,
+                               mediaUrl, previewUrl, size or duration, license +
+                               licenseUrl, author, attribution, commercialOk,
+                               attributionRequired). Downloads nothing.
+  pull [options] <id...>       Download candidates into a Project: each becomes
+                               an Artifact revision (Run stock.pull, cost $0)
+                               with provenance (source, page URL, license,
+                               author, attribution) and a copy in the Project
+                               tree for index.html: artifacts/images/ (images,
+                               logos), artifacts/videos/ (video), artifacts/sfx/
+                               (sound effects and audio of 30 s or less),
+                               artifacts/music/ (audio the source calls music,
+                               or longer than 30 s). Append-only: an existing
+                               file is never overwritten (a <slot>.v2 name is
+                               written), nothing is deleted.
+  credits [options]            Print the attribution block for every stock item
+                               pulled into a Project, for the post caption or
+                               description (markdown in `markdown`; required
+                               credits first)
+  help [command]               display help for command
 ```
 
 ### `ralphy benchmark`

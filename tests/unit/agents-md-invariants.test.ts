@@ -224,7 +224,58 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
       hostRe: /https?:\/\/[a-z0-9.-]*googleapis\.com\b/i,
       hostLabel: "googleapis.com",
     },
+    // #596 stock source connector with a key — same file-scoped discipline.
+    {
+      providerId: "pexels",
+      file: path.join("cli", "lib", "providers", "pexels.ts"),
+      envVar: "PEXELS_API_KEY",
+      hostRe: /https?:\/\/[a-z0-9.-]*pexels\.com\b/i,
+      hostLabel: "pexels.com",
+    },
   ];
+
+  // #596 keyless stock source connectors: no env var, but each source host is
+  // sanctioned ONLY inside its own connector file, and must appear there (a
+  // non-vacuous allowlist). Simple Icons is scoped to the pinned jsDelivr
+  // package path, since jsDelivr also serves unrelated scripts (gsap).
+  const STOCK_SOURCE_CONNECTORS: Array<{ file: string; hostRe: RegExp; hostLabel: string }> = [
+    {
+      file: path.join("cli", "lib", "providers", "openverse.ts"),
+      hostRe: /https?:\/\/[a-z0-9.-]*openverse\.org\b/i,
+      hostLabel: "openverse.org",
+    },
+    {
+      file: path.join("cli", "lib", "providers", "wikimedia-commons.ts"),
+      hostRe: /https?:\/\/[a-z0-9.-]*wikimedia\.org\b/i,
+      hostLabel: "wikimedia.org",
+    },
+    {
+      file: path.join("cli", "lib", "providers", "internet-archive.ts"),
+      hostRe: /https?:\/\/[a-z0-9.-]*archive\.org\b/i,
+      hostLabel: "archive.org",
+    },
+    {
+      file: path.join("cli", "lib", "providers", "simple-icons.ts"),
+      hostRe: /https?:\/\/(?:cdn\.jsdelivr\.net\/npm\/simple-icons\b|[a-z0-9.-]*simpleicons\.org\b)/i,
+      hostLabel: "jsdelivr simple-icons / simpleicons.org",
+    },
+  ];
+
+  for (const { file, hostRe, hostLabel } of STOCK_SOURCE_CONNECTORS) {
+    test(`${hostLabel} hosts appear ONLY in the sanctioned stock connector file`, () => {
+      const offenders: string[] = [];
+      for (const f of sourceFiles()) {
+        const rel = path.relative(REPO, f);
+        if (rel === file) continue;
+        if (hostRe.test(withoutStaticAssetUrls(rel, fs.readFileSync(f, "utf8")))) offenders.push(rel);
+      }
+      expect(offenders).toEqual([]);
+    });
+
+    test(`${hostLabel} has a non-vacuous sanctioned connector (${file})`, () => {
+      expect(hostRe.test(fs.readFileSync(path.join(REPO, file), "utf8"))).toBe(true);
+    });
+  }
 
   // #501 publish connector — same file-scoped env-var discipline. Cloud and
   // self-hosted API roots are configurable, so the env-var allowlist is the

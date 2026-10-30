@@ -1,0 +1,57 @@
+{
+  "result_count": 3,
+  "page_size": 20,
+  "page": 1,
+  "results": [
+    {
+      "id": "4f8775c9-9ee9-4dea-a936-c921ba8a2005",
+      "title": "Whoosh 01",
+      "foreign_landing_url": "https://freesound.org/people/example/sounds/1001",
+      "url": "https://cdn.freesound.org/previews/1/1001_hq.mp3",
+      "creator": "example",
+      "creator_url": "https://freesound.org/people/example",
+      "license": "cc0",
+      "license_version": "1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "provider": "freesound",
+      "source": "freesound",
+      "category": "sound_effect",
+      "filetype": "mp3",
+      "duration": 1240,
+      "mature": false,
+      "thumbnail": null
+    },
+    {
+      "id": "5a9886da-aff0-4efb-b047-da32cb9b3116",
+      "title": "Calm Bed",
+      "foreign_landing_url": "https://www.jamendo.com/track/2002",
+      "url": "https://prod-1.storage.jamendo.com/?trackid=2002&format=mp31",
+      "creator": "Composer",
+      "license": "by-sa",
+      "license_version": "3.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "provider": "jamendo",
+      "source": "jamendo",
+      "category": "music",
+      "filetype": "mp3",
+      "duration": 95000,
+      "mature": false
+    },
+    {
+      "id": "6b0997eb-b001-4f0c-a158-eb43dc0c4227",
+      "title": "Ding sample",
+      "foreign_landing_url": "https://ccmixter.org/files/x/3003",
+      "url": "https://ccmixter.org/content/x/3003.mp3",
+      "creator": "x",
+      "license": "sampling+",
+      "license_version": "1.0",
+      "license_url": "https://creativecommons.org/licenses/sampling+/1.0/",
+      "provider": "ccmixter",
+      "source": "ccmixter",
+      "category": "sound_effect",
+      "filetype": "mp3",
+      "duration": 800,
+      "mature": false
+    }
+  ]
+}
