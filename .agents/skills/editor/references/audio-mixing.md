@@ -11,6 +11,28 @@ A UGC video has two audio tracks by default:
 
 Music ducks under VO. In the HyperFrames composition, gate music with a GSAP-keyframed `data-volume` schedule, or set per-scene `<audio data-volume="0.12">` while VO is active. For post-render ducking (if content is already rendered with a flat mix) use `ralphy audio sidechain` → `cli/lib/ffmpeg-recipes.ts:sidechainCompress`.
 
+## SFX: one pre-mixed stem, never N `<audio>` tags
+
+A sound-design pass produces dozens of short one-shots (clicks, thuds, risers) that overlap. **Do not put them in the composition as individual `<audio>` elements.** Same-track clips cannot overlap, and short same-track media is unreliable during capture (#047); you would need one track per overlapping cue.
+
+Flatten the cue sheet into ONE stem on ONE track:
+
+```bash
+ralphy audio stem --project <id> --cues cues.json --out sfx-stem.mp3 --duration 30 --target-lufs -20
+```
+
+`cues.json` is either a bare cue array or `{ fps, cues }`. Author cue times in **frames** when the composition timeline is in frames; that is where the accuracy comes from, and the recipe converts to `adelay` milliseconds:
+
+```json
+{ "fps": 30, "cues": [
+  { "frame": 0,   "slot": "click-01", "gainDb": -9 },
+  { "frame": 160, "slot": "thud-02" },
+  { "at": 12.4,   "path": "sfx/riser.wav", "gainDb": -3 }
+] }
+```
+
+`slot` is a Project audio Artifact (an SFX from `ralphy generate sfx --slot <name>`); `path` is a file relative to the cue sheet. A cue that does not resolve fails the whole run and is named in the error, rather than being silently dropped. The stem is auditionable outside the render, so mix it before you touch the composition. Under the hood: `ffmpeg-recipes:audioStem` (per-cue `adelay` + `volume`, `amix` with `normalize=0` so authored gains survive, `alimiter` for stacked transients, `apad`/`atrim` to pin the duration, then the loudness pass). Re-running the same `--out` adds a new Revision of the stem Artifact.
+
 ## Loudnorm (TikTok target)
 
 After render, before delivery: EBU R128 normalize to `I=-16:TP=-1.5:LRA=11`. Call:
@@ -20,6 +42,8 @@ ralphy render <id> --loudnorm
 ```
 
 Under the hood — `ffmpeg-recipes:loudnorm`. This is the TikTok / Reels target — without it the video sounds quieter than its feed-mates.
+
+`ralphy audio loudnorm` runs **two passes** by default (measure, then apply the measured `I` / `TP` / `LRA` in linear mode). Single-pass loudnorm normalizes in dynamic mode and misses the target on transient-dense material: a sparse SFX stem asked for `-30` LUFS came out at `-27.2`, where the two-pass run landed at `-30.2`. `--single-pass` restores the one-shot behaviour when the extra analysis pass is not worth it.
 
 ## Music-fade
 
