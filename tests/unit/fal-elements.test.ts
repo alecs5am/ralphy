@@ -108,7 +108,9 @@ describe("generateVideo with elements (mocked fal)", () => {
       const u = String(url);
       if (u.includes("/storage/upload/initiate")) {
         uploads += 1;
-        return Response.json({ upload_url: `https://upload.test/${uploads}`, file_url: `https://cdn.test/file-${uploads}.png` });
+        // Uploads run concurrently; key the URL on the file, not the call order.
+        const { file_name } = JSON.parse(String(init?.body)) as { file_name: string };
+        return Response.json({ upload_url: `https://upload.test/${uploads}`, file_url: `https://cdn.test/${file_name}` });
       }
       if (u.startsWith("https://upload.test/")) return new Response("", { status: 200 });
       if (u.endsWith(`/${KLING_O3}`) && init?.method === "POST") {
@@ -130,7 +132,7 @@ describe("generateVideo with elements (mocked fal)", () => {
 
     expect(uploads).toBe(3);
     expect(submitted!.elements).toEqual([
-      { frontal_image_url: "https://cdn.test/file-1.png", reference_image_urls: ["https://cdn.test/file-2.png", "https://cdn.test/file-3.png"] },
+      { frontal_image_url: "https://cdn.test/front.png", reference_image_urls: ["https://cdn.test/left.png", "https://cdn.test/right.png"] },
     ]);
     expect(submitted!.image_urls).toBeUndefined();
     expect(fs.readFileSync(result.localPath, "utf8")).toBe("mp4-bytes");

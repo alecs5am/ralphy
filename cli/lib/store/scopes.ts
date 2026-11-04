@@ -585,6 +585,24 @@ export function getProject(input: {
   return project;
 }
 
+/** Display labels for project ids or slugs across Workspaces (unknown references are omitted). */
+export function projectLabels(references: string[]): Array<{ reference: string; id: string; slug: string; name: string; workspaceSlug: string }> {
+  const unique = [...new Set(references.filter(Boolean))];
+  if (unique.length === 0) return [];
+  const marks = unique.map(() => "?").join(",");
+  const rows = openDomainDb()
+    .query<{ id: string; slug: string; name: string; workspaceSlug: string }, string[]>(
+      `SELECT p.id, p.slug, p.name, w.slug AS workspaceSlug
+       FROM projects p JOIN workspaces w ON w.id = p.workspace_id
+       WHERE p.id IN (${marks}) OR p.slug IN (${marks})`,
+    )
+    .all(...unique, ...unique);
+  return unique.flatMap((reference) => {
+    const row = rows.find((entry) => entry.id === reference) ?? rows.find((entry) => entry.slug === reference);
+    return row ? [{ reference, ...row }] : [];
+  });
+}
+
 export function listProjects(
   input: { workspaceId: string; cursor?: string | null; limit?: number },
 ): Page<ProjectSummaryDto> {

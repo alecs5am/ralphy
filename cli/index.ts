@@ -133,6 +133,7 @@ import { lessonsCmd } from "./commands/lessons.js";
 import { sessionCmd } from "./commands/session.js";
 import { documentCmd } from "./commands/document.js";
 import { activityCmd } from "./commands/activity.js";
+import { panelCmd } from "./commands/panel.js";
 import { artifactCmd } from "./commands/artifact.js";
 import { feedbackCmd } from "./commands/feedback.js";
 import { compositionCmd } from "./commands/composition.js";
@@ -280,7 +281,9 @@ program
       const originalityOnPaths = sub === "unit" && actionCommand.name() === "originality" && isPathArg(actionCommand.args[0])
         && Array.isArray(actionCommand.opts().against) && actionCommand.opts().against.length > 0
         && (actionCommand.opts().against as unknown[]).every(isPathArg);
-      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || catalogScopeFree || stockSearchScopeFree || matteWithoutProject || safeZonesOnPath || originalityOnPaths || explicitCredentialProbe) {
+      /* And `panel`: it reads the root-wide job queue and picks its trend
+         corpus Workspace itself (--trend-workspace or detection). */
+      if (sub === "prompts" || sub === "skill" || sub === "models" || sub === "track" || sub === "panel" || catalogScopeFree || stockSearchScopeFree || matteWithoutProject || safeZonesOnPath || originalityOnPaths || explicitCredentialProbe) {
         setDataRoot(identity.dataRoot);
         return true;
       }
@@ -434,6 +437,7 @@ program.addCommand(matteCmd());
 program.addCommand(promptsCmd());
 program.addCommand(storyboardCmd());
 program.addCommand(bridgeCmd());
+program.addCommand(panelCmd());
 
 program.addHelpText("beforeAll", bannerString());
 

@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ralphy panel</title>
+<style>
+  :root {
+    --bg: #fbfbfa; --surface: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --faint: #9a9a94; --line: #e6e5e0;
+    --accent: #3b5bdb; --accent-bg: #eef1fd; --hot: #c2410c; --warm: #a16207; --ok: #15803d; --bad: #b91c1c;
+    --bad-bg: #fdf0f0; --chip: #f1f0ec; --sel: #f3f5fe;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161615; --surface: #1e1e1c; --text: #ececea; --muted: #a3a39d; --faint: #75756f; --line: #2e2e2b;
+      --accent: #8da2fb; --accent-bg: #1f2540; --hot: #fb923c; --warm: #facc15; --ok: #4ade80; --bad: #f87171;
+      --bad-bg: #2d1b1b; --chip: #2a2a27; --sel: #1d2132; }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: 120px; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; }
+  button { font: inherit; color: inherit; }
+  a { color: inherit; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); padding: 8px 12px 0; }
+  .top { display: flex; align-items: center; gap: 8px; min-height: 26px; }
+  .top b { font-size: 14px; }
+  .pulse { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 2px 6px;
+    border-radius: 6px; cursor: pointer; color: var(--muted); text-align: left; }
+  .pulse:hover { background: var(--chip); }
+  .pulse span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--faint); }
+  .dot.run { background: var(--ok); animation: blink 1.4s ease-in-out infinite; }
+  .dot.fail { background: var(--bad); }
+  @keyframes blink { 50% { opacity: .35; } }
+  .iconbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+  .iconbtn:hover { border-color: var(--faint); }
+  nav { display: flex; gap: 2px; margin-top: 4px; }
+  nav button { border: 0; background: none; color: var(--muted); padding: 6px 10px; cursor: pointer; border-bottom: 2px solid transparent; }
+  nav button.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  nav .count { font-size: 11px; color: var(--faint); margin-left: 3px; }
+  main { padding: 8px 12px 64px; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 8px; }
+  select, input[type=search] { font: inherit; font-size: 12px; color: var(--text); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  input[type=search] { flex: 1; min-width: 120px; }
+  select[data-k=niche] { flex: 1 1 220px; min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg button { border: 0; background: var(--surface); padding: 4px 10px; cursor: pointer; font-size: 12px; color: var(--muted); }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .sub b { color: var(--text); font-weight: 600; }
+  h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 14px 0 2px; display: flex; gap: 6px; align-items: baseline; }
+  h3 .n { color: var(--faint); }
+  .item { display: flex; gap: 10px; padding: 8px 6px; margin: 0 -6px; border-radius: 8px; border-bottom: 1px solid var(--line); cursor: default; position: relative; }
+  .item.sel { background: var(--sel); box-shadow: inset 2px 0 0 var(--accent); }
+  .thumb { flex: none; width: 54px; height: 72px; border-radius: 6px; background: var(--chip) center/cover no-repeat;
+    display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--faint); text-transform: uppercase; }
+  .item[data-kind=video] { cursor: pointer; }
+  .item[data-kind=video] .detail, .item[data-kind=video] .actions { display: none; }
+  .item[data-kind=video].sel .detail { display: block; }
+  .item[data-kind=video].sel .actions { display: flex; }
+  .hint { color: var(--faint); font-size: 11px; margin: 2px 0 4px; }
+  .body { flex: 1; min-width: 0; }
+  .title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-weight: 500; text-decoration: none; }
+  .title:hover { color: var(--accent); }
+  .meta { color: var(--muted); font-size: 12px; margin-top: 2px; display: flex; flex-wrap: wrap; gap: 0 8px; }
+  .why { color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .why.err { color: var(--bad); white-space: pre-wrap; word-break: break-word; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 0 6px; border-radius: 4px; background: var(--chip); }
+  .breakout { color: var(--hot); } .outlier { color: var(--warm); } .strong { color: var(--accent); }
+  .adapt, .completed { color: var(--ok); } .test { color: var(--warm); } .failed, .blocked { color: var(--bad); }
+  .running { color: var(--ok); } .pending, .cancelled { color: var(--muted); }
+  .big { font-weight: 600; color: var(--text); }
+  .actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+  .actions button, .actions a { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 1px 8px;
+    font-size: 12px; cursor: pointer; text-decoration: none; color: var(--muted); }
+  .actions button:hover, .actions a:hover { color: var(--text); border-color: var(--faint); }
+  .actions .on { color: var(--accent); border-color: var(--accent); }
+  .note { color: var(--muted); font-size: 12px; background: var(--chip); border-radius: 6px; padding: 6px 8px; margin: 8px 0; }
+  .note.err { color: var(--bad); background: var(--bad-bg); }
+  .note code, .empty code { font-size: 11px; }
+  .empty { color: var(--muted); padding: 18px 4px; }
+  .empty b { color: var(--text); display: block; margin-bottom: 4px; }
+  .busy { color: var(--muted); padding: 18px 4px; display: flex; gap: 8px; align-items: center; }
+  .spin { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 6px 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--muted); word-break: break-all; }
+  .more { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 8px 0; font-size: 12px; }
+  .drawer { position: fixed; inset: 0; z-index: 10; display: none; }
+  .drawer.open { display: block; }
+  .drawer .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.25); }
+  .drawer .sheet { position: absolute; right: 0; top: 0; bottom: 0; width: min(440px, 100%); background: var(--bg);
+    border-left: 1px solid var(--line); padding: 12px; overflow: auto; }
+  .sheet .head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .sheet .head b { flex: 1; }
+  .toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--text); color: var(--bg);
+    padding: 6px 12px; border-radius: 8px; font-size: 12px; opacity: 0; transition: opacity .15s; pointer-events: none; z-index: 20; max-width: 90%; }
+  .toast.show { opacity: 1; }
+  .keys td:first-child { white-space: nowrap; width: 90px; }
+  kbd { font-family: ui-monospace, Menlo, monospace; font-size: 11px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--surface); }
+  .stale { color: var(--warm); }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <b>Ralphy</b>
+    <button class="pulse" id="pulse" title="What Ralphy is doing (1)"><i class="dot"></i><span>Connecting…</span></button>
+    <button class="iconbtn" id="savedBtn" title="Saved references (Shift+S)">Saved 0</button>
+    <button class="iconbtn" id="helpBtn" title="Keyboard shortcuts (?)">?</button>
+  </div>
+  <nav>
+    <button data-tab="now">Activity<span class="count" id="nowCount"></span></button>
+    <button data-tab="trends">Trends</button>
+  </nav>
+</header>
+<main id="view"></main>
+
+<div class="drawer" id="saved"><div class="scrim" data-close></div><div class="sheet">
+  <div class="head"><b>Saved references</b>
+    <button class="iconbtn" id="copyAll">Copy all for agent</button>
+    <button class="iconbtn" id="clearSaved">Clear</button>
+    <button class="iconbtn" data-close>Close</button></div>
+  <div class="sub">Saved in this browser. Copy them into the chat when you want the agent to use them.</div>
+  <div id="savedList"></div>
+</div></div>
+
+<div class="drawer" id="help"><div class="scrim" data-close></div><div class="sheet">
+  <div class="head"><b>Keyboard</b><button class="iconbtn" data-close>Close</button></div>
+  <table class="keys">
+    <tr><td><kbd>1</kbd> <kbd>2</kbd></td><td>Activity / Trends</td></tr>
+    <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>Next / previous item</td></tr>
+    <tr><td><kbd>o</kbd> <kbd>Enter</kbd></td><td>Open the video in a new tab</td></tr>
+    <tr><td><kbd>c</kbd></td><td>Copy the item for the agent chat</td></tr>
+    <tr><td><kbd>l</kbd></td><td>Copy the link only</td></tr>
+    <tr><td><kbd>s</kbd></td><td>Save / unsave the item</td></tr>
+    <tr><td><kbd>Shift</kbd>+<kbd>S</kbd></td><td>Show saved references</td></tr>
+    <tr><td><kbd>/</kbd></td><td>Search in the current list</td></tr>
+    <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Previous / next trends view</td></tr>
+    <tr><td><kbd>r</kbd></td><td>Recompute the current view</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>Close, clear search</td></tr>
+  </table>
+  <p class="sub">Deep links: <code>#/activity</code>, <code>#/trends/&lt;niche&gt;/picks</code>, <code>…/rising</code>, <code>…/top?since=7d</code>, <code>…/formats</code>.</p>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const $view = $("view");
+const VIEWS = ["picks", "rising", "top", "formats"];
+const VIEW_LABEL = { picks: "Picks", rising: "Rising", top: "Top", formats: "Formats" };
+const TOP_DEFAULTS = { since: "30d", by: "outlier", platform: "", label: "" };
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("ralphy-panel:" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("ralphy-panel:" + k, JSON.stringify(v)); } catch {} },
+};
+const state = {
+  route: { tab: "now", niche: "", view: "picks", top: { ...TOP_DEFAULTS } },
+  overview: null, now: null, nowKey: "", items: [], sel: -1, query: "", showOlder: false,
+  saved: store.get("saved", []), seq: 0,
+};
+
+/* ---------- formatting ---------- */
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const compact = (n) => n == null ? "–" : Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n);
+const mult = (m) => m == null ? "–" : m >= 100 ? `${Math.round(m).toLocaleString("en")}×` : `${m.toFixed(m >= 10 ? 0 : 1)}×`;
+const pct = (n) => n == null ? "–" : `${Math.round(n * 100)}%`;
+const signedPct = (n) => n == null ? "–" : `${n > 0 ? "+" : ""}${Math.round(n * 100)}%`;
+function ago(ms) {
+  if (ms == null) return "";
+  const s = Math.max(0, (Date.now() - ms) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return `${Math.floor(s / 86400)} d ago`;
+}
+function clock(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}` : `${m}:${String(r).padStart(2, "0")}`;
+}
+const ageDays = (d) => d == null ? "" : d < 1 ? `${Math.max(1, Math.round(d * 24))} h old` : `${Math.round(d)} d old`;
+
+/* ---------- toast & clipboard ---------- */
+let toastTimer;
+function toast(text) {
+  const t = $("toast"); t.textContent = text; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
+}
+async function copy(text, label) {
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const ta = document.createElement("textarea"); ta.value = text; document.body.append(ta); ta.select();
+    document.execCommand("copy"); ta.remove();
+  }
+  toast(label);
+}
+
+/* ---------- api ---------- */
+async function api(path) {
+  const res = await fetch(path, { cache: "no-store" });
+  let body = null;
+  try { body = await res.json(); } catch {}
+  if (!res.ok && res.status !== 202) {
+    const e = new Error(body?.error?.message ?? `${res.status} ${res.statusText}`);
+    e.hint = body?.error?.hint; throw e;
+  }
+  return { status: res.status, body };
+}
+// Heavy views answer 202 while the server computes; poll until the result is ready.
+async function compute(path, onWait) {
+  for (;;) {
+    const { status, body } = await api(path);
+    if (status !== 202) return body;
+    onWait?.(body);
+    await new Promise((r) => setTimeout(r, 700));
+    path = path.replace(/([?&])fresh=1&?/, "$1").replace(/[?&]$/, "");
+  }
+}
+
+/* ---------- routing ---------- */
+function parseHash() {
+  const [path, qs] = location.hash.replace(/^#\/?/, "").split("?");
+  const parts = path.split("/").filter(Boolean).map(decodeURIComponent);
+  const r = { tab: "now", niche: state.route.niche || store.get("niche", ""), view: store.get("view", "picks"), top: { ...TOP_DEFAULTS, ...store.get("top", {}) } };
+  if (parts[0] === "trends") {
+    r.tab = "trends";
+    if (parts[1]) r.niche = parts[1];
+    if (VIEWS.includes(parts[2])) r.view = parts[2];
+    const q = new URLSearchParams(qs ?? "");
+    for (const k of Object.keys(TOP_DEFAULTS)) if (q.has(k)) r.top[k] = q.get(k);
+  } else if (parts[0] !== "activity" && parts[0] !== "now" && store.get("tab", "now") === "trends" && !parts.length) {
+    r.tab = "trends";
+  }
+  return r;
+}
+function hashFor(r) {
+  if (r.tab !== "trends") return "#/activity";
+  let h = `#/trends/${encodeURIComponent(r.niche || "")}/${r.view}`;
+  if (r.view === "top") {
+    const q = new URLSearchParams(Object.entries(r.top).filter(([k, v]) => v && v !== TOP_DEFAULTS[k]));
+    if ([...q].length) h += `?${q}`;
+  }
+  return h;
+}
+function go(patch) {
+  const r = { ...state.route, ...patch, top: { ...state.route.top, ...(patch.top ?? {}) } };
+  const h = hashFor(r);
+  if (location.hash === h) route(); else location.hash = h;
+}
+function route() {
+  state.route = parseHash();
+  const r = state.route;
+  store.set("tab", r.tab);
+  if (r.tab === "trends") { store.set("view", r.view); store.set("top", r.top); if (r.niche) store.set("niche", r.niche); }
+  document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === r.tab));
+  state.sel = -1;
+  if (r.tab === "now") renderNow(true); else renderTrends(false);
+}
+
+/* ---------- activity ---------- */
+function jobLabel(j) { return j.label || j.argv || `job ${j.id}`; }
+function jobForAgent(j) {
+  return [
+    `Ralphy job #${j.id} ${j.status}${j.project ? ` (project ${j.project})` : ""}`,
+    j.argv ? `Command: ralphy ${j.argv}` : "",
+    j.error ? `Error: ${j.error}` : "",
+    j.hint ? `Hint: ${j.hint}` : "",
+    `Logs: ralphy queue logs ${j.id}`,
+  ].filter(Boolean).join("\n");
+}
+function jobRow(j) {
+  const time = j.status === "running" && j.startedAt
+    ? `<span class="big" data-since="${j.startedAt}">${clock(Date.now() - j.startedAt)}</span>`
+    : j.finishedAt ? `<span title="${esc(new Date(j.finishedAt).toLocaleString())}">${ago(j.finishedAt)}</span>`
+    : j.createdAt ? `<span>queued ${ago(j.createdAt)}</span>` : "";
+  return `<div class="item" data-kind="job" data-id="${j.id}"><div class="body">
+    <div class="meta"><span class="badge ${esc(j.status)}">${esc(j.status)}</span>${time}
+      ${j.runtimeMs && j.status !== "running" ? `<span>took ${clock(j.runtimeMs)}</span>` : ""}
+      ${j.project ? `<span>${esc(j.project)}</span>` : ""}${j.model ? `<span>${esc(j.model)}</span>` : ""}
+      ${j.attempts > 1 ? `<span>attempt ${j.attempts}</span>` : ""}</div>
+    <div class="title" title="${esc(j.argv)}">${esc(jobLabel(j))}</div>
+    ${j.prompt ? `<div class="why">${esc(j.prompt)}</div>` : ""}
+    ${j.error ? `<div class="why err">${esc(j.error)}</div>` : ""}
+    <div class="actions"><button data-act="copy-job">Copy for agent</button><button data-act="copy-logs">Copy logs command</button></div>
+  </div></div>`;
+}
+function section(title, list, empty) {
+  return `<h3>${esc(title)} <span class="n">${list.length || ""}</span></h3>` +
+    (list.length ? list.map(jobRow).join("") : `<div class="sub">${esc(empty)}</div>`);
+}
+async function loadNow() {
+  try {
+    const { body } = await api("/api/activity");
+    state.now = body; state.nowError = null;
+  } catch (e) { state.nowError = e; }
+  updatePulse();
+}
+function renderNow(force) {
+  if (state.route.tab !== "now") return;
+  const n = state.now;
+  if (!n && state.nowError) { $view.innerHTML = errorNote(state.nowError); return; }
+  if (!n) { $view.innerHTML = busy("Reading the job queue…"); return; }
+  const key = JSON.stringify([n.running, n.failed, n.pending, n.done, state.showOlder, n.older?.length]);
+  if (!force && key === state.nowKey) return;
+  state.nowKey = key;
+  const scroll = window.scrollY;
+  let html = "";
+  if (!n.running.length && !n.failed.length && !n.pending.count && !n.done.length) {
+    html += `<div class="empty"><b>Nothing happened in the last ${n.windowHours} hours.</b>
+      Jobs appear here while the agent generates, renders or runs queued work.</div>`;
+  } else {
+    html += section("Running now", n.running, "Nothing is running.");
+    if (n.failed.length) html += section(`Failed · last ${n.windowHours} h`, n.failed, "");
+    html += `<h3>Up next <span class="n">${n.pending.count || ""}</span></h3>` +
+      (n.pending.count ? n.pending.next.map(jobRow).join("") +
+        (n.pending.count > n.pending.next.length ? `<div class="sub">and ${n.pending.count - n.pending.next.length} more waiting</div>` : "")
+        : `<div class="sub">The queue is empty.</div>`);
+    html += section(`Done · last ${n.windowHours} h`, n.done, "Nothing finished recently.");
+  }
+  if (n.older?.length) {
+    html += state.showOlder ? section("Older", n.older, "")
+      : `<button class="more" data-act="older">Show ${n.older.length} older jobs</button>`;
+  }
+  $view.innerHTML = html;
+  window.scrollTo(0, scroll);
+  collectItems();
+}
+function updatePulse() {
+  const p = $("pulse"), n = state.now;
+  const dot = p.querySelector(".dot"), text = p.querySelector("span");
+  dot.className = "dot";
+  if (state.nowError) { text.textContent = "Can't read the queue"; dot.classList.add("fail"); return; }
+  if (!n) return;
+  $("nowCount").textContent = n.running.length ? ` ${n.running.length}` : "";
+  if (n.running.length) {
+    const j = n.running[0];
+    dot.classList.add("run");
+    text.innerHTML = `${esc(jobLabel(j))}${n.running.length > 1 ? ` +${n.running.length - 1}` : ""} · <span data-since="${j.startedAt ?? ""}">${j.startedAt ? clock(Date.now() - j.startedAt) : "running"}</span>`;
+  } else if (n.failed.length && n.failed[0].finishedAt > (state.lastSeenFail ?? 0)) {
+    dot.classList.add("fail");
+    text.textContent = `Failed ${ago(n.failed[0].finishedAt)}: ${jobLabel(n.failed[0])}`;
+  } else {
+    const last = n.done[0] ?? n.failed[0];
+    text.textContent = n.pending.count ? `Idle · ${n.pending.count} waiting (worker not running?)` : last ? `Idle · last job ${ago(last.finishedAt)}` : "Idle";
+  }
+}
+
+/* ---------- trends ---------- */
+function videoForAgent(v) {
+  const r = state.route;
+  const lines = [
+    `Trend reference (${r.niche}${v.signal ? `, ${v.signal}` : ""}): ${v.url}`,
+    [v.title ? `"${v.title}"` : "", `${v.creator ?? "unknown creator"}${v.followers != null ? ` (${compact(v.followers)} followers)` : ""}`, v.platform,
+      v.postedAt ? `posted ${v.postedAt.slice(0, 10)}` : ""].filter(Boolean).join(", "),
+    [v.views != null ? `${compact(v.views)} views` : "", v.multiplier != null ? `${mult(v.multiplier)} the creator's median` : "",
+      v.label ? `label ${v.label}` : "", v.verdict ? `verdict ${v.verdict}` : "", v.format ? `format ${v.format}` : ""].filter(Boolean).join(", "),
+  ];
+  if (v.reasons?.length) lines.push(`Why: ${v.reasons.join("; ")}`);
+  if (v.note) lines.push(v.note);
+  return lines.join("\n");
+}
+const isSaved = (v) => state.saved.some((s) => s.url === v.url);
+function videoRow(v) {
+  const thumb = v.thumb ? `<div class="thumb" style="background-image:url('${esc(v.thumb)}')"></div>`
+    : `<div class="thumb">${esc(v.platform ?? "")}</div>`;
+  return `<div class="item" data-kind="video" data-url="${esc(v.url)}">${thumb}<div class="body">
+    <a class="title" href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.title || v.url.replace(/^https?:\/\/(www\.)?/, ""))}</a>
+    <div class="meta">
+      ${v.label ? `<span class="badge ${esc(v.label)}">${esc(v.label)}</span>` : ""}
+      ${v.verdict ? `<span class="badge ${esc(v.verdict)}" title="${v.verdict === "adapt" ? "Strong evidence: adapt this idea" : "Promising: worth a test"}">${esc(v.verdict)}</span>` : ""}
+      ${v.multiplier != null ? `<span class="big" title="Views vs the creator's median">${mult(v.multiplier)}</span>` : ""}
+      ${v.views != null ? `<span>${compact(v.views)} views</span>` : ""}
+      <span>${esc(ageDays(v.ageDays))}</span>
+      <span>${esc(v.creator ?? "")}${v.followers != null ? ` · ${compact(v.followers)}` : ""}</span>
+      <span>${esc(v.platform ?? "")}</span>
+      ${v.subNiche ? `<span>${esc(v.subNiche)}</span>` : ""}${v.format ? `<span>${esc(v.format)}</span>` : ""}
+      ${v.lang ? `<span>${esc(v.lang)}</span>` : ""}
+    </div>
+    ${v.reasons?.length ? `<div class="why detail">${v.reasons.map((r) => `• ${esc(r)}`).join("<br>")}</div>` : ""}
+    ${v.note ? `<div class="why detail">${esc(v.note)}</div>` : ""}
+    <div class="actions">
+      <a href="${esc(v.url)}" target="_blank" rel="noopener">Open ↗</a>
+      <button data-act="copy-video">Copy for agent</button>
+      <button data-act="copy-link">Copy link</button>
+      <button data-act="save" class="${isSaved(v) ? "on" : ""}">${isSaved(v) ? "Saved" : "Save"}</button>
+    </div>
+  </div></div>`;
+}
+function busy(text, startedAt, expectedMs) {
+  const t = startedAt ? ` <span data-since="${startedAt}">${clock(Date.now() - startedAt)}</span>${expectedMs ? ` of ~${Math.round(expectedMs / 1000)} s` : ""}` : "";
+  return `<div class="busy"><i class="spin"></i><span>${esc(text)}${t}</span></div>`;
+}
+function errorNote(e) {
+  return `<div class="note err">${esc(e.message)}${e.hint ? `<br><span class="sub">${esc(e.hint)}</span>` : ""}</div>`;
+}
+function trendsBar() {
+  const r = state.route, o = state.overview?.trend;
+  const niches = o?.niches ?? [];
+  const nicheSel = `<select data-k="niche" title="Niche">${niches.map((n) =>
+    `<option value="${esc(n.slug)}"${n.slug === r.niche ? " selected" : ""}>${esc(n.topic)} (${n.kept})</option>`).join("")}</select>`;
+  const seg = `<div class="seg">${VIEWS.map((v) => `<button data-view="${v}" class="${v === r.view ? "on" : ""}">${VIEW_LABEL[v]}</button>`).join("")}</div>`;
+  let filters = "";
+  if (r.view === "top") {
+    const sel = (k, opts) => `<select data-top="${k}">${opts.map(([v, l]) => `<option value="${v}"${r.top[k] === v ? " selected" : ""}>${l}</option>`).join("")}</select>`;
+    filters = `<div class="bar">
+      ${sel("since", [["3d", "Last 3 days"], ["7d", "Last 7 days"], ["14d", "Last 14 days"], ["30d", "Last 30 days"], ["90d", "Last 90 days"]])}
+      ${sel("by", [["outlier", "Biggest outliers"], ["views", "Most views"], ["momentum", "Fastest growing"]])}
+      ${sel("platform", [["", "All platforms"], ["tiktok", "TikTok"], ["youtube", "YouTube"], ["instagram", "Instagram"]])}
+      ${sel("label", [["", "Any label"], ["breakout", "Breakout only"], ["outlier", "Outlier only"], ["strong", "Strong only"]])}
+    </div>`;
+  }
+  const search = r.view === "formats" ? "" : `<input type="search" id="q" placeholder="Search titles, creators  ( / )" value="${esc(state.query)}">`;
+  return `<div class="bar">${nicheSel}${seg}</div>${filters}<div class="bar">${search}<span class="sub" id="freshness"></span></div>`;
+}
+const VIEW_HELP = {
+  picks: "Videos the niche report says are worth copying, with the evidence. Start here.",
+  rising: "Signals: fresh breakouts, small accounts that broke out, and formats that are starting to spread.",
+  top: "Raw ranking of the whole niche. Use the filters to narrow it.",
+  formats: "Which formats and hooks over- or under-perform in this niche.",
+};
+async function renderTrends(fresh) {
+  const seq = ++state.seq;
+  if (!state.overview) {
+    $view.innerHTML = busy("Opening the trend corpus…");
+    try { state.overview = (await api("/api/overview")).body; } catch (e) { $view.innerHTML = errorNote(e); return; }
+  }
+  const o = state.overview.trend;
+  if (!o) {
+    $view.innerHTML = `<div class="empty"><b>No trend corpus in this library.</b>
+      Import one with <code>ralphy workspace import --file &lt;corpus.tar&gt; …</code> or start a niche with <code>ralphy trends niche init "&lt;topic&gt;"</code>, then reload.</div>`;
+    return;
+  }
+  const r = state.route;
+  if (!o.niches.some((n) => n.slug === r.niche)) { go({ niche: o.niches[0]?.slug ?? "" }); return; }
+  const hint = r.view === "formats" ? "" : `<div class="hint">Click a video for the evidence and actions · <kbd>j</kbd>/<kbd>k</kbd> move · <kbd>c</kbd> copy for the agent · <kbd>s</kbd> save · <kbd>?</kbd> all keys</div>`;
+  $view.innerHTML = trendsBar() + `<div class="sub">${esc(VIEW_HELP[r.view])}</div>${hint}<div id="list">${busy("Loading…")}</div>`;
+  const qs = new URLSearchParams({ niche: r.niche, ...(r.view === "top" ? Object.fromEntries(Object.entries(r.top).filter(([, v]) => v)) : {}) });
+  if (fresh) qs.set("fresh", "1");
+  const list = () => $("list");
+  try {
+    const data = await compute(`/api/trends/${r.view}?${qs}`, (w) => {
+      if (seq === state.seq) list().innerHTML = busy(w.message ?? "Computing…", w.startedAt, w.expectedMs);
+    });
+    if (seq !== state.seq) return;
+    state.data = data;
+    paintTrends();
+  } catch (e) {
+    if (seq === state.seq) list().innerHTML = errorNote(e);
+  }
+}
+function matches(v, q) {
+  if (!q) return true;
+  return `${v.title ?? ""} ${v.creator ?? ""} ${v.format ?? ""} ${v.subNiche ?? ""}`.toLowerCase().includes(q);
+}
+function paintTrends() {
+  const d = state.data, r = state.route, q = state.query.trim().toLowerCase();
+  if (!d) return;
+  const fr = $("freshness");
+  if (fr) {
+    const asOf = state.overview?.trend?.dataAsOf;
+    const stale = asOf && Date.now() - Date.parse(asOf) > 3 * 86400000;
+    fr.innerHTML = `${asOf ? `<span class="${stale ? "stale" : ""}" title="${stale ? "Collect fresh data with: ralphy trends refresh --due" : "When the corpus last collected metrics"}">data from ${esc(asOf.slice(0, 10))}</span> · ` : ""}computed ${ago(d.computedAt)} · <a href="#" data-act="refresh">recompute</a>`;
+  }
+  let html = "";
+  if (r.view === "formats") {
+    const row = (f) => `<tr><td>${esc(f.label)}</td><td class="n">${f.n}</td><td class="n">${f.creators ?? "–"}</td><td class="n">${pct(f.hitRate)}</td>
+      <td class="n ${f.lift > 0.25 ? "adapt" : f.lift < -0.25 ? "failed" : ""}">${signedPct(f.lift)}</td><td>${esc(f.verdict ?? "")}</td></tr>`;
+    const table = (title, rows) => rows.length ? `<h3>${title}</h3><table><tr><th>${title.slice(0, -1)}</th><th>Videos</th><th>Creators</th><th title="Share of videos that became hits">Hit rate</th><th title="Hit rate vs the niche average">Lift</th><th></th></tr>${rows.map(row).join("")}</table>` : "";
+    html = table("Formats", d.formats) + table("Hooks", d.hooks);
+    if (!html) html = `<div class="empty"><b>Not enough labeled videos yet.</b>Run <code>ralphy trends label --llm</code> for this niche to label formats and hooks.</div>`;
+    if (d.subNiches?.length) html += `<h3>Sub-niches</h3><div class="sub">${d.subNiches.map(esc).join(" · ")}</div>`;
+  } else if (r.view === "rising") {
+    let total = 0;
+    for (const g of d.groups) {
+      const items = g.items.filter((v) => matches(v, q));
+      total += items.length;
+      html += `<h3>${esc(g.title)} <span class="n">${items.length || ""}</span></h3><div class="sub">${esc(g.hint)}</div>` +
+        (items.length ? items.map(videoRow).join("") : `<div class="sub">None right now.</div>`);
+    }
+    const formats = (d.formats ?? []).filter((f) => !q || f.label.toLowerCase().includes(q));
+    if (formats.length) {
+      html += `<h3>Formats starting to spread <span class="n">${formats.length}</span></h3><div class="sub">Several unrelated creators hit with the same format in the last weeks.</div>` +
+        formats.map((f) => `<div class="item" data-kind="format" data-label="${esc(f.label)}"><div class="body">
+          <div class="title">${esc(f.label)}</div>
+          <div class="meta"><span class="big">${f.creators} creators</span><span>${f.hits} hits in ${f.windowDays} d</span>
+            ${f.hitRate != null ? `<span>hit rate ${pct(f.hitRate)} vs niche ${pct(f.nicheHitRate)}</span>` : ""}</div>
+          <div class="actions">${f.examples.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener">Example ${i + 1} ↗</a>`).join("")}
+            <button data-act="copy-format">Copy for agent</button></div>
+        </div></div>`).join("");
+    }
+    total += formats.length;
+    if (!total && q) html = `<div class="empty"><b>Nothing matches “${esc(q)}”.</b>Press Esc to clear the search.</div>`;
+  } else {
+    const items = d.items.filter((v) => matches(v, q));
+    html = items.map(videoRow).join("") || (q ? `<div class="empty"><b>Nothing matches “${esc(q)}”.</b>Press Esc to clear the search.</div>`
+      : `<div class="empty"><b>No videos in this window.</b>${r.view === "top" ? "Try a longer period or remove filters." : "The niche report has no ranked picks yet."}</div>`);
+  }
+  html += (d.notes ?? []).map((n) => `<div class="note">${esc(n)}</div>`).join("");
+  $("list").innerHTML = html;
+  collectItems();
+}
+
+/* ---------- selection & actions ---------- */
+function collectItems() {
+  state.items = [...$view.querySelectorAll(".item")];
+  if (state.sel >= state.items.length) state.sel = state.items.length - 1;
+  state.items.forEach((el, i) => el.classList.toggle("sel", i === state.sel));
+}
+function select(i) {
+  if (!state.items.length) return;
+  state.sel = Math.max(0, Math.min(state.items.length - 1, i));
+  state.items.forEach((el, k) => el.classList.toggle("sel", k === state.sel));
+  state.items[state.sel].scrollIntoView({ block: "nearest" });
+}
+function findVideo(url) {
+  const d = state.data;
+  const pool = d?.items ?? d?.groups?.flatMap((g) => g.items) ?? [];
+  return pool.find((v) => v.url === url) ?? state.saved.find((v) => v.url === url);
+}
+function findJob(id) {
+  const n = state.now; if (!n) return null;
+  return [...n.running, ...n.failed, ...n.pending.next, ...n.done, ...(n.older ?? [])].find((j) => String(j.id) === String(id));
+}
+function act(name, el) {
+  const item = el?.closest(".item");
+  if (name === "older") { state.showOlder = true; renderNow(true); return; }
+  if (name === "refresh") { renderTrends(true); return; }
+  if (!item) return;
+  if (item.dataset.kind === "format") {
+    const f = (state.data?.formats ?? []).find((x) => x.label === item.dataset.label); if (!f) return;
+    if (name === "open" && f.examples[0]) window.open(f.examples[0], "_blank", "noopener");
+    if (name === "copy-format" || name === "copy") copy([
+      `Emerging format in ${state.route.niche}: ${f.label}`,
+      `${f.creators} unrelated creators, ${f.hits} hits in ${f.windowDays} days, hit rate ${pct(f.hitRate)} vs niche ${pct(f.nicheHitRate)}`,
+      `Examples: ${f.examples.join(" ")}`,
+    ].join("\n"), "Copied. Paste it into the chat.");
+    return;
+  }
+  if (item.dataset.kind === "job") {
+    const j = findJob(item.dataset.id); if (!j) return;
+    if (name === "copy-job" || name === "copy") copy(jobForAgent(j), "Copied job details. Paste them into the chat.");
+    if (name === "copy-logs" || name === "copy-link") copy(`ralphy queue logs ${j.id}`, "Copied the logs command.");
+    return;
+  }
+  const v = findVideo(item.dataset.url); if (!v) return;
+  if (name === "copy-video" || name === "copy") copy(videoForAgent(v), "Copied. Paste it into the chat.");
+  if (name === "copy-link") copy(v.url, "Link copied.");
+  if (name === "open") window.open(v.url, "_blank", "noopener");
+  if (name === "save") toggleSave(v);
+}
+function toggleSave(v) {
+  if (isSaved(v)) { state.saved = state.saved.filter((s) => s.url !== v.url); toast("Removed from saved."); }
+  else { state.saved.unshift({ ...v, niche: state.route.niche, savedAt: Date.now() }); toast("Saved. Shift+S shows the list."); }
+  store.set("saved", state.saved);
+  paintSavedCount();
+  document.querySelectorAll(`.item[data-url="${CSS.escape(v.url)}"] [data-act=save]`).forEach((b) => {
+    b.classList.toggle("on", isSaved(v)); b.textContent = isSaved(v) ? "Saved" : "Save";
+  });
+  if ($("saved").classList.contains("open")) paintSaved();
+}
+function paintSavedCount() { $("savedBtn").textContent = `Saved ${state.saved.length}`; }
+function paintSaved() {
+  $("savedList").innerHTML = state.saved.length ? state.saved.map(videoRow).join("")
+    : `<div class="empty"><b>Nothing saved yet.</b>Press <kbd>s</kbd> on a video or use its Save button.</div>`;
+}
+function openDrawer(id) {
+  if (id === "saved") paintSaved();
+  $(id).classList.add("open");
+}
+function closeDrawers() { document.querySelectorAll(".drawer.open").forEach((d) => d.classList.remove("open")); }
+
+/* ---------- events ---------- */
+window.addEventListener("hashchange", route);
+document.querySelector("nav").addEventListener("click", (e) => {
+  const tab = e.target.closest("button")?.dataset.tab;
+  if (tab) go({ tab });
+});
+$("pulse").addEventListener("click", () => { state.lastSeenFail = Date.now(); go({ tab: "now" }); });
+$("savedBtn").addEventListener("click", () => openDrawer("saved"));
+$("helpBtn").addEventListener("click", () => openDrawer("help"));
+$("copyAll").addEventListener("click", () => {
+  if (!state.saved.length) return toast("Nothing saved yet.");
+  copy(state.saved.map((v, i) => `${i + 1}. ${videoForAgent(v)}`).join("\n\n"), `Copied ${state.saved.length} references. Paste them into the chat.`);
+});
+$("clearSaved").addEventListener("click", () => {
+  if (!state.saved.length || !confirm(`Remove all ${state.saved.length} saved references?`)) return;
+  state.saved = []; store.set("saved", []); paintSavedCount(); paintSaved(); paintTrends();
+});
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-close]")) { closeDrawers(); return; }
+  const b = e.target.closest("[data-act]");
+  if (b) { e.preventDefault(); act(b.dataset.act, b); return; }
+  const v = e.target.closest("[data-view]");
+  if (v) { state.query = ""; go({ view: v.dataset.view }); return; }
+  const item = e.target.closest("#view .item");
+  if (item && !e.target.closest("a")) {
+    const i = state.items.indexOf(item);
+    if (i === state.sel) { state.sel = -1; item.classList.remove("sel"); } else select(i);
+  }
+});
+$view.addEventListener("change", (e) => {
+  const t = e.target;
+  if (t.dataset.k === "niche") { state.query = ""; go({ niche: t.value }); }
+  if (t.dataset.top) go({ top: { [t.dataset.top]: t.value } });
+});
+$view.addEventListener("input", (e) => {
+  if (e.target.id !== "q") return;
+  state.query = e.target.value; state.sel = -1; paintTrends();
+});
+document.addEventListener("keydown", (e) => {
+  const typing = e.target instanceof Element && e.target.matches("input, select, textarea");
+  if (e.key === "Escape") {
+    if (document.querySelector(".drawer.open")) return closeDrawers();
+    if (typing) { e.target.blur(); }
+    if (state.query) { state.query = ""; const q = $("q"); if (q) q.value = ""; paintTrends(); }
+    return;
+  }
+  if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+  const sel = state.items[state.sel];
+  const keys = {
+    "1": () => go({ tab: "now" }), "2": () => go({ tab: "trends" }),
+    j: () => select(state.sel + 1), ArrowDown: () => select(state.sel + 1),
+    k: () => select(state.sel - 1), ArrowUp: () => select(state.sel - 1),
+    o: () => sel && act("open", sel.querySelector(".body")), Enter: () => sel && act("open", sel.querySelector(".body")),
+    c: () => sel && act("copy", sel.querySelector(".body")), l: () => sel && act("copy-link", sel.querySelector(".body")),
+    s: () => sel && act("save", sel.querySelector(".body")), S: () => openDrawer("saved"),
+    "/": () => { const q = $("q"); if (q) q.focus(); },
+    "?": () => openDrawer("help"),
+    r: () => state.route.tab === "trends" ? renderTrends(true) : loadNow().then(() => renderNow(true)),
+    "[": () => state.route.tab === "trends" && go({ view: VIEWS[(VIEWS.indexOf(state.route.view) + VIEWS.length - 1) % VIEWS.length] }),
+    "]": () => state.route.tab === "trends" && go({ view: VIEWS[(VIEWS.indexOf(state.route.view) + 1) % VIEWS.length] }),
+  };
+  const fn = keys[e.key];
+  if (fn) { e.preventDefault(); fn(); }
+});
+
+/* ---------- live loops ---------- */
+setInterval(() => {
+  document.querySelectorAll("[data-since]").forEach((el) => {
+    const t = Number(el.dataset.since); if (t) el.textContent = clock(Date.now() - t);
+  });
+}, 1000);
+async function pollNow() {
+  if (document.visibilityState === "visible") { await loadNow(); renderNow(false); }
+  setTimeout(pollNow, state.now?.running?.length ? 2000 : 5000);
+}
+paintSavedCount();
+route();
+pollNow();
+api("/api/overview").then(({ body }) => { state.overview = body; }).catch(() => {});
+</script>
+</body>
+</html>
