@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **65**
+Verbs registered: **66**
 
 ## Top-level verbs
 
@@ -2910,4 +2910,29 @@ Options:
   --stdio        serve newline-delimited JSON on stdin/stdout
   --root <path>  data root containing ralphy.db
   -h, --help     display help for command
+```
+
+### `ralphy panel`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy panel [options]
+
+Serve a read-only side panel on 127.0.0.1 for the agent's built-in browser: live
+job activity (running, failed, queued, done) and trend references to copy
+(picks, rising signals, top videos, formats). Runs in the foreground until
+stopped; reuses a panel already serving the same data root.
+
+Options:
+  --port <n>              Port on 127.0.0.1 (default 4777) (default: 4777)
+  --trend-workspace <id>  Workspace id or slug holding the trend corpus
+                          (default: trend-corpus, else the first with niches)
+  -h, --help              display help for command
 ```

@@ -264,6 +264,10 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
     { label: "assets.empty", shape: { template: "noski", pulled: [] } },
     { label: "assets.cacheInfo", shape: { key: "trend-music/phonk-01", cachedPath: ".ralphy/cache/assets/phonk-01.mp3", sizeBytes: 1048576 } },
   ],
+  panel: [
+    { label: "panel", shape: { url: "http://127.0.0.1:4777/", port: 4777, root: "/Users/demo/.ralphy", reused: false, trendWorkspace: "trend-corpus" } },
+    { label: "panel.reused", shape: { url: "http://127.0.0.1:4777/", port: 4777, root: "/Users/demo/.ralphy", reused: true } },
+  ],
   activity: [
     {
       label: "activity.list",

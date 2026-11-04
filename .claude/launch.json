@@ -26,6 +26,12 @@
       "runtimeArgs": ["mintlify", "dev"],
       "cwd": "docs-mintlify",
       "port": 3000
+    },
+    {
+      "name": "panel",
+      "runtimeExecutable": "mise",
+      "runtimeArgs": ["exec", "bun@1.4.2", "--", "bun", "cli/index.ts", "panel", "--port", "4777"],
+      "port": 4777
     }
   ]
 }

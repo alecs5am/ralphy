@@ -37,6 +37,7 @@ If you don't remember a flag, **run `--help` first**. Don't invent flags from tr
 | `models {list\|show <id>}` | Inspect OR video models + their per-model param whitelists. **Read before any video gen.** |
 | `daemon {start\|stop\|status}` | Manage the background job worker. |
 | `queue {add\|list\|show\|cancel\|retry\|logs\|watch}` | Manage queued jobs. |
+| `panel [--port <n>] [--trend-workspace <ws>]` | Read-only side panel on `127.0.0.1:4777` for the agent's built-in browser: live job activity plus trend picks, rising signals, top videos and formats to copy. Start it only when the user asks for the panel; it runs in the foreground and reuses a panel already serving the same root. |
 | `render <project>` | Render project → `<project>/render/final.mp4` (`<project>` = `.ralphy/workspaces/<ws>/projects/<id>`). `--loudnorm` for EBU R128. |
 | `assets {list\|pull\|pull-key\|install\|clean\|cache-info}` | Pull assets from the `ralphy-assets` companion repo. |
 | `example {list\|pull}` | Pull complete reference projects. |

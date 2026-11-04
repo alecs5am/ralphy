@@ -1583,3 +1583,32 @@ export function cohortSample(input: { workspaceId: string; platform: TrendPlatfo
 }
 
 export const TREND_METRIC_NAMES: readonly TrendMetric[] = TREND_METRICS;
+
+export type TrendVideoLabelDto = { id: string; url: string; title: string | null; language: string | null };
+
+/** Titles and languages for corpus videos named by id or url (the panel joins them onto report rows). */
+export function trendVideoLabels(input: { workspaceId: string; ids?: string[]; urls?: string[] }): TrendVideoLabelDto[] {
+  const rows: TrendVideoLabelDto[] = [];
+  const query = (column: "id" | "url", values: string[]) => {
+    for (let i = 0; i < values.length; i += 400) {
+      const chunk = values.slice(i, i + 400);
+      rows.push(...openDomainDb()
+        .query<TrendVideoLabelDto, string[]>(
+          `SELECT id, url, title, language FROM trend_videos
+           WHERE workspace_id = ? AND ${column} IN (${chunk.map(() => "?").join(",")})`,
+        )
+        .all(input.workspaceId, ...chunk));
+    }
+  };
+  if (input.ids?.length) query("id", [...new Set(input.ids)]);
+  if (input.urls?.length) query("url", [...new Set(input.urls)]);
+  return rows;
+}
+
+/** When the corpus last collected metrics (null when nothing was collected yet). */
+export function trendCorpusAsOf(workspaceId: string): number | null {
+  const row = openDomainDb()
+    .query<{ asOf: number | null }, [string]>("SELECT MAX(latest_as_of) AS asOf FROM trend_videos WHERE workspace_id = ?")
+    .get(workspaceId);
+  return row?.asOf ?? null;
+}
