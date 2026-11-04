@@ -41,7 +41,7 @@ If you don't remember a flag, **run `--help` first**. Don't invent flags from tr
 | `render <project>` | Render project → `<project>/render/final.mp4` (`<project>` = `.ralphy/workspaces/<ws>/projects/<id>`). `--loudnorm` for EBU R128. |
 | `assets {list\|pull\|pull-key\|install\|clean\|cache-info}` | Pull assets from the `ralphy-assets` companion repo. |
 | `example {list\|pull}` | Pull complete reference projects. |
-| `audio` / `video` | FFmpeg recipes (loudnorm, sidechain duck, concat, extract-segment, burn-subs, tonemap-hdr). |
+| `audio` / `video` | FFmpeg recipes (loudnorm, sidechain duck, concat, SFX cue-sheet stem, extract-segment, burn-subs, tonemap-hdr). |
 | `init` / `config` | Workspace bootstrap + key/value config. |
 
 ## Resources (CRUD)

@@ -12,6 +12,7 @@ Implementation: `cli/lib/ffmpeg-recipes.ts`. Uses the system `ffmpeg` (Homebrew)
 | Cut a single clip out of a long source file | `extractSegment` |
 | Concatenate already-rendered MP4s without re-encode | `concatLossless` |
 | Normalize loudness for TikTok | `loudnorm` |
+| Flatten a cue sheet of SFX one-shots into one track | `audioStem` |
 | Music under VO with ducking | `sidechainCompress` |
 | iPhone HDR video into SDR for shorts | `tonemapHDR` |
 | Burn .srt subtitles into a final mp4 (post-render) | `burnSubtitles` |
@@ -70,6 +71,28 @@ await loudnorm({
 ```
 
 **When:** before the final render, on the mixed audio. ElevenLabs already returns relatively normalized VO, but the music bed out of Lyria2 often drifts — running `loudnorm` on the mixed track yields consistent loudness.
+
+**Two passes by default (#599).** The recipe measures first, then applies the measured `I` / `TP` / `LRA` / threshold in linear mode. Single-pass loudnorm runs in dynamic mode and misses the target on transient-dense material: a sparse SFX stem asked for -30 LUFS landed at -27.2 in one pass and -30.2 in two. `twoPass: false` (CLI `--single-pass`) restores the one-shot filter; a silent or unparseable measurement degrades to one pass instead of failing.
+
+## Recipe 3c: `audioStem` (#599)
+
+Flatten N short SFX one-shots into ONE pre-mixed stem on ONE track. HyperFrames cannot overlap clips on the same track, and short same-track media is unreliable during capture (#047), so a sound-design pass with 80+ overlapping cues has to become a stem, not 80 `<audio>` elements.
+
+```bash
+ralphy audio stem --project <id> --cues cues.json --out sfx-stem.mp3 --duration 30 --target-lufs -20
+```
+
+```ts
+import { resolveCueSheet, audioStem } from "./cli/lib/ffmpeg-recipes.js";
+
+const cues = resolveCueSheet(
+  { fps: 30, cues: [{ frame: 160, slot: "click-01", gainDb: -9 }] },
+  (ref) => ("slot" in ref ? lookUpAudioArtifact(ref.slot) : ref.path),
+);
+await audioStem({ cues, dst: "sfx-stem.mp3", durationSec: 30, targetLufs: -20 });
+```
+
+Cue times are authored in **seconds** (`at`) or **frames** (`frame` + a top-level `fps`, the form to use when the composition timeline is in frames). Each cue names its source with exactly one of `slot` (a Project audio Artifact; the CLI reads its newest Revision from the store) or `path` (a file relative to the cue sheet). The graph is one `adelay=<ms>|<ms>,volume=<g>dB` chain per cue → `amix=inputs=N:normalize=0` (authored gains survive) → `alimiter` with auto-level off (stacked transients) → `apad,atrim` (exact duration) → the two-pass loudness pass. An empty cue sheet, a cue with no time, or a source that does not resolve fails the run instead of emitting a half-silent stem. The stem is a new audio Artifact Revision; re-running the same `--out` adds a Revision, never overwrites.
 
 ## Recipe 4: `sidechainCompress` (music ducking)
 

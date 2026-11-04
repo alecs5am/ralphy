@@ -2179,7 +2179,7 @@ ____        __      __
 
 Usage: ralphy audio [options] [command]
 
-FFmpeg audio recipes (loudnorm, sidechain duck, concat). All wrap
+FFmpeg audio recipes (loudnorm, sidechain duck, concat, SFX stem). All wrap
 cli/lib/ffmpeg-recipes.ts.
 
 Options:
@@ -2193,6 +2193,10 @@ Commands:
   mix-music [options]  Overlay a music bed onto a video at a fixed volume — no
                        ducking, no fades. Single-call surface for A/B preview
                        workflows.
+  stem [options]       Flatten a cue sheet of SFX one-shots into ONE pre-mixed
+                       stem (delay + gain per cue, amix, limiter). HyperFrames
+                       cannot overlap short clips on one track — a stem is the
+                       correct shape.
   concat [options]     Lossless concat of audio segments via the concat demuxer
   help [command]       display help for command
 ```
