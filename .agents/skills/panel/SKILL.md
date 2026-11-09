@@ -77,3 +77,19 @@ ask the user to use **Copy all for agent** when you need the whole list.
 ## Stop
 
 Stop the background command you started. Nothing else needs cleanup.
+
+## Accounts and upload recovery
+
+The Accounts view includes every actionable upload, even when more than 200
+newer published rows exist. Published history is limited to the newest 200 and
+shows the total. Search includes Workspace, platform, niche, session, connection
+and paused state. Copied commands preserve the panel's executable, data root,
+Workspace id and account id; never shorten them to an ambiguous handle.
+
+Unknown outcomes require checking the account profile before any retry. Close
+that profile before recording manual completion. The panel offers commands to
+copy and performs no approval, retry or posting itself. Metrics are visible
+observations with timestamps, can be rounded, and may be unavailable; older than
+24 hours is labelled stale. A missing counter is not zero or provider success.
+
+For local unreleased testing, use `docs/testing/account-uploads-morning-test.md`.

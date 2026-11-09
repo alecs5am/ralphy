@@ -49,6 +49,7 @@ export const OBJECT_REFERENCE_SOURCES = [
   { table: "uploads", column: "cover_object_id" },
   { table: "uploads", column: "evidence_object_id" },
   { table: "uploads", column: "media_object_id" },
+  { table: "upload_evidence", column: "object_id" },
 ] as const;
 
 const REVIEW_VERDICTS = {

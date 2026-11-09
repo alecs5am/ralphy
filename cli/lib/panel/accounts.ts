@@ -1,3 +1,5 @@
+import { ralphDir } from "../paths.js";
+import { openDomainDb } from "../store/db.js";
 import { getWorkspaceByReference } from "../store/scopes.js";
 import {
   listOwnedAccounts,
@@ -9,12 +11,15 @@ import {
 
 /** One owned account as the panel shows it: the store summary plus a profile link and the Workspace slug. */
 export type PanelAccount = OwnedAccountSummaryDto & {
+  nextCommand: string;
   profileUrl: string | null;
   workspace: string | null;
 };
 
 /** One upload as the panel shows it. `multiplier` is views over the account's median views. */
 export type PanelUpload = {
+  nextCommand: string;
+  workspaceId: string;
   id: string;
   accountId: string;
   handle: string;
@@ -47,6 +52,7 @@ export type PanelUploadSections = {
 };
 
 export type PanelAccounts = {
+  publishedTotal: number;
   serverTime: number;
   accounts: PanelAccount[];
   uploads: PanelUploadSections;
@@ -71,9 +77,21 @@ export function viewsMultiplier(views: number | null | undefined, medianViews: n
   return Math.round((views / medianViews) * 100) / 100;
 }
 
-function toPanelUpload(upload: UploadDto, medians: Map<string, number | null>, workspaces: Map<string, string>): PanelUpload {
+type CommandScope = { dataRoot: string; command?: string[] };
+const quote = (value: string) => "'" + value.replace(/'/g, "'\\''") + "'";
+function scopedCommand(scope: CommandScope, workspaceId: string, args: string[]): string {
+  return [...(scope.command ?? ["ralphy"]), "--root", scope.dataRoot, "--workspace", workspaceId, ...args].map(quote).join(" ");
+}
+
+function toPanelUpload(upload: UploadDto, medians: Map<string, number | null>, workspaces: Map<string, string>, scope: CommandScope): PanelUpload {
   const views = upload.metrics?.views ?? null;
   return {
+    workspaceId: upload.workspaceId,
+    nextCommand: scopedCommand(scope, upload.workspaceId, upload.state === "queued" && !upload.approvedAt
+      ? ["upload", "approve", upload.id]
+      : upload.state === "queued" ? ["upload", "run", upload.id]
+      : upload.state === "failed" ? ["upload", "retry", upload.id] : ["upload", "show", upload.id])
+      + (["unknown", "needs_user"].includes(upload.state) ? "\n" + scopedCommand(scope, upload.workspaceId, ["account", "open", upload.accountId]) : ""),
     id: upload.id,
     accountId: upload.accountId,
     handle: upload.handle,
@@ -107,11 +125,12 @@ export function shapeAccounts(
   uploads: UploadDto[],
   workspaces: Map<string, string>,
   now = Date.now(),
+  scope: CommandScope = { dataRoot: ralphDir() },
 ): PanelAccounts {
   const medians = new Map(accounts.map((account) => [account.id, account.medianViews]));
   const sections: PanelUploadSections = { needsYou: [], queued: { approved: [], waiting: [] }, uploading: [], published: [], failed: [] };
   for (const upload of uploads) {
-    const row = toPanelUpload(upload, medians, workspaces);
+    const row = toPanelUpload(upload, medians, workspaces, scope);
     if (row.state === "needs_user" || row.state === "unknown") sections.needsYou.push(row);
     else if (row.state === "queued") (row.approved ? sections.queued.approved : sections.queued.waiting).push(row);
     else if (row.state === "uploading") sections.uploading.push(row);
@@ -126,9 +145,14 @@ export function shapeAccounts(
   sections.queued.approved.sort((a, b) => a.createdAt - b.createdAt);
   sections.queued.waiting.sort((a, b) => a.createdAt - b.createdAt);
   return {
+    publishedTotal: sections.published.length,
     serverTime: now,
     accounts: accounts.map((account) => ({
       ...account,
+      nextCommand: scopedCommand(scope, account.workspaceId, account.paused ? ["account", "resume", account.id]
+        : account.connection !== "browser" ? ["account", "show", account.id]
+        : account.sessionState !== "ok" ? ["account", "login", account.id]
+        : ["account", "check", account.id]),
       profileUrl: profileUrl(account.platform, account.handle),
       workspace: workspaces.get(account.workspaceId) ?? null,
     })),
@@ -137,13 +161,18 @@ export function shapeAccounts(
 }
 
 /** Every owned account and the newest uploads across the whole library. */
-export function accountsSnapshot(now = Date.now()): PanelAccounts {
+export function accountsSnapshot(now = Date.now(), scope: CommandScope = { dataRoot: ralphDir() }): PanelAccounts {
   const accounts = listOwnedAccounts();
-  const uploads = listUploads({ limit: UPLOAD_LIMIT });
+  const uploads = [
+    ...listUploads({ states: ["queued", "uploading", "needs_user", "unknown", "failed"], limit: null }),
+    ...listUploads({ states: ["published"], limit: UPLOAD_LIMIT }),
+  ];
   const workspaces = new Map<string, string>();
   for (const id of new Set([...accounts.map((a) => a.workspaceId), ...uploads.map((u) => u.workspaceId)])) {
     const workspace = getWorkspaceByReference(id);
     if (workspace) workspaces.set(id, workspace.slug);
   }
-  return shapeAccounts(accounts, uploads, workspaces, now);
+  const snapshot = shapeAccounts(accounts, uploads, workspaces, now, scope);
+  snapshot.publishedTotal = openDomainDb().query<{ n: number }, []>("SELECT count(*) AS n FROM uploads WHERE state = 'published'").get()!.n;
+  return snapshot;
 }

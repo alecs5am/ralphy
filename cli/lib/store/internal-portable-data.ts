@@ -74,6 +74,7 @@ export const PORTABLE_TABLES: Table[] = [
   // #600 owned-account uploads and their append-only performance history.
   { name: "uploads", type: "upload", prefix: "upl", workspace: true },
   { name: "upload_metric_snapshots", type: "upload_metric_snapshot", owner: ["upload_id", "uploads"] },
+  { name: "upload_evidence", type: "upload_evidence", owner: ["upload_id", "uploads"] },
   { name: "account_snapshots", type: "account_snapshot", owner: ["social_account_id", "social_accounts"] },
 ];
 export type PortableTables = Record<string, PortableRecord[]>;
@@ -191,6 +192,7 @@ export function sanitizeRecord(table: string, source: PortableRecord): PortableR
     row[key] = key.endsWith("_json") ? JSON.stringify(redactPortableValue(JSON.parse(value))) : redactPortableText(value);
   }
   if (table === "social_accounts") { row.credential_ref = null; row.relink_required = 1; row.session_state = "unknown"; row.session_checked_at = null; row.platform_user_id = null; }
+  if (table === "uploads") row.claim_owner_pid = null;
   if (table === "agent_sessions") {
     row.consumer_principal_id = null;
     if (String(row.agent).startsWith("consumer:")) row.agent = "portable-import";

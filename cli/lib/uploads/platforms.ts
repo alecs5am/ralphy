@@ -30,7 +30,7 @@ export type UploadContext = {
 export type UploadResult = { postUrl: string; postExternalId: string | null };
 export type SessionInfo = { state: SessionState; userId: string | null };
 export type ProfileStats = { followers: number | null; following: number | null; posts: number | null };
-export type PostStats = { externalId: string; url: string; views: number | null; likes: number | null; comments: number | null };
+export type PostStats = { caption?: string; externalId: string; url: string; views: number | null; likes: number | null; comments: number | null };
 
 export class RecipeStepError extends Error {
   constructor(readonly stage: string, message: string) {
@@ -101,6 +101,13 @@ async function waitForTextChange(locator: ReturnType<Page["locator"]>, previous:
   while ((await locator.innerText().catch(() => previous)) === previous) {
     if (Date.now() > deadline) throw new Error(`step did not advance past "${previous}"`);
     await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
+
+async function requireBoundSession(recipe: PlatformRecipe, page: Page, expectedUserId: string | null): Promise<void> {
+  const session = await recipe.session(page.context(), page);
+  if (session.state !== "ok" || !expectedUserId || session.userId !== expectedUserId) {
+    throw new RecipeStepError("identity", "Cannot confirm the bound account before publication");
   }
 }
 
@@ -316,13 +323,15 @@ const tiktok: PlatformRecipe = {
     return { followers: await read("followers-count"), following: await read("following-count"), posts: null };
   },
 
-  async upload({ page, task, onSubmit }) {
+  async upload({ page, task, expectedUserId, onSubmit }) {
+    await requireBoundSession(tiktok, page, expectedUserId);
+    const previousIds = new Set((await tiktok.recentPosts!(page, task.handle)).map((post) => post.externalId));
     await step("open-upload", () => page.goto("https://www.tiktok.com/tiktokstudio/upload", { waitUntil: "domcontentloaded", timeout: 120_000 }));
     if (/\/login/.test(page.url())) throw new RecipeStepError("identity", "TikTok session is signed out");
     const frame = page.locator('iframe[data-tt="Upload_index_iframe"]');
     const root = (await frame.count()) ? page.frameLocator('iframe[data-tt="Upload_index_iframe"]') : page;
     await step("attach-video", () => root.locator('input[type="file"]').first().setInputFiles(task.videoPath, { timeout: 60_000 }));
-    if (task.caption) {
+    {
       await step("caption", async () => {
         const editor = root.locator('div[contenteditable="true"]').first();
         await editor.click({ timeout: 60_000 });
@@ -340,30 +349,35 @@ const tiktok: PlatformRecipe = {
         await new Promise((resolve) => setTimeout(resolve, 2_000));
       }
     });
+    await requireBoundSession(tiktok, page, expectedUserId);
     onSubmit();
     await post.click();
     await step("wait-posted", () => page.waitForURL(/tiktokstudio\/content/, { timeout: 5 * 60_000 }));
     const latest = await step("find-post-url", async () => {
       const posts = await tiktok.recentPosts!(page, task.handle);
-      if (!posts[0]) throw new Error("no video on the profile after posting");
-      return posts[0];
+      const candidates = posts.filter((post) => !previousIds.has(post.externalId)
+        && post.caption === task.caption
+        && new URL(post.url).pathname.startsWith(`/@${task.handle}/video/`));
+      if (candidates.length !== 1) throw new Error("Cannot confirm one new video with the submitted caption on the bound profile");
+      return candidates[0]!;
     });
     return { postUrl: latest.url, postExternalId: latest.externalId };
   },
 
   async recentPosts(page, handle) {
     await page.goto(tiktok.profileUrl(handle), { waitUntil: "domcontentloaded" });
-    await page.locator('[data-e2e="user-post-item"] a[href*="/video/"]').first().waitFor({ state: "attached", timeout: 20_000 });
+    await page.locator('[data-e2e="user-post-item-list"]').first().waitFor({ state: "attached", timeout: 20_000 });
     const tiles = await page.locator('[data-e2e="user-post-item"]').evaluateAll((items) =>
       items.map((item) => ({
         href: (item.querySelector('a[href*="/video/"]') as HTMLAnchorElement | null)?.href ?? "",
         views: (item.querySelector('[data-e2e="video-views"]') as HTMLElement | null)?.innerText ?? "",
+        caption: item.querySelector("img")?.getAttribute("alt") ?? "",
       })),
     );
     const posts: PostStats[] = [];
     for (const tile of tiles) {
       const code = tile.href.match(/\/video\/(\d+)/)?.[1];
-      if (code) posts.push({ externalId: code, url: tile.href.split("?")[0]!, views: parseCount(tile.views), likes: null, comments: null });
+      if (code) posts.push({ externalId: code, url: tile.href.split("?")[0]!, views: parseCount(tile.views), caption: tile.caption, likes: null, comments: null });
     }
     return posts;
   },
@@ -398,7 +412,8 @@ const youtube: PlatformRecipe = {
     };
   },
 
-  async upload({ page, task, onSubmit }) {
+  async upload({ page, task, expectedUserId, onSubmit }) {
+    await requireBoundSession(youtube, page, expectedUserId);
     await step("open-upload", () => page.goto("https://www.youtube.com/upload", { waitUntil: "domcontentloaded", timeout: 120_000 }));
     await step("attach-video", () => page.locator('input[type="file"]').first().setInputFiles(task.videoPath, { timeout: 60_000 }));
     const [title, ...rest] = task.caption.split("\n");
@@ -419,14 +434,25 @@ const youtube: PlatformRecipe = {
       const deadline = Date.now() + 30 * 60_000;
       for (;;) {
         const label = (await page.locator(".progress-label").first().innerText().catch(() => "")).toLowerCase();
-        if (/checks complete|processing (abandoned|complete)|upload complete|finished processing/.test(label)) return;
+        if (/abandoned|failed|error/.test(label)) throw new Error(`processing failed: ${label}`);
+        if (/checks complete|processing complete|upload complete|finished processing/.test(label)) return;
         if (Date.now() > deadline) throw new Error(`upload still processing: ${label}`);
         await page.waitForTimeout(5_000);
       }
     });
     const link = await page.locator('a[href*="youtu.be"], a[href*="/shorts/"], a[href*="watch?v="]').first().getAttribute("href").catch(() => null);
+    await requireBoundSession(youtube, page, expectedUserId);
     onSubmit();
     await page.locator("#done-button").click();
+    await step("confirm-published", async () => {
+      const dialog = page.locator("ytcp-video-share-dialog");
+      await dialog.waitFor({ state: "visible", timeout: 120_000 });
+      const text = await dialog.innerText();
+      if (!/video published/i.test(text)) throw new Error("YouTube did not confirm Video published");
+      const confirmedLink = await dialog.locator('a[href*="youtu.be"], a[href*="watch?v="], a[href*="/shorts/"]').first().getAttribute("href");
+      const idOf = (value: string | null) => value?.match(/(?:youtu\.be\/|shorts\/|v=)([A-Za-z0-9_-]{6,})/)?.[1];
+      if (!idOf(link) || idOf(confirmedLink) !== idOf(link)) throw new Error("Published dialog does not confirm this video's id");
+    });
     const url = await step("find-post-url", async () => {
       if (!link) throw new Error("no video link on the details page");
       return link;

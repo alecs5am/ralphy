@@ -186,7 +186,7 @@ export function uploadCmd() {
   cmd
     .command("retry <id>")
     .description("Put a handed-off or failed upload back in the queue (keeps its approval)")
-    .option("--force", "Also requeue an `unknown` upload, after checking the profile shows no such post")
+    .option("--force", "Requeue an unknown or abandoned upload only after its worker stopped and the profile shows no such post")
     .action(function (this: Command, id: string, opts: any) {
       const upload = uploadOf(this, id, "upload retry");
       out({ kind: "upload", upload: guard("retry", () => retryUpload(upload.id, { force: opts.force === true })) });

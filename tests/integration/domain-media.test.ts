@@ -1186,12 +1186,13 @@ describe("media cards", () => {
     db.prepare(
       "UPDATE uploads SET cover_object_id = ?, evidence_object_id = ? WHERE id = ?",
     ).run(f.projectObject.id, f.projectObject.id, upload.id);
+    db.prepare("INSERT INTO upload_evidence VALUES (?, ?, 'screenshot', ?)").run(upload.id, f.projectObject.id, now);
     const [card] = getMediaCards({
       context: { workspaceId: f.workspace.id, projectId: f.project.id },
       refs: [{ type: "object", id: f.projectObject.id }],
     });
     // One row in every registered Object reference source.
-    expect(card).toMatchObject({ referenceCount: 9 });
+    expect(card).toMatchObject({ referenceCount: 10 });
     expect(
       OBJECT_REFERENCE_SOURCES.map(({ table, column }) =>
         db
@@ -1200,7 +1201,7 @@ describe("media cards", () => {
           )
           .get(f.projectObject.id)!.total,
       ),
-    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1]);
+    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
 
     const actual = db
       .query<{ table: string; column: string }, []>(

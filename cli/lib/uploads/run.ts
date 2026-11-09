@@ -12,6 +12,7 @@ import {
   finishUpload,
   listUploads,
   markUploadSubmitted,
+  recordUploadEvidence,
   setAccountSession,
   uploadObjectPath,
   isOwnedPlatform,
@@ -30,6 +31,7 @@ export function recipeFor(platform: string): PlatformRecipe {
 async function readStats(recipe: PlatformRecipe, page: Page, account: OwnedAccountDto): Promise<ProfileStats | null> {
   try {
     const stats = await recipe.profileStats(page, account.handle);
+    if (Object.values(stats).every((value) => value === null)) return null;
     appendAccountSnapshot({ accountId: account.id, source: "browser", ...stats });
     return stats;
   } catch {
@@ -44,12 +46,17 @@ async function readStats(recipe: PlatformRecipe, page: Page, account: OwnedAccou
  */
 function recordSession(account: OwnedAccountDto, session: SessionInfo): SessionState {
   try {
+    if (session.state === "ok" && !session.userId) session = SESSION_UNKNOWN;
     setAccountSession(account.id, session.state, session.userId ? { platformUserId: session.userId } : {});
     return session.state;
   } catch {
     setAccountSession(account.id, "restricted");
     return "restricted";
   }
+}
+
+function requireBrowserAccount(account: OwnedAccountDto): void {
+  if (account.connection !== "browser") throw new Error(`Account ${account.id} uses ${account.connection}; add a separate browser account before signing in`);
 }
 
 const SESSION_UNKNOWN: SessionInfo = { state: "unknown", userId: null };
@@ -59,6 +66,7 @@ const SESSION_UNKNOWN: SessionInfo = { state: "unknown", userId: null };
  * in. Resolves when the session is detected or when the owner closes the window.
  */
 export async function loginAccount(account: OwnedAccountDto, options: { timeoutMs?: number } = {}): Promise<{ state: SessionState; stats: ProfileStats | null }> {
+  requireBrowserAccount(account);
   const recipe = recipeFor(account.platform);
   const context = await openAccountBrowser(account.id);
   let closed = false;
@@ -92,6 +100,7 @@ export async function loginAccount(account: OwnedAccountDto, options: { timeoutM
 
 /** Detect the session and read the public counters without user interaction. */
 export async function checkAccount(account: OwnedAccountDto, options: { headless?: boolean } = {}): Promise<{ state: SessionState; stats: ProfileStats | null }> {
+  requireBrowserAccount(account);
   const recipe = recipeFor(account.platform);
   const context = await openAccountBrowser(account.id, { headless: options.headless ?? true });
   try {
@@ -107,19 +116,22 @@ export async function checkAccount(account: OwnedAccountDto, options: { headless
 
 /** Open the account's profile for the owner (or an agent) and wait until it is closed. */
 export async function openAccount(account: OwnedAccountDto, url?: string): Promise<void> {
+  requireBrowserAccount(account);
   const recipe = recipeFor(account.platform);
   const context = await openAccountBrowser(account.id);
-  const page = await firstPage(context);
-  await page.goto(url ?? recipe.profileUrl(account.handle), { waitUntil: "domcontentloaded" }).catch(() => {});
-  await waitForClose(context);
+  try {
+    const page = await firstPage(context);
+    await page.goto(url ?? recipe.profileUrl(account.handle), { waitUntil: "domcontentloaded" }).catch(() => {});
+    await waitForClose(context);
+  } finally { await context.close().catch(() => {}); }
 }
 
 /** Screenshot plus page HTML, stored as one diagnostic object (the screenshot) and its sibling HTML object. */
 async function captureEvidence(page: Page, upload: UploadDto, label: string): Promise<string | null> {
   const dir = path.join(ralphDir(), "tmp", "uploads", upload.id);
   const stamp = Date.now();
-  const store = async (file: string, mime: string) =>
-    (await ingestObject({
+  const store = async (file: string, mime: string): Promise<string> => {
+    const object = await ingestObject({
       scope: { workspaceId: upload.workspaceId },
       sourcePath: file,
       originalName: path.basename(file),
@@ -127,15 +139,20 @@ async function captureEvidence(page: Page, upload: UploadDto, label: string): Pr
       storageClass: "diagnostic",
       metadata: { upload: upload.id, label, url: page.url() },
       transfer: "move",
-    })).id;
+    });
+    recordUploadEvidence(upload.id, object.id, mime === "text/html" ? "html" : "screenshot");
+    return object.id;
+  };
   try {
     fs.mkdirSync(dir, { recursive: true });
     const html = path.join(dir, `${label}-${stamp}.html`);
     fs.writeFileSync(html, await page.content().catch(() => ""));
-    await store(html, "text/html").catch(() => null);
+    const htmlId = await store(html, "text/html").catch(() => null);
     const shot = path.join(dir, `${label}-${stamp}.png`);
-    await page.screenshot({ path: shot, fullPage: true });
-    return await store(shot, "image/png");
+    try {
+      await page.screenshot({ path: shot, fullPage: true });
+      return await store(shot, "image/png");
+    } catch { return htmlId; }
   } catch {
     return null;
   }
@@ -150,8 +167,12 @@ async function captureEvidence(page: Page, upload: UploadDto, label: string): Pr
  * exist, so it is never retried blindly (`upload retry --force` after the
  * owner checks the profile).
  */
-export async function runClaimedUpload(upload: UploadDto, account: OwnedAccountDto): Promise<UploadDto> {
-  const recipe = recipeFor(account.platform);
+export async function runClaimedUpload(upload: UploadDto, account: OwnedAccountDto, dependencies: {
+  openBrowser?: typeof openAccountBrowser;
+  recipe?: PlatformRecipe;
+} = {}): Promise<UploadDto> {
+  const recipe = dependencies.recipe ?? recipeFor(account.platform);
+  if (upload.accountId !== account.id || upload.workspaceId !== account.workspaceId) throw new Error("Upload account scope mismatch");
   if (!recipe.upload || account.connection !== "browser") {
     return finishUpload(upload.id, {
       state: "needs_user",
@@ -165,7 +186,7 @@ export async function runClaimedUpload(upload: UploadDto, account: OwnedAccountD
   let context: BrowserContext | null = null;
   let submitted = false;
   try {
-    context = await openAccountBrowser(account.id);
+    context = await (dependencies.openBrowser ?? openAccountBrowser)(account.id);
     const page = await firstPage(context);
     await page.goto(recipe.home, { waitUntil: "domcontentloaded" });
     let sessionError = "";
@@ -174,7 +195,7 @@ export async function runClaimedUpload(upload: UploadDto, account: OwnedAccountD
       return SESSION_UNKNOWN;
     });
     const state = recordSession(account, session);
-    if (state !== "ok") {
+    if (state !== "ok" || !session.userId) {
       return finishUpload(upload.id, {
         state: "needs_user",
         stage: "session",
@@ -188,13 +209,14 @@ export async function runClaimedUpload(upload: UploadDto, account: OwnedAccountD
       const result = await recipe.upload({
         page,
         task: { handle: account.handle, videoPath: uploadObjectPath(upload.mediaObjectId), caption: upload.caption },
-        expectedUserId: account.platformUserId,
+        expectedUserId: session.userId,
         onSubmit: () => {
           if (submitted) throw new Error("recipe submitted twice");
           markUploadSubmitted(upload.id);
           submitted = true;
         },
       });
+      if (!submitted) throw new Error("Recipe returned without a confirmed submission");
       return finishUpload(upload.id, {
         state: "published",
         postUrl: result.postUrl,
@@ -229,13 +251,14 @@ export async function runClaimedUpload(upload: UploadDto, account: OwnedAccountD
  * snapshot to every published upload they match (by post id). Also refreshes
  * the account's follower snapshot.
  */
-export async function syncAccount(account: OwnedAccountDto): Promise<{ matched: number; posts: number; stats: ProfileStats | null }> {
+export async function syncAccount(account: OwnedAccountDto): Promise<{ matched: number; posts: number; postMetricsSupported: boolean; stats: ProfileStats | null }> {
+  requireBrowserAccount(account);
   const recipe = recipeFor(account.platform);
   const context = await openAccountBrowser(account.id, { headless: true });
   try {
     const page = await firstPage(context);
     const stats = await readStats(recipe, page, account);
-    if (!recipe.recentPosts) return { matched: 0, posts: 0, stats };
+    if (!recipe.recentPosts) return { matched: 0, posts: 0, postMetricsSupported: false, stats };
     const posts = await recipe.recentPosts(page, account.handle);
     const byId = new Map(posts.map((post) => [post.externalId, post]));
     let matched = 0;
@@ -245,7 +268,7 @@ export async function syncAccount(account: OwnedAccountDto): Promise<{ matched: 
       appendUploadMetrics({ uploadId: upload.id, source: "browser", views: post.views, likes: post.likes, comments: post.comments });
       matched += 1;
     }
-    return { matched, posts: posts.length, stats };
+    return { matched, posts: posts.length, postMetricsSupported: true, stats };
   } finally {
     await context.close().catch(() => {});
   }

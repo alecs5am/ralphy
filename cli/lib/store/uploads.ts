@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Database } from "bun:sqlite";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
@@ -302,6 +303,35 @@ function median(values: number[]): number | null {
   return sorted.length % 2 ? sorted[mid]! : Math.round((sorted[mid - 1]! + sorted[mid]!) / 2);
 }
 
+/** Fail closed on permission errors or PID reuse; only a proven dead owner is reclaimed. */
+function processAlive(pid: number): boolean {
+  try { process.kill(pid, 0); return true; }
+  catch (error) { return (error as NodeJS.ErrnoException).code !== "ESRCH"; }
+}
+
+function assertProfileIdle(db: Database, accountId: string): void {
+  const lease = db.query<{ owner_pid: number }, [string]>("SELECT owner_pid FROM account_browser_leases WHERE social_account_id = ?").get(accountId);
+  if (lease && processAlive(lease.owner_pid)) throw new Error(`The browser profile for ${accountId} is already open; close that window first`);
+}
+
+/** Serializes login, check, open, sync and upload across processes for one profile. */
+export function acquireAccountBrowserLease(accountId: string): () => void {
+  const token = randomUUID();
+  const db = openDomainDb();
+  withImmediateTransaction((db) => {
+    assertProfileIdle(db, accountId);
+    db.prepare("DELETE FROM account_browser_leases WHERE social_account_id = ?").run(accountId);
+    db.prepare("INSERT INTO account_browser_leases VALUES (?, ?, ?)").run(accountId, process.pid, token);
+  });
+  return () => { db.prepare("DELETE FROM account_browser_leases WHERE social_account_id = ? AND token = ?").run(accountId, token); };
+}
+
+function assertWorkerStopped(db: Database, id: string): void {
+  const row = db.query<{ claim_owner_pid: number | null; social_account_id: string }, [string]>("SELECT claim_owner_pid, social_account_id FROM uploads WHERE id = ?").get(id)!;
+  assertProfileIdle(db, row.social_account_id);
+  if (row.claim_owner_pid && processAlive(row.claim_owner_pid)) throw new Error(`Upload ${id} still has an active worker; stop it before reconciliation`);
+}
+
 /**
  * Record an observed session state. `platformUserId` binds the account to the
  * platform user it was signed in as; once bound, a different user id is
@@ -491,7 +521,7 @@ export function listUploads(input: {
   accountId?: string;
   states?: UploadState[];
   niche?: string;
-  limit?: number;
+  limit?: number | null;
 } = {}): UploadDto[] {
   const where: string[] = [];
   const values: (string | number)[] = [];
@@ -502,7 +532,7 @@ export function listUploads(input: {
     where.push(`u.state IN (${input.states.map(() => "?").join(",")})`);
     values.push(...input.states);
   }
-  values.push(Math.max(1, Math.min(input.limit ?? 200, 1000)));
+  values.push(input.limit === null ? -1 : Math.max(1, Math.min(input.limit ?? 200, 1000)));
   return openDomainDb()
     .query<UploadRow, (string | number)[]>(
       `${UPLOAD_SELECT} ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
@@ -541,6 +571,7 @@ export function approveUploads(ids: string[]): UploadDto[] {
 
 export function cancelUpload(id: string): UploadDto {
   return transition(id, ["queued", "needs_user", "failed", "unknown"], (db, now) => {
+    assertWorkerStopped(db, id);
     db.prepare(
       "UPDATE uploads SET state = 'cancelled', row_version = row_version + 1, updated_at = ? WHERE id = ?",
     ).run(now, id);
@@ -555,6 +586,7 @@ export function cancelUpload(id: string): UploadDto {
 export function retryUpload(id: string, options: { force?: boolean } = {}): UploadDto {
   const from: UploadState[] = options.force ? ["needs_user", "failed", "uploading", "unknown"] : ["needs_user", "failed"];
   return transition(id, from, (db, now) => {
+    assertWorkerStopped(db, id);
     db.prepare(
       `UPDATE uploads SET state = 'queued', failure_stage = NULL, error = NULL,
          row_version = row_version + 1, updated_at = ? WHERE id = ?`,
@@ -572,6 +604,7 @@ export function claimNextUpload(input: { workspaceId?: string; id?: string; now?
     const where = [
       "u.state = 'queued'",
       "u.approved_at IS NOT NULL",
+      "NOT EXISTS (SELECT 1 FROM uploads busy WHERE busy.social_account_id = u.social_account_id AND busy.state IN ('uploading', 'unknown'))",
       "(u.not_before IS NULL OR u.not_before <= ?)",
       "a.paused = 0",
       "a.session_state NOT IN ('needs_login', 'checkpoint', 'restricted')",
@@ -587,9 +620,9 @@ export function claimNextUpload(input: { workspaceId?: string; id?: string; now?
       .get(...values);
     if (!row) return null;
     db.prepare(
-      `UPDATE uploads SET state = 'uploading', attempts = attempts + 1,
+      `UPDATE uploads SET state = 'uploading', attempts = attempts + 1, claim_owner_pid = ?,
          row_version = row_version + 1, updated_at = ? WHERE id = ?`,
-    ).run(now, row.id);
+    ).run(process.pid, now, row.id);
     return getUploadIn(db, row.id);
   });
 }
@@ -611,17 +644,43 @@ export function markUploadSubmitted(id: string): UploadDto {
 }
 
 export function finishUpload(id: string, outcome: UploadOutcome): UploadDto {
-  return transition(id, ["uploading", "unknown"], (db, now) => writeOutcome(db, id, outcome, now));
+  return transition(id, ["uploading", "unknown"], (db, now) => {
+    if (getUploadIn(db, id).state === "unknown" && outcome.state !== "unknown" && outcome.state !== "published") {
+      throw new Error("A submitted upload must remain unknown until reconciled");
+    }
+    writeOutcome(db, id, outcome, now);
+  });
 }
 
 /** The owner or an agent finished the post by hand in the account's browser. */
 export function completeUploadManually(id: string, postUrl: string): UploadDto {
-  return transition(id, ["queued", "uploading", "unknown", "needs_user", "failed"], (db, now) =>
-    writeOutcome(db, id, { state: "published", postUrl }, now),
-  );
+  return transition(id, ["queued", "uploading", "unknown", "needs_user", "failed"], (db, now) => {
+    assertWorkerStopped(db, id);
+    const account = getAccountById(db, getUploadIn(db, id).accountId);
+    const url = new URL(postUrl);
+    if (url.protocol !== "https:" || url.username || url.password) throw new Error("Post URL must be https without credentials");
+    const host = url.hostname.replace(/^www\./, "");
+    let postExternalId: string | undefined;
+    if (account.platform === "instagram" && host === "instagram.com") postExternalId = url.pathname.match(/^\/(?:reel|p)\/([A-Za-z0-9_-]+)\/?$/)?.[1];
+    if (account.platform === "tiktok" && host === "tiktok.com") {
+      const match = url.pathname.match(/^\/@([^/]+)\/video\/(\d+)\/?$/);
+      if (match?.[1]?.toLowerCase() === account.handle.toLowerCase()) postExternalId = match[2];
+    }
+    if (account.platform === "youtube") {
+      if (host === "youtu.be") postExternalId = url.pathname.match(/^\/([A-Za-z0-9_-]+)\/?$/)?.[1];
+      if (host === "youtube.com") postExternalId = url.pathname.match(/^\/shorts\/([A-Za-z0-9_-]+)\/?$/)?.[1] || (url.pathname === "/watch" ? url.searchParams.get("v") || undefined : undefined);
+    }
+    if (account.platform === "x" && ["x.com", "twitter.com"].includes(host)) {
+      const match = url.pathname.match(/^\/([^/]+)\/status\/(\d+)\/?$/);
+      if (match?.[1]?.toLowerCase() === account.handle.toLowerCase()) postExternalId = match[2];
+    }
+    if (!postExternalId) throw new Error(`URL does not identify a post for this ${account.platform} account`);
+    writeOutcome(db, id, { state: "published", postUrl, postExternalId }, now);
+  });
 }
 
 function writeOutcome(db: Database, id: string, outcome: UploadOutcome, now: number): void {
+  db.prepare("UPDATE uploads SET claim_owner_pid = NULL WHERE id = ?").run(id);
   if (outcome.state === "published") {
     if (!/^https:\/\/\S+$/.test(outcome.postUrl)) throw new Error(`Post URL must be https: ${outcome.postUrl}`);
     db.prepare(
@@ -636,6 +695,16 @@ function writeOutcome(db: Database, id: string, outcome: UploadOutcome, now: num
        evidence_object_id = COALESCE(?, evidence_object_id),
        row_version = row_version + 1, updated_at = ? WHERE id = ?`,
   ).run(outcome.state, outcome.stage, outcome.error.slice(0, 2000), outcome.evidenceObjectId ?? null, now, id);
+}
+
+/** Retain every attempt's diagnostics, including HTML when a screenshot fails. */
+export function recordUploadEvidence(uploadId: string, objectId: string, kind: "html" | "screenshot"): void {
+  withImmediateTransaction((db) => {
+    const upload = getUploadIn(db, uploadId);
+    const object = getObjectRow(db, objectId);
+    if (!object || object.workspaceId !== upload.workspaceId) throw new Error("Evidence must belong to the upload Workspace");
+    db.prepare("INSERT OR IGNORE INTO upload_evidence VALUES (?, ?, ?, ?)").run(uploadId, objectId, kind, Date.now());
+  });
 }
 
 export function appendUploadMetrics(input: {

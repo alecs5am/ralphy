@@ -1,6 +1,6 @@
 # Account uploads: many owned accounts, browser upload, status in the panel
 
-> **Status:** store, CLI and recipes implemented — 2026-11-09; panel tabs pending
+> **Status:** store, CLI and Accounts panel implemented; isolated fixtures verified; live owner test pending — 2026-11-09
 > **Issue:** #600
 > **Scope:** core store, CLI (`account`, `upload`), `ralphy panel`
 
@@ -61,7 +61,10 @@ and `ralphy panel` → Accounts and Uploads tabs.
    the POST `/api/v1/media/configure*` response and accepts it only when it
    carries `media.code`, the bound user's `pk` and the exact caption (a `202` means
    still processing). TikTok waits for the redirect to `/tiktokstudio/content`
-   and reads the newest video id from the profile.
+   and accepts exactly one new profile video with the exact submitted caption,
+   absent from a pre-submit snapshot. YouTube waits for a completed `Video
+   published` dialog containing this video id; the details-page link is not
+   publication proof.
 9. **Publish once; a timeout is `unknown`, not failure.** The recipe calls
    `onSubmit` right before the irreversible click, which moves the row to
    `unknown`. Any error after that keeps it `unknown`: the post may exist.
@@ -78,7 +81,7 @@ and `ralphy panel` → Accounts and Uploads tabs.
    will live in the secret store under the account's `credential_ref`, never in
    `config_json`.
 
-## Store (schema v13)
+## Store (schema v13, forward repair in v14)
 
 `social_accounts` gains columns (ALTER ADD, no rebuild):
 
@@ -188,3 +191,26 @@ a time per machine).
   Proxies are the follow-up.
 - Automated posting may breach a platform's terms for some account types; the
   owner decides which accounts use it.
+
+## Overnight hardening (2026-11-09)
+
+Schema v14 repairs early v13's missing identity column without rebuilding the
+corpus, while leaving complete v13 identities intact. It adds process ownership
+for upload claims, per-account browser leases (local runtime state, not portable),
+and retained `upload_evidence` object references (portable since v14). Diagnostics
+from every attempt remain referenced even if screenshots fail or a row is retried.
+
+Two workers cannot claim two active uploads for one account. Login/check/open/
+sync/upload share the same profile lease. Active workers cannot be reconciled
+underneath the publish step. Dead-worker recovery is explicit and never retries
+unknown outcomes automatically. PID reuse is conservatively refused.
+
+The GET-only Accounts panel copies executable/root/Workspace/id-scoped commands,
+shows all actionable rows and discloses its newest-200 published-history limit.
+Visible metric observations can be rounded; dates are displayed and observations
+older than 24 hours are labelled stale. YouTube/X post metrics remain unsupported.
+
+Owner-led live verification and the local entry point are documented in
+[the morning test](../../testing/account-uploads-morning-test.md). Fixture results
+prove store/CLI/recipe contracts; they do not prove current platform selectors or
+a successful real social publication.

@@ -12,10 +12,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
 import { parseAccountCsv } from "../../cli/commands/account";
-import { closeDomainDb } from "../../cli/lib/store/db";
+import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db";
 import { ingestObject } from "../../cli/lib/store/objects";
 import { createWorkspace } from "../../cli/lib/store/scopes";
 import {
+  acquireAccountBrowserLease,
   addOwnedAccount,
   appendUploadMetrics,
   approveUploads,
@@ -116,6 +117,65 @@ describe("owned accounts and uploads", () => {
     expect(cancelUpload(later.id).state).toBe("cancelled");
   });
 
+  test("one active upload per account and submitted outcomes cannot become retryable", async () => {
+    const { workspace, account, mediaObjectId } = await seed();
+    const first = enqueueUpload({ workspaceId: workspace.id, accountId: account.id, mediaObjectId, approve: true });
+    const second = enqueueUpload({ workspaceId: workspace.id, accountId: account.id, mediaObjectId, approve: true });
+    expect(claimNextUpload({ id: first.id })?.id).toBe(first.id);
+    expect(claimNextUpload({ id: second.id })).toBeNull();
+    markUploadSubmitted(first.id);
+    expect(() => finishUpload(first.id, { state: "failed", stage: "browser", error: "timeout" })).toThrow(/unknown/);
+    expect(getUpload(first.id).state).toBe("unknown");
+  });
+
+  test("an active claim cannot be retried, cancelled or manually completed", async () => {
+    const { workspace, account, mediaObjectId } = await seed();
+    const row = enqueueUpload({ workspaceId: workspace.id, accountId: account.id, mediaObjectId, approve: true });
+    claimNextUpload({ id: row.id });
+    expect(() => retryUpload(row.id, { force: true })).toThrow();
+    expect(() => cancelUpload(row.id)).toThrow();
+    expect(() => completeUploadManually(row.id, "https://www.instagram.com/reel/X/")).toThrow();
+  });
+
+  test("two worker processes cannot claim two uploads on the same account", async () => {
+    const { workspace, account, mediaObjectId } = await seed();
+    enqueueUpload({ workspaceId: workspace.id, accountId: account.id, mediaObjectId, approve: true });
+    enqueueUpload({ workspaceId: workspace.id, accountId: account.id, mediaObjectId, approve: true });
+    const source = `import {setDataRoot} from ${JSON.stringify(path.resolve("cli/lib/paths.ts"))};
+      import {claimNextUpload} from ${JSON.stringify(path.resolve("cli/lib/store/uploads.ts"))};
+      setDataRoot(process.argv[1]); console.log(JSON.stringify(claimNextUpload()));`;
+    const workers = [1, 2].map(() => Bun.spawn([process.execPath, "-e", source, path.join(tmp.dir, ".ralphy")], { stdout: "pipe", stderr: "pipe" }));
+    const results = await Promise.all(workers.map(async (worker) => {
+      const output = await new Response(worker.stdout).text();
+      expect(await worker.exited, await new Response(worker.stderr).text()).toBe(0);
+      return JSON.parse(output);
+    }));
+    expect(results.filter(Boolean)).toHaveLength(1);
+  });
+
+  test("profile leases exclude other operations and reclaim only dead owners", async () => {
+    const { account } = await seed();
+    const release = acquireAccountBrowserLease(account.id);
+    expect(() => acquireAccountBrowserLease(account.id)).toThrow(/already open/);
+    release();
+    const releaseAgain = acquireAccountBrowserLease(account.id);
+    release(); // an old release cannot remove the new owner's token
+    expect(() => acquireAccountBrowserLease(account.id)).toThrow(/already open/);
+    releaseAgain();
+    openDomainDb().prepare("INSERT INTO account_browser_leases VALUES (?, 2147483647, 'dead')").run(account.id);
+    acquireAccountBrowserLease(account.id)();
+  });
+
+  test("forced recovery requeues an abandoned claim but never an active worker", async () => {
+    const { workspace, account, mediaObjectId } = await seed();
+    const row = enqueueUpload({ workspaceId: workspace.id, accountId: account.id, mediaObjectId, approve: true });
+    claimNextUpload({ id: row.id });
+    expect(() => retryUpload(row.id, { force: true })).toThrow(/active worker/);
+    openDomainDb().prepare("UPDATE uploads SET claim_owner_pid = 2147483647 WHERE id = ?").run(row.id);
+    expect(() => retryUpload(row.id)).toThrow();
+    expect(retryUpload(row.id, { force: true }).state).toBe("queued");
+  });
+
   test("a failure after submit stays unknown and needs --force to retry", async () => {
     const { workspace, account, mediaObjectId } = await seed();
     setAccountSession(account.id, "ok", { platformUserId: "111" });
@@ -149,7 +209,8 @@ describe("owned accounts and uploads", () => {
 
     const manual = enqueueUpload({ workspaceId: workspace.id, accountId: account.id, mediaObjectId, caption: "", artifactRevisionId: null, approve: false, notBefore: null });
     expect(() => completeUploadManually(manual.id, "http://example.com/x")).toThrow();
-    expect(completeUploadManually(manual.id, "https://www.instagram.com/reel/XYZ/").state).toBe("published");
+    expect(() => completeUploadManually(manual.id, "https://example.com/reel/XYZ/")).toThrow();
+    expect(completeUploadManually(manual.id, "https://www.instagram.com/reel/XYZ/")).toMatchObject({ state: "published", postExternalId: "XYZ" });
     const report = verifyDomainStore();
     expect(report.unreferencedObjects).toEqual([]);
     expect(report.integrity).toBe("ok");

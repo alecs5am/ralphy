@@ -88,6 +88,17 @@ describe("shapeAccounts", () => {
     expect(uploads.published).toEqual([]);
   });
 
+  test("copied actions carry the root, workspace and account id despite duplicate handles", () => {
+    const shaped = shapeAccounts([
+      account({ sessionState: "needs_login" }),
+      account({ id: "acct_2", workspaceId: "ws_2", sessionState: "needs_login" }),
+    ], [upload()], workspaces, 123, { dataRoot: "/tmp/owner's library", command: ["/tmp/local ralphy"] });
+    expect(shaped.accounts[0]!.nextCommand).toContain(String.raw`'--root' '/tmp/owner'\''s library' '--workspace' 'ws_1'`);
+    expect(shaped.accounts[0]!.nextCommand).toContain("'account' 'login' 'acct_1'");
+    expect(shaped.accounts[1]!.nextCommand).toContain("'--workspace' 'ws_2'");
+    expect(shaped.uploads.queued.waiting[0]!.nextCommand).toContain("'--workspace' 'ws_1' 'upload' 'approve' 'upl_1'");
+  });
+
   test("published uploads are newest first with views and a multiplier against the account median", () => {
     const { uploads, accounts } = shapeAccounts([account({ medianViews: 1000 }), account({ id: "acct_2", handle: "none", medianViews: null })], [
       upload({ id: "old", state: "published", publishedAt: 100, metrics: metrics(500) }),
@@ -173,6 +184,24 @@ describe("GET /api/accounts", () => {
     const everything = JSON.stringify(body.uploads);
     expect(everything).not.toContain("cancelled");
     expect(accountsSnapshot().accounts).toHaveLength(2);
+  });
+
+  test("old actionable uploads survive more than 200 newer published rows", async () => {
+    const workspace = createWorkspace({ slug: "busy", name: "Busy" });
+    const a = addOwnedAccount({ workspaceId: workspace.id, platform: "instagram", handle: "busy", connection: "browser" }).account;
+    const file = path.join(tmp.dir, "clip.mp4"); fs.writeFileSync(file, "fixture");
+    const object = await ingestObject({ scope: { workspaceId: workspace.id }, sourcePath: file, originalName: "clip.mp4", mime: "video/mp4", storageClass: "durable", metadata: {}, transfer: "copy" });
+    const waiting = enqueueUpload({ workspaceId: workspace.id, accountId: a.id, mediaObjectId: object.id });
+    for (let i = 0; i < 205; i++) {
+      const row = enqueueUpload({ workspaceId: workspace.id, accountId: a.id, mediaObjectId: object.id });
+      // Manual fixture completion cannot invoke a browser or provider.
+      const { completeUploadManually } = await import("../../cli/lib/store/uploads.js");
+      completeUploadManually(row.id, `https://www.instagram.com/reel/F${i}/`);
+    }
+    const snapshot = accountsSnapshot();
+    expect(snapshot.uploads.queued.waiting.map((u) => u.id)).toContain(waiting.id);
+    expect(snapshot.uploads.published).toHaveLength(200);
+    expect(snapshot.publishedTotal).toBe(205);
   });
 
   test("the endpoint is GET only", async () => {

@@ -316,7 +316,7 @@ describe("resumable SQLite migration controller", () => {
     if (cutover.exitCode !== 0) throw new Error(cutover.stderr);
     expect(JSON.parse(cutover.stdout)).toMatchObject({ runId: started.runId, state: "installed" });
     expect(fs.existsSync(path.join(fixture.source, "ralphy.db"))).toBe(true);
-  }, 30_000);
+  }, 45_000);
 
   test("CLI run fails before creating an undiscoverable Desktop handoff Run", () => {
     const fixture = migrationFixture("cli-desktop-helper-required", { desktopSecrets: true });

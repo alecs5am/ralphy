@@ -190,6 +190,8 @@ type JsonTreeRow = {
 
 const TEXT_COLUMNS = {
   account_snapshots: "social_account_id,source,raw_json",
+  account_browser_leases: "social_account_id,token",
+  upload_evidence: "upload_id,object_id,kind",
   activity_events: "workspace_id,project_id,entity_type,entity_id,action,payload_json",
   agent_turn_events: "run_id,kind,data_json",
   agent_turns: "run_id,agent_session_id,chat_id,provider,provider_resume_id,resumed_from_run_id",
@@ -880,7 +882,8 @@ function inspectObjectReferences(
            AND NOT EXISTS (SELECT 1 FROM job_artifacts WHERE object_id = object.id)
            AND NOT EXISTS (SELECT 1 FROM storage_transfer_entries WHERE object_id = object.id)
            ${migrationReferences}
-           ${uploadReferences}`,
+           ${uploadReferences}
+           AND NOT EXISTS (SELECT 1 FROM upload_evidence evidence WHERE evidence.object_id = object.id)`,
       )
       .all()
       .map((row) => row.id),

@@ -2,12 +2,13 @@ import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
-export const SCHEMA_VERSION = 13;
+export const SCHEMA_VERSION = 14;
 export const GLOBAL_MEMORY_WORKSPACE_ID = "ws_00000000-0000-0000-0000-000000000000";
 
 export type Migration = {
   version: number;
   sql: string;
+  upgrade?: (db: Database) => void;
 };
 
 export const MIGRATIONS: readonly Migration[] = [
@@ -5001,6 +5002,32 @@ export const MIGRATIONS: readonly Migration[] = [
       END;
     `,
   },
+  {
+    // Early v13 libraries shipped before the identity column was added to
+    // that migration. A new version repairs them and preserves complete v13.
+    version: 14,
+    sql: `
+      ALTER TABLE uploads ADD COLUMN claim_owner_pid INTEGER;
+      CREATE TABLE upload_evidence (
+        upload_id TEXT NOT NULL REFERENCES uploads(id) ON DELETE RESTRICT,
+        object_id TEXT NOT NULL REFERENCES objects(id) ON DELETE RESTRICT,
+        kind TEXT NOT NULL CHECK (kind IN ('html', 'screenshot')),
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (upload_id, object_id)
+      ) WITHOUT ROWID;
+      CREATE TABLE account_browser_leases (
+        social_account_id TEXT PRIMARY KEY REFERENCES social_accounts(id) ON DELETE CASCADE,
+        owner_pid INTEGER NOT NULL,
+        token TEXT NOT NULL
+      );
+    `,
+    upgrade(db) {
+      const columns = db.query<{ name: string }, []>("PRAGMA table_info(social_accounts)").all();
+      if (!columns.some((column) => column.name === "platform_user_id")) {
+        db.exec("ALTER TABLE social_accounts ADD COLUMN platform_user_id TEXT CHECK (platform_user_id IS NULL OR length(platform_user_id) BETWEEN 1 AND 64)");
+      }
+    },
+  },
 ];
 
 export function applyMigrations(
@@ -5034,7 +5061,8 @@ export function applyMigrations(
 
     for (const migration of pending) {
       options.beforeVersion?.(migration.version);
-      db.exec(migration.sql);
+      if (migration.sql) db.exec(migration.sql);
+      migration.upgrade?.(db);
       db.prepare(
         "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
       ).run(migration.version, Date.now());

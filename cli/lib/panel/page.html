@@ -523,11 +523,9 @@ function paintTrends() {
 /* ---------- accounts ---------- */
 const SESSION_LABEL = { ok: "ok", needs_login: "needs login", checkpoint: "checkpoint", restricted: "restricted", unknown: "unknown" };
 const accMatches = (o, q) => !q ||
-  [o.handle, o.niche, o.platform, o.purpose, o.sessionState, o.state, o.workspace, o.caption].join(" ").toLowerCase().includes(q);
+  [o.handle, o.niche, o.platform, o.purpose, o.sessionState, o.state, o.workspace, o.caption, o.connection, o.paused ? "paused" : ""].join(" ").toLowerCase().includes(q);
 function accountForAgent(a) {
-  const who = `@${a.handle} (${a.platform})`;
-  if (a.sessionState !== "ok") return `Account ${who} session is ${a.sessionState}. Sign it in: ralphy account login ${a.id}`;
-  return `Upload <file> to ${who}\nAccount: ${a.id}`;
+  return `Account @${a.handle} (${a.platform}), workspace ${a.workspace ?? a.workspaceId}\n${a.nextCommand}`;
 }
 function accountRow(a) {
   const name = a.profileUrl ? `<a href="${esc(a.profileUrl)}" target="_blank" rel="noopener">@${esc(a.handle)}</a>` : `@${esc(a.handle)}`;
@@ -540,16 +538,16 @@ function accountRow(a) {
     <td class="n">${a.published}</td>
     <td class="n">${compact(a.bestViews)}</td>
     <td class="n">${compact(a.medianViews)}</td>
-    <td class="n" title="${a.followersAsOf ? `as of ${esc(new Date(a.followersAsOf).toLocaleDateString())}` : ""}">${compact(a.followers)}</td>
+    <td class="n" title="${a.followersAsOf ? `as of ${esc(new Date(a.followersAsOf).toLocaleDateString())}` : ""}">${compact(a.followers)}${a.followersAsOf ? `<div class="sub">${ago(a.followersAsOf)}${Date.now() - a.followersAsOf > 86400000 ? " · stale" : ""}</div>` : ""}</td>
     <td class="n">${a.lastPublishedAt ? ago(a.lastPublishedAt) : "-"}</td>
     <td><div class="actions"><button data-act="copy-account">Copy</button></div></td>
   </tr>`;
 }
 function accountsTable(list) {
-  return `<div class="scroll"><table><tr><th>Account</th><th>Session</th><th title="All uploads">Up</th><th>Posted</th><th>Best</th><th>Median</th><th>Followers</th><th>Last post</th><th></th></tr>${list.map(accountRow).join("")}</table></div>`;
+  return `<div class="scroll"><table><tr><th>Account</th><th>Session</th><th title="All uploads">Up</th><th>Posted</th><th title="Historical visible views; counters may be rounded">Best</th><th title="Historical visible views; counters may be rounded">Median</th><th>Followers</th><th>Last post</th><th></th></tr>${list.map(accountRow).join("")}</table></div>`;
 }
 function uploadForAgent(u) {
-  return u.state === "queued" && !u.approved ? `ralphy upload approve ${u.id}` : `ralphy upload show ${u.id}`;
+  return `${u.state === "unknown" ? "Publication outcome unknown. Check the profile before any retry.\n" : ""}${u.nextCommand}`;
 }
 function uploadRow(u) {
   const when = u.state === "published" ? (u.publishedAt ? ago(u.publishedAt) : "")
@@ -562,20 +560,20 @@ function uploadRow(u) {
     : `<div class="title">${esc(title)}</div>`;
   const stats = u.state === "published"
     ? (u.views != null
-      ? `<span class="big" title="Views${u.metricsAsOf ? ` as of ${esc(new Date(u.metricsAsOf).toLocaleString())}` : ""}">${compact(u.views)} views</span>` +
+      ? `<span class="big" title="Views${u.metricsAsOf ? ` as of ${esc(new Date(u.metricsAsOf).toLocaleString())}` : ""}">${compact(u.views)} views (visible, approximate)</span><span>${u.metricsAsOf ? `observed ${ago(u.metricsAsOf)}${Date.now() - u.metricsAsOf > 86400000 ? " · stale" : ""}` : "observation time unknown"}</span>` +
         (u.multiplier != null ? `<span class="${u.multiplier >= 2 ? "hit" : "big"}" title="Views vs this account's median">${mult(u.multiplier)}</span>` : "") +
         (u.likes != null ? `<span>${compact(u.likes)} likes</span>` : "") + (u.comments != null ? `<span>${compact(u.comments)} comments</span>` : "")
-      : `<span>no stats yet</span>`)
+      : `<span>metrics unavailable or not synced</span>`)
     : "";
   const problem = u.error || u.failureStage
     ? `<div class="why err">${u.failureStage ? `<b>${esc(u.failureStage)}</b>${u.error ? ": " : ""}` : ""}${esc(u.error ?? "")}</div>` : "";
   return `<div class="item" data-kind="upload" data-id="${esc(u.id)}"><div class="body">
-    <div class="meta"><span class="badge ${esc(u.state)}">${esc(state)}</span><span>@${esc(u.handle)}</span><span>${esc(u.platform)}</span>
+    <div class="meta"><span class="badge ${esc(u.state)}">${esc(state)}</span><span>@${esc(u.handle)}</span><span>${esc(u.platform)}</span><span>${esc(u.workspace ?? u.workspaceId)}</span>
       ${u.niche ? `<span>${esc(u.niche)}</span>` : ""}<span>${when}</span>${stats}</div>
     ${head}${problem}
     <div class="actions">
       ${u.postUrl ? `<a href="${esc(u.postUrl)}" target="_blank" rel="noopener">Open</a><button data-act="copy-link">Copy link</button>` : ""}
-      <button data-act="copy-upload">${u.state === "queued" && !u.approved ? "Copy approve command" : "Copy show command"}</button>
+      <button data-act="copy-upload">${u.state === "queued" && !u.approved ? "Copy approve command" : u.state === "queued" ? "Copy run command" : u.state === "failed" ? "Copy retry command" : ["unknown", "needs_user"].includes(u.state) ? "Copy recovery commands" : "Copy show command"}</button>
     </div>
   </div></div>`;
 }
@@ -597,7 +595,7 @@ function renderAccounts(force) {
   if (!a) { $view.innerHTML = state.accountsError ? errorNote(state.accountsError) : busy("Reading the accounts..."); return; }
   const fresh = $("accfresh");
   if (fresh) fresh.textContent = `${state.accountsError ? "refresh failed, " : ""}loaded ${ago(a.serverTime)}`;
-  const key = JSON.stringify([a.accounts, a.uploads]);
+  const key = JSON.stringify([a.accounts, a.uploads, a.publishedTotal, Math.floor(a.serverTime / 60000)]);
   if (!force && key === state.accountsKey && $("acclist")) return;
   state.accountsKey = key;
   if (force || !$("acclist")) {
@@ -624,6 +622,7 @@ function paintAccounts() {
     html += `<h3>${niche ? esc(niche) : "No niche"} <span class="n">${list.length} account${list.length === 1 ? "" : "s"} &middot; ${posted} posted</span></h3>${accountsTable(list)}`;
   }
   const u = a.uploads;
+  html += `<div class="sub">Visible counters may be rounded; missing metrics are unknown. Published history: newest ${u.published.length} of ${a.publishedTotal}. All actionable uploads are included.</div>`;
   const f = (list) => list.filter((x) => accMatches(x, q));
   const sections = [
     uploadSection("Needs you", f(u.needsYou), "Stopped on something only you can check or finish."),

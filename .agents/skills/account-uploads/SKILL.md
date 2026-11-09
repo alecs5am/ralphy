@@ -15,7 +15,9 @@ browser profile, and reads back views. The user talks to you; you operate the
 CLI. Spec: `docs/superpowers/specs/2026-11-04-account-uploads-design.md`.
 
 Every command takes `--workspace <ws>`. `<ref>` is an `acct_…` id or a handle;
-add `--platform` when the same handle exists on several platforms.
+add `--platform` when the same handle exists on several platforms. Keep an explicit
+`--root <data-root>` when working outside the library checkout. Panel copies carry
+the serving executable, data root, Workspace id and account id; preserve them.
 
 ## Hard rules
 
@@ -95,3 +97,29 @@ followers. Compare an upload's views to its account's median: 2x or more is a
 hit worth repeating on the account's siblings in the niche. Counts come from the
 public profile grid, so they lag and round ("12.5K"). For a visual view, the
 `panel` skill's Accounts tab shows the same data.
+
+## Verification and capability limits
+
+- Schema v14 upgrades both early v13 libraries missing `platform_user_id` and
+  complete v13/v12 libraries. Existing Postiz rows remain Postiz and are excluded
+  from the owned browser-account list. Do not treat them as signed-in profiles.
+- A profile lease covers login, check, open, sync and upload. Close the account
+  window before another command uses it. A proven dead process can be reclaimed;
+  a live or ambiguous PID is refused. Never remove locks to bypass a live worker.
+- An `uploading` row abandoned by a dead worker requires explicit owner
+  reconciliation and `upload retry <id> --force`; no automatic expiry posts it
+  again. An `unknown` row also blocks later items for that account. Close the
+  inspection browser before `upload done` or `upload retry`.
+- Instagram requires the final configure response for the bound user and exact
+  caption. TikTok requires the content redirect and exactly one new profile video
+  with the submitted caption, absent from the pre-submit snapshot. YouTube
+  requires a completed `Video published` dialog linking this video's id. A
+  pre-submit URL, old profile video or processing-abandoned label is not success.
+- Instagram/TikTok post views and follower counters are visible, possibly rounded
+  observations. YouTube/X post metrics are unsupported (`postMetricsSupported:
+  false`); null is unknown, never zero. Empty profile reads add no fresh snapshot.
+  Check observation dates; the panel labels observations older than 24 hours stale.
+- Browser selectors and live publication remain owner-test prerequisites. For an
+  unreleased checkout, use the tested entry point in
+  `docs/testing/account-uploads-morning-test.md`; do not assume a global 0.4.0 has
+  the new verbs.

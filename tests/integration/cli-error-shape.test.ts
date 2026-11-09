@@ -6,15 +6,24 @@
 //   • stderr is parseable JSON
 //   • shape matches { error: { code, message, hint? } }
 
-import { describe, test, expect } from "bun:test";
+import { afterEach, beforeEach, describe, test, expect } from "bun:test";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+
+import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { createWorkspace } from "../../cli/lib/store/scopes.js";
+import { closeDomainDb } from "../../cli/lib/store/db.js";
+
+let tmp: TmpRoot;
+let workspaceId: string;
+beforeEach(() => { tmp = makeTmpRoot("ralphy-error-shape"); workspaceId = createWorkspace({ slug: "errors", name: "Errors" }).id; });
+afterEach(() => { closeDomainDb(); tmp.cleanup(); });
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
 
 function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: string } {
-  const r = spawnSync("bun", ["run", CLI, ...args], {
+  const r = spawnSync("bun", ["run", CLI, "--root", path.join(tmp.dir, ".ralphy"), "--workspace", workspaceId, ...args], {
     cwd: REPO,
     encoding: "utf8",
     // No `stdio: "inherit"` — we want piped so isTTY === false on stdout/stderr.
@@ -48,7 +57,7 @@ describe("stable error shape (01.02.04)", () => {
     expect(payload.error.message.length).toBeGreaterThan(0);
   });
 
-  test("not-found project lookup → structured error on stderr", () => {
+  test("missing config key → structured error on stderr", () => {
     // `config get` on a missing key hits err() in cli/commands/config.ts.
     const r = ralphy(["config", "get", "no_such_key_xyz_zzz_nonexistent"]);
     expect(r.exitCode).not.toBe(0);

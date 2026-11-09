@@ -13,6 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { BrowserContext, Page } from "patchright";
 import { parseCount as parseMetricCount } from "../analytics/metric-parse.js";
+import { acquireAccountBrowserLease } from "../store/uploads.js";
 import { ralphDir } from "../paths.js";
 
 export type { BrowserContext, Page };
@@ -49,29 +50,39 @@ export async function openAccountBrowser(
   accountId: string,
   options: { headless?: boolean; proxy?: string | null } = {},
 ): Promise<BrowserContext> {
-  const { chromium, patched } = await loadChromium();
-  const dir = profileDir(accountId);
-  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const launch = (channel?: string) =>
-    chromium.launchPersistentContext(dir, {
-      ...(channel ? { channel } : {}),
-      headless: options.headless ?? false,
-      // A real window instead of a fixed viewport; patchright's guidance.
-      viewport: null,
-      locale: "en-US",
-      ...(options.proxy ? { proxy: { server: options.proxy } } : {}),
-      ...(patched ? {} : { args: ["--disable-blink-features=AutomationControlled"], ignoreDefaultArgs: ["--enable-automation"] }),
-    });
+  const release = acquireAccountBrowserLease(accountId);
   try {
-    return await launch("chrome");
-  } catch (error) {
-    const message = String((error as Error)?.message ?? error);
-    // A locked profile (already open elsewhere) must surface, not silently fall back.
-    if (/ProcessSingleton|in use|lock/i.test(message)) {
-      throw new Error(`The browser profile for ${accountId} is already open; close that window first`);
+    const { chromium, patched } = await loadChromium();
+    const dir = profileDir(accountId);
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const launch = (channel?: string) =>
+      chromium.launchPersistentContext(dir, {
+        ...(channel ? { channel } : {}),
+        headless: options.headless ?? false,
+        // A real window instead of a fixed viewport; patchright's guidance.
+        viewport: null,
+        locale: "en-US",
+        ...(options.proxy ? { proxy: { server: options.proxy } } : {}),
+        ...(patched ? {} : { args: ["--disable-blink-features=AutomationControlled"], ignoreDefaultArgs: ["--enable-automation"] }),
+      });
+    try {
+      const context = await launch("chrome");
+      context.once("close", release);
+      return context;
+    } catch (error) {
+      const message = String((error as Error)?.message ?? error);
+      // A locked profile (already open elsewhere) must surface, not silently fall back.
+      if (/ProcessSingleton|in use|lock/i.test(message)) {
+        throw new Error(`The browser profile for ${accountId} is already open; close that window first`);
+      }
+      if (!/chrome|executable|distribution/i.test(message)) throw error;
+      const context = await launch();
+      context.once("close", release);
+      return context;
     }
-    if (!/chrome|executable|distribution/i.test(message)) throw error;
-    return launch();
+  } catch (error) {
+    release();
+    throw error;
   }
 }
 

@@ -215,7 +215,7 @@ export function panelHandler(input: { dataRoot: string; version: string; trend: 
     if (url.pathname === "/api/health") return json({ app: "ralphy-panel", version: input.version, root: input.dataRoot });
     try {
       if (url.pathname === "/api/activity") return json(activitySnapshot());
-      if (url.pathname === "/api/accounts") return json(accountsSnapshot());
+      if (url.pathname === "/api/accounts") return json(accountsSnapshot(Date.now(), { dataRoot: input.dataRoot, command: selfCommand() }));
       if (url.pathname === "/api/overview") {
         return json({
           root: input.dataRoot,

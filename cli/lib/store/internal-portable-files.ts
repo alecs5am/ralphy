@@ -118,6 +118,7 @@ export async function createPortableArchive(db: Database, root: string, writer: 
 const MIN_IMPORT_SCHEMA_VERSION = 12;
 /** Schema version that introduced each portable table, for tables newer than the minimum. */
 const PORTABLE_TABLE_SINCE: Readonly<Record<string, number>> = {
+  upload_evidence: 14,
   uploads: 13,
   upload_metric_snapshots: 13,
   account_snapshots: 13,
