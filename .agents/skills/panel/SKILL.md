@@ -2,9 +2,9 @@
 name: panel
 namespace: user
 description: >-
-  Open the read-only Ralphy side panel in the agent host's built-in browser, next to the chat: live job activity (running, failed, queued, done) and trend references to copy (picks with evidence, rising signals, top videos, formats and hooks per niche).
-  USE WHEN the user asks to see what Ralphy is doing, wants a panel / dashboard / side view of jobs or renders, wants to browse trends or references visually, or asks to open Ralphy in the browser next to the chat.
-  TRIGGER (EN): "open the panel", "show me what ralphy is doing", "open ralphy on the right", "show trends in the browser", "trend dashboard", "where is my render".
+  Open the read-only Ralphy side panel in the agent host's built-in browser, next to the chat: live job activity (running, failed, queued, done), the owner's own accounts with their uploads and views, and trend references to copy (picks with evidence, rising signals, top videos, formats and hooks per niche).
+  USE WHEN the user asks to see what Ralphy is doing, wants a panel / dashboard / side view of jobs or renders, wants to browse trends or references visually, wants to see which of their accounts or uploads is taking off, or asks to open Ralphy in the browser next to the chat.
+  TRIGGER (EN): "open the panel", "show me what ralphy is doing", "open ralphy on the right", "show trends in the browser", "trend dashboard", "where is my render", "show my accounts".
   DO NOT FIRE for a one-off answer the CLI gives directly (one job's status, one niche report) unless the user wants to watch it.
 ---
 
@@ -44,6 +44,9 @@ user asks for it, never as a side effect of another task.
 3. Point the panel at what the user asked about with a deep link instead of
    describing where to click:
    - `#/activity`: jobs.
+   - `#/accounts`: owned accounts by niche (session, best and median views,
+     followers) and uploads that need the owner, are queued, or are published
+     with views against the account median.
    - `#/trends/<niche>/picks`: report picks with evidence.
    - `#/trends/<niche>/rising`: breakouts, small-account breakouts, emerging formats.
    - `#/trends/<niche>/top?since=7d&by=views&platform=tiktok&label=breakout`.

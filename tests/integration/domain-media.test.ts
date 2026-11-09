@@ -31,6 +31,7 @@ import {
 } from "../../cli/lib/store/media.js";
 import { ingestObject } from "../../cli/lib/store/objects.js";
 import { recordRunObject, recordRunResult, startRun } from "../../cli/lib/store/runs.js";
+import { addOwnedAccount, enqueueUpload } from "../../cli/lib/store/uploads.js";
 import {
   createIteration,
   createProject,
@@ -1165,12 +1166,32 @@ describe("media cards", () => {
                'migration_source_reference_audit', 'raw.json', ?, 'file',
                'ralphy', 'domain', '1', '3', 420, 1, ?, ?, 'inventoried', ?, ?)`,
     ).run("b".repeat(64), now, f.projectObject.id, now, now);
+    const { account } = addOwnedAccount({
+      workspaceId: f.workspace.id,
+      platform: "instagram",
+      handle: "reference.audit",
+      displayName: null,
+      niche: null,
+      connection: "browser",
+    });
+    const upload = enqueueUpload({
+      workspaceId: f.workspace.id,
+      accountId: account.id,
+      mediaObjectId: f.projectObject.id,
+      caption: "",
+      artifactRevisionId: null,
+      approve: false,
+      notBefore: null,
+    });
+    db.prepare(
+      "UPDATE uploads SET cover_object_id = ?, evidence_object_id = ? WHERE id = ?",
+    ).run(f.projectObject.id, f.projectObject.id, upload.id);
     const [card] = getMediaCards({
       context: { workspaceId: f.workspace.id, projectId: f.project.id },
       refs: [{ type: "object", id: f.projectObject.id }],
     });
     // One row in every registered Object reference source.
-    expect(card).toMatchObject({ referenceCount: 6 });
+    expect(card).toMatchObject({ referenceCount: 9 });
     expect(
       OBJECT_REFERENCE_SOURCES.map(({ table, column }) =>
         db
@@ -1179,7 +1200,7 @@ describe("media cards", () => {
           )
           .get(f.projectObject.id)!.total,
       ),
-    ).toEqual([1, 1, 1, 1, 1, 1]);
+    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1]);
 
     const actual = db
       .query<{ table: string; column: string }, []>(

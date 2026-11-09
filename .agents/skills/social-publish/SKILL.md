@@ -2,7 +2,7 @@
 name: social-publish
 namespace: user
 description: >-
-  Publish or schedule a finished Ralphy Unit through the active workspace's saved Postiz connection. Prepares the target-shaped title, description, body, CTA, hashtags, thread parts, and required Postiz settings, then calls `ralphy publish` and records provenance for later analytics. USE WHEN the user asks to "publish this", "post it now", "schedule this post", "send this to Telegram", "post this thread to X", "publish the reel", or "put this on YouTube/Instagram". DO NOT FIRE for copy-only requests with no posting intent; use social-copy instead.
+  Publish or schedule a finished Ralphy Unit through the active workspace's saved Postiz connection. Prepares the target-shaped title, description, body, CTA, hashtags, thread parts, and required Postiz settings, then calls `ralphy publish` and records provenance for later analytics. USE WHEN the user asks to "publish this", "post it now", "schedule this post", "send this to Telegram", "post this thread to X", "publish the reel", or "put this on YouTube/Instagram". DO NOT FIRE for copy-only requests with no posting intent (use social-copy) or for uploads to the owner's own accounts from per-account browser profiles (use account-uploads).
 ---
 
 # Social publish

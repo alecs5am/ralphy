@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **66**
+Verbs registered: **68**
 
 ## Top-level verbs
 
@@ -2939,4 +2939,85 @@ Options:
   --trend-workspace <id>  Workspace id or slug holding the trend corpus
                           (default: trend-corpus, else the first with niches)
   -h, --help              display help for command
+```
+
+### `ralphy account`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy account [options] [command]
+
+Owned social accounts: add, sign in once per isolated browser profile, check
+sessions and audience
+
+Options:
+  -h, --help                         display help for command
+
+Commands:
+  add [options] <platform> <handle>  Add (or update) an owned account.
+                                     Platforms: instagram, tiktok, youtube, x
+  import <csv>                       Add many accounts from a CSV:
+                                     platform,handle,niche,purpose,name (header
+                                     optional, idempotent)
+  list [options]                     List owned accounts with upload counts,
+                                     best and median views, and followers
+  show [options] <ref>               Show one account (acct_… id or @handle)
+  login [options] <ref>              Open the account's own browser profile so
+                                     the owner signs in by hand; records the
+                                     session
+  check [options] [ref]              Check sign-in state and read followers for
+                                     one account or --all
+  open [options] <ref>               Open the account's browser profile for the
+                                     owner or an agent; returns when the window
+                                     closes
+  pause [options] <ref>              Exclude an account from upload run
+  resume [options] <ref>             Include a paused account in upload run
+                                     again
+  help [command]                     display help for command
+```
+
+### `ralphy upload`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy upload [options] [command]
+
+Queue videos for owned accounts and post them from each account's own browser
+profile
+
+Options:
+  -h, --help                  display help for command
+
+Commands:
+  add [options] [file]        Queue one video for one account (a file, or
+                              --artifact <revision>)
+  list [options]              List uploads, newest first, with the latest views
+  show <id>                   Show one upload
+  approve [options] [ids...]  Record the owner's go for queued uploads (or
+                              --all-queued)
+  cancel <id>                 Cancel a queued, handed-off, failed or unknown
+                              upload
+  retry [options] <id>        Put a handed-off or failed upload back in the
+                              queue (keeps its approval)
+  done [options] <id>         Record an upload finished by hand in the account's
+                              browser
+  run [options] [id]          Post approved, due uploads one at a time, each
+                              from its account's own browser profile
+  sync [options]              Read views for published uploads and followers,
+                              per account (one account or --all)
+  help [command]              display help for command
 ```

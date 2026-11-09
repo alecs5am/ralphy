@@ -1,7 +1,7 @@
 {
   "name": "ugc-cli",
   "version": "0.4.0",
-  "description": "Ralphy \u2014 open-source desktop app for content creation, with an integrated agent runtime and standalone CLI.",
+  "description": "Ralphy — open-source desktop app for content creation, with an integrated agent runtime and standalone CLI.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/alecs5am/ralphy.git"
@@ -23,6 +23,7 @@
     "hyperframes": "^0.6.31",
     "image-size": "^2.0.2",
     "ora": "^9.4.0",
+    "patchright": "1.58.2",
     "playwright": "^1.58.2",
     "yaml": "^2.9.0"
   },

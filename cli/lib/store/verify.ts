@@ -189,6 +189,7 @@ type JsonTreeRow = {
 };
 
 const TEXT_COLUMNS = {
+  account_snapshots: "social_account_id,source,raw_json",
   activity_events: "workspace_id,project_id,entity_type,entity_id,action,payload_json",
   agent_turn_events: "run_id,kind,data_json",
   agent_turns: "run_id,agent_session_id,chat_id,provider,provider_resume_id,resumed_from_run_id",
@@ -237,7 +238,7 @@ const TEXT_COLUMNS = {
   run_objects: "id,run_id,object_id,path,purpose,state,retention,sha256,mime,metadata_json",
   run_results: "id,run_id,entity_type,entity_id",
   runs: "id,workspace_id,project_id,agent_session_id,kind,label,state,metadata_json,external_system,external_run_id,external_node_id,external_operation,idempotency_key,request_digest,consumer_principal_id,error",
-  social_accounts: "id,workspace_id,platform,external_id,display_name,username,config_json,credential_ref",
+  social_accounts: "id,workspace_id,platform,external_id,display_name,username,config_json,credential_ref,niche,purpose,connection,session_state,platform_user_id",
   settings: "id,workspace_id,key,value_json",
   storage_transfer_entries: "id,transfer_id,object_id,source_key,destination_key,sha256,state,error",
   storage_transfers: "id,workspace_id,project_id,kind,state,source_bucket,destination_bucket",
@@ -245,6 +246,8 @@ const TEXT_COLUMNS = {
   unit_items: "id,unit_revision_id,artifact_revision_id,document_revision_id,role,config_json",
   unit_presentations: "id,unit_revision_id,platform,effective_caption_revision_id,cover_artifact_revision_id,crop_json,safe_area_json,options_json",
   unit_revisions: "id,unit_id,parent_revision_id,iteration_id,note,metadata_json,authored_by_session_id,composition_revision_id",
+  upload_metric_snapshots: "upload_id,source,raw_json",
+  uploads: "id,workspace_id,social_account_id,media_object_id,cover_object_id,caption,options_json,unit_revision_id,artifact_revision_id,state,failure_stage,error,post_url,post_external_id,evidence_object_id",
   units: "id,workspace_id,project_id,slug,format,latest_revision_id,selected_revision_id,composition_id,source_revision_id,source_label",
   personas: "id,workspace_id,slug,name,language,archetype,tone,metadata_json",
   trend_baselines: "creator_id,format_key,metric",
@@ -860,6 +863,13 @@ function inspectObjectReferences(
               WHERE ref.value = object.id
             )))`
     : "";
+  const uploadReferences = tableExists(db, "uploads")
+    ? `AND NOT EXISTS (
+         SELECT 1 FROM uploads upload
+         WHERE upload.media_object_id = object.id
+            OR upload.cover_object_id = object.id
+            OR upload.evidence_object_id = object.id)`
+    : "";
   report.unreferencedObjects.push(
     ...db
       .query<{ id: string }, []>(
@@ -869,7 +879,8 @@ function inspectObjectReferences(
            AND NOT EXISTS (SELECT 1 FROM run_objects WHERE object_id = object.id)
            AND NOT EXISTS (SELECT 1 FROM job_artifacts WHERE object_id = object.id)
            AND NOT EXISTS (SELECT 1 FROM storage_transfer_entries WHERE object_id = object.id)
-           ${migrationReferences}`,
+           ${migrationReferences}
+           ${uploadReferences}`,
       )
       .all()
       .map((row) => row.id),

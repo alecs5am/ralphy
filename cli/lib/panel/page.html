@@ -104,6 +104,14 @@
   .keys td:first-child { white-space: nowrap; width: 90px; }
   kbd { font-family: ui-monospace, Menlo, monospace; font-size: 11px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--surface); }
   .stale { color: var(--warm); }
+  .scroll { overflow-x: auto; }
+  tr.row.sel td { background: var(--sel); }
+  tr.row.sel td:first-child { box-shadow: inset 2px 0 0 var(--accent); padding-left: 6px; }
+  td .actions { margin: 0; flex-wrap: nowrap; }
+  td .sub { font-size: 11px; }
+  .s-ok { color: var(--ok); } .s-needs_login, .s-checkpoint, .s-restricted { color: var(--bad); } .s-unknown { color: var(--muted); }
+  .paused { color: var(--warm); } .queued, .uploading, .unknown, .needs_user { color: var(--warm); }
+  .hit { color: var(--hot); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -117,6 +125,7 @@
   <nav>
     <button data-tab="now">Activity<span class="count" id="nowCount"></span></button>
     <button data-tab="trends">Trends</button>
+    <button data-tab="accounts">Accounts</button>
   </nav>
 </header>
 <main id="view"></main>
@@ -133,19 +142,19 @@
 <div class="drawer" id="help"><div class="scrim" data-close></div><div class="sheet">
   <div class="head"><b>Keyboard</b><button class="iconbtn" data-close>Close</button></div>
   <table class="keys">
-    <tr><td><kbd>1</kbd> <kbd>2</kbd></td><td>Activity / Trends</td></tr>
+    <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Activity / Trends / Accounts</td></tr>
     <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>Next / previous item</td></tr>
-    <tr><td><kbd>o</kbd> <kbd>Enter</kbd></td><td>Open the video in a new tab</td></tr>
+    <tr><td><kbd>o</kbd> <kbd>Enter</kbd></td><td>Open the video, profile or post in a new tab</td></tr>
     <tr><td><kbd>c</kbd></td><td>Copy the item for the agent chat</td></tr>
     <tr><td><kbd>l</kbd></td><td>Copy the link only</td></tr>
     <tr><td><kbd>s</kbd></td><td>Save / unsave the item</td></tr>
     <tr><td><kbd>Shift</kbd>+<kbd>S</kbd></td><td>Show saved references</td></tr>
     <tr><td><kbd>/</kbd></td><td>Search in the current list</td></tr>
     <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Previous / next trends view</td></tr>
-    <tr><td><kbd>r</kbd></td><td>Recompute the current view</td></tr>
+    <tr><td><kbd>r</kbd></td><td>Recompute / reload the current view</td></tr>
     <tr><td><kbd>Esc</kbd></td><td>Close, clear search</td></tr>
   </table>
-  <p class="sub">Deep links: <code>#/activity</code>, <code>#/trends/&lt;niche&gt;/picks</code>, <code>…/rising</code>, <code>…/top?since=7d</code>, <code>…/formats</code>.</p>
+  <p class="sub">Deep links: <code>#/activity</code>, <code>#/accounts</code>, <code>#/trends/&lt;niche&gt;/picks</code>, <code>…/rising</code>, <code>…/top?since=7d</code>, <code>…/formats</code>.</p>
 </div></div>
 <div class="toast" id="toast"></div>
 
@@ -164,6 +173,7 @@ const state = {
   route: { tab: "now", niche: "", view: "picks", top: { ...TOP_DEFAULTS } },
   overview: null, now: null, nowKey: "", items: [], sel: -1, query: "", showOlder: false,
   saved: store.get("saved", []), seq: 0,
+  accounts: null, accountsError: null, accountsKey: "", aq: "",
 };
 
 /* ---------- formatting ---------- */
@@ -235,12 +245,15 @@ function parseHash() {
     if (VIEWS.includes(parts[2])) r.view = parts[2];
     const q = new URLSearchParams(qs ?? "");
     for (const k of Object.keys(TOP_DEFAULTS)) if (q.has(k)) r.top[k] = q.get(k);
-  } else if (parts[0] !== "activity" && parts[0] !== "now" && store.get("tab", "now") === "trends" && !parts.length) {
-    r.tab = "trends";
+  } else if (parts[0] === "accounts") {
+    r.tab = "accounts";
+  } else if (!parts.length && ["trends", "accounts"].includes(store.get("tab", "now"))) {
+    r.tab = store.get("tab", "now");
   }
   return r;
 }
 function hashFor(r) {
+  if (r.tab === "accounts") return "#/accounts";
   if (r.tab !== "trends") return "#/activity";
   let h = `#/trends/${encodeURIComponent(r.niche || "")}/${r.view}`;
   if (r.view === "top") {
@@ -261,7 +274,7 @@ function route() {
   if (r.tab === "trends") { store.set("view", r.view); store.set("top", r.top); if (r.niche) store.set("niche", r.niche); }
   document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === r.tab));
   state.sel = -1;
-  if (r.tab === "now") renderNow(true); else renderTrends(false);
+  if (r.tab === "now") renderNow(true); else if (r.tab === "accounts") showAccounts(); else renderTrends(false);
 }
 
 /* ---------- activity ---------- */
@@ -507,9 +520,128 @@ function paintTrends() {
   collectItems();
 }
 
+/* ---------- accounts ---------- */
+const SESSION_LABEL = { ok: "ok", needs_login: "needs login", checkpoint: "checkpoint", restricted: "restricted", unknown: "unknown" };
+const accMatches = (o, q) => !q ||
+  [o.handle, o.niche, o.platform, o.purpose, o.sessionState, o.state, o.workspace, o.caption].join(" ").toLowerCase().includes(q);
+function accountForAgent(a) {
+  const who = `@${a.handle} (${a.platform})`;
+  if (a.sessionState !== "ok") return `Account ${who} session is ${a.sessionState}. Sign it in: ralphy account login ${a.id}`;
+  return `Upload <file> to ${who}\nAccount: ${a.id}`;
+}
+function accountRow(a) {
+  const name = a.profileUrl ? `<a href="${esc(a.profileUrl)}" target="_blank" rel="noopener">@${esc(a.handle)}</a>` : `@${esc(a.handle)}`;
+  return `<tr class="row" data-kind="account" data-id="${esc(a.id)}">
+    <td>${name}<div class="sub">${esc(a.platform)} &middot; ${esc(a.purpose)}${a.workspace ? ` &middot; ${esc(a.workspace)}` : ""}</div></td>
+    <td><span class="badge s-${esc(a.sessionState)}">${esc(SESSION_LABEL[a.sessionState] ?? a.sessionState)}</span>
+      ${a.paused ? ` <span class="badge paused">paused</span>` : ""}
+      ${a.needsUser ? ` <span class="badge failed" title="Uploads waiting on you">${a.needsUser} need you</span>` : ""}</td>
+    <td class="n" title="${a.pending} queued or uploading">${a.uploads}</td>
+    <td class="n">${a.published}</td>
+    <td class="n">${compact(a.bestViews)}</td>
+    <td class="n">${compact(a.medianViews)}</td>
+    <td class="n" title="${a.followersAsOf ? `as of ${esc(new Date(a.followersAsOf).toLocaleDateString())}` : ""}">${compact(a.followers)}</td>
+    <td class="n">${a.lastPublishedAt ? ago(a.lastPublishedAt) : "-"}</td>
+    <td><div class="actions"><button data-act="copy-account">Copy</button></div></td>
+  </tr>`;
+}
+function accountsTable(list) {
+  return `<div class="scroll"><table><tr><th>Account</th><th>Session</th><th title="All uploads">Up</th><th>Posted</th><th>Best</th><th>Median</th><th>Followers</th><th>Last post</th><th></th></tr>${list.map(accountRow).join("")}</table></div>`;
+}
+function uploadForAgent(u) {
+  return u.state === "queued" && !u.approved ? `ralphy upload approve ${u.id}` : `ralphy upload show ${u.id}`;
+}
+function uploadRow(u) {
+  const when = u.state === "published" ? (u.publishedAt ? ago(u.publishedAt) : "")
+    : u.state === "queued" ? `queued ${ago(u.createdAt)}${u.notBefore && u.notBefore > Date.now() ? `, not before ${esc(new Date(u.notBefore).toLocaleString())}` : ""}`
+    : ago(u.updatedAt);
+  const state = u.state === "queued" ? (u.approved ? "approved" : "waiting approval") : u.state.replace("_", " ");
+  const title = u.caption || (u.postUrl ? u.postUrl.replace(/^https?:\/\/(www\.)?/, "") : `upload ${u.id}`);
+  const head = u.state === "published" && u.postUrl
+    ? `<a class="title" href="${esc(u.postUrl)}" target="_blank" rel="noopener">${esc(title)}</a>`
+    : `<div class="title">${esc(title)}</div>`;
+  const stats = u.state === "published"
+    ? (u.views != null
+      ? `<span class="big" title="Views${u.metricsAsOf ? ` as of ${esc(new Date(u.metricsAsOf).toLocaleString())}` : ""}">${compact(u.views)} views</span>` +
+        (u.multiplier != null ? `<span class="${u.multiplier >= 2 ? "hit" : "big"}" title="Views vs this account's median">${mult(u.multiplier)}</span>` : "") +
+        (u.likes != null ? `<span>${compact(u.likes)} likes</span>` : "") + (u.comments != null ? `<span>${compact(u.comments)} comments</span>` : "")
+      : `<span>no stats yet</span>`)
+    : "";
+  const problem = u.error || u.failureStage
+    ? `<div class="why err">${u.failureStage ? `<b>${esc(u.failureStage)}</b>${u.error ? ": " : ""}` : ""}${esc(u.error ?? "")}</div>` : "";
+  return `<div class="item" data-kind="upload" data-id="${esc(u.id)}"><div class="body">
+    <div class="meta"><span class="badge ${esc(u.state)}">${esc(state)}</span><span>@${esc(u.handle)}</span><span>${esc(u.platform)}</span>
+      ${u.niche ? `<span>${esc(u.niche)}</span>` : ""}<span>${when}</span>${stats}</div>
+    ${head}${problem}
+    <div class="actions">
+      ${u.postUrl ? `<a href="${esc(u.postUrl)}" target="_blank" rel="noopener">Open</a><button data-act="copy-link">Copy link</button>` : ""}
+      <button data-act="copy-upload">${u.state === "queued" && !u.approved ? "Copy approve command" : "Copy show command"}</button>
+    </div>
+  </div></div>`;
+}
+function uploadSection(title, list, hint) {
+  return list.length ? `<h3>${esc(title)} <span class="n">${list.length}</span></h3>${hint ? `<div class="sub">${esc(hint)}</div>` : ""}${list.map(uploadRow).join("")}` : "";
+}
+async function loadAccounts() {
+  try { state.accounts = (await api("/api/accounts")).body; state.accountsError = null; }
+  catch (e) { state.accountsError = e; }
+}
+function showAccounts() {
+  if (!state.accounts) $view.innerHTML = busy("Reading the accounts...");
+  else renderAccounts(true);
+  loadAccounts().then(() => renderAccounts(true));
+}
+function renderAccounts(force) {
+  if (state.route.tab !== "accounts") return;
+  const a = state.accounts;
+  if (!a) { $view.innerHTML = state.accountsError ? errorNote(state.accountsError) : busy("Reading the accounts..."); return; }
+  const fresh = $("accfresh");
+  if (fresh) fresh.textContent = `${state.accountsError ? "refresh failed, " : ""}loaded ${ago(a.serverTime)}`;
+  const key = JSON.stringify([a.accounts, a.uploads]);
+  if (!force && key === state.accountsKey && $("acclist")) return;
+  state.accountsKey = key;
+  if (force || !$("acclist")) {
+    $view.innerHTML = `<div class="bar"><input type="search" id="aq" placeholder="Filter handle, niche, platform  ( / )" value="${esc(state.aq)}"><span class="sub" id="accfresh"></span></div><div id="acclist"></div>`;
+  }
+  paintAccounts();
+}
+function paintAccounts() {
+  const a = state.accounts, q = state.aq.trim().toLowerCase();
+  if (!a || !$("acclist")) return;
+  const fresh = $("accfresh");
+  if (fresh) fresh.textContent = `${state.accountsError ? "refresh failed, " : ""}loaded ${ago(a.serverTime)}`;
+  if (!a.accounts.length) {
+    $("acclist").innerHTML = `<div class="empty"><b>No owned accounts yet.</b>
+      Add one with <code>ralphy account add &lt;platform&gt; &lt;handle&gt; --niche &lt;slug&gt;</code> or import many with <code>ralphy account import accounts.csv</code>, then upload with <code>ralphy upload add</code>.</div>`;
+    state.items = []; return;
+  }
+  const accounts = a.accounts.filter((x) => accMatches(x, q));
+  const niches = new Map();
+  for (const x of accounts) niches.set(x.niche ?? "", [...(niches.get(x.niche ?? "") ?? []), x]);
+  let html = "";
+  for (const [niche, list] of niches) {
+    const posted = list.reduce((n, x) => n + x.published, 0);
+    html += `<h3>${niche ? esc(niche) : "No niche"} <span class="n">${list.length} account${list.length === 1 ? "" : "s"} &middot; ${posted} posted</span></h3>${accountsTable(list)}`;
+  }
+  const u = a.uploads;
+  const f = (list) => list.filter((x) => accMatches(x, q));
+  const sections = [
+    uploadSection("Needs you", f(u.needsYou), "Stopped on something only you can check or finish."),
+    uploadSection("Queued, approved", f(u.queued.approved), "Goes out on the next `ralphy upload run`."),
+    uploadSection("Queued, waiting approval", f(u.queued.waiting), "Nothing posts until you approve."),
+    uploadSection("Uploading", f(u.uploading), ""),
+    uploadSection("Published", f(u.published), "Newest first. The multiple compares views with that account's median; 2x and up is taking off."),
+    uploadSection("Failed", f(u.failed), ""),
+  ].join("");
+  html += sections || `<div class="empty"><b>${q ? `Nothing matches &ldquo;${esc(q)}&rdquo;.` : "No uploads yet."}</b>${q ? "Press Esc to clear the filter." : "Queue one with <code>ralphy upload add &lt;file&gt; --account &lt;handle&gt;</code>."}</div>`;
+  if (!accounts.length && q) html = `<div class="empty"><b>No account matches &ldquo;${esc(q)}&rdquo;.</b>Press Esc to clear the filter.</div>` + html;
+  $("acclist").innerHTML = html;
+  collectItems();
+}
+
 /* ---------- selection & actions ---------- */
 function collectItems() {
-  state.items = [...$view.querySelectorAll(".item")];
+  state.items = [...$view.querySelectorAll(".item, tr.row")];
   if (state.sel >= state.items.length) state.sel = state.items.length - 1;
   state.items.forEach((el, i) => el.classList.toggle("sel", i === state.sel));
 }
@@ -528,8 +660,14 @@ function findJob(id) {
   const n = state.now; if (!n) return null;
   return [...n.running, ...n.failed, ...n.pending.next, ...n.done, ...(n.older ?? [])].find((j) => String(j.id) === String(id));
 }
+const rowBody = (el) => el.querySelector(".body") ?? el;
+function findAccount(id) { return state.accounts?.accounts.find((a) => a.id === id); }
+function findUpload(id) {
+  const u = state.accounts?.uploads; if (!u) return null;
+  return [...u.needsYou, ...u.queued.approved, ...u.queued.waiting, ...u.uploading, ...u.published, ...u.failed].find((x) => x.id === id);
+}
 function act(name, el) {
-  const item = el?.closest(".item");
+  const item = el?.closest(".item, tr.row");
   if (name === "older") { state.showOlder = true; renderNow(true); return; }
   if (name === "refresh") { renderTrends(true); return; }
   if (!item) return;
@@ -541,6 +679,20 @@ function act(name, el) {
       `${f.creators} unrelated creators, ${f.hits} hits in ${f.windowDays} days, hit rate ${pct(f.hitRate)} vs niche ${pct(f.nicheHitRate)}`,
       `Examples: ${f.examples.join(" ")}`,
     ].join("\n"), "Copied. Paste it into the chat.");
+    return;
+  }
+  if (item.dataset.kind === "account") {
+    const a = findAccount(item.dataset.id); if (!a) return;
+    if (name === "copy-account" || name === "copy") copy(accountForAgent(a), "Copied. Paste it into the chat.");
+    if (name === "copy-link" && a.profileUrl) copy(a.profileUrl, "Profile link copied.");
+    if (name === "open" && a.profileUrl) window.open(a.profileUrl, "_blank", "noopener");
+    return;
+  }
+  if (item.dataset.kind === "upload") {
+    const u = findUpload(item.dataset.id); if (!u) return;
+    if (name === "copy-upload" || name === "copy") copy(uploadForAgent(u), "Copied. Paste it into the chat.");
+    if (name === "copy-link" && u.postUrl) copy(u.postUrl, "Post link copied.");
+    if (name === "open" && u.postUrl) window.open(u.postUrl, "_blank", "noopener");
     return;
   }
   if (item.dataset.kind === "job") {
@@ -599,7 +751,7 @@ document.addEventListener("click", (e) => {
   if (b) { e.preventDefault(); act(b.dataset.act, b); return; }
   const v = e.target.closest("[data-view]");
   if (v) { state.query = ""; go({ view: v.dataset.view }); return; }
-  const item = e.target.closest("#view .item");
+  const item = e.target.closest("#view .item, #view tr.row");
   if (item && !e.target.closest("a")) {
     const i = state.items.indexOf(item);
     if (i === state.sel) { state.sel = -1; item.classList.remove("sel"); } else select(i);
@@ -611,6 +763,7 @@ $view.addEventListener("change", (e) => {
   if (t.dataset.top) go({ top: { [t.dataset.top]: t.value } });
 });
 $view.addEventListener("input", (e) => {
+  if (e.target.id === "aq") { state.aq = e.target.value; state.sel = -1; paintAccounts(); return; }
   if (e.target.id !== "q") return;
   state.query = e.target.value; state.sel = -1; paintTrends();
 });
@@ -619,21 +772,25 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     if (document.querySelector(".drawer.open")) return closeDrawers();
     if (typing) { e.target.blur(); }
-    if (state.query) { state.query = ""; const q = $("q"); if (q) q.value = ""; paintTrends(); }
+    if (state.route.tab === "accounts") {
+      if (state.aq) { state.aq = ""; const q = $("aq"); if (q) q.value = ""; paintAccounts(); }
+    } else if (state.query && state.route.tab === "trends") { state.query = ""; const q = $("q"); if (q) q.value = ""; paintTrends(); }
     return;
   }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
   const sel = state.items[state.sel];
   const keys = {
-    "1": () => go({ tab: "now" }), "2": () => go({ tab: "trends" }),
+    "1": () => go({ tab: "now" }), "2": () => go({ tab: "trends" }), "3": () => go({ tab: "accounts" }),
     j: () => select(state.sel + 1), ArrowDown: () => select(state.sel + 1),
     k: () => select(state.sel - 1), ArrowUp: () => select(state.sel - 1),
-    o: () => sel && act("open", sel.querySelector(".body")), Enter: () => sel && act("open", sel.querySelector(".body")),
-    c: () => sel && act("copy", sel.querySelector(".body")), l: () => sel && act("copy-link", sel.querySelector(".body")),
-    s: () => sel && act("save", sel.querySelector(".body")), S: () => openDrawer("saved"),
-    "/": () => { const q = $("q"); if (q) q.focus(); },
+    o: () => sel && act("open", rowBody(sel)), Enter: () => sel && act("open", rowBody(sel)),
+    c: () => sel && act("copy", rowBody(sel)), l: () => sel && act("copy-link", rowBody(sel)),
+    s: () => sel && act("save", rowBody(sel)), S: () => openDrawer("saved"),
+    "/": () => { const q = $("q") ?? $("aq"); if (q) q.focus(); },
     "?": () => openDrawer("help"),
-    r: () => state.route.tab === "trends" ? renderTrends(true) : loadNow().then(() => renderNow(true)),
+    r: () => state.route.tab === "trends" ? renderTrends(true)
+      : state.route.tab === "accounts" ? loadAccounts().then(() => renderAccounts(true))
+      : loadNow().then(() => renderNow(true)),
     "[": () => state.route.tab === "trends" && go({ view: VIEWS[(VIEWS.indexOf(state.route.view) + VIEWS.length - 1) % VIEWS.length] }),
     "]": () => state.route.tab === "trends" && go({ view: VIEWS[(VIEWS.indexOf(state.route.view) + 1) % VIEWS.length] }),
   };
@@ -651,9 +808,14 @@ async function pollNow() {
   if (document.visibilityState === "visible") { await loadNow(); renderNow(false); }
   setTimeout(pollNow, state.now?.running?.length ? 2000 : 5000);
 }
+async function pollAccounts() {
+  if (document.visibilityState === "visible" && state.route.tab === "accounts") { await loadAccounts(); renderAccounts(false); }
+  setTimeout(pollAccounts, 10000);
+}
 paintSavedCount();
 route();
 pollNow();
+setTimeout(pollAccounts, 10000);
 api("/api/overview").then(({ body }) => { state.overview = body; }).catch(() => {});
 </script>
 </body>

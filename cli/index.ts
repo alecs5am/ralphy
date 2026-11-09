@@ -134,6 +134,8 @@ import { sessionCmd } from "./commands/session.js";
 import { documentCmd } from "./commands/document.js";
 import { activityCmd } from "./commands/activity.js";
 import { panelCmd } from "./commands/panel.js";
+import { accountCmd } from "./commands/account.js";
+import { uploadCmd } from "./commands/upload.js";
 import { artifactCmd } from "./commands/artifact.js";
 import { feedbackCmd } from "./commands/feedback.js";
 import { compositionCmd } from "./commands/composition.js";
@@ -438,6 +440,8 @@ program.addCommand(promptsCmd());
 program.addCommand(storyboardCmd());
 program.addCommand(bridgeCmd());
 program.addCommand(panelCmd());
+program.addCommand(accountCmd());
+program.addCommand(uploadCmd());
 
 program.addHelpText("beforeAll", bannerString());
 
