@@ -20,6 +20,7 @@ import { verifyDomainStore } from "../../cli/lib/store/verify.js";
 import { writeEntry } from "../../cli/lib/memory/store.js";
 import { insertJob, appendLog } from "../../cli/lib/jobs/db.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { addOwnedAccount, resolveOwnedAccount, setAccountSession } from "../../cli/lib/store/uploads.js";
 
 let tmp: TmpRoot;
 let other: TmpRoot | undefined;
@@ -91,6 +92,24 @@ function bucketFiles(root: string): string[] {
 }
 
 describe("portable Workspace package", () => {
+  test("retains the platform identity while requiring a fresh session after import", async () => {
+    const workspace = createWorkspace({ slug: "identity-source", name: "Identity source" });
+    const { account } = addOwnedAccount({ workspaceId: workspace.id, platform: "instagram", handle: "owner" });
+    setAccountSession(account.id, "ok", { platformUserId: "111" });
+    const exported = await exportWorkspacePackage({ workspaceId: workspace.id });
+    const archive = path.join(tmp.dir, "identity.workspace.tar");
+    fs.copyFileSync(objectPath(exported.packageObjectId), archive);
+    closeDomainDb();
+    other = makeTmpRoot("ralphy-portable-identity");
+    const imported = await importWorkspaceArchiveFile({ filePath: archive, idempotencyKey: "identity-import" });
+    const restored = resolveOwnedAccount({ workspaceId: imported.workspaceId, ref: "owner" });
+    expect(restored.platformUserId).toBe("111");
+    expect(restored.sessionState).toBe("unknown");
+    expect(restored.sessionCheckedAt).toBeNull();
+    expect(() => setAccountSession(restored.id, "ok", { platformUserId: "222" })).toThrow(/bound to platform user 111/);
+    expect(setAccountSession(restored.id, "ok", { platformUserId: "111" }).platformUserId).toBe("111");
+  });
+
   test("restores editable video sources and saved edits with the original library hidden", async () => {
     const source = await graph();
     const root = path.join(tmp.dir, ".ralphy");

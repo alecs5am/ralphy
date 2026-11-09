@@ -177,7 +177,7 @@ export async function runClaimedUpload(upload: UploadDto, account: OwnedAccountD
     return finishUpload(upload.id, {
       state: "needs_user",
       stage: "no-recipe",
-      error: `${recipe.label} ${account.connection === "browser" ? "has no scripted upload yet" : `account is connected via ${account.connection}`}; post it by hand (ralphy account open ${account.id}) and record it with ralphy upload done ${upload.id} --url <post-url>`,
+      error: `${recipe.label} ${account.connection === "browser" ? "has no scripted upload yet" : `account is connected via ${account.connection}`}; post it by hand${account.connection === "browser" ? ` (ralphy account open ${account.id})` : account.connection === "device" ? " on the connected device" : " on the platform"} and record it with ralphy upload done ${upload.id} --url <post-url>`,
     });
   }
   if (upload.caption.length > recipe.captionLimit) {

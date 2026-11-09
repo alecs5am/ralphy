@@ -82,6 +82,7 @@
   .note code, .empty code { font-size: 11px; }
   .empty { color: var(--muted); padding: 18px 4px; }
   .empty b { color: var(--text); display: block; margin-bottom: 4px; }
+  .account-setup code { display: block; white-space: pre-wrap; margin: 8px 0; }
   .busy { color: var(--muted); padding: 18px 4px; display: flex; gap: 8px; align-items: center; }
   .spin { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -609,8 +610,11 @@ function paintAccounts() {
   const fresh = $("accfresh");
   if (fresh) fresh.textContent = `${state.accountsError ? "refresh failed, " : ""}loaded ${ago(a.serverTime)}`;
   if (!a.accounts.length) {
-    $("acclist").innerHTML = `<div class="empty"><b>No owned accounts yet.</b>
-      Add one with <code>ralphy account add &lt;platform&gt; &lt;handle&gt; --niche &lt;slug&gt;</code> or import many with <code>ralphy account import accounts.csv</code>, then upload with <code>ralphy upload add</code>.</div>`;
+    $("acclist").innerHTML = `<div class="empty account-setup"><b>No owned accounts yet.</b>
+      List Workspaces first:<code>${esc(a.setupCommands.workspaces)}</code>
+      Replace WORKSPACE_ID with its id, YOUR_HANDLE with an account you own, and adjust the platform and niche:
+      <code>${esc(a.setupCommands.add)}</code>Or import accounts from a CSV:
+      <code>${esc(a.setupCommands.import)}</code>These commands use this panel's executable and library.</div>`;
     state.items = []; return;
   }
   const accounts = a.accounts.filter((x) => accMatches(x, q));
@@ -632,7 +636,7 @@ function paintAccounts() {
     uploadSection("Published", f(u.published), "Newest first. The multiple compares views with that account's median; 2x and up is taking off."),
     uploadSection("Failed", f(u.failed), ""),
   ].join("");
-  html += sections || `<div class="empty"><b>${q ? `Nothing matches &ldquo;${esc(q)}&rdquo;.` : "No uploads yet."}</b>${q ? "Press Esc to clear the filter." : "Queue one with <code>ralphy upload add &lt;file&gt; --account &lt;handle&gt;</code>."}</div>`;
+  html += sections || `<div class="empty account-setup"><b>${q ? `Nothing matches &ldquo;${esc(q)}&rdquo;.` : "No uploads yet."}</b>${q ? "Press Esc to clear the filter." : `Replace WORKSPACE_ID, VIDEO_FILE and ACCOUNT_ID to queue one without approval:<code>${esc(a.setupCommands.upload)}</code>`}</div>`;
   if (!accounts.length && q) html = `<div class="empty"><b>No account matches &ldquo;${esc(q)}&rdquo;.</b>Press Esc to clear the filter.</div>` + html;
   $("acclist").innerHTML = html;
   collectItems();

@@ -191,7 +191,9 @@ export function sanitizeRecord(table: string, source: PortableRecord): PortableR
     if (typeof value !== "string") continue;
     row[key] = key.endsWith("_json") ? JSON.stringify(redactPortableValue(JSON.parse(value))) : redactPortableText(value);
   }
-  if (table === "social_accounts") { row.credential_ref = null; row.relink_required = 1; row.session_state = "unknown"; row.session_checked_at = null; row.platform_user_id = null; }
+  // Platform identity is not a credential: preserve it so a fresh login cannot
+  // silently bind an imported account and its queue to a different user.
+  if (table === "social_accounts") { row.credential_ref = null; row.relink_required = 1; row.session_state = "unknown"; row.session_checked_at = null; }
   if (table === "uploads") row.claim_owner_pid = null;
   if (table === "agent_sessions") {
     row.consumer_principal_id = null;

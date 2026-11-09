@@ -114,3 +114,12 @@ Trend-to-experiment attribution, 24/48/72-hour comparisons, corpus refresh, paid
 - Reproduction, executable, backup and remaining limits:
   [morning test](../../testing/account-uploads-morning-test.md). Exact final SHA
   and local build hashes are in the ignored build manifest and final handoff.
+
+## Independent review follow-through
+
+- Separate Standards and Spec reviewers inspected the full branch. The parent
+  reproduced and fixed portable identity loss, unscoped onboarding and device
+  recovery instructions, and added a real Chromium Accounts test enabled in CI.
+- Local headless Chrome verification covers the narrow layout, clipboard scope,
+  keyboard/filter behavior, refresh focus, stale counters and unknown recovery.
+- Real platform sign-in and publication remain owner-led morning acceptance.

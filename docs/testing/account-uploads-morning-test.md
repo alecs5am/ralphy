@@ -142,6 +142,7 @@ From the checkout, with installed dependencies and ffmpeg:
 ```sh
 mise exec bun@1.4.2 -- bun test tests/integration/account-uploads-smoke.test.ts
 mise exec bun@1.4.2 -- bun test tests/unit/account-uploads.test.ts tests/unit/upload-recipes.test.ts tests/unit/panel-accounts.test.ts tests/unit/migration-schema.test.ts
+RALPHY_BROWSER_TESTS=1 RALPHY_BROWSER_CHANNEL=chrome mise exec bun@1.4.2 -- bun test tests/integration/panel-accounts-browser.test.ts
 ```
 
 The smoke creates and removes a temporary library, installs the Codex routing
@@ -154,7 +155,12 @@ the same smoke command. The compiled runtime was separately exercised for
 version/help, account reads and migration; its standalone prompt-pack path is
 not validated. Use the source wrapper for skill installation and the morning test.
 
-DOM/HTTP and scripted recipe fixtures are not real-browser visual validation.
+The opt-in browser smoke launches an isolated headless Chrome against a temporary
+library and loopback server. It checks onboarding commands, duplicate handles,
+scoped clipboard actions, keyboard search, focus across refresh, stale metrics,
+unknown-outcome recovery and the 390-pixel layout. No external site is opened.
+Omit `RALPHY_BROWSER_CHANNEL=chrome` to use Playwright's installed Chromium;
+CI enables this test after installing Chromium. Ordinary local suites skip it.
 No live sign-in, real post, paid scraping or provider acceptance was performed.
 Device upload runners, proxies, experiment attribution and corpus refresh remain
 follow-up work after the first owner-led publication.
@@ -202,3 +208,21 @@ manifest after committing; it is also included in the implementation handoff.
   that deployment under its current team, and `--scope ornikis-projects` reports
   `The specified scope does not exist`. Its build-failure cause remains
   unverified; no deployment, account switch or settings change was made.
+
+## Independent review corrections
+
+- The Standards and Spec reviews found missing Workspace/executable/root in the
+  empty Accounts onboarding, a device hand-off suggesting a browser-only command,
+  absent real-browser UI coverage, and platform identity lost during portable
+  export/import. Each was reproduced and corrected with focused regressions.
+- Portable transfer now retains the non-secret platform user id while clearing
+  credentials and session observations. A fresh login as another user is refused.
+- The empty panel lists Workspaces using its own executable and root, and makes
+  Workspace/account/file placeholders explicit. Device hand-offs direct the owner
+  to finish on the device and record the confirmed URL.
+- Parent verification repeated the original affected smoke (41 pass, 296
+  assertions), checked the backup/home/corpus databases read-only, and exercised
+  Accounts in real headless Chrome (20 assertions, no page errors) with fixture
+  accounts/uploads. Layout screenshots are retained in the local verification
+  directory under `parent-review/`. These are fixture results, not live-platform
+  acceptance.

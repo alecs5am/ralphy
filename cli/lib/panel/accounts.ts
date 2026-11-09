@@ -52,6 +52,7 @@ export type PanelUploadSections = {
 };
 
 export type PanelAccounts = {
+  setupCommands: { workspaces: string; add: string; import: string; upload: string };
   publishedTotal: number;
   serverTime: number;
   accounts: PanelAccount[];
@@ -83,7 +84,7 @@ function scopedCommand(scope: CommandScope, workspaceId: string, args: string[])
   return [...(scope.command ?? ["ralphy"]), "--root", scope.dataRoot, "--workspace", workspaceId, ...args].map(quote).join(" ");
 }
 
-function toPanelUpload(upload: UploadDto, medians: Map<string, number | null>, workspaces: Map<string, string>, scope: CommandScope): PanelUpload {
+function toPanelUpload(upload: UploadDto, medians: Map<string, number | null>, workspaces: Map<string, string>, scope: CommandScope, connection?: string): PanelUpload {
   const views = upload.metrics?.views ?? null;
   return {
     workspaceId: upload.workspaceId,
@@ -91,7 +92,11 @@ function toPanelUpload(upload: UploadDto, medians: Map<string, number | null>, w
       ? ["upload", "approve", upload.id]
       : upload.state === "queued" ? ["upload", "run", upload.id]
       : upload.state === "failed" ? ["upload", "retry", upload.id] : ["upload", "show", upload.id])
-      + (["unknown", "needs_user"].includes(upload.state) ? "\n" + scopedCommand(scope, upload.workspaceId, ["account", "open", upload.accountId]) : ""),
+      + (["unknown", "needs_user"].includes(upload.state)
+        ? connection === "browser" ? "\n" + scopedCommand(scope, upload.workspaceId, ["account", "open", upload.accountId])
+        : "\nCheck the post on the platform" + (connection === "device" ? " using the connected device" : "")
+          + ", then replace POST_URL with its confirmed URL:\n" + scopedCommand(scope, upload.workspaceId, ["upload", "done", upload.id, "--url", "POST_URL"])
+        : ""),
     id: upload.id,
     accountId: upload.accountId,
     handle: upload.handle,
@@ -128,9 +133,10 @@ export function shapeAccounts(
   scope: CommandScope = { dataRoot: ralphDir() },
 ): PanelAccounts {
   const medians = new Map(accounts.map((account) => [account.id, account.medianViews]));
+  const connections = new Map(accounts.map((account) => [account.id, account.connection]));
   const sections: PanelUploadSections = { needsYou: [], queued: { approved: [], waiting: [] }, uploading: [], published: [], failed: [] };
   for (const upload of uploads) {
-    const row = toPanelUpload(upload, medians, workspaces, scope);
+    const row = toPanelUpload(upload, medians, workspaces, scope, connections.get(upload.accountId));
     if (row.state === "needs_user" || row.state === "unknown") sections.needsYou.push(row);
     else if (row.state === "queued") (row.approved ? sections.queued.approved : sections.queued.waiting).push(row);
     else if (row.state === "uploading") sections.uploading.push(row);
@@ -145,6 +151,12 @@ export function shapeAccounts(
   sections.queued.approved.sort((a, b) => a.createdAt - b.createdAt);
   sections.queued.waiting.sort((a, b) => a.createdAt - b.createdAt);
   return {
+    setupCommands: {
+      workspaces: [...(scope.command ?? ["ralphy"]), "--root", scope.dataRoot, "workspace", "list"].map(quote).join(" "),
+      add: scopedCommand(scope, "WORKSPACE_ID", ["account", "add", "instagram", "YOUR_HANDLE", "--niche", "psychology"]),
+      import: scopedCommand(scope, "WORKSPACE_ID", ["account", "import", "accounts.csv"]),
+      upload: scopedCommand(scope, "WORKSPACE_ID", ["upload", "add", "VIDEO_FILE", "--account", "ACCOUNT_ID"]),
+    },
     publishedTotal: sections.published.length,
     serverTime: now,
     accounts: accounts.map((account) => ({

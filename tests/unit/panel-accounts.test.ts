@@ -99,6 +99,12 @@ describe("shapeAccounts", () => {
     expect(shaped.uploads.queued.waiting[0]!.nextCommand).toContain("'--workspace' 'ws_1' 'upload' 'approve' 'upl_1'");
   });
 
+  test("device hand-off copies manual completion instead of opening a browser profile", () => {
+    const shaped = shapeAccounts([account({ connection: "device" })], [upload({ state: "needs_user" })], workspaces, 123);
+    expect(shaped.uploads.needsYou[0]!.nextCommand).not.toContain("'account' 'open'");
+    expect(shaped.uploads.needsYou[0]!.nextCommand).toContain("'upload' 'done' 'upl_1' '--url' 'POST_URL'");
+  });
+
   test("published uploads are newest first with views and a multiplier against the account median", () => {
     const { uploads, accounts } = shapeAccounts([account({ medianViews: 1000 }), account({ id: "acct_2", handle: "none", medianViews: null })], [
       upload({ id: "old", state: "published", publishedAt: 100, metrics: metrics(500) }),

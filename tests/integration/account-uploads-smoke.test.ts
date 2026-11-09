@@ -43,6 +43,21 @@ const recipe = (outcome: "success" | "before" | "unknown", userId = "111"): Plat
 });
 
 describe("account uploads isolated morning smoke", () => {
+  test("device accounts hand off to the owner without a browser-open command", async () => {
+    const workspace = cli("workspace", "create", "device-fixture");
+    const account = cli("--workspace", workspace.id, "account", "add", "instagram", "phone.owner", "--connection", "device").account;
+    const video = path.join(tmp.dir, "device.mp4");
+    fs.writeFileSync(video, "fixture video bytes");
+    const upload = cli("--workspace", workspace.id, "upload", "add", video, "--account", account.id, "--approve").upload;
+    const claimed = claimNextUpload({ id: upload.id });
+    expect(claimed).not.toBeNull();
+    const result = await runClaimedUpload(claimed!, resolveOwnedAccount({ ref: account.id }));
+    expect(result.state).toBe("needs_user");
+    expect(result.error).toContain("device");
+    expect(result.error).toContain(`upload done ${upload.id}`);
+    expect(result.error).not.toContain("account open");
+  });
+
   test("CLI approval, provider outcomes, identity binding, metrics and GET-only panel", async () => {
     const workspace = cli("workspace", "create", "morning-fixture");
     cli("skill", "install", "--agent", "codex", "--scope", "project", "--repo", repo);
