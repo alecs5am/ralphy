@@ -110,6 +110,24 @@ export async function createPortableArchive(db: Database, root: string, writer: 
   return manifest;
 }
 
+/**
+ * Oldest store schema whose packages still import. Later migrations only add
+ * columns with defaults and new tables, so an older package imports with those
+ * tables empty (#600).
+ */
+const MIN_IMPORT_SCHEMA_VERSION = 12;
+/** Schema version that introduced each portable table, for tables newer than the minimum. */
+const PORTABLE_TABLE_SINCE: Readonly<Record<string, number>> = {
+  upload_evidence: 14,
+  uploads: 13,
+  upload_metric_snapshots: 13,
+  account_snapshots: 13,
+};
+
+function isImportableSchemaVersion(version: unknown): version is number {
+  return Number.isSafeInteger(version) && (version as number) >= MIN_IMPORT_SCHEMA_VERSION && (version as number) <= SCHEMA_VERSION;
+}
+
 /** Indexes a package on disk and validates its manifest; row chunks are read and verified only when consumed. */
 export async function readPortableArchive(source: string): Promise<PortableArchive> {
   const reader = PortableArchiveReader.open(source);
@@ -117,7 +135,7 @@ export async function readPortableArchive(source: string): Promise<PortableArchi
     const manifestSize = reader.size("manifest.json");
     if (manifestSize === null || manifestSize > MAX_MANIFEST_BYTES) throw new Error("Portable manifest is missing or too large");
     const manifest = JSON.parse(reader.read("manifest.json").toString("utf8")) as PortableManifest;
-    if (!manifest || (manifest.version !== 2 && manifest.version !== 3) || manifest.schemaVersion !== SCHEMA_VERSION || typeof manifest.workspaceId !== "string"
+    if (!manifest || (manifest.version !== 2 && manifest.version !== 3) || !isImportableSchemaVersion(manifest.schemaVersion) || typeof manifest.workspaceId !== "string"
       || !/^ws_[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(manifest.workspaceId) || !Array.isArray(manifest.files)
       || (manifest.version === 2 ? !manifest.tables || typeof manifest.tables !== "object" : !Array.isArray(manifest.rows))) throw new Error("Portable manifest version or schema is unsupported");
     const allowed = new Set(PORTABLE_TABLES.map(({ name }) => name));
@@ -126,6 +144,7 @@ export async function readPortableArchive(source: string): Promise<PortableArchi
       if (Object.keys(manifest.tables).some((name) => !allowed.has(name))) throw new Error("Portable manifest contains unknown data tables");
       for (const { name } of PORTABLE_TABLES) {
         const rows = manifest.tables[name];
+        if (rows === undefined && (PORTABLE_TABLE_SINCE[name] ?? 0) > manifest.schemaVersion) continue;
         if (!Array.isArray(rows) || rows.some((row) => !row || typeof row !== "object" || Array.isArray(row)
           || Object.values(row).some((value) => value !== null && typeof value !== "string" && (typeof value !== "number" || !Number.isFinite(value))))) throw new Error(`Invalid portable ${name} records`);
       }

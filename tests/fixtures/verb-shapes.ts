@@ -44,6 +44,51 @@ const TREND_SCORECARD_SHAPE = {
 };
 const TREND_SCORECARD_RULES = ["skip when any of: K1 undated; K2 stale; K3 sponsored; K4 creator-bound; K5 no lift", "test otherwise; the failing adapt rules are the reasons."];
 
+// #600 owned account and upload rows as `account` / `upload` print them.
+const OWNED_ACCOUNT_SHAPE = {
+  id: "acct_00000000-0000-4000-8000-000000000600",
+  workspaceId: "ws_00000000-0000-4000-8000-000000000600",
+  platform: "instagram",
+  handle: "mind.notes",
+  displayName: null,
+  niche: "psychology",
+  purpose: "test",
+  connection: "browser",
+  sessionState: "ok",
+  sessionCheckedAt: 1_793_000_000_000,
+  paused: false,
+  platformUserId: "111",
+  createdAt: 1_792_900_000_000,
+  updatedAt: 1_793_000_000_000,
+};
+const UPLOAD_SHAPE = {
+  id: "upl_00000000-0000-4000-8000-000000000600",
+  workspaceId: "ws_00000000-0000-4000-8000-000000000600",
+  accountId: "acct_00000000-0000-4000-8000-000000000600",
+  platform: "instagram",
+  handle: "mind.notes",
+  niche: "psychology",
+  mediaObjectId: "obj_00000000-0000-4000-8000-000000000600",
+  coverObjectId: null,
+  caption: "Why we procrastinate #psychology",
+  options: {},
+  unitRevisionId: null,
+  artifactRevisionId: null,
+  state: "published",
+  approvedAt: 1_793_000_000_000,
+  notBefore: null,
+  attempts: 1,
+  failureStage: null,
+  error: null,
+  postUrl: "https://www.instagram.com/reel/ABC123/",
+  postExternalId: "ABC123",
+  publishedAt: 1_793_000_100_000,
+  evidenceObjectId: "obj_00000000-0000-4000-8000-000000000601",
+  createdAt: 1_793_000_000_000,
+  updatedAt: 1_793_000_100_000,
+  metrics: { asOf: 1_793_086_400_000, source: "browser", views: 5400, likes: null, comments: null, shares: null, saves: null },
+};
+
 // Keyed by command file basename (cli/commands/<key>.ts). Each verb lists one
 // or more canonical shapes. Mirrors the real `out(...)` payloads.
 export const VERB_SHAPES: Record<string, VerbShape[]> = {
@@ -1537,6 +1582,43 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         sources: [{ url: "https://example.com/a", verified: true }],
         claims: 12,
       },
+    },
+  ],
+  // #600 owned accounts and their upload queue.
+  account: [
+    {
+      label: "account.list",
+      shape: {
+        kind: "account-list",
+        count: 1,
+        accounts: [{ ...OWNED_ACCOUNT_SHAPE, uploads: 3, published: 2, pending: 1, needsUser: 0, lastPublishedAt: 1_793_000_100_000, bestViews: 5400, medianViews: 2100, followers: 830, followersAsOf: 1_793_086_400_000 }],
+      },
+    },
+    {
+      label: "account.check",
+      shape: {
+        kind: "account-check",
+        count: 1,
+        results: [{ account: OWNED_ACCOUNT_SHAPE.id, handle: "mind.notes", platform: "instagram", state: "ok", stats: { followers: 830, following: 12, posts: 14 } }],
+      },
+    },
+    {
+      label: "account.import",
+      shape: { kind: "account-import", rows: 3, created: 2, updated: 1, errors: [{ line: 3, handle: "bad", error: "platform must be one of instagram, tiktok, youtube, x" }] },
+    },
+  ],
+  upload: [
+    {
+      label: "upload.add",
+      shape: { kind: "upload", upload: { ...UPLOAD_SHAPE, state: "queued", approvedAt: null, attempts: 0, postUrl: null, postExternalId: null, publishedAt: null, evidenceObjectId: null, metrics: null }, next: "ralphy upload approve upl_00000000-0000-4000-8000-000000000600" },
+    },
+    {
+      label: "upload.run",
+      shape: { kind: "upload-run", count: 1, published: 1, needsUser: 0, unknown: 0, failed: 0, uploads: [UPLOAD_SHAPE] },
+    },
+    {
+      label: "upload.sync",
+      shape: { kind: "upload-sync", count: 1, results: [{ account: OWNED_ACCOUNT_SHAPE.id, handle: "mind.notes", platform: "instagram", matched: 2, posts: 14, stats: { followers: 830, following: 12, posts: 14 } }] },
     },
   ],
   trends: [

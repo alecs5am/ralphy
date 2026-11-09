@@ -46,6 +46,10 @@ export const OBJECT_REFERENCE_SOURCES = [
   { table: "job_artifacts", column: "object_id" },
   { table: "storage_transfer_entries", column: "object_id" },
   { table: "migration_entries", column: "raw_evidence_object_id" },
+  { table: "uploads", column: "cover_object_id" },
+  { table: "uploads", column: "evidence_object_id" },
+  { table: "uploads", column: "media_object_id" },
+  { table: "upload_evidence", column: "object_id" },
 ] as const;
 
 const REVIEW_VERDICTS = {

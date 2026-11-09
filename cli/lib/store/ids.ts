@@ -53,6 +53,7 @@ export const DOMAIN_ID_PREFIXES = [
   "tcreator",
   "tvideo",
   "tniche",
+  "upl",
 ] as const;
 
 export type DomainIdPrefix = (typeof DOMAIN_ID_PREFIXES)[number];

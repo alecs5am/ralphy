@@ -10,7 +10,7 @@ import {
 import { setRoot } from "../../cli/lib/paths.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { createWorkspace } from "../../cli/lib/store/scopes.js";
-import { SCHEMA_VERSION } from "../../cli/lib/store/schema.js";
+import { MIGRATIONS, SCHEMA_VERSION } from "../../cli/lib/store/schema.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
@@ -56,6 +56,33 @@ describe("closed WAL startup", () => {
     expect(fs.existsSync(`${fixture.databasePath}-wal`)).toBe(false);
     expect(fs.existsSync(`${fixture.databasePath}-shm`)).toBe(false);
   });
+
+  for (const variant of ["v12", "early-v13", "complete-v13"] as const) {
+    test(`admits only the exact supported ${variant} closed WAL schema for forward upgrade`, () => {
+      root = makeTmpRoot("ralphy-closed-wal-upgrade");
+      const dataRoot = path.join(root.dir, ".ralphy");
+      const databasePath = path.join(dataRoot, "ralphy.db");
+      const db = new Database(databasePath);
+      db.exec("PRAGMA journal_mode = WAL");
+      for (const migration of MIGRATIONS.filter((m) => m.version <= (variant === "v12" ? 12 : 13))) {
+        db.exec(variant === "early-v13" ? migration.sql.replace(/      ALTER TABLE social_accounts ADD COLUMN platform_user_id[^;]+;/, "") : migration.sql);
+        db.prepare("INSERT INTO schema_migrations VALUES (?, 1)").run(migration.version);
+        db.exec(`PRAGMA user_version = ${migration.version}`);
+      }
+      db.exec("INSERT INTO workspaces (id,slug,name,created_at,updated_at) VALUES ('ws_00000000-0000-4000-8000-000000000001','upgrade','Upgrade',1,1)");
+      db.query("PRAGMA wal_checkpoint(TRUNCATE)").get(); db.close();
+      fs.rmSync(`${databasePath}-wal`, { force: true }); fs.rmSync(`${databasePath}-shm`, { force: true });
+      const before = fs.readFileSync(databasePath);
+      expect(resolveDataRoot({ root: dataRoot }).dataRoot).toBe(fs.realpathSync.native(dataRoot));
+      expect(fs.readFileSync(databasePath)).toEqual(before);
+      expect(fs.existsSync(`${databasePath}-wal`)).toBe(false);
+      const result = spawnSync(process.execPath, [path.join(REPO, "cli/index.ts"), "--json", "--root", dataRoot, "--workspace", "upgrade", "account", "list"], { encoding: "utf8", cwd: root.dir });
+      expect(result.status, result.stderr).toBe(0);
+      // SQLite stores PRAGMA user_version as a big-endian integer at byte 60.
+      // Inspect the closed file without creating another WAL connection.
+      expect(fs.readFileSync(databasePath).readUInt32BE(60)).toBe(14);
+    });
+  }
 
   test("answers system.hello without rewriting a closed WAL database", () => {
     const fixture = createSchemaFixture("ralphy-closed-wal-hello");
@@ -248,7 +275,7 @@ describe("closed WAL startup", () => {
       fixture.db.query<{ version: number }, []>(
         "SELECT version FROM schema_migrations ORDER BY version",
       ).all().map((row) => row.version),
-    ).toEqual([1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12]);
+    ).toEqual([1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
     closeAsStandaloneWal(fixture);
 
     expectMigrationIncomplete(() =>

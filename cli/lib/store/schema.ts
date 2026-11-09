@@ -2,12 +2,13 @@ import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 14;
 export const GLOBAL_MEMORY_WORKSPACE_ID = "ws_00000000-0000-0000-0000-000000000000";
 
 export type Migration = {
   version: number;
   sql: string;
+  upgrade?: (db: Database) => void;
 };
 
 export const MIGRATIONS: readonly Migration[] = [
@@ -4894,6 +4895,139 @@ export const MIGRATIONS: readonly Migration[] = [
       END;
     `,
   },
+  {
+    // #600 owned accounts and browser uploads. Accounts gain the niche they
+    // test, how Ralphy reaches them and their last observed sign-in state.
+    // Uploads are a queue of their own (not `publications`): a browser upload
+    // needs a needs_user hand-off and screenshot evidence, and extending the
+    // publications rail CHECK would mean rebuilding that table. `unknown` is a
+    // submitted upload whose outcome was not confirmed: it is never retried
+    // blindly, because a second click could post twice. platform_user_id binds
+    // a browser session to the account it was signed in as.
+    version: 13,
+    sql: `
+      ALTER TABLE social_accounts ADD COLUMN niche TEXT CHECK (niche IS NULL OR (length(niche) BETWEEN 1 AND 64 AND niche NOT GLOB '*[^a-z0-9-]*'));
+      ALTER TABLE social_accounts ADD COLUMN purpose TEXT NOT NULL DEFAULT 'main' CHECK (purpose IN ('main', 'test'));
+      ALTER TABLE social_accounts ADD COLUMN connection TEXT NOT NULL DEFAULT 'postiz' CHECK (connection IN ('postiz', 'browser', 'device', 'none'));
+      ALTER TABLE social_accounts ADD COLUMN session_state TEXT NOT NULL DEFAULT 'unknown' CHECK (session_state IN ('unknown', 'ok', 'needs_login', 'checkpoint', 'restricted'));
+      ALTER TABLE social_accounts ADD COLUMN session_checked_at INTEGER;
+      ALTER TABLE social_accounts ADD COLUMN paused INTEGER NOT NULL DEFAULT 0 CHECK (paused IN (0, 1));
+      ALTER TABLE social_accounts ADD COLUMN platform_user_id TEXT CHECK (platform_user_id IS NULL OR length(platform_user_id) BETWEEN 1 AND 64);
+      CREATE INDEX social_accounts_niche ON social_accounts (workspace_id, platform, niche);
+
+      CREATE TABLE uploads (
+        id TEXT PRIMARY KEY CHECK (id GLOB 'upl_*'),
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+        social_account_id TEXT NOT NULL REFERENCES social_accounts(id) ON DELETE RESTRICT,
+        media_object_id TEXT NOT NULL REFERENCES objects(id) ON DELETE RESTRICT,
+        cover_object_id TEXT REFERENCES objects(id) ON DELETE RESTRICT,
+        caption TEXT NOT NULL DEFAULT '' CHECK (length(caption) <= 5000),
+        options_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(options_json)),
+        unit_revision_id TEXT REFERENCES unit_revisions(id) ON DELETE RESTRICT,
+        artifact_revision_id TEXT REFERENCES artifact_revisions(id) ON DELETE RESTRICT,
+        state TEXT NOT NULL CHECK (state IN ('queued', 'uploading', 'unknown', 'needs_user', 'published', 'failed', 'cancelled')),
+        approved_at INTEGER,
+        not_before INTEGER,
+        attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+        failure_stage TEXT,
+        error TEXT,
+        post_url TEXT CHECK (post_url IS NULL OR (length(post_url) BETWEEN 9 AND 2048 AND lower(substr(post_url, 1, 8)) = 'https://')),
+        post_external_id TEXT,
+        published_at INTEGER,
+        evidence_object_id TEXT REFERENCES objects(id) ON DELETE RESTRICT,
+        row_version INTEGER NOT NULL DEFAULT 1 CHECK (row_version > 0),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        CHECK (state <> 'published' OR (post_url IS NOT NULL AND published_at IS NOT NULL))
+      );
+      CREATE INDEX uploads_account ON uploads (social_account_id, created_at);
+      CREATE INDEX uploads_state ON uploads (workspace_id, state, not_before);
+
+      CREATE TRIGGER uploads_scope_insert
+      BEFORE INSERT ON uploads
+      WHEN NOT EXISTS (
+        SELECT 1 FROM social_accounts account JOIN objects media ON media.workspace_id = account.workspace_id
+        WHERE account.id = NEW.social_account_id AND media.id = NEW.media_object_id
+          AND account.workspace_id = NEW.workspace_id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Upload account and media must share the upload Workspace');
+      END;
+
+      CREATE TRIGGER uploads_identity_guard
+      BEFORE UPDATE OF id, workspace_id, social_account_id, media_object_id, created_at ON uploads
+      WHEN NEW.id IS NOT OLD.id OR NEW.workspace_id IS NOT OLD.workspace_id
+        OR NEW.social_account_id IS NOT OLD.social_account_id
+        OR NEW.media_object_id IS NOT OLD.media_object_id OR NEW.created_at IS NOT OLD.created_at
+      BEGIN
+        SELECT RAISE(ABORT, 'Upload identity is immutable');
+      END;
+
+      CREATE TABLE upload_metric_snapshots (
+        upload_id TEXT NOT NULL REFERENCES uploads(id) ON DELETE RESTRICT,
+        as_of INTEGER NOT NULL,
+        source TEXT NOT NULL CHECK (length(source) BETWEEN 1 AND 64),
+        views INTEGER CHECK (views IS NULL OR views >= 0),
+        likes INTEGER CHECK (likes IS NULL OR likes >= 0),
+        comments INTEGER CHECK (comments IS NULL OR comments >= 0),
+        shares INTEGER CHECK (shares IS NULL OR shares >= 0),
+        saves INTEGER CHECK (saves IS NULL OR saves >= 0),
+        raw_json TEXT CHECK (raw_json IS NULL OR json_valid(raw_json)),
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (upload_id, as_of)
+      ) WITHOUT ROWID;
+
+      CREATE TABLE account_snapshots (
+        social_account_id TEXT NOT NULL REFERENCES social_accounts(id) ON DELETE RESTRICT,
+        as_of INTEGER NOT NULL,
+        source TEXT NOT NULL CHECK (length(source) BETWEEN 1 AND 64),
+        followers INTEGER CHECK (followers IS NULL OR followers >= 0),
+        following INTEGER CHECK (following IS NULL OR following >= 0),
+        posts INTEGER CHECK (posts IS NULL OR posts >= 0),
+        raw_json TEXT CHECK (raw_json IS NULL OR json_valid(raw_json)),
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (social_account_id, as_of)
+      ) WITHOUT ROWID;
+
+      CREATE TRIGGER upload_metric_snapshots_append_only
+      BEFORE UPDATE ON upload_metric_snapshots
+      BEGIN
+        SELECT RAISE(ABORT, 'Upload metric snapshots are append-only');
+      END;
+
+      CREATE TRIGGER account_snapshots_append_only
+      BEFORE UPDATE ON account_snapshots
+      BEGIN
+        SELECT RAISE(ABORT, 'Account snapshots are append-only');
+      END;
+    `,
+  },
+  {
+    // Early v13 libraries shipped before the identity column was added to
+    // that migration. A new version repairs them and preserves complete v13.
+    version: 14,
+    sql: `
+      ALTER TABLE uploads ADD COLUMN claim_owner_pid INTEGER;
+      CREATE TABLE upload_evidence (
+        upload_id TEXT NOT NULL REFERENCES uploads(id) ON DELETE RESTRICT,
+        object_id TEXT NOT NULL REFERENCES objects(id) ON DELETE RESTRICT,
+        kind TEXT NOT NULL CHECK (kind IN ('html', 'screenshot')),
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (upload_id, object_id)
+      ) WITHOUT ROWID;
+      CREATE TABLE account_browser_leases (
+        social_account_id TEXT PRIMARY KEY REFERENCES social_accounts(id) ON DELETE CASCADE,
+        owner_pid INTEGER NOT NULL,
+        token TEXT NOT NULL
+      );
+    `,
+    upgrade(db) {
+      const columns = db.query<{ name: string }, []>("PRAGMA table_info(social_accounts)").all();
+      if (!columns.some((column) => column.name === "platform_user_id")) {
+        db.exec("ALTER TABLE social_accounts ADD COLUMN platform_user_id TEXT CHECK (platform_user_id IS NULL OR length(platform_user_id) BETWEEN 1 AND 64)");
+      }
+    },
+  },
 ];
 
 export function applyMigrations(
@@ -4927,7 +5061,8 @@ export function applyMigrations(
 
     for (const migration of pending) {
       options.beforeVersion?.(migration.version);
-      db.exec(migration.sql);
+      if (migration.sql) db.exec(migration.sql);
+      migration.upgrade?.(db);
       db.prepare(
         "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
       ).run(migration.version, Date.now());

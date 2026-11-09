@@ -37,7 +37,9 @@ If you don't remember a flag, **run `--help` first**. Don't invent flags from tr
 | `models {list\|show <id>}` | Inspect OR video models + their per-model param whitelists. **Read before any video gen.** |
 | `daemon {start\|stop\|status}` | Manage the background job worker. |
 | `queue {add\|list\|show\|cancel\|retry\|logs\|watch}` | Manage queued jobs. |
-| `panel [--port <n>] [--trend-workspace <ws>]` | Read-only side panel on `127.0.0.1:4777` for the agent's built-in browser: live job activity plus trend picks, rising signals, top videos and formats to copy. Start it only when the user asks for the panel; it runs in the foreground and reuses a panel already serving the same root. |
+| `panel [--port <n>] [--trend-workspace <ws>]` | Read-only side panel on `127.0.0.1:4777` for the agent's built-in browser: live job activity, owned accounts and uploads, plus trend picks, rising signals, top videos and formats to copy. Start it only when the user asks for the panel; it runs in the foreground and reuses a panel already serving the same root. |
+| `account {add\|import\|list\|show\|login\|check\|open\|pause\|resume}` | The owner's own social accounts (many per platform, `--niche` each), one isolated Chrome profile per account. `login` opens the profile for the owner to sign in by hand; `check` reads session state and followers. Skill: `account-uploads`. |
+| `upload {add\|list\|show\|approve\|cancel\|retry\|done\|run\|sync}` | Queue a video for one owned account and post it from that account's profile. `run` posts only approved rows; a stuck step ends `needs_user`, a timeout after the publish click ends `unknown` (never retried without `--force`); `sync` reads views. |
 | `render <project>` | Render project → `<project>/render/final.mp4` (`<project>` = `.ralphy/workspaces/<ws>/projects/<id>`). `--loudnorm` for EBU R128. |
 | `assets {list\|pull\|pull-key\|install\|clean\|cache-info}` | Pull assets from the `ralphy-assets` companion repo. |
 | `example {list\|pull}` | Pull complete reference projects. |

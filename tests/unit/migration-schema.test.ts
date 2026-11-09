@@ -6,6 +6,8 @@ import {
   closeDomainDb,
   openDomainDb,
 } from "../../cli/lib/store/db.js";
+import { MIGRATIONS, applyMigrations } from "../../cli/lib/store/schema.js";
+import { listOwnedAccounts } from "../../cli/lib/store/uploads.js";
 import { sourceLocatorHash } from "../../cli/lib/migration/inventory.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
@@ -515,3 +517,35 @@ function inventory(root: string): { entries: number; files: number; bytes: numbe
   walk(root);
   return { entries, files, bytes };
 }
+
+
+describe("account identity forward upgrade", () => {
+  for (const version of ["v12", "early-v13", "complete-v13"] as const) {
+    test(`upgrades ${version} without losing accounts and remains idempotent`, () => {
+      const root = makeTmpRoot("ralphy-account-schema-upgrade");
+      roots.push(root);
+      const db = new Database(path.join(root.dir, ".ralphy", "ralphy.db"));
+      db.exec("PRAGMA foreign_keys = ON");
+      for (const migration of MIGRATIONS.filter((m) => m.version <= (version === "v12" ? 12 : 13))) {
+        const sql = version === "early-v13"
+          ? migration.sql.replace(/      ALTER TABLE social_accounts ADD COLUMN platform_user_id[^;]+;/, "")
+          : migration.sql;
+        db.exec(sql);
+        db.prepare("INSERT INTO schema_migrations VALUES (?, 1)").run(migration.version);
+        db.exec(`PRAGMA user_version = ${migration.version}`);
+      }
+      db.exec("INSERT INTO workspaces (id,slug,name,created_at,updated_at) VALUES ('ws_upgrade','upgrade','Upgrade',1,1)");
+      db.exec("INSERT INTO social_accounts (id,workspace_id,platform,external_id,created_at,updated_at) VALUES ('acct_upgrade','ws_upgrade','instagram','legacy',1,1)");
+      if (version === "complete-v13") db.exec("UPDATE social_accounts SET platform_user_id = '123'");
+      db.close();
+      const upgraded = openDomainDb();
+      expect(upgraded.query<{ user_version: number }, []>("PRAGMA user_version").get()!.user_version).toBe(14);
+      expect(listOwnedAccounts({ workspaceId: "ws_upgrade", includePostiz: true })[0]).toMatchObject({ handle: "legacy", connection: "postiz", platformUserId: version === "complete-v13" ? "123" : null });
+      applyMigrations(upgraded);
+      expect(upgraded.query("SELECT count(*) AS n FROM social_accounts").get()).toEqual({ n: 1 });
+      expect(upgraded.query("PRAGMA foreign_key_check").all()).toEqual([]);
+      expect(upgraded.query("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
+      expect(upgraded.query("SELECT count(*) AS n FROM schema_migrations WHERE version = 14").get()).toEqual({ n: 1 });
+    });
+  }
+});

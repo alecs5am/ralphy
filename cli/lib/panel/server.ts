@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import pageSource from "./page.html" with { type: "text" };
+import { accountsSnapshot } from "./accounts.js";
 import { activitySnapshot } from "./activity.js";
 import { formatRows, panelNiches, pickVideos, risingSignals, topVideos, withLabels, type PanelNiche } from "./trends.js";
 import { getWorkspaceByReference, listWorkspaces } from "../store/scopes.js";
@@ -214,6 +215,7 @@ export function panelHandler(input: { dataRoot: string; version: string; trend: 
     if (url.pathname === "/api/health") return json({ app: "ralphy-panel", version: input.version, root: input.dataRoot });
     try {
       if (url.pathname === "/api/activity") return json(activitySnapshot());
+      if (url.pathname === "/api/accounts") return json(accountsSnapshot(Date.now(), { dataRoot: input.dataRoot, command: selfCommand() }));
       if (url.pathname === "/api/overview") {
         return json({
           root: input.dataRoot,

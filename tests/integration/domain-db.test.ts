@@ -148,17 +148,25 @@ describe("domain database bootstrap", () => {
     expect(db.query("SELECT version FROM schema_migrations").all()).toEqual(
       MIGRATIONS.map(({ version }) => ({ version })),
     );
-    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-    expect(SCHEMA_VERSION).toBe(12);
+    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+    expect(SCHEMA_VERSION).toBe(14);
 
     const socialAccountColumns = db
       .query<{ name: string }, []>("PRAGMA table_info('social_accounts')")
       .all()
       .map((column) => column.name);
-    expect(socialAccountColumns.slice(-3)).toEqual([
+    expect(socialAccountColumns.slice(-10)).toEqual([
       "credential_ref",
       "relink_required",
       "row_version",
+      // #600 owned-account columns.
+      "niche",
+      "purpose",
+      "connection",
+      "session_state",
+      "session_checked_at",
+      "paused",
+      "platform_user_id",
     ]);
 
     db.prepare(

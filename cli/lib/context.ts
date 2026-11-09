@@ -461,8 +461,8 @@ function openStandaloneWalSnapshot(
       .query<{ user_version: number }, []>("PRAGMA user_version")
       .get();
     if (
-      userVersion?.user_version !== SCHEMA_VERSION ||
-      !hasExactSchemaIdentity(snapshot)
+      ![12, 13, SCHEMA_VERSION].includes(userVersion?.user_version ?? 0) ||
+      !hasExactSchemaIdentity(snapshot, userVersion!.user_version)
     ) {
       throw openError;
     }
@@ -501,22 +501,32 @@ type SchemaIdentityRow = {
   sql: string | null;
 };
 
-function hasExactSchemaIdentity(snapshot: Database): boolean {
+function hasExactSchemaIdentity(snapshot: Database, version: number): boolean {
+  const migrations = MIGRATIONS.filter((migration) => migration.version <= version);
   const versions = snapshot
     .query<{ version: number }, []>(
       "SELECT version FROM schema_migrations ORDER BY version",
     )
     .all();
   if (
-    versions.length !== MIGRATIONS.length ||
-    versions.some((row, index) => row.version !== MIGRATIONS[index]?.version)
+    versions.length !== migrations.length ||
+    versions.some((row, index) => row.version !== migrations[index]?.version)
   ) {
     return false;
   }
 
   const expected = new Database(":memory:", { strict: true });
   try {
-    for (const migration of MIGRATIONS) expected.exec(migration.sql);
+    // The only historical shape exception is early v13's missing identity
+    // column. Every other table/index/trigger and migration marker must match.
+    const earlyV13 = version === 13 && !snapshot.query<{ name: string }, []>("PRAGMA table_info(social_accounts)").all().some((column) => column.name === "platform_user_id");
+    for (const migration of migrations) {
+      const sql = earlyV13 && migration.version === 13
+        ? migration.sql.replace(/      ALTER TABLE social_accounts ADD COLUMN platform_user_id[^;]+;/, "")
+        : migration.sql;
+      if (sql) expected.exec(sql);
+      migration.upgrade?.(expected);
+    }
     return JSON.stringify(readSchemaIdentity(snapshot)) ===
       JSON.stringify(readSchemaIdentity(expected));
   } finally {

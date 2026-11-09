@@ -52,6 +52,8 @@ jobs:
           # doesn't trip on undefined.
           OPENROUTER_API_KEY: "test-placeholder"
           ELEVENLABS_API_KEY: "test-placeholder"
+          # Exercise the side panel in the isolated Chromium installed above.
+          RALPHY_BROWSER_TESTS: "1"
 
       - name: Lint error codes against catalog (01.06.01)
         run: bun run lint:errors
