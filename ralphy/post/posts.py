@@ -263,6 +263,9 @@ def plan(content_ref: str, to: list[str], at: str | None = None, caption: str | 
         raise RalphyError("E_POST_DUPLICATE", "; ".join(blocked),
                           "Pass --again only when the owner wants this video posted there a second time.")
 
+    cover = model.cover_file(content.path)
+    if cover is None:
+        warnings.append(f"{content.id} has no cover.jpg; each platform picks a frame for the cover")
     if scheduled and parse_time(scheduled) <= now_utc():
         warnings.append(f"--at {scheduled} is in the past; the next `ralphy post run --due` posts it")
     taken = {r.get("id") for a in accounts() for r in read(a)}
@@ -296,6 +299,7 @@ def plan(content_ref: str, to: list[str], at: str | None = None, caption: str | 
         "content": content.id,
         "render": _relative(render),
         "rendered": rendered is not None,
+        "cover": _relative(cover) if cover else None,
         "probe": info,
         "posts": created,
         "warnings": warnings,

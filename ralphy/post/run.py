@@ -197,6 +197,17 @@ def upload_copy(post_id: str, render: Path) -> Path:
     return target
 
 
+def cover_copy(post_id: str, cover: Path | None) -> Path | None:
+    """A clone of the video's cover next to the upload copy, so an edit during the upload cannot change it."""
+    if cover is None:
+        return None
+    folder = paths.cache_dir() / "post"
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / f"{post_id}.cover{cover.suffix.lower()}"
+    files.clone_file(cover, target, allow_hardlink=False)
+    return target
+
+
 def _base(account: model.Account, row: dict) -> dict:
     return {"id": row.get("id"), "account": account.slug, "platform": row.get("platform"),
             "handle": row.get("handle"), "content": row.get("content")}
@@ -220,7 +231,7 @@ def _recover_stale(account: model.Account, platform: str, current: str) -> list[
 
 
 def _upload(account: model.Account, row: dict, entry: dict, platform: platforms.Platform, recipe: recipes.Recipe,
-            profile: str, session: browser.BrowserSession, video: Path) -> dict:
+            profile: str, session: browser.BrowserSession, video: Path, cover: Path | None = None) -> dict:
     post_id = row["id"]
     result = {**_base(account, row), "browser": True}
     recovered = _recover_stale(account, platform.name, post_id)
@@ -229,6 +240,7 @@ def _upload(account: model.Account, row: dict, entry: dict, platform: platforms.
     posts.transition(account, post_id, ("approved", *posts.RETRYABLE), {"status": "uploading", "error": ""})
     submitted = False
     page = None
+    task = None
     where = f"`ralphy account open {account.slug} {platform.name}`"
 
     def settle(status: str, error: str = "", **changes) -> dict:
@@ -238,6 +250,8 @@ def _upload(account: model.Account, row: dict, entry: dict, platform: platforms.
         expected = ("unknown",) if submitted else ("uploading",)
         posts.transition(account, post_id, expected, {"status": status, "error": error, **changes})
         result.update(status=status, error=error or None, evidence=evidence, **changes)
+        if task is not None and task.notes:
+            result["notes"] = list(task.notes)
         return result
 
     def on_submit() -> None:
@@ -268,6 +282,7 @@ def _upload(account: model.Account, row: dict, entry: dict, platform: platforms.
             caption=row.get("caption") or "",
             expected_user_id=state.user_id,
             on_submit=on_submit,
+            cover=cover,
         )
         uploaded = recipe.upload(page, task)
         if not submitted:
@@ -336,7 +351,9 @@ def run_one(account: model.Account, row: dict) -> dict:
     recipe = recipes.RECIPES[platform.name]
     profile = profiles.profile_name(account, entry)
     video = upload_copy(post_id, render)
+    cover = None
     try:
+        cover = cover_copy(post_id, model.cover_file(render.parent))
         try:
             media_errors, _ = checks.check_media(platform, checks.probe(video))
         except RalphyError as exc:
@@ -346,14 +363,16 @@ def run_one(account: model.Account, row: dict) -> dict:
         if media_errors:
             return fail("; ".join(media_errors) + "; render again and plan the post again")
         with browser.open_profile(profile) as session:
-            return _upload(account, row, entry, platform, recipe, profile, session, video)
+            return _upload(account, row, entry, platform, recipe, profile, session, video, cover)
     except RalphyError as exc:
         if exc.code == "E_PROFILE_BUSY":
             return skip(exc.message)
         raise
     finally:
-        with contextlib.suppress(OSError):
-            video.unlink()
+        for leftover in (video, cover):
+            if leftover is not None:
+                with contextlib.suppress(OSError):
+                    leftover.unlink()
 
 
 def run(post_id: str | None = None, due: bool = False, account: str | None = None) -> dict:

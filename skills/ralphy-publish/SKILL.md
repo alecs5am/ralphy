@@ -51,11 +51,30 @@ ralphy account open film-stories tiktok    # the owner (or you) looks at the log
 A checkpoint, two-factor prompt or captcha is cleared by the owner in `account open`. Close the
 window before another command uses that profile. A profile signed in as someone else: tell the owner.
 
+## Cover
+
+Every post gets a cover: `cover.jpg` (1080x1920) in the video's folder. Look at frames (a contact
+sheet: `ffmpeg -ss <t> -i render.mp4 -frames:v 1 ...` at a few times), pick the one where the hook
+reads at a glance (the title or the subject, sharp, no end-card CTA, no blank frame), and write it:
+
+```bash
+ffmpeg -ss 2.4 -i ~/ralphy/<account>/videos/<nnn>-<slug>/render.mp4 -frames:v 1 -q:v 2 \
+  ~/ralphy/<account>/videos/<nnn>-<slug>/cover.jpg
+```
+
+A designed cover (a frame plus a title) is fine too; keep it 9:16 and keep text inside the middle 4:5,
+which is what profile grids show. `cover.jpg` does not make the render stale. `run` sets it on
+Instagram (Cover photo) and YouTube (thumbnail, where the channel has custom Shorts thumbnails); a
+platform that cannot take it uses a frame and the run prints a `note:`.
+
 ## Caption
 
 Write it after the video is final, in the audience's language, describing what the video shows.
-Per-platform shape, limits and hashtags: `references/captions.md`. Show it to the owner unless they
-gave one.
+The first line is YouTube's title (at most 100 characters, no `<` or `>`) and the hook everywhere
+else; then one or two plain sentences; then 3-5 specific hashtags. Do not promise what the account
+cannot deliver (a "comment X" reward with no one sending it). Per-platform shape, limits and
+hashtags: `references/captions.md`. Show it to the owner unless they gave one. Different captions per
+platform: plan each platform separately with its own `--caption-file`.
 
 ## Plan, approve, run
 
@@ -75,6 +94,16 @@ ralphy post run <post-id>                  # or: ralphy post run --due
 - A row with the same content, platform and handle that is approved, uploading, published or unknown
   blocks a new one. `--again` overrides, only when the owner wants a repost.
 - `ralphy post cancel <post-id>` drops a planned or approved row.
+- The whole video is posted: Instagram's crop step is set to Original (it opens on 1:1, which would
+  cut a vertical video to its middle square).
+
+## Schedule
+
+`--at` only records the time. `ralphy post timer on` (macOS) installs a LaunchAgent that runs
+`ralphy post run --due` every 10 minutes, so approved posts go out at their time while the Mac is on;
+`ralphy post timer status` shows it and its log, `off` removes it. Each due post opens its profile's
+Chrome window for the upload. For "N videos, two a day": plan each video with its own `--at` (for
+example 13:00 and 19:00 in the owner's zone), show the list, approve after the go, turn the timer on.
 
 ## States
 
@@ -94,5 +123,7 @@ do not loop.
 
 ## After posting
 
-Stats land in the account's `stats.csv` (empty = unknown). Compare with the reference and the
-account median: `ralphy-trendwatch`, signals to fixes.
+`ralphy stats fetch <account>` reads views, likes, comments and shares (saves on TikTok) from each
+signed-in platform and appends a snapshot per video to the account's `stats.csv` (empty = unknown);
+the panel shows the newest. Fetch a day after posting and again later, not every few minutes. Compare
+with the reference and the account median: `ralphy-trendwatch`, signals to fixes.

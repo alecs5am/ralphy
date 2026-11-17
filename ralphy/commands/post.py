@@ -1,10 +1,13 @@
-"""`ralphy post plan|approve|run|list|cancel|resolve`: posts to the owner's own accounts, one row per post in
+"""`ralphy post plan|approve|run|list|cancel|resolve|timer`: posts to the owner's own accounts, one row per post in
 the target account's posts.csv.
 
 Statuses: planned -> approved -> uploading -> published | unknown | failed | needs_login, or cancelled.
 `plan` never posts. `approve` records the owner's go; `run` posts approved rows from each account's own
 browser profile. `unknown` is written right before the irreversible click and is never retried: check the
 profile, then `resolve --url` or `resolve --failed`.
+
+Scheduled posts (`plan --at`) go out when something runs `post run --due` after their time: `post timer on`
+installs a macOS LaunchAgent that does it every 10 minutes (`off`, `status`).
 
 Approval: there is no `--yes` flag. In Claude Code the PreToolUse hook (hooks/confirm-post.sh) asks the
 owner before every `post approve` and `post run`, showing what will be posted where; in other agents the
@@ -45,6 +48,9 @@ def run_plan(args) -> Output:
     rendered = " (rendered first)" if data["rendered"] else ""
     lines = [f"Planned {len(data['posts'])} post(s) of {data['content']} ({data['render']}{rendered}):"]
     lines += [_line(row) for row in data["posts"]]
+    if data.get("cover"):
+        lines.append(f"Cover: {data['cover']}")
+    lines += [f"Warning: {w}" for w in data.get("warnings") or []]
     ids = " ".join(row["id"] for row in data["posts"])
     lines.append(f"Nothing is posted yet. After the owner's go: ralphy post approve {ids}")
     return Output(data, "\n".join(lines))
@@ -74,6 +80,7 @@ def run_run(args) -> Output:
             continue
         lines.append(f"{result['id']}  {result['status']:<11} {result['account']}:{result['platform']} "
                      f"{result.get('handle') or ''}  {result.get('url') or result.get('error') or ''}")
+        lines += [f"    note: {note}" for note in result.get("notes") or []]
     if data.get("halted"):
         lines.append(f"Stopped: {data['halted']}")
     return Output(data, "\n".join(lines))
@@ -93,6 +100,27 @@ def run_cancel(args) -> Output:
 def run_resolve(args) -> Output:
     data = posts.resolve(args.id, url=args.url, failed=args.failed)
     return Output(data, _line(data["post"]))
+
+
+def run_timer(args) -> Output:
+    from ..post import timer
+
+    if args.action == "on":
+        data = timer.on(args.every)
+    elif args.action == "off":
+        data = timer.off()
+    else:
+        data = timer.status()
+    if not data["installed"]:
+        text = "The posting timer is off." + (" (removed)" if data.get("removed") else "")
+    else:
+        text = (f"The posting timer runs `post run --due` every {data.get('every_minutes')} min "
+                f"({'loaded' if data['loaded'] else 'NOT loaded'}): {data.get('program')}")
+        if not data.get("program_exists"):
+            text += "\n    the launcher is missing; run `ralphy post timer on` again from the current install"
+    if data.get("log_tail"):
+        text += f"\nLog {data['log']}:\n" + "\n".join(f"    {line}" for line in data["log_tail"])
+    return Output(data, text)
 
 
 def register(subparsers) -> None:
@@ -136,3 +164,8 @@ def register(subparsers) -> None:
     group.add_argument("--url", help="the post exists: its https URL (unknown, failed or needs_login -> published)")
     group.add_argument("--failed", action="store_true", help="the post does not exist (unknown -> failed)")
     resolve.set_defaults(handler=run_resolve)
+
+    timer = sub.add_parser("timer", help="macOS: run `post run --due` on a schedule so planned times post")
+    timer.add_argument("action", choices=("on", "off", "status"), nargs="?", default="status")
+    timer.add_argument("--every", type=int, default=10, metavar="MINUTES", help="minutes between runs (default 10)")
+    timer.set_defaults(handler=run_timer)

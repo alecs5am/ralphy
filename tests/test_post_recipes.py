@@ -104,13 +104,35 @@ def test_instagram_upload_submits_once_then_waits_for_the_media_response():
 
     page.click_effects[recipes.IG_PRIMARY_ACTION] = primary_click
     page.texts[recipes.IG_CAPTION] = ""
+    # The crop step opens on 1:1 (a vertical frame overflows the square); Original shrinks it to the whole frame.
+    preview = {"box": {"w": 719, "h": 1280}}
+    page.evaluations[recipes.IG_PREVIEW] = lambda: preview["box"]
+    page.click_effects[recipes.IG_CROP_ORIGINAL] = lambda: preview.update(box={"w": 404, "h": 719})
+    sent = ("upload", recipes.IG_COVER_INPUT, "/tmp/cover.jpg")
+    page.evaluations[recipes.IG_PICTURES] = lambda: ["url(frame)"] + (["url(blob:cover)"] if sent in page.log else [])
     task, submitted = _task(page.log, caption=caption, user="99")
+    task.cover = "/tmp/cover.jpg"
+
     result = recipes.RECIPES["instagram"].upload(page, task)
     assert result == recipes.UploadResult("https://www.instagram.com/reel/REEL1/", "REEL1")
     clicks = [i for i, entry in enumerate(page.log) if entry == ("click", recipes.IG_PRIMARY_ACTION)]
     assert len(clicks) == 3 and submitted == [clicks[-1]]  # on_submit right before the share click
+    original = page.log.index(("click", recipes.IG_CROP_ORIGINAL))
+    assert original < clicks[0]  # Original is chosen on the crop step, before its Next
+    assert clicks[0] < page.log.index(sent) < clicks[1]  # the cover goes in on the edit step
     assert ("fill", recipes.IG_CAPTION, caption) in page.log
-    assert page.listeners["response"] == []
+    assert page.listeners["response"] == [] and task.notes == []
+
+
+def test_instagram_fails_at_the_crop_step_when_original_does_not_show_the_whole_frame(monkeypatch):
+    page = FakePage(FakeContext({"sessionid": "s", "ds_user_id": "99"}), "https://www.instagram.com/")
+    page.counts['a._a6hd[href="#"]'] = 4
+    page.evaluations[recipes.IG_PREVIEW] = {"w": 719, "h": 1280}  # stays on the 1:1 crop
+    monkeypatch.setattr(recipes.time, "monotonic", iter(range(0, 10_000, 5)).__next__)
+    task, submitted = _task(page.log, user="99")
+    with pytest.raises(recipes.StepError) as caught:
+        recipes.RECIPES["instagram"].upload(page, task)
+    assert caught.value.stage == "crop-original" and "1:1" in caught.value.message and submitted == []
 
 
 def test_instagram_upload_refuses_another_signed_in_user_before_anything():

@@ -83,7 +83,8 @@ Every verb takes `--json` and then prints one JSON object; errors are
 | Content | `ralphy content new <account or inbox> "<title>" [--ref <url or path>]`, `list [--account a]`, `show <id>`, `path <id>` |
 | Versions | `ralphy content save <id> [-m "<note>"]`, `ralphy content restore <id> vN` |
 | mp4 | `ralphy render <id>` (renders the working tree, overwrites `render.mp4`) |
-| Posting | `ralphy post plan / approve / run / list / cancel` (see `ralphy-publish`) |
+| Posting | `ralphy post plan / approve / run / list / cancel / timer` (see `ralphy-publish`) |
+| Stats | `ralphy stats fetch <account>`: views, likes, comments, shares into `stats.csv` |
 | Trend base | `ralphy trends --list`, `ralphy trends <niche> --limit 20` |
 | Component library | `ralphy lib search "<query>" [--kind <kind>]`, `ralphy lib get <id>` (see `ralphy-library`) |
 | Bundled tools | `ralphy tool --list`, `ralphy tool <name> [args]` (see `ralphy-media`) |

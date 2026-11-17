@@ -276,6 +276,9 @@ def test_doc_edits_do_not_make_the_render_stale(ralphy_env):
     os.utime(item.render_file, (past, past))
     (item.path / "BRIEF.md").write_text("brief")  # a new doc next to index.html
     (item.path / "LICENSES.txt").write_text("licenses")
+    assert model.cover_file(item.path) is None
+    (item.path / "cover.jpg").write_bytes(b"jpeg")  # the post cover is not part of the composition
+    assert model.cover_file(item.path) == item.path / "cover.jpg"
     assert model.render_state(item)["render_stale"] is False
     (item.path / "index.html").write_text("<!-- edited -->")
     assert model.render_state(item)["render_stale"] is True

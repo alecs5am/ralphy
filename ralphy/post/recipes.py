@@ -22,7 +22,7 @@ import json
 import re
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -65,6 +65,8 @@ class UploadTask:
     caption: str
     expected_user_id: str | None
     on_submit: Callable[[], None]
+    cover: Path | None = None  # a still image the platform shows as the cover; None lets it pick a frame
+    notes: list[str] = field(default_factory=list)  # non-fatal findings for the owner (e.g. cover not set)
 
 
 @dataclass
@@ -182,6 +184,20 @@ IG_MEDIA_INPUT = 'input[type="file"][accept*="video/mp4"]'
 # `_ac76` is the wizard header shared by the crop, edit and caption steps; the primary action has no svg.
 IG_PRIMARY_ACTION = '._ac76 [role="button"]:not(:has(svg))'
 IG_CAPTION = '[contenteditable="true"][role="textbox"][data-lexical-editor="true"]'
+# The crop step opens on 1:1, which would post only the middle square of a vertical video.
+IG_CROP_MENU = '[role="button"]:has(svg[aria-label="Select crop"]), button:has(svg[aria-label="Select crop"])'
+IG_CROP_ORIGINAL = ('[role="button"]:has(svg[aria-label="Photo outline icon"]), '
+                    'button:has(svg[aria-label="Photo outline icon"])')
+IG_COVER_INPUT = 'input[type="file"][accept*="image/"]'
+IG_PREVIEW = """() => { const d = [...document.querySelectorAll('[role=dialog]')].find(x => x.querySelector('._ac76'));
+  const v = d && d.querySelector('video'); if (!v) return null; const r = v.getBoundingClientRect();
+  return { w: r.width, h: r.height }; }"""
+IG_PICTURES = """() => { const d = [...document.querySelectorAll('[role=dialog]')].find(x => x.querySelector('._ac76'));
+  if (!d) return []; const out = [];
+  for (const e of d.querySelectorAll('*')) {
+    const b = getComputedStyle(e).backgroundImage; if (b && b !== 'none') out.push(b); }
+  for (const i of d.querySelectorAll('img')) out.push(i.currentSrc || i.src);
+  return out; }"""
 IG_SIGNED_IN = 'a[href^="/direct/inbox/"]'
 IG_OUTCOMES = ('a[href^="/direct/inbox/"], input[type="password"], a[href^="/accounts/login/"], '
                'a[href^="/accounts/emailsignup/"]')
@@ -247,7 +263,10 @@ class Instagram(Recipe):
         user_id = step("identity", identity)
         step("open-create", lambda: self._open_create(page))
         step("attach-video", lambda: self._attach(page, task.video))
+        step("crop-original", lambda: self._crop_original(page))
         step("crop-next", lambda: self._next(page))
+        if task.cover:
+            step("cover", lambda: self._cover(page, task))
         step("edit-next", lambda: self._next(page))
         step("caption", lambda: self._caption(page, task.caption))
 
@@ -303,6 +322,43 @@ class Instagram(Recipe):
             has=page.locator('img[src^="/images/instagram/clips/reels_nux_icon.png"]'))
         dismiss_optional(intro, intro.locator("._a9-z div > button"))
         wait_count(page, dialog.locator(IG_PRIMARY_ACTION), 1, 60)
+
+    def _crop_original(self, page) -> None:
+        """Pick the Original crop. For a vertical video the preview must shrink from the 1:1 crop (the frame
+        overflows a square) to the whole frame; a square or wide video looks the same either way."""
+        dialog = page.get_by_role("dialog")
+        before = page.evaluate(IG_PREVIEW)
+        menu = dialog.locator(IG_CROP_MENU)
+        menu.first.wait_for(state="visible", timeout=10_000)
+        menu.first.click()
+        option = dialog.locator(IG_CROP_ORIGINAL)
+        option.first.wait_for(state="visible", timeout=10_000)
+        option.first.click()
+        if not before or before["h"] <= before["w"] * 1.05:
+            return
+        deadline = time.monotonic() + 10
+        while True:
+            after = page.evaluate(IG_PREVIEW)
+            if after and after["h"] < before["h"] * 0.9:
+                return
+            if time.monotonic() > deadline:
+                raise RuntimeError("the preview still shows the 1:1 crop after choosing Original")
+            pause(page, 250)
+
+    def _cover(self, page, task: UploadTask) -> None:
+        """Send the cover image to the edit step's "Cover photo"; the preview switches to that image."""
+        dialog = page.get_by_role("dialog")
+        cover_input = dialog.locator(IG_COVER_INPUT)
+        wait_count(page, cover_input, 1)
+        before = set(page.evaluate(IG_PICTURES))
+        cover_input.set_input_files(str(task.cover))
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            if set(page.evaluate(IG_PICTURES)) - before:
+                return
+            pause(page, 500)
+        task.notes.append("Instagram: the cover image was sent, but the edit step showed no new picture; "
+                          "check the Reel's cover")
 
     def _next(self, page) -> None:
         """Crop, then edit: each click must change the wizard heading."""
@@ -438,6 +494,8 @@ class TikTok(Recipe):
                 page.keyboard.insert_text(task.caption)
 
         step("caption", caption)
+        if task.cover:
+            task.notes.append("TikTok: the recipe does not set a cover yet; TikTok uses its default frame")
         post = root.locator(TT_POST).first
         step("wait-processed", lambda: self._wait_enabled(page, post))
         self.require_bound(page, task.expected_user_id)
@@ -473,6 +531,10 @@ class TikTok(Recipe):
 
 YT_LINK = 'a[href*="youtu.be"], a[href*="/shorts/"], a[href*="watch?v="]'
 YT_ID = re.compile(r"(?:youtu\.be/|shorts/|v=)([A-Za-z0-9_-]{6,})")
+YT_THUMB_INPUT = "ytcp-thumbnail-uploader input#file-loader, ytcp-thumbnails-compact-editor-uploader input#file-loader"
+YT_THUMBS = """() => [...document.querySelectorAll(
+  'ytcp-uploads-dialog img, ytcp-video-thumbnail-editor img, ytcp-thumbnail-editor img')]
+  .map(i => i.currentSrc || i.src).filter(Boolean)"""
 
 
 def youtube_id(url: str | None) -> str | None:
@@ -506,6 +568,8 @@ class YouTube(Recipe):
                 page.locator("#description-textarea #textbox").fill(description)
 
         step("title", details)
+        if task.cover:
+            step("cover", lambda: self._cover(page, task))
         step("not-for-kids",
              lambda: page.locator('tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]').click())
 
@@ -544,6 +608,28 @@ class YouTube(Recipe):
         step("confirm-published", confirm)
         video = youtube_id(link)
         return UploadResult(f"https://www.youtube.com/shorts/{video}", video)
+
+    def _cover(self, page, task: UploadTask) -> None:
+        """Upload the cover as the thumbnail. Custom Shorts thumbnails roll out per channel: without the
+        uploader the Short keeps a frame YouTube picks, which is a note, not a failure."""
+        uploader = page.locator(YT_THUMB_INPUT)
+        try:
+            uploader.first.wait_for(state="attached", timeout=20_000)
+        except Exception:  # noqa: BLE001 - no uploader on this channel or this upload
+            task.notes.append("YouTube: this upload offered no thumbnail upload; the Short keeps a frame")
+            return
+        before = set(page.evaluate(YT_THUMBS))
+        uploader.first.set_input_files(str(task.cover))
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            error = page.locator("ytcp-thumbnail-uploader .error, ytcp-thumbnails-compact-editor-uploader .error")
+            if error.count() and error.first.is_visible():
+                task.notes.append(f"YouTube: the thumbnail was rejected: {collapse(error.first.inner_text())}")
+                return
+            if set(page.evaluate(YT_THUMBS)) - before:
+                return
+            pause(page, 500)
+        task.notes.append("YouTube: the thumbnail was sent, but the dialog showed no new picture; check the Short")
 
     def _wait_processed(self, page) -> None:
         deadline = time.monotonic() + 30 * 60

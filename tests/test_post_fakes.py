@@ -135,6 +135,12 @@ class FakePage:
     def remove_locator_handler(self, *_args) -> None:
         pass
 
+    def evaluate(self, expression: str, _arg=None):
+        """`page.evaluate`: scripted by the expression text in `evaluations`; a callable is called each time."""
+        self.log.append(("evaluate", expression[:40]))
+        value = self.evaluations.get(expression)
+        return value() if callable(value) else value
+
     # events
     def on(self, event: str, handler) -> None:
         self.listeners.setdefault(event, []).append(handler)

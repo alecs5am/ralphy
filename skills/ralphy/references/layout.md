@@ -15,6 +15,7 @@ Plain files are the state. Names are lowercase kebab-case.
                                   content references media as media/<file>, migrated content keeps its
                                   own paths (compositions/, assets/, params.js, vendor/)
       render.mp4                  the one working render of the working tree
+      cover.jpg                   the post cover (9:16 still); never makes the render stale
       versions/v1/ v2/ ...        code snapshots: no *.mp4, media/, versions/, render.mp4 or notes.md
       media/                      generated and source media, append-only
       notes.md                    YAML frontmatter + body

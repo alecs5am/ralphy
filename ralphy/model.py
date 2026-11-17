@@ -619,11 +619,23 @@ def _newer(root: Path, after_ns: int, top: bool = True) -> bool:
 
 
 DOC_SUFFIXES = (".md", ".txt")
+# The post cover: a still image next to the composition that platforms show as the video's cover.
+COVER_NAMES = ("cover.jpg", "cover.jpeg", "cover.png")
 
 
 def _is_doc(entry: os.DirEntry) -> bool:
-    """Markdown and text files (briefs, prompts, licenses) never change a render."""
-    return entry.name.lower().endswith(DOC_SUFFIXES) and entry.is_file(follow_symlinks=False)
+    """Markdown and text files (briefs, prompts, licenses) and the post cover never change a render."""
+    name = entry.name.lower()
+    return (name.endswith(DOC_SUFFIXES) or name in COVER_NAMES) and entry.is_file(follow_symlinks=False)
+
+
+def cover_file(folder: Path) -> Path | None:
+    """The video's post cover (`cover.jpg`, `cover.jpeg` or `cover.png` in its folder), or None."""
+    for name in COVER_NAMES:
+        path = folder / name
+        if path.is_file():
+            return path
+    return None
 
 
 def working_tree_stamp(content: Content) -> int:
