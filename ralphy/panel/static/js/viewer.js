@@ -140,7 +140,8 @@
     const scr = el.closest(".v-screen"), s = vw().compare ? null : screenOf();
     const time = () => { sync(el); paintTime(); };
     el.addEventListener("loadedmetadata", time);
-    el.addEventListener("ready", time);
+    /* a live player drops a mute sent before its runtime loads, so say it again once it is ready */
+    el.addEventListener("ready", () => { el.muted = silenced(el); time(); });
     el.addEventListener("timeupdate", time);
     el.addEventListener("play", () => { scr.classList.remove("is-paused"); paintPlay(); });
     el.addEventListener("pause", () => { scr.classList.add("is-paused"); paintPlay(); });
@@ -177,10 +178,8 @@
   }
   function pauseAll() { for (const el of screens) { try { el.pause(); } catch {} } }
   function seekAll(t) { for (const el of screens) { const d = durOf(el); try { el.currentTime = d ? Math.min(t, Math.max(0, d - 0.04)) : t; } catch {} } paintTime(); }
-  function applyMute() {
-    const c = vw().compare;
-    screens.forEach((el) => { const side = el.closest(".v-side")?.dataset.side; el.muted = state.muted === true || (c ? side !== c.heard : false); });
-  }
+  const silenced = (el) => { const c = vw().compare; return state.muted === true || (c ? el.closest(".v-side")?.dataset.side !== c.heard : false); };
+  function applyMute() { screens.forEach((el) => { el.muted = silenced(el); }); }
   function paintTransport() {
     const el = $("#v-transport"); if (!el) return;
     const muted = state.muted === true, c = vw().compare;

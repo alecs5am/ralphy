@@ -159,3 +159,10 @@ def test_the_viewer_keeps_one_live_composition_per_screen():
     static = Path(__file__).resolve().parents[1] / "ralphy" / "panel" / "static" / "js"
     assert "data-live" not in (static / "viewer.js").read_text(encoding="utf-8")
     assert "LIVE_MAX = 3" in (static / "content.js").read_text(encoding="utf-8")
+
+
+def test_a_live_player_hears_its_mute_again_once_ready():
+    """A live player drops a mute sent before its runtime loads; compare played the muted side's audio."""
+    static = Path(__file__).resolve().parents[1] / "ralphy" / "panel" / "static" / "js"
+    viewer = (static / "viewer.js").read_text(encoding="utf-8")
+    assert 'addEventListener("ready", () => { el.muted = silenced(el);' in viewer
