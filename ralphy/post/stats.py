@@ -76,8 +76,8 @@ def youtube_videos(payload) -> list[dict]:
     out = []
     for video in (payload or {}).get("videos") or []:
         vid = video.get("videoId")
-        if not vid:
-            continue
+        if not vid or video.get("draftStatus") not in (None, "", "DRAFT_STATUS_NONE"):
+            continue  # an unfinished upload is a draft, not a post
         metrics = video.get("publicMetrics") or video.get("metrics") or {}
         short = video.get("shorts") is not None or video.get("contentType") == "CREATOR_CONTENT_TYPE_SHORTS"
         out.append({
@@ -220,6 +220,10 @@ def _fetch_one(account: model.Account, entry: dict, posted: dict[tuple[str, str]
         error = browser.goto(page, platform.home)
         state = recipes.Session("unknown", None, error) if error else \
             recipes.safe_session(recipe, session.context, page)
+        deadline = time.monotonic() + 20  # Studio lands on /channel/<id> a moment after the first load
+        while not error and state.state == "unknown" and time.monotonic() < deadline:
+            page.wait_for_timeout(1_000)
+            state = recipes.safe_session(recipe, session.context, page)
         if state.state != "ok":
             return {**summary, "skipped": f"session {state.state}: {state.detail or 'sign in again'}"}
         found = _dedupe(COLLECTORS[platform.name](page, entry["handle"], state.user_id))

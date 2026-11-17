@@ -1,6 +1,6 @@
 [project]
 name = "ralphy"
-version = "0.7.0"
+version = "0.7.1"
 description = "Ralphy: a plugin for coding agents that keeps Content and Accounts on plain files, renders HyperFrames, reads trends and the hosted library."
 license = "Apache-2.0"
 requires-python = ">=3.11"

@@ -30,7 +30,9 @@ def test_youtube_and_tiktok_payloads():
         {"videoId": "abc123XYZ", "shorts": {}, "publicMetrics": {"externalViewCount": "160", "likeCount": "3",
                                                                  "commentCount": "0"}},
         {"videoId": "long0001", "publicMetrics": {"viewCount": "5"}},
+        {"videoId": "draft001", "draftStatus": "DRAFT_STATUS_PUBLIC", "publicMetrics": {}},
     ]})
+    assert len(yt) == 2  # the draft is not a post
     assert yt[0]["url"] == "https://www.youtube.com/shorts/abc123XYZ" and yt[0]["views"] == 160
     assert yt[1]["url"] == "https://www.youtube.com/watch?v=long0001" and yt[1]["likes"] is None
     tt = stats.tiktok_items({"itemList": [
