@@ -15,10 +15,8 @@ from __future__ import annotations
 
 import contextlib
 import json
-import re
 import time
 from collections.abc import Callable
-from urllib.parse import urlparse
 
 from .. import files, model
 from ..errors import RalphyError
@@ -113,17 +111,8 @@ def tiktok_items(payload, handle: str) -> list[dict]:
 
 
 def external_id(platform: str, url: str | None) -> str | None:
-    """The platform's own id in a post URL: the Instagram code, the YouTube video id, the TikTok video id."""
-    path = urlparse(url or "").path
-    if platform == "instagram":
-        match = re.search(r"/(?:reel|reels|p)/([A-Za-z0-9_-]+)", path)
-        return match.group(1) if match else None
-    if platform == "youtube":
-        return recipes.youtube_id(url)
-    if platform == "tiktok":
-        match = re.search(r"/video/(\d+)", path)
-        return match.group(1) if match else None
-    return None
+    """The platform's own id in a post URL (see `platforms.post_id`)."""
+    return platforms.post_id(platform, url)
 
 
 # ---------------------------------------------------------------- collectors (drive the profile's own pages)

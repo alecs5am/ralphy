@@ -42,6 +42,32 @@ def test_accounts(panel):
     assert body["inbox"] == {"videos": 1}
 
 
+def test_posts_carry_their_numbers_and_an_account_owns_what_was_posted_to_it(panel):
+    from ralphy import files, model
+
+    url = "https://www.tiktok.com/@ui/video/7311"
+    bw = model.get_account("brand-worlds")
+    files.write_csv(bw.posts_path, model.POSTS_COLUMNS, [
+        {"id": "p_dddddddd", "content": CONTENT, "platform": "tiktok", "handle": "@bw", "status": "published",
+         "url": url, "posted_at": "2026-11-18T10:00:00Z"}])
+    files.write_csv(bw.stats_path, model.STATS_COLUMNS, [
+        {"fetched_at": "2026-11-18T11:00:00Z", "platform": "tiktok", "url": url, "views": 10, "likes": 1},
+        {"fetched_at": "2026-11-18T12:00:00Z", "platform": "tiktok", "url": url, "views": 25, "likes": 2},
+        {"fetched_at": "2026-11-18T12:00:00Z", "platform": "tiktok", "handle": "@bw",
+         "url": "https://www.tiktok.com/@bw/video/1", "views": 900},  # a video Ralphy did not post
+    ])
+    accounts = {a["slug"]: a for a in panel.get("/api/accounts").json["accounts"]}
+    brand = accounts["brand-worlds"]
+    assert brand["posts"][0]["stats"]["views"] == 25 and brand["posts"][0]["stats"]["likes"] == 2
+    assert brand["totals"]["views"] == 25 and brand["totals"]["posts"] == 1  # only Ralphy's posts count
+    assert brand["videos"] == 1  # the video posted to it, though its folder is empty
+    item = next(c for c in panel.get("/api/content").json["content"] if c["id"] == CONTENT)
+    assert item["post_accounts"] == ["brand-worlds", "ui-effects"] and item["views"] == 25
+    detail = panel.get(f"/api/content/{CONTENT}").json["content"]
+    post = next(p for p in detail["posts"] if p["id"] == "p_dddddddd")
+    assert [h["views"] for h in post["history"]] == [10, 25] and post["account"] == "brand-worlds"
+
+
 def test_account_detail(panel):
     body = panel.get("/api/accounts/ui-effects").json
     assert body["ok"] is True

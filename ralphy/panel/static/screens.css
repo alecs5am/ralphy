@@ -344,3 +344,36 @@ html, body { margin: 0; height: 100%; }
 .sheet-media .ref-screen > .ic-l { position: absolute; }
 .sheet-media .ref-play i .ic { width: 20px; height: 20px; }
 .sheet-media > .sheet-b { padding: 0 0 18px; }
+
+/* ---------- platform marks and numbers ---------- */
+/* a platform is its mark in the text colour; letters only for an unknown platform */
+.plat:has(.brand) { min-width: 0; padding: 0; background: none; color: var(--ink); }
+.plat .brand { width: 14px; height: 14px; }
+.plat-l .brand { width: 20px; height: 20px; }
+.pbadge .plat:has(.brand) { width: 26px; height: 26px; border-radius: 8px; background: var(--bg); }
+.pbadge .plat .brand { width: 14px; height: 14px; }
+.cell > .plat .brand { width: 17px; height: 17px; }
+/* a numeral with its glyph: views, likes, comments, shares, saves */
+.mets { display: inline-flex; align-items: center; gap: 10px; }
+.met { display: inline-flex; align-items: center; gap: 3px; color: var(--ink-2); white-space: nowrap; }
+.met .ic { width: 12px; height: 12px; color: var(--ink-3); }
+.met .ic[viewBox] path[fill="currentColor"] { fill: var(--ink-3); }
+/* a posted video: each platform's mark followed by its views */
+.pp { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; color: var(--ink); font-weight: 500; }
+.pp + .pp { margin-left: 4px; }
+.marks { display: inline-flex; align-items: center; gap: 6px; }
+.sect-x { margin-left: auto; width: 26px; height: 26px; color: var(--ink-2); }
+.sect .n:empty { display: none; }
+
+/* ---------- a published post with its numbers ---------- */
+.pcards { display: grid; gap: 10px; }
+.pcard { border-radius: 14px; background: var(--bg-2); padding: 12px 14px 10px; }
+.pcard-h { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 500; }
+.pcard-h .ibtn { margin-right: -6px; }
+.pnums { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 4px; margin: 12px 0 8px; }
+.pnum { display: grid; gap: 2px; min-width: 0; }
+.pnum b { font: 700 22px/1.1 var(--font); letter-spacing: -.025em; white-space: nowrap; }
+.pnum span { font: 400 12px/1.2 var(--font); color: var(--ink-2); }
+.pcard-f { display: flex; align-items: center; gap: 10px; padding-top: 8px; border-top: .5px solid var(--line-2); }
+.pcard-f .btn { margin-right: -4px; }
+.pcard-f .spark { width: 72px; }

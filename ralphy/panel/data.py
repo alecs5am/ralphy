@@ -16,6 +16,7 @@ from urllib.parse import quote
 from .. import model
 from ..commands.account import account_detail, account_summary
 from ..commands.content import content_detail, content_summary
+from ..post.platforms import post_id
 from .media import Probes, file_url, is_video, poster_url
 
 COLORS = ("d1", "d2", "d3", "d4", "d5")
@@ -54,6 +55,50 @@ def _posts_sorted(posts: list[dict]) -> list[dict]:
     return sorted(posts, key=lambda p: (p.get("scheduled_at") or p.get("posted_at") or "", p.get("id") or ""))
 
 
+# ---------------------------------------------------------------- stats on posts
+
+HISTORY = 30  # snapshots kept per post for the trend line
+
+
+def _stats_index(account: model.Account) -> dict[tuple[str, str], list[dict]]:
+    """Snapshots per (platform, platform post id), oldest first, from the account's stats.csv."""
+    index: dict[tuple[str, str], list[dict]] = {}
+    for row in model.read_stats(account):
+        key = post_id(row.get("platform") or "", row.get("url"))
+        if key:
+            index.setdefault((row["platform"], key), []).append(row)
+    for rows in index.values():
+        rows.sort(key=lambda r: r.get("fetched_at") or "")
+    return index
+
+
+def _with_stats(posts: list[dict], index: dict[tuple[str, str], list[dict]], history: bool = False) -> list[dict]:
+    """Each published post gets `stats` (the newest snapshot's numbers and time) and, with `history`, the
+    views over time."""
+    out = []
+    for post in posts:
+        key = post_id(post.get("platform") or "", post.get("url"))
+        rows = index.get((post.get("platform"), key), []) if key else []
+        post = dict(post)
+        if rows:
+            newest = rows[-1]
+            post["stats"] = {column: newest.get(column) for column in (*model.STATS_NUMBERS, "fetched_at")}
+            if history:
+                post["history"] = [{"at": r.get("fetched_at"), "views": r.get("views")} for r in rows[-HISTORY:]]
+        else:
+            post["stats"] = None
+        out.append(post)
+    return out
+
+
+def _totals(posts: list[dict]) -> dict:
+    measured = [p["stats"] for p in posts if p.get("status") == "published" and p.get("stats")]
+    totals = {column: _sum(measured, column) for column in model.STATS_NUMBERS}
+    totals["at"] = max((m.get("fetched_at") or "" for m in measured), default="") or None
+    totals["posts"] = len(measured)
+    return totals
+
+
 # ---------------------------------------------------------------- accounts
 
 
@@ -62,15 +107,16 @@ def accounts(home: Path) -> dict:
     out = []
     for account in model.list_accounts(home):
         summary = account_summary(account)
-        posts = model.read_posts(account)
-        latest = model.latest_stats(model.read_stats(account))
+        posts = _with_stats(model.read_posts(account), _stats_index(account))
         summary.update(faces[account.slug])
         statuses = Counter(p.get("status") or "unknown" for p in posts)
+        own = {item.id for item in model.list_content(account.slug, home=home)}
+        posted = {p.get("content") for p in posts if p.get("content") and p.get("status") != "cancelled"}
         summary.update({
             "counts": {"videos": summary["videos"], "posts": dict(statuses)},
+            "videos": len(own | posted),  # its own videos and every video posted or planned to it
             "posts": _posts_sorted(posts),
-            "latest_stats": latest,
-            "totals": {column: _sum(latest, column) for column in model.STATS_NUMBERS},
+            "totals": _totals(posts),  # the numbers of the posts Ralphy made, not of the whole profile
         })
         out.append(summary)
     inbox_count = len(model.list_content(model.INBOX, home=home)) if (home / model.INBOX).is_dir() else 0
@@ -109,10 +155,11 @@ def _post_counts(posts: list[dict]) -> dict:
     }
 
 
-def _all_posts(home: Path) -> dict[str, list[dict]]:
+def _all_posts(home: Path, history: bool = False) -> dict[str, list[dict]]:
+    """Every post with its stats, by content id; each row carries its `account`."""
     by_content: dict[str, list[dict]] = {}
     for acct in model.all_accounts_with_inbox(home):
-        for row in model.read_posts(acct):
+        for row in _with_stats(model.read_posts(acct), _stats_index(acct), history):
             if row.get("content"):
                 by_content.setdefault(row["content"], []).append(row)
     return by_content
@@ -135,6 +182,8 @@ def _summary(item: model.Content, data: dict, home: Path, posts: list[dict], pro
         "duration": (probe or {}).get("duration"),
         "audio": (probe or {}).get("audio"),
         "posts": _post_counts(posts),
+        "post_accounts": sorted({p["account"] for p in posts if p.get("account") and p.get("status") != "cancelled"}),
+        "views": _sum([p["stats"] for p in posts if p.get("status") == "published" and p.get("stats")], "views"),
         "color": face.get("color"),
         "account_name": face.get("name"),
     })
@@ -202,7 +251,7 @@ def content(home: Path, probes: Probes, account_slug: str, folder: str) -> dict:
         "drag_path": str(render) if render else str(item.path),
         "live_url": _live_url(item),
         "refs": [_ref(str(r), acct_path, home) for r in (meta.get("refs") or []) if r],
-        "posts": _posts_sorted(detail["posts"]),
+        "posts": _posts_sorted(_all_posts(home, history=True).get(item.id, [])),
         "face": faces.get(item.account),
         "caption": meta.get("caption") or None,
     })

@@ -125,3 +125,17 @@ def bare_handle(handle: str | None) -> str:
 
 def same_handle(a: str | None, b: str | None) -> bool:
     return bare_handle(a).lower() == bare_handle(b).lower()
+
+
+_POST_ID = {
+    "instagram": re.compile(r"/(?:reel|reels|p)/([A-Za-z0-9_-]+)"),
+    "youtube": re.compile(r"(?:youtu\.be/|shorts/|v=)([A-Za-z0-9_-]{6,})"),
+    "tiktok": re.compile(r"/video/(\d+)"),
+}
+
+
+def post_id(platform: str, url: str | None) -> str | None:
+    """The platform's own id in a post URL: the Instagram code, the YouTube video id, the TikTok video id."""
+    pattern = _POST_ID.get(platform)
+    match = pattern.search(url or "") if pattern else None
+    return match.group(1) if match else None

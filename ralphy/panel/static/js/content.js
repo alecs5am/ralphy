@@ -7,7 +7,8 @@
   const POSTS = [["any", "Any"], ["planned", "Planned"], ["published", "Published"], ["none", "Not posted"]];
   const SORTS = [["newest", "Newest"], ["title", "Title"], ["number", "Number"]];
 
-  const inScope = (item) => state.scope === "all" || item.account === state.scope;
+  /* an account's videos: the ones in its folder and every video posted or planned to it */
+  const inScope = (item) => state.scope === "all" || item.account === state.scope || (item.post_accounts || []).includes(state.scope);
   const postMatch = (item) => c.posts === "any" || (c.posts === "planned" ? item.posts.planned > 0
     : c.posts === "published" ? item.posts.published > 0 : !item.posts.planned && !item.posts.published && !item.posts.attention);
   const queryMatch = (item) => { const q = state.query.trim().toLowerCase(); return !q || `${item.title} ${item.id}`.toLowerCase().includes(q); };
@@ -16,18 +17,18 @@
 
   RP.visibleItems = () => {
     const base = (data.content || []).filter((item) => inScope(item) && postMatch(item) && queryMatch(item));
-    const list = c.view === "all" ? base : base.filter((item) => item.state === c.view);
+    const list = c.view === "all" ? base : c.view === "posted" ? base.filter((item) => item.posts.published > 0) : base.filter((item) => item.state === c.view);
     return [...list].sort(SORT[c.sort] ?? byNewest);
   };
   const counts = () => {
     const base = (data.content || []).filter((item) => inScope(item) && postMatch(item) && queryMatch(item));
-    return { all: base.length, ready: base.filter((i) => i.state === "ready").length, work: base.filter((i) => i.state === "work").length };
+    return { all: base.length, ready: base.filter((i) => i.state === "ready").length, work: base.filter((i) => i.state === "work").length, posted: base.filter((i) => i.posts.published > 0).length };
   };
 
   V.content = () => {
     if (!data.content) return data.errors.content ? UI.empty({ iconName: "exclaim", title: "Can't read the library", text: data.errors.content.message }) : '<div class="skeleton grid">' + '<div class="card"><div class="poster"></div></div>'.repeat(10) + "</div>";
     const n = counts(), list = RP.visibleItems();
-    const ctl = `<div class="ctl" id="ctl">${UI.seg({ key: "view", label: "Show", act: "content-view", value: c.view, options: [["all", "All", n.all], ["ready", "Ready", n.ready], ["work", "In work", n.work]] })}
+    const ctl = `<div class="ctl" id="ctl">${UI.seg({ key: "view", label: "Show", act: "content-view", value: c.view, options: [["all", "All", n.all], ["ready", "Ready", n.ready], ["work", "In work", n.work], ...(n.posted ? [["posted", "Posted", n.posted]] : [])] })}
       <div class="ctl-actions">
         <button class="ibtn" data-act="content-filter" aria-haspopup="menu" aria-label="Sort and filter" ${filtered() ? 'aria-pressed="true"' : ""} ${UI.tip("Sort and filter")}>${icon("sliders")}</button>
       </div></div>`;

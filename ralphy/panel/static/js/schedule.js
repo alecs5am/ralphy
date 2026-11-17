@@ -15,6 +15,9 @@
     .filter((p) => p.status !== "cancelled" && (state.scope === "all" || p.account === state.scope))
     .sort((a, b) => String(RP.postWhen(a) || "").localeCompare(String(RP.postWhen(b) || "")));
   const onDay = (list, key) => list.filter((p) => RP.postWhen(p) && keyOf(RP.postWhen(p)) === key);
+  /* one calendar card per video, account and minute: its platforms side by side */
+  const together = (list) => { const out = new Map(); for (const p of list) { const k = `${p.content}|${p.account}|${String(RP.postWhen(p)).slice(0, 16)}`; if (!out.has(k)) out.set(k, []); out.get(k).push(p); } return [...out.values()].map((g) => g.sort(UI.byPlatform)); };
+  const groupStatus = (g) => g.find((p) => RP.ATTENTION.includes(p.status))?.status || (g.every((p) => p.status === "published") ? "published" : g.find((p) => p.status === "planned")?.status || g[0].status);
   const dots = (list) => list.slice(0, 3).map((p) => `<i class="dot ${RP.ATTENTION.includes(p.status) ? "dot-bad" : `dot-${RP.face(p.account).color}`}"></i>`).join("");
 
   const ctl = () => `<div class="ctl" id="ctl">${UI.acctSeg()}<div class="ctl-actions">
@@ -48,8 +51,8 @@
     const dayList = `<div class="cal-narrow"><div class="sect cal-sect">${esc(RP.longDay(fromKey(s.day)))}</div>${day.length ? `<div class="cal-list">${day.map(row).join("")}</div>` : nothing("Nothing on this day")}</div>`;
     const grid = `<div class="wk cal-wide">${days.map((k) => { const d = fromKey(k), on = onDay(list, k); return `<div class="wk-col ${k === now ? "is-today" : ""}">
         <div class="wk-h"><span>${d.toLocaleString("en-GB", { weekday: "short" })}</span><b class="t-num">${d.getDate()}</b></div>
-        ${on.map((p) => { const item = RP.item(p.content); return `<button class="wpost" ${item ? `data-act="open-item" data-id="${esc(item.id)}" data-tab="posts" draggable="true" data-drag-path="${esc(item.drag_path)}" data-drag-label="${esc(item.title)}"` : ""} ${tip(`${item ? UI.shortTitle(item.title) : p.content} · ${UI.post(p.status).label}`)}>
-          ${UI.thumb(item?.poster, "thumb-s")}<span class="wpost-b"><b class="t-num">${RP.time(RP.postWhen(p))}</b><span class="wpost-d">${UI.dot(p.account, false)}${UI.plat(p.platform)}</span><span class="wpost-t ell">${esc(item ? UI.shortTitle(item.title) : p.content)}</span></span>${UI.postGlyph(p.status, "glyph-s")}</button>`; }).join("")}
+        ${together(on).map((g) => { const p = g[0], item = RP.item(p.content), status = groupStatus(g); return `<button class="wpost" ${item ? `data-act="open-item" data-id="${esc(item.id)}" data-tab="posts" draggable="true" data-drag-path="${esc(item.drag_path)}" data-drag-label="${esc(item.title)}"` : ""} ${tip(`${item ? UI.shortTitle(item.title) : p.content} · ${UI.post(status).label}`)}>
+          ${UI.thumb(item?.poster, "thumb-s")}<span class="wpost-b"><b class="t-num">${RP.time(RP.postWhen(p))}</b><span class="wpost-d">${UI.dot(p.account, false)}${g.map((x) => UI.plat(x.platform)).join("")}</span><span class="wpost-t ell">${esc(item ? UI.shortTitle(item.title) : p.content)}</span></span>${UI.postGlyph(status, "glyph-s")}</button>`; }).join("")}
       </div>`; }).join("")}</div>`;
     const empty = !list.length ? `<div class="cal-wide">${nothing("Nothing planned yet")}</div>` : "";
     return head + strip + (alert ? `<div>${alert}</div>` : "") + dayList + grid + empty;

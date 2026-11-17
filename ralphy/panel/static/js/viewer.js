@@ -313,7 +313,12 @@
     posts: () => {
       const d = detail(), posts = d.posts || [];
       const plan = `<button class="cell" data-act="ask" data-text="${esc(`Plan a post of ${d.id}: ralphy post plan ${d.id} --to <account>:<platform> --at <ISO time> --caption "<caption>"`)}">${icon("plus")}<span class="grow">Plan a post</span>${icon("send", "ic-s")}</button>`;
-      return `${posts.length ? `<div class="list">${posts.map((p) => UI.postRow(p, { lead: "avatar", dest: "plat" })).join("")}</div>` : ""}<div class="group ${posts.length ? "mt" : ""}">${plan}</div>`;
+      const many = new Set(posts.map((p) => p.account)).size > 1;
+      const live = posts.filter((p) => p.status === "published").sort(UI.byPlatform);
+      const rest = posts.filter((p) => p.status !== "published" && p.status !== "cancelled");
+      return `${live.length ? `<div class="pcards">${live.map((p) => UI.postCard(p, { account: many })).join("")}</div>` : ""}
+        ${rest.length ? `<div class="sect">Upcoming<span class="n">${rest.length}</span></div><div class="list">${rest.map((p) => UI.postRow(p, { lead: "avatar", dest: "plat" })).join("")}</div>` : ""}
+        <div class="group ${posts.length ? "mt" : ""}">${plan}</div>`;
     },
     info: () => {
       const d = detail(), face = d.face || RP.face(d.account);

@@ -29,8 +29,13 @@
   UI.postBadge = (status) => { const d = UI.post(status); return `<span class="st st-${d.tone}">${d.spin ? '<i class="spin"></i>' : icon(d.icon, "ic-s")}<span>${esc(d.label)}</span></span>`; };
 
   const PLATFORM = { instagram: ["IG", "Instagram"], tiktok: ["TT", "TikTok"], youtube: ["YT", "YouTube"], x: ["X", "X"] };
+  const ORDER = ["instagram", "tiktok", "youtube", "x"];
+  UI.byPlatform = (a, b) => ORDER.indexOf(a.platform) - ORDER.indexOf(b.platform);
   UI.platName = (p) => (PLATFORM[String(p || "").toLowerCase()] ?? [null, p || "Platform"])[1];
-  UI.plat = (p) => { const d = PLATFORM[String(p || "").toLowerCase()] ?? [String(p || "?").slice(0, 2).toUpperCase(), p]; return `<span class="plat" ${tip(d[1])}>${d[0]}</span>`; };
+  UI.plat = (p, cls = "") => {
+    const key = String(p || "").toLowerCase(), d = PLATFORM[key] ?? [String(p || "?").slice(0, 2).toUpperCase(), p];
+    return `<span class="plat plat-${esc(key)} ${cls}" role="img" aria-label="${esc(d[1])}" ${tip(d[1])}>${RP.brand(key) || d[0]}</span>`;
+  };
   UI.dot = (slug, hint = true) => { const f = RP.face(slug); return `<i class="dot dot-${f.color}" ${hint ? tip(f.name) : ""}></i>`; };
   UI.avatar = (slug, cls = "") => { const f = RP.face(slug); return `<span class="avatar ${cls}" style="--c: var(--${f.color})" aria-hidden="true">${esc(f.monogram)}</span>`; };
   UI.handle = (h) => (h ? (String(h).startsWith("@") ? String(h) : `@${h}`) : "");
@@ -75,7 +80,7 @@
       <div class="poster ${item.poster ? "" : "is-empty"}" data-media="${esc(item.media_url || "")}" ${live ? `data-live="${esc(item.live_url)}"` : ""}>
         ${item.poster ? `<img src="${esc(item.poster)}" alt="" loading="lazy" decoding="async">` : UI.placeholder(item)}
         ${UI.cardState(item)}
-        <div class="p-meta">${item.render_stale ? `<span class="p-cap p-stale" aria-hidden="true">${icon("refresh")}</span>` : ""}${caps ? `<span class="p-cap">${caps}</span>` : ""}${item.duration ? `<span class="p-cap p-dur">${RP.dur(item.duration)}</span>` : ""}</div>
+        <div class="p-meta">${item.render_stale ? `<span class="p-cap p-stale" aria-hidden="true">${icon("refresh")}</span>` : ""}${item.views != null ? `<span class="p-cap" ${tip(`${Number(item.views).toLocaleString("en")} views across its posts`)}>${icon("play")}${RP.compact(item.views)}</span>` : caps ? `<span class="p-cap">${caps}</span>` : ""}${item.duration ? `<span class="p-cap p-dur">${RP.dur(item.duration)}</span>` : ""}</div>
       </div>
       <div class="card-t">${esc(UI.shortTitle(item.title))}</div>
     </article>`;
@@ -89,6 +94,36 @@
   /* Titles carry a long tail after a dash ("TYPE CLOCK — minimalist motion component"); a card shows the name. */
   UI.shortTitle = (title) => String(title || "").split(/\s+[—–-]\s+/)[0];
   UI.subtitle = (title) => { const parts = String(title || "").split(/\s+[—–-]\s+/); return parts.length > 1 ? parts.slice(1).join(" — ") : ""; };
+
+  /* ---------- numbers: a glyph and a numeral each; unknown numbers are left out, never shown as zero ---------- */
+  const METRICS = [["views", "play", "views"], ["likes", "heart", "likes"], ["comments", "comment", "comments"], ["shares", "share", "shares"], ["saves", "bookmark", "saves"]];
+  UI.metric = (name, value) => { const m = METRICS.find((x) => x[0] === name); return value == null || !m ? "" : `<span class="met" ${tip(`${Number(value).toLocaleString("en")} ${m[2]}`)}>${icon(m[1], "ic-s")}<span class="t-num">${RP.compact(value)}</span></span>`; };
+  UI.metrics = (stats, names = ["views", "likes", "comments"]) => (stats ? `<span class="mets">${names.map((n) => UI.metric(n, stats[n])).join("")}</span>` : "");
+  /* the views over time as a hairline; needs two snapshots */
+  UI.spark = (history) => {
+    const pts = (history || []).filter((h) => h.views != null);
+    if (pts.length < 2) return "";
+    const max = Math.max(...pts.map((h) => h.views), 1), w = 120, h = 28;
+    const xy = pts.map((p, i) => `${((i / (pts.length - 1)) * w).toFixed(1)},${(h - 2 - (p.views / max) * (h - 4)).toFixed(1)}`).join(" ");
+    return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="Views over time"><polyline points="${xy}"/></svg>`;
+  };
+
+  /* ---------- a published post with its numbers (the viewer's Posts tab) ---------- */
+  UI.postCard = (post, { account = false } = {}) => {
+    const s = post.stats, when = RP.postWhen(post);
+    const big = (name, label) => `<div class="pnum"><b class="t-num">${s?.[name] == null ? "–" : RP.compact(s[name])}</b><span>${label}</span></div>`;
+    const known = s ? ["shares", "saves"].filter((n) => s[n] != null) : [];
+    const update = `ralphy stats fetch ${post.account} --platform ${post.platform}`;
+    return `<div class="pcard">
+      <div class="pcard-h">${UI.plat(post.platform, "plat-l")}
+        <div class="grow"><div class="ell">${esc(UI.handle(post.handle) || UI.platName(post.platform))}</div>
+          <div class="t-foot ell">${account ? `${esc(RP.face(post.account).name)} · ` : ""}${when ? esc(RP.stamp(when)) : ""}</div></div>
+        ${post.url ? `<a class="ibtn" href="${esc(post.url)}" target="_blank" rel="noopener" aria-label="Open the post" ${tip(`Open on ${UI.platName(post.platform)}`)}>${icon("ext")}</a>` : ""}</div>
+      <div class="pnums">${big("views", "views")}${big("likes", "likes")}${big("comments", "comments")}${known.map((n) => big(n, n)).join("")}</div>
+      <div class="pcard-f">${UI.spark(post.history)}<span class="t-foot grow">${s?.fetched_at ? `Updated ${esc(RP.ago(s.fetched_at))}` : "No numbers yet"}</span>
+        <button class="btn btn-sm" data-act="ask" data-text="${esc(update)}" ${tip("Copies the command for the agent")}>${icon("refresh", "ic-s")}Update</button></div>
+    </div>`;
+  };
 
   /* ---------- a post as a row ---------- */
   /* options: `when` shows the date and time, `lead` is the video thumb or the account face, `dest` drops the
@@ -107,7 +142,7 @@
     return `<div class="lrow prow" ${item ? `role="button" tabindex="0" data-act="open-item" data-id="${esc(item.id)}" data-tab="posts" draggable="true" data-drag-path="${esc(item.drag_path)}" data-drag-label="${esc(title)}"` : ""}>
       ${lead === "avatar" ? UI.avatar(post.account, "avatar-s") : UI.thumb(item?.poster)}
       <div class="lrow-b">${showTitle ? `<div class="lrow-t ell">${head}</div>` : ""}
-        <div class="lrow-m">${where}${when && showWhen ? `<span class="t-num nowrap">${esc(RP.stamp(when))}</span>` : ""}${post.views != null ? `<span class="nowrap">${RP.compact(post.views)} views</span>` : ""}</div>
+        <div class="lrow-m">${where}${when && showWhen ? `<span class="t-num nowrap">${esc(RP.stamp(when))}</span>` : ""}${post.status === "published" ? UI.metric("views", post.stats?.views) : ""}</div>
         ${post.error && RP.ATTENTION.includes(post.status) ? `<div class="prow-e ell" ${tip(post.error)}>${esc(post.error)}</div>` : ""}</div>
       <div class="prow-x">${trail}</div>
     </div>`;
