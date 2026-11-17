@@ -209,7 +209,9 @@
 
   /* ---------- head: title, the source strip, facts and the one action ---------- */
   const isOn = (key) => { const v = vw(); return v.compare ? v.compare.a === key || v.compare.b === key : v.on.kind === "src" && v.on.key === key; };
-  /* the strip is rebuilt only when its sources change, so the live thumbs keep their frames while the selection moves */
+  /* the strip is rebuilt only when its sources change. Its tiles are static on purpose: a live player per
+     version loads the whole composition with its media, and a long history (40+ versions of a film edit)
+     crashed the tab. Only the stage plays a composition (two in compare). */
   function paintHead() {
     const d = detail(), el = $("#v-head"); if (!el) return;
     const list = sources(d), compare = Boolean(vw().compare);
@@ -217,13 +219,12 @@
     if (el.dataset.sig !== sig) {
       const strip = list.length > 1 ? `<div class="v-vers" role="listbox" aria-label="Render, current code and versions">
           ${list.map((s) => `<button class="vthumb ${s.kind === "video" ? "" : "is-work"}" role="option" aria-selected="false" data-act="viewer-source" data-k="${esc(s.key)}" draggable="true" data-drag-path="${esc(s.path || d.path)}" data-drag-label="${esc(`${d.title} ${s.label}`)}" ${tip(thumbTip(s))}>
-            <span class="thumb" ${s.kind === "player" && s.src ? `data-live="${esc(s.src)}"` : ""}>${s.kind === "video" && s.poster ? `<img src="${esc(s.poster)}" alt="" loading="lazy">` : icon(s.key === "current" ? "pulse" : "stack")}${s.stale ? `<span class="glyph glyph-s g-soft">${icon("refresh")}</span>` : ""}</span><span>${esc(s.label)}</span></button>`).join("")}</div>` : "";
+            <span class="thumb">${s.kind === "video" && s.poster ? `<img src="${esc(s.poster)}" alt="" loading="lazy">` : icon(s.key === "current" ? "pulse" : "stack")}${s.stale ? `<span class="glyph glyph-s g-soft">${icon("refresh")}</span>` : ""}</span><span>${esc(s.label)}</span></button>`).join("")}</div>` : "";
       el.innerHTML = `<h1 class="v-title">${esc(UI.shortTitle(d.title))}</h1>
         ${UI.subtitle(d.title) ? `<div class="v-sub"><span class="ell">${esc(UI.subtitle(d.title))}</span></div>` : ""}
         ${strip}
         <div class="v-facts"></div>`;
       el.dataset.sig = sig;
-      RP.mountLive?.("#v-head", el.querySelector(".v-vers"));
     }
     el.querySelector(".v-vers")?.setAttribute("aria-multiselectable", String(compare));
     el.querySelectorAll(".vthumb").forEach((b) => b.setAttribute("aria-selected", String(isOn(b.dataset.k))));
@@ -263,7 +264,6 @@
   function paintBody() {
     const el = $("#v-body"); if (!el) return;
     el.innerHTML = BODY[vw().tab]?.() ?? "";
-    RP.mountLive?.("#v-body");
   }
   /* notes without the title line and without the headings nobody filled in yet (a new video's Brief, Reference, Decisions) */
   const level = (line) => (/^(#{1,6})\s/.exec(line) || [])[1]?.length || 0;
@@ -292,7 +292,7 @@
         const trail = s.version ? `<button class="btn btn-sm" data-act="ask" data-text="${esc(`ralphy content restore ${d.id} ${s.key}`)}" ${tip("Copies the restore command for the agent")}>Restore</button>`
           : s.key === "render" && s.stale ? `<button class="btn btn-sm" data-act="ask" data-text="${esc(`ralphy render ${d.id}`)}" ${tip("Copies the render command for the agent")}>Render</button>` : "";
         return `<div class="lrow ${isOn(s.key) ? "is-on" : ""}" role="button" tabindex="0" data-act="viewer-source" data-k="${esc(s.key)}" draggable="true" data-drag-path="${esc(s.path || d.path)}" data-drag-label="${esc(`${d.title} ${s.label}`)}">
-          ${s.kind === "player" && s.src ? `<span class="thumb" data-live="${esc(s.src)}">${icon(s.key === "current" ? "pulse" : "stack")}</span>` : UI.thumb(s.poster, "", "film")}
+          ${s.kind === "player" ? `<span class="thumb">${icon(s.key === "current" ? "pulse" : "stack")}</span>` : UI.thumb(s.poster, "", "film")}
           <div class="lrow-b"><div class="lrow-t ell">${esc(s.label)}</div><div class="lrow-m"><span class="ell">${esc(meta.filter(Boolean).join(" · "))}</span></div></div>
           ${trail}</div>`;
       }).join("")}</div>`;
@@ -347,8 +347,6 @@
     const src = detail()?.live_url; if (!src) return;
     const fresh = `${src}?r=${Date.now()}`;
     for (const el of screens) if (el.tagName !== "VIDEO" && srcOf(el).startsWith(src)) el.setAttribute("src", fresh);
-    const thumb = $('#v-head .vthumb[data-k="current"] hyperframes-player');
-    if (thumb) { thumb.parentElement.classList.remove("has-live"); thumb.parentElement.dataset.live = fresh; thumb.remove(); RP.mountLive?.("#v-head", $("#v-head .v-vers")); }
   };
 
   /* ---------- actions ---------- */

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 from test_panel_support import start_panel
@@ -150,3 +151,11 @@ def test_parse_range_units():
     assert media.parse_range("bytes=0-0", 0) is False
     assert media.parse_range("garbage", 10) is None
     assert media.parse_range("bytes=0-1,4-5", 10) == (0, 1)
+
+
+def test_the_viewer_keeps_one_live_composition_per_screen():
+    """Version tiles and rows stay static: a live player per version loaded every version's media and a 43-version
+    film edit crashed the tab. Only the stage plays compositions; the grid caps its live frames."""
+    static = Path(__file__).resolve().parents[1] / "ralphy" / "panel" / "static" / "js"
+    assert "data-live" not in (static / "viewer.js").read_text(encoding="utf-8")
+    assert "LIVE_MAX = 3" in (static / "content.js").read_text(encoding="utf-8")

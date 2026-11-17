@@ -101,8 +101,13 @@
 
   /* ---------- live first frame: a poster or thumb with data-live shows that composition, paused near 1 s, while on screen ---------- */
   const watchers = new Map();
+  /* every live frame is a whole composition with its media: keep only a few at once, the rest wait their turn */
+  const LIVE_MAX = 3;
+  const live = new Set(), waiting = new Set();
   const attach = (box) => {
     if (box.querySelector("hyperframes-player")) return;
+    if (live.size >= LIVE_MAX) { waiting.add(box); return; }
+    live.add(box);
     const player = document.createElement("hyperframes-player");
     player.className = "p-live"; player.setAttribute("muted", ""); player.setAttribute("aria-hidden", "true");
     player.addEventListener("ready", () => {
@@ -114,10 +119,17 @@
     player.setAttribute("src", box.dataset.live);
     box.prepend(player);
   };
-  const detach = (box) => { box.querySelector("hyperframes-player")?.remove(); box.classList.remove("has-live"); };
+  const detach = (box) => {
+    waiting.delete(box);
+    if (!live.delete(box)) return;
+    box.querySelector("hyperframes-player")?.remove(); box.classList.remove("has-live");
+    const next = [...waiting].find((b) => b.isConnected); waiting.delete(next);
+    if (next) attach(next);
+  };
   /* scope: the selector whose [data-live] boxes to watch; root: the scrolling element they sit in (null = the window) */
   RP.mountLive = (scope = "#main", root = null) => {
     watchers.get(scope)?.disconnect(); watchers.delete(scope);
+    for (const box of [...live, ...waiting]) if (!box.isConnected) { live.delete(box); waiting.delete(box); }
     const boxes = document.querySelectorAll(`${scope} [data-live]`);
     if (!boxes.length || !window.IntersectionObserver) return;
     const seen = new IntersectionObserver((entries) => entries.forEach((e) => (e.isIntersecting ? attach(e.target) : detach(e.target))),
