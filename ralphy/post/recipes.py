@@ -10,8 +10,8 @@ Success is the platform's own evidence, never a toast:
 - Instagram: the final `/api/v1/media/configure` response for the bound user with this caption.
 - TikTok: the redirect to the content page, then exactly one new video with this caption on the bound
   profile, created after the click (TikTok video ids carry their creation time).
-- YouTube: the upload dialog's own video link before Done, then the "Video published" dialog showing
-  the same video id.
+- YouTube: the upload dialog's own video link before Done, then the share dialog that opens after Publish
+  showing the same video id (its wording follows the account's language).
 - X: no scripted upload; the owner posts by hand and records the URL with `post resolve`.
 """
 
@@ -531,10 +531,19 @@ class TikTok(Recipe):
 
 YT_LINK = 'a[href*="youtu.be"], a[href*="/shorts/"], a[href*="watch?v="]'
 YT_ID = re.compile(r"(?:youtu\.be/|shorts/|v=)([A-Za-z0-9_-]{6,})")
-YT_THUMB_INPUT = "ytcp-thumbnail-uploader input#file-loader, ytcp-thumbnails-compact-editor-uploader input#file-loader"
-YT_THUMBS = """() => [...document.querySelectorAll(
-  'ytcp-uploads-dialog img, ytcp-video-thumbnail-editor img, ytcp-thumbnail-editor img')]
+# Studio speaks the account's language. Known phrases (English, Russian) settle the progress label at once; in
+# any other language the upload is ready when Publish is enabled and the label shows no percentage.
+YT_READY = re.compile(r"checks complete|processing complete|upload complete|finished processing|"
+                      r"проверка завершена|обработка завершена|загрузка завершена", re.I)
+YT_BROKEN = re.compile(r"abandoned|failed|error|ошибка|не удалось|прервана|отменена", re.I)
+YT_PERCENT = re.compile(r"\d\s*%")
+YT_THUMBS = """() => [...document.querySelectorAll('ytcp-video-thumbnail-editor img, ytcp-thumbnail-editor img')]
   .map(i => i.currentSrc || i.src).filter(Boolean)"""
+YT_THUMB_SELECT = "ytcp-thumbnail-uploader #select-button"
+YT_OPEN_DIALOGS = """() => [...document.querySelectorAll('tp-yt-paper-dialog[opened], [role=dialog]')]
+  .filter(d => d.offsetParent !== null).map(d => (d.innerText || '').trim()).filter(t => t.length > 20)"""
+YT_SAVE = "ytcp-button#save"
+YT_NOT_DRAFT = (None, "", "DRAFT_STATUS_NONE")
 
 
 def youtube_id(url: str | None) -> str | None:
@@ -568,8 +577,6 @@ class YouTube(Recipe):
                 page.locator("#description-textarea #textbox").fill(description)
 
         step("title", details)
-        if task.cover:
-            step("cover", lambda: self._cover(page, task))
         step("not-for-kids",
              lambda: page.locator('tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]').click())
 
@@ -596,51 +603,130 @@ class YouTube(Recipe):
         task.on_submit()
         step("done-click", lambda: page.locator("#done-button").click())
 
+        video = youtube_id(link)
+
         def confirm() -> None:
+            # The share dialog that may open after Publish carries the video's link; a Short often gets no dialog,
+            # so without it the proof is Studio's own list: this video, public, not a draft. Its wording follows
+            # the account's language, so no text is read.
             dialog = page.locator("ytcp-video-share-dialog")
-            dialog.wait_for(state="visible", timeout=120_000)
-            if not re.search(r"video published", dialog.inner_text(), re.I):
-                raise RuntimeError('YouTube did not confirm "Video published"')
+            try:
+                dialog.wait_for(state="visible", timeout=45_000)
+            except Exception:  # noqa: BLE001 - no dialog: ask Studio
+                row = self._studio_row(page, task.expected_user_id, video)
+                if row is None:
+                    raise RuntimeError("Studio does not list the video after Publish") from None
+                if row.get("privacy") != "VIDEO_PRIVACY_PUBLIC" or row.get("draftStatus") not in YT_NOT_DRAFT:
+                    raise RuntimeError(f"Studio lists the video as {row.get('privacy')}, "
+                                       f"{row.get('draftStatus')}") from None
+                return
             confirmed = dialog.locator(YT_LINK).first.get_attribute("href")
-            if youtube_id(confirmed) != youtube_id(link):
+            if youtube_id(confirmed) != video:
                 raise RuntimeError("the published dialog shows another video's link")
 
         step("confirm-published", confirm)
-        video = youtube_id(link)
+        if task.cover:
+            self._cover(page, video, task)
         return UploadResult(f"https://www.youtube.com/shorts/{video}", video)
 
-    def _cover(self, page, task: UploadTask) -> None:
-        """Upload the cover as the thumbnail. Custom Shorts thumbnails roll out per channel: without the
-        uploader the Short keeps a frame YouTube picks, which is a note, not a failure."""
-        uploader = page.locator(YT_THUMB_INPUT)
+    def _studio_row(self, page, channel_id: str | None, video_id: str) -> dict | None:
+        """The video's entry in Studio's content list, from the data the page loads."""
+        if not channel_id:
+            return None
+        rows: list[dict] = []
+
+        def on_response(response) -> None:
+            with contextlib.suppress(Exception):
+                if "list_creator_videos" in response.url:
+                    rows.extend(json.loads(response.text()).get("videos") or [])
+
+        page.on("response", on_response)
         try:
-            uploader.first.wait_for(state="attached", timeout=20_000)
-        except Exception:  # noqa: BLE001 - no uploader on this channel or this upload
-            task.notes.append("YouTube: this upload offered no thumbnail upload; the Short keeps a frame")
-            return
-        before = set(page.evaluate(YT_THUMBS))
-        uploader.first.set_input_files(str(task.cover))
-        deadline = time.monotonic() + 30
-        while time.monotonic() < deadline:
-            error = page.locator("ytcp-thumbnail-uploader .error, ytcp-thumbnails-compact-editor-uploader .error")
-            if error.count() and error.first.is_visible():
-                task.notes.append(f"YouTube: the thumbnail was rejected: {collapse(error.first.inner_text())}")
+            deadline = time.monotonic() + 90
+            while time.monotonic() < deadline:
+                rows.clear()
+                page.goto(f"https://studio.youtube.com/channel/{channel_id}/videos/short",
+                          wait_until="domcontentloaded", timeout=90_000)
+                for _ in range(30):
+                    found = next((r for r in rows if r.get("videoId") == video_id), None)
+                    if found:
+                        return found
+                    pause(page, 500)
+            return None
+        finally:
+            with contextlib.suppress(Exception):
+                page.remove_listener("response", on_response)
+
+    def _cover(self, page, video_id: str, task: UploadTask) -> None:
+        """Set the cover as the published Short's thumbnail on its Studio edit page, then Save. The post already
+        exists, so nothing here raises: a cover that does not stick is a note for the owner."""
+        tab = None
+        try:
+            # A fresh tab: from the content list, Studio's router sends a same-tab navigation back to the list.
+            tab = page.context.new_page()
+            tab.set_default_timeout(30_000)
+            page = tab
+            page.goto(f"https://studio.youtube.com/video/{video_id}/edit", wait_until="domcontentloaded",
+                      timeout=90_000)
+            select = page.locator(YT_THUMB_SELECT).first
+            try:
+                select.wait_for(state="attached", timeout=60_000)
+            except Exception:  # noqa: BLE001 - custom Shorts thumbnails roll out per channel
+                task.notes.append("YouTube: Studio offers no thumbnail upload for this Short; it keeps a frame")
                 return
-            if set(page.evaluate(YT_THUMBS)) - before:
+            before = set(page.evaluate(YT_THUMBS))
+            try:
+                with page.expect_file_chooser(timeout=10_000) as chooser:
+                    select.click()
+            except Exception:  # noqa: BLE001 - Studio answered with a dialog instead (phone verification)
+                said = page.evaluate(YT_OPEN_DIALOGS)
+                task.notes.append("YouTube: the Short is published with a frame as its cover; Studio did not take a "
+                                  "custom thumbnail" + (f" and said: {collapse(said[-1])[:200]}" if said else "")
+                                  + ". Custom thumbnails need a phone-verified channel: "
+                                  "https://www.youtube.com/verify")
                 return
-            pause(page, 500)
-        task.notes.append("YouTube: the thumbnail was sent, but the dialog showed no new picture; check the Short")
+            chooser.value.set_files(str(task.cover))
+            deadline = time.monotonic() + 30
+            while not set(page.evaluate(YT_THUMBS)) - before:
+                if time.monotonic() > deadline:
+                    raise RuntimeError("the thumbnail editor showed no new picture")
+                pause(page, 500)
+            save = page.locator(YT_SAVE).first
+            deadline = time.monotonic() + 30
+            while attribute(save, "aria-disabled") == "true" or attribute(save, "disabled") is not None:
+                if time.monotonic() > deadline:
+                    raise RuntimeError("Save stayed disabled after the upload")
+                pause(page, 500)
+            save.click()
+            deadline = time.monotonic() + 60
+            while attribute(save, "aria-disabled") != "true" and attribute(save, "disabled") is None:
+                if time.monotonic() > deadline:
+                    raise RuntimeError("Save did not finish within 60 s")
+                pause(page, 500)
+        except Exception as exc:  # noqa: BLE001 - the Short is published either way
+            task.notes.append(f"YouTube: the Short is published, but the cover was not set ({first_line(exc)}); "
+                              "set it in Studio")
+        finally:
+            if tab is not None:
+                with contextlib.suppress(Exception):
+                    tab.close()
 
     def _wait_processed(self, page) -> None:
         deadline = time.monotonic() + 30 * 60
+        calm = 0  # polls in a row with Publish enabled and no percentage on the label
         while True:
             try:
-                label = page.locator(".progress-label").first.inner_text(timeout=5_000).lower()
+                label = page.locator(".progress-label").first.inner_text(timeout=5_000).strip()
             except Exception:  # noqa: BLE001
                 label = ""
-            if re.search(r"abandoned|failed|error", label):
+            if YT_BROKEN.search(label):
                 raise RuntimeError(f"processing failed: {label}")
-            if re.search(r"checks complete|processing complete|upload complete|finished processing", label):
+            if YT_READY.search(label):
+                return
+            done = page.locator("#done-button").first
+            enabled = attribute(done, "aria-disabled") != "true" and attribute(done, "disabled") is None
+            calm = calm + 1 if label and enabled and not YT_PERCENT.search(label) else 0
+            if calm >= 3:
                 return
             if time.monotonic() > deadline:
                 raise RuntimeError(f"the upload is still processing: {label or 'no progress label'}")

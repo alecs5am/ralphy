@@ -244,6 +244,46 @@ def test_youtube_upload_without_its_own_link_stops_before_done():
     assert caught.value.stage == "video-link" and submitted == [] and ("click", "#done-button") not in page.log
 
 
+def test_youtube_waits_on_the_label_in_the_account_language():
+    for label in ("Проверка завершена. Нарушений не найдено.", "Upload complete ... Processing will begin shortly"):
+        page = _youtube_page("https://youtu.be/abcdef12345")
+        page.texts[".progress-label"] = label
+        page.texts["ytcp-video-share-dialog"] = "Видео опубликовано"
+        task, submitted = _task(page.log, caption="Title", user="UC1")
+        assert recipes.RECIPES["youtube"].upload(page, task).external_id == "abcdef12345"
+    # Another language: Publish enabled and no percentage on the label for three polls in a row.
+    page = _youtube_page("https://youtu.be/abcdef12345")
+    page.texts[".progress-label"] = "Comprobaciones completadas"
+    task, submitted = _task(page.log, caption="Title", user="UC1")
+    assert recipes.RECIPES["youtube"].upload(page, task).external_id == "abcdef12345"
+
+
+def test_youtube_does_not_publish_while_the_label_shows_a_percentage(monkeypatch):
+    page = _youtube_page("https://youtu.be/abcdef12345")
+    page.texts[".progress-label"] = "Subiendo 45 %"
+    monkeypatch.setattr(recipes.time, "monotonic", iter(range(0, 100_000, 120)).__next__)
+    task, submitted = _task(page.log, caption="Title", user="UC1")
+    with pytest.raises(recipes.StepError) as caught:
+        recipes.RECIPES["youtube"].upload(page, task)
+    assert caught.value.stage == "wait-processed" and submitted == []
+
+
+def test_youtube_without_a_share_dialog_confirms_from_studio_list(monkeypatch):
+    rows = {"row": {"videoId": "abcdef12345", "privacy": "VIDEO_PRIVACY_PUBLIC", "draftStatus": "DRAFT_STATUS_NONE"}}
+    monkeypatch.setattr(recipes.YouTube, "_studio_row", lambda self, page, channel, vid: rows["row"])
+    page = _youtube_page("https://youtu.be/abcdef12345")
+    page.missing.add("ytcp-video-share-dialog")  # a Short often gets no share dialog after Publish
+    task, submitted = _task(page.log, caption="Title", user="UC1")
+    assert recipes.RECIPES["youtube"].upload(page, task).external_id == "abcdef12345"
+    rows["row"] = {"videoId": "abcdef12345", "privacy": "VIDEO_PRIVACY_PRIVATE", "draftStatus": "DRAFT_STATUS_PUBLIC"}
+    page = _youtube_page("https://youtu.be/abcdef12345")
+    page.missing.add("ytcp-video-share-dialog")
+    task, submitted = _task(page.log, caption="Title", user="UC1")
+    with pytest.raises(recipes.StepError) as caught:
+        recipes.RECIPES["youtube"].upload(page, task)
+    assert caught.value.stage == "confirm-published" and "PRIVATE" in caught.value.message and len(submitted) == 1
+
+
 def test_youtube_processing_failure_and_x_has_no_upload():
     page = _youtube_page("https://youtu.be/abcdef12345")
     page.texts[".progress-label"] = "Processing abandoned"
