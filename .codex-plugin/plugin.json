@@ -1,0 +1,28 @@
+{
+  "name": "ralphy",
+  "version": "0.6.2",
+  "description": "Ralphy watches trends in your niche, runs a local panel for your content and accounts, and posts to your own accounts through your coding agent.",
+  "author": {
+    "name": "alecs5am",
+    "url": "https://github.com/alecs5am"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Ralphy",
+    "shortDescription": "Trends, content and your own accounts",
+    "longDescription": "Ralphy gives your coding agent a trend base, a local panel with Content and Accounts, and the ability to post to your own accounts. The agent drives the open-source ralphy CLI with your own provider keys.",
+    "developerName": "alecs5am",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/alecs5am/ralphy",
+    "privacyPolicyURL": "https://github.com/alecs5am/ralphy/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/alecs5am/ralphy/blob/main/LICENSE",
+    "defaultPrompt": [
+      "Use Ralphy to find what is trending in my niche this week.",
+      "Use Ralphy to make a short video from a script that works in a trend reference."
+    ],
+    "brandColor": "#111111",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/icon.png"
+  }
+}

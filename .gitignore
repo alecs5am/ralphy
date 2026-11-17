@@ -1,0 +1,27 @@
+# Python (uv project)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Local user data and tool state
+.ralphy/
+.worktrees/
+.firecrawl/
+.superpowers/
+.skill-creator-workspace/
+.claude/scheduled_tasks.lock
+
+# Codex local config may contain MCP credentials and machine-specific state.
+.codex/config.toml
+.codex/*.local.toml
+.codex/logs/
+.codex/sessions/
+
+# Leftovers of the retired TypeScript CLI in older local checkouts
+node_modules/
+dist/
+
+.DS_Store
+.env

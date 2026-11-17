@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/hooks/add-to-path.sh\" \"$CLAUDE_PROJECT_DIR\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/hooks/confirm-post.sh\" \"$CLAUDE_PROJECT_DIR\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

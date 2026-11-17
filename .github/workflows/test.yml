@@ -1,0 +1,66 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    # macOS covers APFS clones (the content store); Linux covers a fresh install.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.11.21"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Lint
+        run: uv run ruff check ralphy tools tests
+
+      # Tests use temporary RALPHY_* folders and never touch the network or a real browser login.
+      - name: Test
+        run: uv run pytest
+
+  plugin-smoke:
+    # No setup-uv: the launcher installs uv itself on first run, as it does for a plugin user.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run the launcher from a fresh clone
+        run: |
+          set -euo pipefail
+          clone="$RUNNER_TEMP/ralphy-clone"
+          git clone --quiet "$GITHUB_WORKSPACE" "$clone"
+          git -C "$clone" checkout --quiet "$GITHUB_SHA"
+          export HOME="$RUNNER_TEMP/home"
+          export RALPHY_HOME="$RUNNER_TEMP/ralphy-home"
+          export RALPHY_CONFIG_DIR="$RUNNER_TEMP/ralphy-config"
+          export RALPHY_CACHE_DIR="$RUNNER_TEMP/ralphy-cache"
+          mkdir -p "$HOME" "$RUNNER_TEMP/outside"
+          cd "$RUNNER_TEMP/outside"
+          "$clone/bin/ralphy" --version
+          test -x "$HOME/.local/bin/uv" || command -v uv
+          # doctor always exits 0; `ready` depends on ffmpeg, so assert the shape, not readiness.
+          "$clone/bin/ralphy" --json doctor > "$RUNNER_TEMP/doctor.json"
+          cat "$RUNNER_TEMP/doctor.json"
+          jq -e '.ok == true and (.version | test("^[0-9]+[.][0-9]+[.][0-9]+$"))' "$RUNNER_TEMP/doctor.json"
+          jq -e --arg root "$clone" '.plugin_root == $root' "$RUNNER_TEMP/doctor.json"
+          jq -e --arg home "$RALPHY_HOME" '.folders[] | select(.name == "home") | .path == $home' "$RUNNER_TEMP/doctor.json"
+          jq -e '.tools[] | select(.name == "python") | .ok == true' "$RUNNER_TEMP/doctor.json"
+          jq -e '.tools[] | select(.name == "uv") | .found == true' "$RUNNER_TEMP/doctor.json"

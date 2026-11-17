@@ -1,0 +1,18 @@
+{
+  "name": "ralphy",
+  "owner": {
+    "name": "alecs5am",
+    "url": "https://github.com/alecs5am"
+  },
+  "metadata": {
+    "description": "Ralphy watches trends in your niche, runs a local panel for your content and accounts, and posts to your own accounts through your coding agent."
+  },
+  "plugins": [
+    {
+      "name": "ralphy",
+      "source": "./",
+      "description": "Ralphy watches trends in your niche, runs a local panel for your content and accounts, and posts to your own accounts through your coding agent.",
+      "category": "productivity"
+    }
+  ]
+}

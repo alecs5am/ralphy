@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Ralphy launcher: runs the Python CLI from source with uv. No compiled binary.
+# Resolves its own checkout through symlinks, finds uv (installing it once when
+# missing), then execs `python -m ralphy` in the project environment, which uv
+# creates and syncs from uv.lock on first use.
+#
+# Env:
+#   RALPHY_NO_AUTO_INSTALL  set to skip the automatic uv install
+set -euo pipefail
+
+SRC="${BASH_SOURCE[0]}"
+while [ -L "$SRC" ]; do
+  DIR="$(cd -P "$(dirname "$SRC")" && pwd)"
+  SRC="$(readlink "$SRC")"
+  [[ "$SRC" != /* ]] && SRC="$DIR/$SRC"
+done
+ROOT="$(cd -P "$(dirname "$SRC")/.." && pwd)"
+
+log() { echo "ralphy: $*" >&2; }
+
+# --- uv --------------------------------------------------------------------
+UV="$(command -v uv 2>/dev/null || true)"
+if [ -z "$UV" ]; then
+  for candidate in "$HOME/.local/bin/uv" "$HOME/.cargo/bin/uv"; do
+    [ -x "$candidate" ] && { UV="$candidate"; break; }
+  done
+fi
+if [ -z "$UV" ] && [ -z "${RALPHY_NO_AUTO_INSTALL:-}" ] && command -v curl >/dev/null 2>&1; then
+  log "uv not found, installing it to ~/.local/bin (one time)"
+  # UV_NO_MODIFY_PATH keeps the installer away from shell profiles; the plugin hook and
+  # this launcher find ~/.local/bin/uv on their own.
+  curl -LsSf --connect-timeout 15 --max-time 120 https://astral.sh/uv/install.sh 2>/dev/null |
+    UV_NO_MODIFY_PATH=1 sh >&2 || true
+  [ -x "$HOME/.local/bin/uv" ] && UV="$HOME/.local/bin/uv"
+fi
+if [ -z "$UV" ]; then
+  log "uv is required: install it from https://docs.astral.sh/uv/ (curl -LsSf https://astral.sh/uv/install.sh | sh) and run again"
+  exit 127
+fi
+
+# The CLI shells out to uv (`ralphy tool`, `ralphy doctor`), so uv must be on PATH for it
+# even when it was found in ~/.local/bin or just installed there.
+UV_DIR="$(dirname "$UV")"
+export PATH="$UV_DIR:$PATH"
+
+# --frozen: never re-lock, so a run cannot rewrite uv.lock. --no-dev: skip the test tools
+# (uv's run sync is inexact, so a developer checkout that already has them keeps them).
+exec "$UV" run --quiet --frozen --no-dev --project "$ROOT" python -m ralphy "$@"
