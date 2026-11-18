@@ -196,6 +196,23 @@
     paintPlay(); paintTime();
   }
   function paintPlay() { const btn = $("#v-playbtn"); if (btn) btn.innerHTML = icon(playing() ? "pause" : "play"); }
+  /* ---------- the retention chart follows the player: its head is now, the readout is the share still watching ---------- */
+  let retCurves = [], retHover = null;
+  function paintRet() {
+    const read = $("#ret-read"); if (!read || !retCurves.length) return;
+    const el = master(), d = durOf(el), now = d ? Math.min(1, (Number(el.currentTime) || 0) / d) : 0, x = retHover ?? now;
+    const head = $("#ret-head"), hover = $("#ret-hover");
+    if (head) head.style.left = `${now * 100}%`;
+    if (hover) { hover.style.left = `${x * 100}%`; hover.hidden = retHover == null; }
+    const vals = retCurves.map((c) => [c.platform, UI.retAt(c.pts, x)]).filter(([, v]) => v != null);
+    read.innerHTML = `${d ? `<span>${RP.tc(x * d)}</span>` : ""}${vals.map(([p, v]) => `<span class="ret-v p-${esc(p)}">${UI.plat(p)}${UI.pct(v)}</span>`).join("")}`;
+  }
+  document.addEventListener("pointermove", (e) => {
+    const plot = e.target.closest?.(".ret-plot");
+    const next = plot ? (() => { const r = plot.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); })() : null;
+    if (next === retHover) return;
+    retHover = next; paintRet();
+  });
   function paintTime() {
     const el = master(); if (!el) return;
     const d = durOf(el), t = Number(el.currentTime) || 0, ratio = d ? Math.min(1, t / d) : 0;
@@ -204,6 +221,7 @@
     const fill = $("#v-fill"), knob = $("#v-knob"), seek = $("#v-seek");
     if (fill) fill.style.width = `${ratio * 100}%`; if (knob) knob.style.left = `${ratio * 100}%`;
     if (seek && document.activeElement !== seek) seek.value = Math.round(ratio * 1000);
+    paintRet();
   }
 
   /* ---------- head: title, the source strip, facts and the one action ---------- */
@@ -262,7 +280,9 @@
   }
   function paintBody() {
     const el = $("#v-body"); if (!el) return;
+    retCurves = [];
     el.innerHTML = BODY[vw().tab]?.() ?? "";
+    paintRet();
   }
   /* notes without the title line and without the headings nobody filled in yet (a new video's Brief, Reference, Decisions) */
   const level = (line) => (/^(#{1,6})\s/.exec(line) || [])[1]?.length || 0;
@@ -316,7 +336,11 @@
       const many = new Set(posts.map((p) => p.account)).size > 1;
       const live = posts.filter((p) => p.status === "published").sort(UI.byPlatform);
       const rest = posts.filter((p) => p.status !== "published" && p.status !== "cancelled");
-      return `${live.length ? `<div class="pcards">${live.map((p) => UI.postCard(p, { account: many })).join("")}</div>` : ""}
+      const curves = live.filter((p) => p.analytics?.retention?.length > 1);
+      retCurves = curves.map((p) => ({ platform: p.platform, pts: p.analytics.retention }));
+      const length = curves.map((p) => p.analytics.duration_s).find(Boolean) || d.duration;
+      return `${curves.length ? UI.retention(curves, length) : ""}
+        ${live.length ? `<div class="pcards">${live.map((p) => UI.postCard(p, { account: many })).join("")}</div>` : ""}
         ${rest.length ? `<div class="sect">Upcoming<span class="n">${rest.length}</span></div><div class="list">${rest.map((p) => UI.postRow(p, { lead: "avatar", dest: "plat" })).join("")}</div>` : ""}
         <div class="group ${posts.length ? "mt" : ""}">${plan}</div>`;
     },
@@ -393,6 +417,10 @@
   A["viewer-play"] = () => { if (!screens.length) return; if (playing()) pauseAll(); else playAll(); };
   A["viewer-mute"] = () => { state.muted = !state.muted; applyMute(); paintTransport(); };
   A["viewer-full"] = () => { const el = vw().compare ? $("#v-frame") : $("#v-screens"); if (document.fullscreenElement) document.exitFullscreen?.(); else el?.requestFullscreen?.().catch(() => {}); };
+  A["viewer-ret"] = (el, e) => {
+    const d = durOf(master()); if (!d || !e) return;
+    const r = el.getBoundingClientRect(); seekAll(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * d);
+  };
   RP.inputs["viewer-seek"] = (el) => { const d = durOf(master()); if (!d) return; seekAll((Number(el.value) / 1000) * d); };
   RP.viewerSeekBy = (dt) => { const m = master(); if (!m) return; const d = durOf(m); seekAll(Math.max(0, Math.min(Math.max(0, d - 0.05), (Number(m.currentTime) || 0) + dt))); };
   A["viewer-menu"] = (el) => {

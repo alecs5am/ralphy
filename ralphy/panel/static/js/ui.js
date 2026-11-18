@@ -108,18 +108,68 @@
     return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="Views over time"><polyline points="${xy}"/></svg>`;
   };
 
+  /* ---------- how a video was watched: retention and the watch numbers ---------- */
+  const pct = (UI.pct = (v) => (v == null ? "–" : `${Math.round(v * 100)}%`));
+  /* the share still watching at position x (0..1 of the length), on the curve's straight segments */
+  UI.retAt = (pts, x) => {
+    if (!pts?.length) return null;
+    if (x <= pts[0][0]) return pts[0][1];
+    for (let i = 1; i < pts.length; i++) {
+      const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+      if (x <= x1) return x1 === x0 ? y1 : y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
+    }
+    return null;
+  };
+  /* one line per platform over the video's timeline; the head and the readout follow the player */
+  UI.retention = (posts, duration) => {
+    const top = Math.max(1, ...posts.flatMap((p) => p.analytics.retention.map((pt) => pt[1])));
+    const W = 300, H = 120, y = (v) => (H - (v / top) * H).toFixed(2);
+    const line = (p) => `<polyline class="ret-l p-${esc(p.platform)}" points="${p.analytics.retention.map(([px, py]) => `${(px * W).toFixed(2)},${y(py)}`).join(" ")}"/>`;
+    const grid = [0.25, 0.5, 0.75, 1].filter((g) => g <= top).map((g) => `<line class="ret-g ${g === 1 ? "is-full" : ""}" x1="0" x2="${W}" y1="${y(g)}" y2="${y(g)}"/>`).join("");
+    return `<div class="ret">
+      <div class="ret-h"><span class="ret-t">Retention</span><span class="ret-read t-num" id="ret-read"></span></div>
+      <div class="ret-plot" data-act="viewer-ret" role="img" aria-label="Share of viewers still watching over the video; click to jump there">
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${grid}${posts.map(line).join("")}</svg>
+        <span class="ret-y" style="top:${(100 - 100 / top).toFixed(2)}%">100%</span>
+        <i class="ret-head" id="ret-head"></i><i class="ret-hover" id="ret-hover"></i></div>
+      <div class="ret-x t-foot t-num"><span>0:00</span><span>${duration ? RP.dur(duration) : ""}</span></div>
+    </div>`;
+  };
+  const SOURCE = { "Personal Profile": "Profile", "For You": "For You", Follow: "Following" };
+  const watchNums = (a) => {
+    if (!a) return "";
+    const cell = (value, label, hint) => `<div class="pnum" ${tip(hint)}><b class="t-num">${value}</b><span>${label}</span></div>`;
+    return [
+      a.avg_watch_s != null ? cell(`${a.avg_watch_s.toFixed(1)}s`, a.avg_watched != null ? `avg view · ${pct(a.avg_watched)}` : "avg view", "Average time watched per view") : "",
+      a.stayed != null ? cell(pct(a.stayed), "stayed", "Shown in the Shorts feed and watched, not swiped away") : "",
+      a.finished != null ? cell(pct(a.finished), "finished", "Views that reached the end") : "",
+      a.new_followers != null ? cell(RP.compact(a.new_followers), "followers", "New followers from this video") : "",
+    ].join("");
+  };
+  const traffic = (a) => {
+    const top = Object.entries(a?.traffic || {}).filter(([, v]) => v >= 0.005).sort((x, y) => y[1] - x[1]).slice(0, 3);
+    return top.length ? `<div class="ptraffic t-foot">${top.map(([k, v]) => `<span>${esc(SOURCE[k] || k)} <b class="t-num">${pct(v)}</b></span>`).join("")}</div>` : "";
+  };
+  const NO_DEEP = {
+    instagram: "Retention needs a professional Instagram account",
+    youtube: "Studio shows retention about a day after posting",
+    tiktok: "Retention comes with the next update",
+  };
+
   /* ---------- a published post with its numbers (the viewer's Posts tab) ---------- */
   UI.postCard = (post, { account = false } = {}) => {
-    const s = post.stats, when = RP.postWhen(post);
+    const s = post.stats, when = RP.postWhen(post), a = post.analytics;
     const big = (name, label) => `<div class="pnum"><b class="t-num">${s?.[name] == null ? "–" : RP.compact(s[name])}</b><span>${label}</span></div>`;
     const known = s ? ["shares", "saves"].filter((n) => s[n] != null) : [];
     const update = `ralphy stats fetch ${post.account} --platform ${post.platform}`;
+    const watch = watchNums(a), why = !watch && s ? NO_DEEP[post.platform] : "";
     return `<div class="pcard">
       <div class="pcard-h">${UI.plat(post.platform, "plat-l")}
         <div class="grow"><div class="ell">${esc(UI.handle(post.handle) || UI.platName(post.platform))}</div>
           <div class="t-foot ell">${account ? `${esc(RP.face(post.account).name)} · ` : ""}${when ? esc(RP.stamp(when)) : ""}</div></div>
         ${post.url ? `<a class="ibtn" href="${esc(post.url)}" target="_blank" rel="noopener" aria-label="Open the post" ${tip(`Open on ${UI.platName(post.platform)}`)}>${icon("ext")}</a>` : ""}</div>
       <div class="pnums">${big("views", "views")}${big("likes", "likes")}${big("comments", "comments")}${known.map((n) => big(n, n)).join("")}</div>
+      ${watch ? `<div class="pnums pnums-w">${watch}</div>` : ""}${traffic(a)}${why ? `<div class="pwhy t-foot">${esc(why)}</div>` : ""}
       <div class="pcard-f">${UI.spark(post.history)}<span class="t-foot grow">${s?.fetched_at ? `Updated ${esc(RP.ago(s.fetched_at))}` : "No numbers yet"}</span>
         <button class="btn btn-sm" data-act="ask" data-text="${esc(update)}" ${tip("Copies the command for the agent")}>${icon("refresh", "ic-s")}Update</button></div>
     </div>`;

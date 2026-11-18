@@ -51,8 +51,9 @@ Folder layout, file formats and write rules: `references/layout.md`. Read it bef
    `ralphy render <id>` overwrites `render.mp4`. Show frames and the path. Go back with
    `ralphy content restore <id> vN`.
 7. **Post.** Plan, get the user's explicit go, run (`ralphy-publish`).
-8. **Learn.** Read `stats.csv` against the reference and the account median; turn signals into one
-   change for the next video (`ralphy-trendwatch/references/signals-to-fixes.md`).
+8. **Learn.** `ralphy stats show <id>`: retention, where viewers left, average view; read it against the
+   account's other videos and the reference; turn it into one change for the next version
+   (`ralphy-trendwatch/references/signals-to-fixes.md`).
 
 ## Which skill
 
@@ -84,7 +85,7 @@ Every verb takes `--json` and then prints one JSON object; errors are
 | Versions | `ralphy content save <id> [-m "<note>"]`, `ralphy content restore <id> vN` |
 | mp4 | `ralphy render <id>` (renders the working tree, overwrites `render.mp4`) |
 | Posting | `ralphy post plan / approve / run / list / cancel / timer` (see `ralphy-publish`) |
-| Stats | `ralphy stats fetch <account>`: views, likes, comments, shares into `stats.csv` |
+| Stats | `ralphy stats fetch <account> [--all]`: numbers into `stats.csv`, retention and watch time into `analytics.jsonl`; `ralphy stats show <id or account>` |
 | Trend base | `ralphy trends --list`, `ralphy trends <niche> --limit 20` |
 | Component library | `ralphy lib search "<query>" [--kind <kind>]`, `ralphy lib get <id>` (see `ralphy-library`) |
 | Bundled tools | `ralphy tool --list`, `ralphy tool <name> [args]` (see `ralphy-media`) |

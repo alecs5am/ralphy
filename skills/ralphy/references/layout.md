@@ -10,6 +10,7 @@ Plain files are the state. Names are lowercase kebab-case.
     account.md                    YAML frontmatter + markdown body (persona, style lock, rules)
     posts.csv                     one row per post
     stats.csv                     stat snapshots fetched from platforms
+    analytics.jsonl               retention and watch time per video, one JSON object per fetch
     videos/<nnn>-<slug>/          one Content item
       index.html ...              the working tree: the HyperFrames composition and its files; new
                                   content references media as media/<file>, migrated content keeps its
@@ -65,7 +66,7 @@ created_at: 2026-11-17T12:00:00Z
 Body: the brief, what was copied from which reference, the KEEP / CHANGE / DO NOT ADD list,
 decisions, generation log (model, prompt file, cost, request id), what each version changed.
 
-## posts.csv and stats.csv
+## posts.csv, stats.csv and analytics.jsonl
 
 `posts.csv`: `id,content,platform,handle,status,scheduled_at,posted_at,url,render,caption,error`.
 `render` is the path of `render.mp4` relative to `~/ralphy`.
@@ -74,6 +75,14 @@ or `cancelled`. Written by `ralphy post`; do not edit it by hand.
 
 `stats.csv`: `fetched_at,platform,handle,url,content,views,likes,comments,shares,saves`. An empty
 cell means unknown, never zero.
+
+`analytics.jsonl`: one JSON object per video per `ralphy stats fetch`, only appended to. Keys:
+`fetched_at, platform, handle, url, content` and, when the platform has them, `duration_s`, `views`,
+`avg_watch_s`, `avg_watched` (0..1 of the length), `finished` (0..1 of views, TikTok), `stayed` (0..1 of
+the Shorts feed viewers who did not swipe away, YouTube), `watch_time_s`, `new_followers`, `retention`
+(`[[position 0..1 of the length, share of viewers]]`; YouTube counts rewatches, so it can start above 1),
+`traffic` and `search_terms` (`{name: share}`). A missing key means unknown. Read it with
+`ralphy stats show <content-id | account>`.
 
 ## Content ids
 

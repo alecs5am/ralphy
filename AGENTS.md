@@ -60,7 +60,7 @@ script-writing, quality-scoring or HyperFrames house-style skills.
   libraries stay in the tools, never in the core.
 - `bin/ralphy` installs uv on first run and execs `uv run --frozen --no-dev python -m ralphy`. Bun or
   Node is only for HyperFrames (`ralphy render`).
-- Version: `0.7.2` in `pyproject.toml`, `ralphy/__init__.py` and both plugin manifests; a test keeps
+- Version: `0.8.0` in `pyproject.toml`, `ralphy/__init__.py` and both plugin manifests; a test keeps
   them equal.
 - Repository files in English.
 

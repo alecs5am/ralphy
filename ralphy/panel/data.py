@@ -16,6 +16,8 @@ from urllib.parse import quote
 from .. import model
 from ..commands.account import account_detail, account_summary
 from ..commands.content import content_detail, content_summary
+from ..post.analytics import FIELDS as ANALYTICS_FIELDS
+from ..post.analytics import newest
 from ..post.platforms import post_id
 from .media import Probes, file_url, is_video, poster_url
 
@@ -72,14 +74,27 @@ def _stats_index(account: model.Account) -> dict[tuple[str, str], list[dict]]:
     return index
 
 
-def _with_stats(posts: list[dict], index: dict[tuple[str, str], list[dict]], history: bool = False) -> list[dict]:
+def _analytics_index(account: model.Account) -> dict[tuple[str, str], dict]:
+    """The newest analytics record per (platform, platform post id), from the account's analytics.jsonl."""
+    index: dict[tuple[str, str], dict] = {}
+    for row in newest(model.read_analytics(account)):
+        key = post_id(str(row.get("platform") or ""), row.get("url"))
+        if key:
+            index[(str(row["platform"]), key)] = {k: row[k] for k in (*ANALYTICS_FIELDS, "fetched_at") if k in row}
+    return index
+
+
+def _with_stats(posts: list[dict], index: dict[tuple[str, str], list[dict]], history: bool = False,
+                deep: dict[tuple[str, str], dict] | None = None) -> list[dict]:
     """Each published post gets `stats` (the newest snapshot's numbers and time) and, with `history`, the
-    views over time."""
+    views over time; with `deep`, its newest `analytics` (retention, average view, finish)."""
     out = []
     for post in posts:
         key = post_id(post.get("platform") or "", post.get("url"))
         rows = index.get((post.get("platform"), key), []) if key else []
         post = dict(post)
+        if deep is not None:
+            post["analytics"] = deep.get((post.get("platform"), key)) if key else None
         if rows:
             newest = rows[-1]
             post["stats"] = {column: newest.get(column) for column in (*model.STATS_NUMBERS, "fetched_at")}
@@ -159,7 +174,8 @@ def _all_posts(home: Path, history: bool = False) -> dict[str, list[dict]]:
     """Every post with its stats, by content id; each row carries its `account`."""
     by_content: dict[str, list[dict]] = {}
     for acct in model.all_accounts_with_inbox(home):
-        for row in _with_stats(model.read_posts(acct), _stats_index(acct), history):
+        deep = _analytics_index(acct) if history else None
+        for row in _with_stats(model.read_posts(acct), _stats_index(acct), history, deep):
             if row.get("content"):
                 by_content.setdefault(row["content"], []).append(row)
     return by_content

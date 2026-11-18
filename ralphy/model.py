@@ -28,6 +28,7 @@ VIDEOS_DIR = "videos"
 REFS_DIR = "refs"
 POSTS_FILE = "posts.csv"
 STATS_FILE = "stats.csv"
+ANALYTICS_FILE = "analytics.jsonl"
 POSTS_COLUMNS = ("id", "content", "platform", "handle", "status", "scheduled_at", "posted_at", "url", "render",
                  "caption", "error")
 STATS_COLUMNS = ("fetched_at", "platform", "handle", "url", "content", "views", "likes", "comments", "shares",
@@ -120,6 +121,10 @@ class Account:
     @property
     def stats_path(self) -> Path:
         return self.path / STATS_FILE
+
+    @property
+    def analytics_path(self) -> Path:
+        return self.path / ANALYTICS_FILE
 
 
 def _load_account(path: Path) -> Account:
@@ -722,6 +727,11 @@ def read_posts(account: Account) -> list[dict]:
 
 def read_stats(account: Account) -> list[dict]:
     return [stats_row(r, account.slug) for r in files.read_csv(account.stats_path)]
+
+
+def read_analytics(account: Account) -> list[dict]:
+    """The account's analytics snapshots (retention and watch time per video), oldest first as written."""
+    return [{**row, "account": account.slug} for row in files.read_jsonl(account.analytics_path)]
 
 
 def latest_stats(rows: list[dict]) -> list[dict]:

@@ -370,10 +370,38 @@ html, body { margin: 0; height: 100%; }
 .pcard { border-radius: 14px; background: var(--bg-2); padding: 12px 14px 10px; }
 .pcard-h { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 500; }
 .pcard-h .ibtn { margin-right: -6px; }
-.pnums { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 4px; margin: 12px 0 8px; }
+.pnums { display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 4px; margin: 12px 0 8px; }
 .pnum { display: grid; gap: 2px; min-width: 0; }
 .pnum b { font: 700 22px/1.1 var(--font); letter-spacing: -.025em; white-space: nowrap; }
 .pnum span { font: 400 12px/1.2 var(--font); color: var(--ink-2); }
 .pcard-f { display: flex; align-items: center; gap: 10px; padding-top: 8px; border-top: .5px solid var(--line-2); }
 .pcard-f .btn { margin-right: -4px; }
 .pcard-f .spark { width: 72px; }
+
+/* ---------- retention: the share of viewers still watching, over the video's timeline ---------- */
+.ret { border-radius: 14px; background: var(--bg-2); padding: 12px 14px 10px; margin-bottom: 10px; }
+.ret-h { display: flex; align-items: center; gap: 10px; min-height: 22px; }
+.ret-t { font-size: 15px; font-weight: 500; }
+.ret-read { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; font-size: 13px; color: var(--ink-2); }
+.ret-v { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); font-weight: 600; }
+.ret-v .plat { width: 14px; height: 14px; }
+.ret-plot { position: relative; height: 120px; margin: 10px 0 4px; cursor: crosshair; touch-action: none; }
+.ret-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ret-g { stroke: var(--line-2); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.ret-g.is-full { stroke-dasharray: 3 3; }
+.ret-l { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.ret-y { position: absolute; right: 0; transform: translateY(-120%); font: 500 10px/1 var(--font); color: var(--ink-3); pointer-events: none; }
+.ret-head, .ret-hover { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1.5px solid var(--ink); pointer-events: none; }
+.ret-head { opacity: .55; }
+.ret-hover { border-left: 1px dashed var(--ink-2); }
+.ret-hover[hidden] { display: none; }
+.ret-x { display: flex; justify-content: space-between; }
+.ret-l.p-tiktok, .ret-v.p-tiktok .plat { stroke: var(--d2); color: var(--d2); }
+.ret-l.p-youtube, .ret-v.p-youtube .plat { stroke: var(--d1); color: var(--d1); }
+.ret-l.p-instagram, .ret-v.p-instagram .plat { stroke: var(--d5); color: var(--d5); }
+.ret-l.p-x, .ret-v.p-x .plat { stroke: var(--ink-2); color: var(--ink-2); }
+.pnums-w { margin-top: 0; padding-top: 10px; border-top: .5px solid var(--line); }
+.pnums-w .pnum b { font-size: 18px; }
+.ptraffic { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: -2px 0 8px; }
+.ptraffic b { color: var(--ink); font-weight: 600; }
+.pwhy { margin: -2px 0 8px; }

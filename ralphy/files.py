@@ -1,8 +1,10 @@
-"""Plain-file primitives: frontmatter markdown, atomic writes, locked CSV tables, and copy-free clones.
+"""Plain-file primitives: frontmatter markdown, atomic writes, locked CSV tables, JSON Lines logs and copy-free
+clones.
 
 Every write is atomic (temp file in the same directory, then `os.replace`). CSV changes run under an
 exclusive `fcntl.flock` on `<file>.lock` and rewrite the whole table atomically, so readers never see a
-half-written row and need no lock. Clones never overwrite: the destination must not exist.
+half-written row and need no lock. A JSON Lines log is only appended to, under the same lock; a reader skips
+a line it cannot parse (a write still in progress). Clones never overwrite: the destination must not exist.
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ import datetime as dt
 import errno
 import fcntl
 import io
+import json
 import os
 import re
 import shutil
@@ -328,6 +331,34 @@ def mutate_csv(path: Path, columns: Iterable[str], change: Callable[[list[dict]]
 def append_csv(path: Path, columns: Iterable[str], row: dict) -> dict:
     mutate_csv(path, columns, lambda rows: rows + [dict(row)])
     return row
+
+
+def read_jsonl(path: Path) -> list[dict]:
+    """Every object in a JSON Lines file, in order; a missing file is empty and an unreadable line is skipped."""
+    out: list[dict] = []
+    try:
+        with open(path, encoding="utf-8") as handle:
+            for line in handle:
+                with contextlib.suppress(ValueError):
+                    item = json.loads(line)
+                    if isinstance(item, dict):
+                        out.append(item)
+    except FileNotFoundError:
+        pass
+    return out
+
+
+def append_jsonl(path: Path, rows: Iterable[dict]) -> None:
+    """Append one compact JSON object per line, under the file's lock."""
+    text = "".join(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n" for row in rows)
+    if not text:
+        return
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with locked(path), open(path, "a", encoding="utf-8") as handle:
+        handle.write(text)
+        handle.flush()
+        os.fsync(handle.fileno())
 
 
 def update_csv(path: Path, columns: Iterable[str], match: Callable[[dict], bool], changes: dict) -> list[dict]:

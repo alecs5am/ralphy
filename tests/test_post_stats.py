@@ -78,5 +78,6 @@ def test_fetch_appends_one_row_per_video_and_marks_our_posts(ralphy_env, monkeyp
     assert [r["url"] for r in rows] == ["https://www.instagram.com/reel/REEL1/", "https://www.instagram.com/reel/OLD/"]
     assert rows[0]["content"] == "me/001-a" and rows[0]["views"] == "12" and rows[0]["likes"] == "1"
     assert rows[1]["content"] == "" and data["results"][0]["ours"] == 1
+    assert data["results"][0]["analytics"] == [] and "professional" in data["results"][0]["analytics_note"]
     stats.fetch("me")
     assert len(files.read_csv(account.stats_path)) == 4  # snapshots append, never rewrite

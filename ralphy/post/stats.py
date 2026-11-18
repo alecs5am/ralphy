@@ -9,18 +9,18 @@ Each platform is read from its account's browser profile, from the data the plat
 
 One run appends one row per video found (a snapshot with `fetched_at`); `content` is filled when the URL is
 one of the account's posts in `posts.csv`. Rows are never rewritten, so the history of a post is its rows.
+In the same browser session the account's posts (every video with `every`) then get their analytics:
+retention and watch time, appended to `analytics.jsonl` (see `analytics.py`).
 """
 
 from __future__ import annotations
 
-import contextlib
-import json
 import time
 from collections.abc import Callable
 
 from .. import files, model
 from ..errors import RalphyError
-from . import browser, platforms, profiles, recipes
+from . import analytics, browser, platforms, profiles, recipes
 
 WAIT_S = 20  # how long a page may take to deliver its first data response
 
@@ -81,6 +81,7 @@ def youtube_videos(payload) -> list[dict]:
         out.append({
             "id": vid,
             "url": f"https://www.youtube.com/shorts/{vid}" if short else f"https://www.youtube.com/watch?v={vid}",
+            "duration_s": _int(video.get("lengthSeconds")),
             "views": _int(metrics.get("externalViewCount") or metrics.get("viewCount")),
             "likes": _int(metrics.get("likeCount")),
             "comments": _int(metrics.get("commentCount")),
@@ -118,36 +119,13 @@ def external_id(platform: str, url: str | None) -> str | None:
 # ---------------------------------------------------------------- collectors (drive the profile's own pages)
 
 
-def _listen(page, want: Callable[[object], bool]) -> tuple[list, Callable[[], None]]:
-    bodies: list = []
-
-    def on_response(response) -> None:
-        with contextlib.suppress(Exception):
-            if want(response):
-                bodies.append(json.loads(response.text()))
-
-    page.on("response", on_response)
-    return bodies, lambda: page.remove_listener("response", on_response)
-
-
-def _settle(page, bodies: list, quiet_ms: int = 3_000) -> None:
-    """Wait for the first data response (up to WAIT_S), then until no new one arrives for `quiet_ms`."""
-    deadline = time.monotonic() + WAIT_S
-    while not bodies and time.monotonic() < deadline:
-        page.wait_for_timeout(500)
-    seen = -1
-    while seen != len(bodies):
-        seen = len(bodies)
-        page.wait_for_timeout(quiet_ms)
-
-
 def collect_instagram(page, handle: str, user_id: str | None) -> list[dict]:
     bare = platforms.bare_handle(handle)
-    bodies, stop = _listen(page, lambda r: r.request.method == "POST" and "graphql" in r.url)
+    bodies, stop = browser.listen(page, lambda r: r.request.method == "POST" and "graphql" in r.url)
     try:
         for tab in ("reels/", ""):
             page.goto(f"https://www.instagram.com/{bare}/{tab}", wait_until="domcontentloaded", timeout=60_000)
-            _settle(page, bodies)
+            browser.settle(page, bodies, WAIT_S)
     finally:
         stop()
     return [m for body in bodies for m in instagram_media(body, user_id)]
@@ -156,22 +134,22 @@ def collect_instagram(page, handle: str, user_id: str | None) -> list[dict]:
 def collect_youtube(page, handle: str, user_id: str | None) -> list[dict]:
     if not user_id:
         raise RuntimeError("the YouTube channel id is unknown; run `ralphy account check` first")
-    bodies, stop = _listen(page, lambda r: "list_creator_videos" in r.url)
+    bodies, stop = browser.listen(page, lambda r: "list_creator_videos" in r.url)
     try:
         for tab in ("short", "upload"):
             page.goto(f"https://studio.youtube.com/channel/{user_id}/videos/{tab}", wait_until="domcontentloaded",
                       timeout=90_000)
-            _settle(page, bodies)
+            browser.settle(page, bodies, WAIT_S)
     finally:
         stop()
     return [v for body in bodies for v in youtube_videos(body)]
 
 
 def collect_tiktok(page, handle: str, user_id: str | None) -> list[dict]:
-    bodies, stop = _listen(page, lambda r: "/api/post/item_list" in r.url)
+    bodies, stop = browser.listen(page, lambda r: "/api/post/item_list" in r.url)
     try:
         page.goto(platforms.PLATFORMS["tiktok"].profile_url(handle), wait_until="domcontentloaded", timeout=60_000)
-        _settle(page, bodies)
+        browser.settle(page, bodies, WAIT_S)
     finally:
         stop()
     return [i for body in bodies for i in tiktok_items(body, handle)]
@@ -194,7 +172,8 @@ def _dedupe(found: list[dict]) -> list[dict]:
     return list(by_id.values())
 
 
-def _fetch_one(account: model.Account, entry: dict, posted: dict[tuple[str, str], str]) -> dict:
+def _fetch_one(account: model.Account, entry: dict, posted: dict[tuple[str, str], str], deep: bool = True,
+               every: bool = False) -> dict:
     platform = platforms.get(str(entry.get("platform") or ""))
     summary = {"platform": platform.name, "handle": entry.get("handle")}
     if platform.name not in COLLECTORS:
@@ -204,6 +183,9 @@ def _fetch_one(account: model.Account, entry: dict, posted: dict[tuple[str, str]
                                       "--handle @<handle>`)"}
     recipe = recipes.RECIPES[platform.name]
     profile = profiles.profile_name(account, entry)
+    deep_found: list[dict] = []
+    deep_errors: list[str] = []
+    stamp = files.utc_now()
     with browser.open_profile(profile) as session:
         page = session.page()
         error = browser.goto(page, platform.home)
@@ -216,18 +198,27 @@ def _fetch_one(account: model.Account, entry: dict, posted: dict[tuple[str, str]
         if state.state != "ok":
             return {**summary, "skipped": f"session {state.state}: {state.detail or 'sign in again'}"}
         found = _dedupe(COLLECTORS[platform.name](page, entry["handle"], state.user_id))
-    stamp = files.utc_now()
-    rows = [{
-        "fetched_at": stamp, "platform": platform.name, "handle": entry["handle"], "url": video["url"],
-        "content": posted.get((platform.name, video["id"]), ""),
-        **{column: video.get(column) for column in model.STATS_NUMBERS},
-    } for video in found]
-    if rows:
-        files.mutate_csv(account.stats_path, model.STATS_COLUMNS, lambda existing: existing + rows)
-    return {**summary, "videos": len(rows), "ours": sum(1 for r in rows if r["content"]), "rows": rows}
+        rows = [{
+            "fetched_at": stamp, "platform": platform.name, "handle": entry["handle"], "url": video["url"],
+            "content": posted.get((platform.name, video["id"]), ""),
+            **{column: video.get(column) for column in model.STATS_NUMBERS},
+        } for video in found]
+        if rows:  # saved before the slower analytics pages, so a closed window keeps the numbers
+            files.mutate_csv(account.stats_path, model.STATS_COLUMNS, lambda existing: existing + rows)
+        if deep:
+            deep_found, deep_errors = analytics.deep_rows(account, platform.name, entry["handle"], page, found,
+                                                          posted, every, stamp)
+    result = {**summary, "videos": len(rows), "ours": sum(1 for r in rows if r["content"]), "rows": rows,
+              "analytics": deep_found}
+    if deep_errors:
+        result["analytics_errors"] = deep_errors
+    if deep and platform.name in analytics.NOT_READ:
+        result["analytics_note"] = analytics.NOT_READ[platform.name]
+    return result
 
 
-def fetch(account_ref: str, platform_name: str | None = None) -> dict:
+def fetch(account_ref: str, platform_name: str | None = None, deep: bool = True, every: bool = False) -> dict:
+    """Numbers for every video and, with `deep`, analytics for the posts (`every`: for every video)."""
     account = profiles.account_for(account_ref)
     targets = [profiles.require(account, platform_name)] if platform_name else profiles.entries(account)
     if not targets:
@@ -244,7 +235,7 @@ def fetch(account_ref: str, platform_name: str | None = None) -> dict:
             results.append({"platform": entry.get("platform"), "handle": entry.get("handle"), "skipped": "paused"})
             continue
         try:
-            results.append(_fetch_one(account, entry, posted))
+            results.append(_fetch_one(account, entry, posted, deep, every))
         except RalphyError as exc:
             if exc.code == "E_DEP_MISSING":
                 raise
@@ -252,4 +243,5 @@ def fetch(account_ref: str, platform_name: str | None = None) -> dict:
         except Exception as exc:  # noqa: BLE001 - one broken platform must not hide the others
             results.append({"platform": entry.get("platform"), "handle": entry.get("handle"),
                             "error": browser.first_line(exc)})
-    return {"account": account.slug, "stats": str(account.stats_path), "results": results}
+    return {"account": account.slug, "stats": str(account.stats_path), "analytics": str(account.analytics_path),
+            "results": results}

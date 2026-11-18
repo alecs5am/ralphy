@@ -66,6 +66,18 @@ def test_posts_carry_their_numbers_and_an_account_owns_what_was_posted_to_it(pan
     detail = panel.get(f"/api/content/{CONTENT}").json["content"]
     post = next(p for p in detail["posts"] if p["id"] == "p_dddddddd")
     assert [h["views"] for h in post["history"]] == [10, 25] and post["account"] == "brand-worlds"
+    assert post["analytics"] is None  # not read yet
+
+    files.append_jsonl(bw.analytics_path, [
+        {"fetched_at": "2026-11-18T12:00:00Z", "platform": "tiktok", "url": url, "content": CONTENT,
+         "duration_s": 10, "avg_watch_s": 3.5, "retention": [[0, 1.0], [1.0, 0.2]]},
+        {"fetched_at": "2026-11-18T13:00:00Z", "platform": "tiktok", "url": url, "content": CONTENT,
+         "duration_s": 10, "avg_watch_s": 4.0, "retention": [[0, 1.0], [1.0, 0.3]]}])
+    detail = panel.get(f"/api/content/{CONTENT}").json["content"]
+    post = next(p for p in detail["posts"] if p["id"] == "p_dddddddd")
+    assert post["analytics"]["avg_watch_s"] == 4.0 and post["analytics"]["retention"][-1] == [1.0, 0.3]
+    listed = {a["slug"]: a for a in panel.get("/api/accounts").json["accounts"]}["brand-worlds"]
+    assert "analytics" not in listed["posts"][0]  # curves only travel with the one video's detail
 
 
 def test_account_detail(panel):

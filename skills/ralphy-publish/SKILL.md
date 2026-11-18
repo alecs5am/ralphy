@@ -124,6 +124,21 @@ do not loop.
 ## After posting
 
 `ralphy stats fetch <account>` reads views, likes, comments and shares (saves on TikTok) from each
-signed-in platform and appends a snapshot per video to the account's `stats.csv` (empty = unknown);
-the panel shows the newest. Fetch a day after posting and again later, not every few minutes. Compare
-with the reference and the account median: `ralphy-trendwatch`, signals to fixes.
+signed-in platform and appends a snapshot per video to the account's `stats.csv` (empty = unknown).
+In the same run it opens each post's analytics page (YouTube Studio, TikTok Studio) and appends the
+retention curve, average view, finished share (TikTok) or stayed-to-watch share (YouTube Shorts) and
+traffic sources to `analytics.jsonl`. `--all` also reads the account's other videos, which gives the
+baseline to compare with. Instagram has no reel insights for a personal account: say so, and that
+switching to a professional account in the app (the owner's call) opens them. YouTube fills analytics
+about a day after posting. Fetch a day after posting and again later, not every few minutes.
+
+Read it with `ralphy stats show <content-id>` (or `<account>` for every video):
+
+- **Hook**: retention at 1 and 3 s and, on YouTube, `stayed`. Most viewers leave in the first seconds;
+  compare with the account's other videos and the reference.
+- **Drops**: "most viewers left at 4-5s" names a second. Open `index.html`, find what is on screen then
+  (a slow beat, a cut, text that is hard to read) and change that, one thing per version.
+- **End**: average view, `finished` and the tail of the curve say whether the payoff lands.
+
+Save a version before the change (`ralphy content save`), so the next post compares one difference.
+Signals to fixes: `ralphy-trendwatch`. The panel's Posts tab shows the same curve under the video.

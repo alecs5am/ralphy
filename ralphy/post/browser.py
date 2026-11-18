@@ -11,8 +11,9 @@ Chromium: posting from a browser the platforms have never seen for this account 
 from __future__ import annotations
 
 import contextlib
+import json
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 from .. import paths
@@ -144,6 +145,31 @@ def goto(page, url: str, timeout_ms: int = 60_000) -> str | None:
         return None
     except Exception as exc:  # noqa: BLE001 - the caller decides what a failed navigation means
         return first_line(exc)
+
+
+def listen(page, want: Callable[[object], bool]) -> tuple[list, Callable[[], None]]:
+    """Collect the JSON bodies of the page's responses that `want` picks; returns them and a stop function."""
+    bodies: list = []
+
+    def on_response(response) -> None:
+        with contextlib.suppress(Exception):
+            if want(response):
+                bodies.append(json.loads(response.text()))
+
+    page.on("response", on_response)
+    return bodies, lambda: page.remove_listener("response", on_response)
+
+
+def settle(page, bodies: list, wait_s: float = 20, quiet_ms: int = 3_000) -> None:
+    """Wait for the first collected body (up to `wait_s`), then until none arrives for `quiet_ms`. Uses the
+    page's own timer: a plain sleep would block the event loop that delivers the responses."""
+    deadline = time.monotonic() + wait_s
+    while not bodies and time.monotonic() < deadline:
+        page.wait_for_timeout(500)
+    seen = -1
+    while seen != len(bodies):
+        seen = len(bodies)
+        page.wait_for_timeout(quiet_ms)
 
 
 def capture(page, post_id: str, label: str) -> str | None:
