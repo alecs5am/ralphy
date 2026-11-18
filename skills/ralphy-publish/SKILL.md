@@ -64,8 +64,8 @@ ffmpeg -ss 2.4 -i ~/ralphy/<account>/videos/<nnn>-<slug>/render.mp4 -frames:v 1 
 
 A designed cover (a frame plus a title) is fine too; keep it 9:16 and keep text inside the middle 4:5,
 which is what profile grids show. `cover.jpg` does not make the render stale. `run` sets it on
-Instagram (Cover photo) and YouTube (thumbnail, where the channel has custom Shorts thumbnails); a
-platform that cannot take it uses a frame and the run prints a `note:`.
+Instagram (Cover photo), TikTok (Edit cover, Upload cover) and YouTube (thumbnail, where the channel
+has custom Shorts thumbnails); a platform that cannot take it uses a frame and the run prints a `note:`.
 
 ## Caption
 

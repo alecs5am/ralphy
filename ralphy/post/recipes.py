@@ -1,10 +1,11 @@
 """Per-platform browser recipes: how to tell a signed-in session, and how to upload one video.
 
 Ported from the legacy TypeScript CLI (`cli/lib/uploads/platforms.ts`), which followed
-dreammis/social-auto-upload (MIT). The recipes drive the platforms' own web UI and were never run against
-a live account, so every step is named: a failure ends the run at that step with `StepError(stage, ...)`
-and the caller records it. A recipe calls `task.on_submit()` exactly once, right before the irreversible
-publish click; the caller writes `unknown` there, so anything after it never retries blindly.
+dreammis/social-auto-upload (MIT). The recipes drive the platforms' own web UI, which changes without
+notice (Instagram, TikTok and YouTube first posted live on 2026-11-18), so every step is named: a failure
+ends the run at that step with `StepError(stage, ...)` and the caller records it. A recipe calls
+`task.on_submit()` exactly once, right before the irreversible publish click; the caller writes `unknown`
+there, so anything after it never retries blindly.
 
 Success is the platform's own evidence, never a toast:
 - Instagram: the final `/api/v1/media/configure` response for the bound user with this caption.
@@ -17,6 +18,7 @@ Success is the platform's own evidence, never a toast:
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import json
 import re
@@ -198,6 +200,10 @@ IG_PICTURES = """() => { const d = [...document.querySelectorAll('[role=dialog]'
     const b = getComputedStyle(e).backgroundImage; if (b && b !== 'none') out.push(b); }
   for (const i of d.querySelectorAll('img')) out.push(i.currentSrc || i.src);
   return out; }"""
+# The nav's "New post" popup, by its plus icon: the set of nav popups changes with the account (a professional
+# account adds its dashboard), and the label follows the account's language.
+IG_NEW_POST = 'a[href="#"]:has(svg path[d^="M21 11h-8V3"])'
+IG_NEW_POST_ITEM = 'a[href="#"]:has(svg path[d^="M13.583 12.408"])'  # "Post" in a professional account's menu
 IG_SIGNED_IN = 'a[href^="/direct/inbox/"]'
 IG_OUTCOMES = ('a[href^="/direct/inbox/"], input[type="password"], a[href^="/accounts/login/"], '
                'a[href^="/accounts/emailsignup/"]')
@@ -304,10 +310,17 @@ class Instagram(Recipe):
         page.add_locator_handler(
             notifications, lambda: dismiss_optional(notifications, notifications.locator("._a9-z > button").nth(1)))
         try:
-            # Four nav popups in order: notifications, create, settings, Meta.
-            popups = page.locator('a._a6hd[href="#"]').filter(has=page.locator("[aria-selected]"))
-            wait_count(page, popups, 4)
-            popups.nth(1).click()
+            create = page.locator(IG_NEW_POST)
+            wait_count(page, create, 1)
+            create.click()
+            # A professional account opens a menu first (Post, Live video, Ad); a personal one opens the dialog.
+            item, media = page.locator(IG_NEW_POST_ITEM), page.get_by_role("dialog").locator(IG_MEDIA_INPUT)
+            deadline = time.monotonic() + 15
+            while not media.count() and time.monotonic() < deadline:
+                if item.count():
+                    item.first.click()
+                    break
+                pause(page, 250)
         finally:
             with contextlib.suppress(Exception):
                 page.remove_locator_handler(notifications)
@@ -401,11 +414,75 @@ TT_HOME = "https://www.tiktok.com/"
 TT_UPLOAD = "https://www.tiktok.com/tiktokstudio/upload"
 TT_IFRAME = 'iframe[data-tt="Upload_index_iframe"]'
 TT_POST = 'button[data-e2e="post_video_button"], div.button-group > button:has-text("Post")'
+# Prompts that cover the form after a video is attached. Both are dismissed with the choice that changes
+# nothing: Cancel on "Turn on automatic content checks?" (a settings offer), Got it on the feature tour.
+TT_CHECKS = '.TUXModal:has(.modal-form input[type="checkbox"])'
+TT_CHECKS_CANCEL = f'{TT_CHECKS} button[data-type="neutral"]'
+TT_TOUR = ".react-joyride__tooltip"
+TT_TOUR_OK = f"{TT_TOUR} .tutorial-tooltip__footer button"
+# The cover editor: "Edit cover" opens it, its image input takes the still, Save closes it.
+TT_CAPTION = '[data-e2e="caption_container"] div[contenteditable="true"]'
+TT_CAPTION_TITLE = '[data-e2e="caption_container"] .caption-title'
+TT_COVER_IMAGE = '[data-e2e="cover_container"] .cover-image'
+TT_COVER_EDIT = '[data-e2e="cover_container"] .edit-container'
+TT_COVER_INPUT = 'input[type="file"][accept*="image/"]'
+TT_COVER_UPLOAD = "label.ImageUpload__uploadArea"  # shown once the editor has loaded the video's frames
+TT_COVER_PICKED = ".ImageUpload__preview"  # the uploaded still, selected instead of a frame
+TT_COVER_SAVE = 'button.header-button[data-type="primary"]'
+TT_COVER_CANCEL = 'button.header-button[data-type="neutral"]'
 TT_TILES = """items => items.map(item => ({
   href: item.querySelector('a[href*="/video/"]')?.href ?? "",
   views: item.querySelector('[data-e2e="video-views"]')?.innerText ?? "",
   caption: item.querySelector("img")?.getAttribute("alt") ?? "",
 }))"""
+
+
+# An 8x8 RGB thumbnail of the form's cover preview: the preview's URL changes on every render, its pixels do not.
+TT_SIGNATURE = """els => els.slice(0, 1).map(el => { const c = document.createElement('canvas'); c.width = c.height = 8;
+  const x = c.getContext('2d'); x.drawImage(el, 0, 0, 8, 8);
+  return Array.from(x.getImageData(0, 0, 8, 8).data).filter((_, i) => i % 4 !== 3); })"""
+
+
+# The same thumbnail of the still itself, cut to the preview's 3:4 around its centre.
+TT_STILL_SIGNATURE = """async src => { const i = new Image(); i.src = src; await i.decode();
+  const w = Math.min(i.naturalWidth, i.naturalHeight * 3 / 4), h = w * 4 / 3;
+  const c = document.createElement('canvas'); c.width = c.height = 8; const x = c.getContext('2d');
+  x.drawImage(i, (i.naturalWidth - w) / 2, (i.naturalHeight - h) / 2, w, h, 0, 0, 8, 8);
+  return Array.from(x.getImageData(0, 0, 8, 8).data).filter((_, k) => k % 4 !== 3); }"""
+
+
+def _signature(root) -> list[int]:
+    try:
+        found = root.locator(TT_COVER_IMAGE).evaluate_all(TT_SIGNATURE)
+    except Exception:  # noqa: BLE001 - a preview that is re-rendering reads as unknown
+        return []
+    return list(found[0]) if found else []
+
+
+def _still_signature(page, still: Path) -> list[int]:
+    kind = "png" if Path(still).suffix.lower() == ".png" else "jpeg"
+    try:
+        data = base64.b64encode(Path(still).read_bytes()).decode()
+        return list(page.evaluate(TT_STILL_SIGNATURE, f"data:image/{kind};base64,{data}") or [])
+    except Exception:  # noqa: BLE001 - unreadable still: fall back to "not the video frame"
+        return []
+
+
+def _distance(a: list[int], b: list[int] | None) -> float | None:
+    if not a or not b or len(a) != len(b):
+        return None
+    return sum(abs(x - y) for x, y in zip(a, b, strict=True)) / len(a)
+
+
+def _shows_still(preview: list[int], still: list[int], default_frame: list[int] | None) -> bool:
+    """The form's cover preview is the uploaded still, not the video frame it replaced: closer to the still
+    than to that frame (a still that looks like the frame passes either way). Without the still's own
+    thumbnail, the preview only has to have moved away from the frame (mean channel difference over 8)."""
+    to_frame = _distance(preview, default_frame)
+    if to_frame is None:
+        return False
+    to_still = _distance(preview, still)
+    return to_frame > 8 if to_still is None else to_still <= to_frame
 
 
 def tiktok_id_time(external_id: str) -> int | None:
@@ -481,23 +558,41 @@ class TikTok(Recipe):
             return page.frame_locator(TT_IFRAME) if page.locator(TT_IFRAME).count() else page
 
         root = step("open-upload", open_upload)
-        step("attach-video",
-             lambda: root.locator('input[type="file"]').first.set_input_files(str(task.video), timeout=60_000))
+        prompts = root.locator(f"{TT_CHECKS}, {TT_TOUR}")
+        page.add_locator_handler(prompts, lambda: self._clear_prompts(page, root), no_wait_after=True)
+        try:
+            step("attach-video",
+                 lambda: root.locator('input[type="file"]').first.set_input_files(str(task.video), timeout=60_000))
 
-        def caption() -> None:
-            editor = root.locator('div[contenteditable="true"]').first
-            editor.click(timeout=60_000)
-            # The editor is prefilled with the file name; replace it.
-            page.keyboard.press("ControlOrMeta+A")
-            page.keyboard.press("Delete")
-            if task.caption:
-                page.keyboard.insert_text(task.caption)
+            post = root.locator(TT_POST).first
+            step("wait-processed", lambda: self._wait_enabled(page, post))
+            # The cover goes in once the video is uploaded (TikTok resets an earlier cover to its frame) and
+            # before the caption (the cover editor can drop what the description holds).
+            cover = self._cover(page, root, task) if task.cover else None
 
-        step("caption", caption)
-        if task.cover:
-            task.notes.append("TikTok: the recipe does not set a cover yet; TikTok uses its default frame")
-        post = root.locator(TT_POST).first
-        step("wait-processed", lambda: self._wait_enabled(page, post))
+            def caption() -> None:
+                editor = root.locator(TT_CAPTION).first
+                editor.click(timeout=60_000)
+                # The editor is prefilled with the file name; replace it.
+                page.keyboard.press("ControlOrMeta+A")
+                page.keyboard.press("Delete")
+                if task.caption:
+                    page.keyboard.insert_text(task.caption)
+                    pause(page, 1_000)
+                    # A trailing #tag leaves the hashtag suggestions open; close them without picking one.
+                    root.locator(TT_CAPTION_TITLE).first.click(timeout=10_000)
+                    pause(page, 500)
+                seen, want = collapse(editor.inner_text()), collapse(task.caption)
+                if seen != want:
+                    raise RuntimeError(f"the description reads {seen[:80]!r}, not the caption")
+
+            step("caption", caption)
+            if cover is not None and not _shows_still(_signature(root), *cover):
+                task.notes.append("TikTok: the cover went back to TikTok's default frame before posting")
+            step("prompts", lambda: self._clear_prompts(page, root))
+        finally:
+            with contextlib.suppress(Exception):
+                page.remove_locator_handler(prompts)
         self.require_bound(page, task.expected_user_id)
         submitted_at = time.time()
         task.on_submit()
@@ -506,9 +601,64 @@ class TikTok(Recipe):
         tile = step("find-post-url", lambda: self._find_new(page, task, previous, submitted_at))
         return UploadResult(tile.url, tile.external_id)
 
+    def _clear_prompts(self, page, root) -> None:
+        for _ in range(10):
+            for prompt, button in ((TT_CHECKS, TT_CHECKS_CANCEL), (TT_TOUR, TT_TOUR_OK)):
+                found = root.locator(prompt)
+                if found.count() and found.first.is_visible():
+                    root.locator(button).first.click(timeout=10_000)
+                    pause(page, 700)
+                    break
+            else:
+                return
+        raise RuntimeError("a TikTok prompt keeps covering the upload form")
+
+    def _cover(self, page, root, task: UploadTask) -> tuple[list[int], list[int]] | None:
+        """Upload the cover still in TikTok's cover editor; returns the still's and the default frame's
+        thumbnails so the caller can check the cover still holds. A cover that does not take is a note, not a
+        failure: the editor is cancelled and TikTok keeps its default frame."""
+        default_frame: list[int] = []
+        still = _still_signature(page, task.cover)
+
+        def set_cover() -> None:
+            nonlocal default_frame
+            root.locator(TT_COVER_IMAGE).first.wait_for(state="visible", timeout=120_000)
+            default_frame = _signature(root)
+            # The editor shows the still at once but keeps it only if Save comes after it has digested it
+            # (2-5 s after the pick saved the video frame, 10 s kept the still); nothing on the page says when.
+            for settle_ms in (10_000, 20_000):
+                root.locator(TT_COVER_EDIT).first.click(timeout=30_000)
+                # A still sent before the editor has loaded is dropped when it finishes loading.
+                root.locator(TT_COVER_UPLOAD).first.wait_for(state="visible", timeout=60_000)
+                pause(page, 1_500)
+                root.locator(TT_COVER_INPUT).first.set_input_files(str(task.cover))
+                root.locator(TT_COVER_PICKED).first.wait_for(state="visible", timeout=30_000)
+                pause(page, settle_ms)
+                save = root.locator(TT_COVER_SAVE)
+                save.first.click(timeout=30_000)
+                deadline = time.monotonic() + 30  # Save uploads the still, then closes the editor
+                while save.count() and save.first.is_visible() and time.monotonic() < deadline:
+                    pause(page, 1_000)
+                pause(page, 2_000)
+                if _shows_still(_signature(root), still, default_frame):
+                    return
+            raise RuntimeError("the cover preview still shows the video frame after Save")
+
+        try:
+            step("cover", set_cover)
+        except StepError as exc:
+            task.notes.append(f"TikTok: the cover did not take ({exc.message}); TikTok uses its default frame")
+            cancel = root.locator(TT_COVER_CANCEL)
+            with contextlib.suppress(Exception):
+                if cancel.count() and cancel.first.is_visible():
+                    cancel.first.click(timeout=10_000)
+            return None
+        return still, default_frame
+
     def _wait_enabled(self, page, post) -> None:
         deadline = time.monotonic() + 600
-        while attribute(post, "disabled") is not None or attribute(post, "aria-disabled") == "true":
+        while (attribute(post, "disabled") is not None or attribute(post, "aria-disabled") == "true"
+               or attribute(post, "data-disabled") == "true"):
             if time.monotonic() > deadline:
                 raise RuntimeError("the video was not processed within 10 minutes")
             pause(page, 2_000)

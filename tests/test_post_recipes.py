@@ -87,7 +87,6 @@ class FakeResponse:
 
 def test_instagram_upload_submits_once_then_waits_for_the_media_response():
     page = FakePage(FakeContext({"sessionid": "s", "ds_user_id": "99"}), "https://www.instagram.com/")
-    page.counts['a._a6hd[href="#"]'] = 4
     heading = '._ac76 [role="heading"]'
     steps = iter(["Crop", "Edit", "Create new reel"])
     current = {"text": next(steps)}
@@ -126,13 +125,27 @@ def test_instagram_upload_submits_once_then_waits_for_the_media_response():
 
 def test_instagram_fails_at_the_crop_step_when_original_does_not_show_the_whole_frame(monkeypatch):
     page = FakePage(FakeContext({"sessionid": "s", "ds_user_id": "99"}), "https://www.instagram.com/")
-    page.counts['a._a6hd[href="#"]'] = 4
     page.evaluations[recipes.IG_PREVIEW] = {"w": 719, "h": 1280}  # stays on the 1:1 crop
     monkeypatch.setattr(recipes.time, "monotonic", iter(range(0, 10_000, 5)).__next__)
     task, submitted = _task(page.log, user="99")
     with pytest.raises(recipes.StepError) as caught:
         recipes.RECIPES["instagram"].upload(page, task)
     assert caught.value.stage == "crop-original" and "1:1" in caught.value.message and submitted == []
+
+
+def test_instagram_create_opens_the_dialog_from_a_personal_or_a_professional_nav():
+    page = FakePage(FakeContext({"sessionid": "s", "ds_user_id": "99"}), "https://www.instagram.com/")
+    dialog = {"open": 0}
+    page.counts[recipes.IG_MEDIA_INPUT] = lambda: dialog["open"]
+    page.click_effects[recipes.IG_NEW_POST_ITEM] = lambda: dialog.update(open=1)
+    recipes.RECIPES["instagram"]._open_create(page)  # professional: New post opens a menu, Post opens the dialog
+    assert page.log == [("click", recipes.IG_NEW_POST), ("click", recipes.IG_NEW_POST_ITEM)]
+
+    page.log.clear()
+    dialog["open"] = 0
+    page.click_effects[recipes.IG_NEW_POST] = lambda: dialog.update(open=1)
+    recipes.RECIPES["instagram"]._open_create(page)  # personal: New post opens the dialog itself
+    assert page.log == [("click", recipes.IG_NEW_POST)]
 
 
 def test_instagram_upload_refuses_another_signed_in_user_before_anything():
@@ -146,6 +159,8 @@ def test_instagram_upload_refuses_another_signed_in_user_before_anything():
 def _tiktok_page(new_id: str | None):
     page = FakePage(FakeContext({"sessionid": "s", "uid_tt": "u1"}), "https://www.tiktok.com/")
     page.counts[recipes.TT_IFRAME] = 0
+    page.counts[recipes.TT_CHECKS] = page.counts[recipes.TT_TOUR] = 0
+    page.texts[recipes.TT_CAPTION] = lambda: next((e[1] for e in reversed(page.log) if e[0] == "insert_text"), "")
     old = {"href": "https://www.tiktok.com/@ui.effects/video/7000000000000000001?lang=en", "caption": "Old one"}
     state = {"posted": False}
 
@@ -169,6 +184,50 @@ def test_tiktok_upload_confirms_one_new_video_with_this_caption():
     assert submitted == [click]
     assert ("insert_text", "Hello #ui") in page.log and ("press", "ControlOrMeta+A") in page.log
     assert ("upload", 'input[type="file"]', "/tmp/v.mp4") in page.log
+
+
+def test_tiktok_dismisses_the_checks_prompt_and_the_tour_and_sets_the_cover():
+    new_id = str((int(time.time()) << 32) + 7)
+    page = _tiktok_page(new_id)
+    shown = {recipes.TT_CHECKS: 1, recipes.TT_TOUR: 1}
+    for prompt, button in ((recipes.TT_CHECKS, recipes.TT_CHECKS_CANCEL), (recipes.TT_TOUR, recipes.TT_TOUR_OK)):
+        page.counts[prompt] = lambda prompt=prompt: shown[prompt]
+        page.click_effects[button] = lambda prompt=prompt: shown.update({prompt: 0})
+    preview = {"pixels": [10] * 192, "editor": 1}  # the default frame, then the still once Save closes the editor
+    page.evaluations[recipes.TT_COVER_IMAGE] = lambda: [preview["pixels"]]
+    page.evaluations[recipes.TT_STILL_SIGNATURE] = [190] * 192  # the still's own thumbnail
+    page.counts[recipes.TT_COVER_SAVE] = lambda: preview["editor"]
+    page.click_effects[recipes.TT_COVER_SAVE] = lambda: preview.update(pixels=[200] * 192, editor=0)
+    task, submitted = _task(page.log, user="u1")
+    task.cover = __file__  # any readable file stands in for the still
+    recipes.RECIPES["tiktok"].upload(page, task)
+    click = page.log.index(("click", recipes.TT_POST))
+    for earlier in (("click", recipes.TT_CHECKS_CANCEL), ("click", recipes.TT_TOUR_OK),
+                    ("upload", recipes.TT_COVER_INPUT, __file__), ("click", recipes.TT_COVER_SAVE)):
+        assert page.log.index(earlier) < click
+    assert task.notes == [] and submitted == [click]
+
+
+def test_tiktok_cover_that_does_not_take_is_a_note_and_the_post_goes_on(monkeypatch):
+    new_id = str((int(time.time()) << 32) + 9)
+    page = _tiktok_page(new_id)
+    page.evaluations[recipes.TT_COVER_IMAGE] = [[10] * 192]  # Save never changes the preview
+    clock = iter(range(0, 10_000, 5))
+    monkeypatch.setattr(recipes.time, "monotonic", lambda: next(clock))
+    task, _ = _task(page.log, user="u1")
+    task.cover = "/tmp/cover.jpg"
+    recipes.RECIPES["tiktok"].upload(page, task)
+    assert ("click", recipes.TT_COVER_CANCEL) in page.log and ("click", recipes.TT_POST) in page.log
+    assert task.notes == ["TikTok: the cover did not take (the cover preview still shows the video frame after "
+                          "Save); TikTok uses its default frame"]
+
+
+def test_tiktok_cover_check_tells_a_pale_still_from_a_pale_frame():
+    frame, still = [250] * 192, [250] * 180 + [120] * 12  # a white frame and a white still with a few marks
+    assert recipes._shows_still(still, still, frame) and not recipes._shows_still(frame, still, frame)
+    assert recipes._shows_still(frame, frame, frame)  # a still that is the frame passes either way
+    assert recipes._shows_still([20] * 192, [], frame) and not recipes._shows_still(frame, [], frame)
+    assert not recipes._shows_still([], still, frame)  # a preview that is re-rendering is not proof
 
 
 def test_tiktok_upload_disabled_post_button_fails_before_the_click(monkeypatch):

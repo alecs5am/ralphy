@@ -15,7 +15,7 @@ import pytest
 from ralphy import __version__
 
 REPO = Path(__file__).resolve().parent.parent
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 
 
 def _json(path: str) -> dict:
